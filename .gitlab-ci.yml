@@ -1,0 +1,33 @@
+stages:          # List of stages for jobs, and their order of execution
+#   - build
+  - lint
+#   - upload
+#   - release
+
+
+
+check-job:
+  stage: lint
+  tags: 
+    - mowerpack-docker-runner
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  variables:
+    CPP_CHECK_OUTPUT: cpp_check_output
+  script:
+    - apt-get update && apt-get install cppcheck git -y
+    - echo $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    - git fetch
+    - git branch -a
+    - git diff "remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --name-status
+    - mkdir ${CPP_CHECK_OUTPUT}
+    - echo "${CPP_CHECK_OUTPUT}/result.txt"
+    - python3 checkdiff.py "remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "${CPP_CHECK_OUTPUT}/result.txt"
+    - ls
+  artifacts:
+    untracked: false
+    when: always
+    name: '${CPP_CHECK_OUTPUT}'
+    paths:
+      - "./${CPP_CHECK_OUTPUT}"
+
