@@ -21,19 +21,15 @@
 namespace VSLAM 
 {
 
-typedef struct StereoImages
-{
-    cv::Mat mLeftImg;
-    cv::Mat mRightImg;
-    uint64_t mTimeStamp;
-    int count;
-}StereoImages;
+
 class DataCapturer {
 
 public:
     DataCapturer();
 
     void Run();
+
+    ~DataCapturer();
 
 private:
 
@@ -42,8 +38,10 @@ private:
      */
     void IMUReceiveLoop();
 
-    void SaveStereoImage();
-    
+    void ImageReceiveLoop();
+
+    void SaveSensorData();
+
     cv::Mat YuvBufToGrayMat(uint8_t *buf, long size, uint32_t width, uint32_t height);
 private:
     // IMU数据队列
@@ -57,7 +55,13 @@ private:
     //待保存图像序列
     std::queue<StereoImages> mqStereoImage;//first是路径，second是图像
     std::mutex mutex_Save_Stereo_Image;
-    std::thread mtSaveStereoImageThread;
+
+    std::queue<ImuData_forSave> mqImuData;
+    std::mutex mutex_Save_IMU;
+
+    std::thread mtSaveSensorDataThread;
+
+    bool mbStop;
 };
 
 }

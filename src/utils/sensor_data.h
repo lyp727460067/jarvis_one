@@ -26,13 +26,35 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-namespace VSLAM {
+namespace VSLAM 
+{
+
+typedef struct StereoImages
+{
+    cv::Mat mLeftImg;
+    cv::Mat mRightImg;
+    uint64_t mTimeStamp;
+    int count;
+}StereoImages;
+
+typedef struct ImuData_forSave
+{
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    uint64_t time_stamp;  ///<  MCU端时间戳 [us]
+    uint32_t sync_count;   ///<  脉冲计数
+      /// Gyroscope reading, angular velocity (rad/s)
+    Eigen::Matrix<double, 3, 1> wm;
+
+    /// Accelerometer reading, linear acceleration (m/s^2)
+    Eigen::Matrix<double, 3, 1> am;
+}ImuData_forSave;
 
 /**
  * @brief Struct for a single imu measurement (time, wm, am)
  */
-struct ImuData {
-
+struct ImuData 
+{
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   /// Timestamp of the reading
   double timestamp;
 
