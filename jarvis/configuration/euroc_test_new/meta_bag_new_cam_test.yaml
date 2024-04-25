@@ -1,0 +1,303 @@
+
+resolution: [640, 400]
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230412/01_jingzhi/2023-04-12-18-33-03.bag" #imu_cam_time_offset: 0.028 #1123 successful
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230412/02_huihuang/2023-04-12-16-10-49.bag" #imu_cam_time_offset: 0.028 #1123 successful   
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230412/2023-04-12-16-09-10.bag" #imu_cam_time_offset: 0.028 #1123 successful   
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230412/2023-04-12-16-15-37.bag" #imu_cam_time_offset: 0.028 #1123 successful
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0102/2023-04-13-17-29-33.bag" #imu_cam_time_offset: 0.028 #1123 failed
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0103/2023-04-13-19-27-26.bag" #imu_cam_time_offset: 0.028 #1123 failed current check
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0201/2023-04-13-19-40-50.bag" #imu_cam_time_offset: 0.028 #1123 failed, exist drift after landing
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0301/2023-04-13-19-27-26.bag" #imu_cam_time_offset: 0.028 #1123 failed, drift
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0301/2023-04-13-19-40-50.bag" #imu_cam_time_offset: 0.028 #1123 failed, drift
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0301/2023-04-13-19-54-41.bag" #imu_cam_time_offset: 0.028 #1123 failed, static, swiping, static, swiping
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0302/2023-04-13-20-03-36.bag" #imu_cam_time_offset: 0.028 #1123 failed, rotate, and drift immediately
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0401/2023-04-13-19-27-26.bag" #imu_cam_time_offset: 0.028 #1123 bag is broken
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0401/2023-04-13-20-12-46.bag" #imu_cam_time_offset: 0.028 #1123 successful
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0601/2023-04-13-20-24-31.bag" #imu_cam_time_offset: 0.028 #1123 successful, small drift
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230413/0701/2023-04-13-20-54-33.bag" #imu_cam_time_offset: 0.028 #1123 failed, drift
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230425/0201/2023-04-24-15-59-14.bag" #imu_cam_time_offset: 0.028 #
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230425/0901/2023-04-25-20-34-16.bag" #imu_cam_time_offset: 0.028 #
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230425/0301/2023-04-25-20-54-44.bag" #imu_cam_time_offset: 0.028 #
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230426/0701/0701.bag" #imu_cam_time_offset: 0.028 #
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/20230511/2023-05-11-14-59-45.bag" #imu_cam_time_offset: 0.028 #
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/20230511/2023-05-11-14-59-45_after1200s.bag" #imu_cam_time_offset: 0.028 #
+
+
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230807/2023-08-07-15-04-32.bag"
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230807/2023-08-07-17-18-13.bag"
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230807/2023-08-07-15-36-39.bag"
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230807/2023-08-07-15-59-30.bag"
+
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230809/002/2023-08-07-21-26-37.bag" # failed
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230809/003/2023-08-07-21-44-20.bag" # 
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230809/004/2023-08-07-21-36-21.bag" # 
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230811/101/2023-08-10-20-34-25.bag"
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230811/013/2023-08-10-20-05-20.bag"
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230811/012/2023-08-10-19-54-19.bag"
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230811/011/2023-08-10-19-45-32.bag" # 
+# data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230810/203/2023-08-10-09-54-04.bag"
+data_folder: "/home/catkin_ws/src/metaboundsstereovio/data/slam/meta_bounds_bag/slam_test/20230810/010/2023-08-10-10-03-32.bag"
+# data_folder: "/home/lyp/project/dataset/slam_test/20230811/013/2023-08-10-20-05-20.bag"
+
+# imu_cam_time_offset: 0.028 #1123
+imu_cam_time_offset: 0.01 #for 1209
+cam0_cam1_time_offset_thresh_hold: 0.005
+image_sample : 1
+offline_play_bag_duration : 0.001  
+camera_num: 2
+enable_map_builder_grpc: true
+enable_internal_map_builder : true
+stup_server_address: localhost:55551
+server_local_address: 0.0.0.0:55551
+save_map_builder_data: false
+use_stereo : false
+enable_internal_mark_process : true
+map_builder_option: mapping_builder.yaml
+
+baginfo:
+  imu_topic: "/imu"
+  image_topic:
+     left: "/usb_cam_1/image_raw/compressed"
+     right: "/usb_cam_2/image_raw/compressed"
+
+cam0:
+  T_imu_cam:  [0.999688730046, -0.001923156379, 0.024874575137, -0.107819645001, 
+              -0.001937384099, -0.999997973177, 0.000547891516, -0.006008233619, 
+              0.024873471040, -0.000595912580, -0.999690429746, -0.005925758045, 
+              0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000]
+  camera_model: pinhole
+  intrinsics: [284.381692121972, 284.139927405976, 319.985495950188, 206.118353032401] #fu, fv, cu, cv
+  distortion_model: equidistant
+  distortion_coeffs: [-0.007070686279, 0.010852814114, -0.000912143102, -0.000978540175]
+  resolution: [640, 400]
+
+cam1:	  
+  T_imu_cam: [0.999871164299, -0.004243074388, 0.015480669323, 0.032420989989, 
+            -0.004206777674, -0.999988327665, -0.002376458658, -0.006701934209, 
+            0.015490572118, 0.002311028751, -0.999877343138, -0.005119084167, 
+            0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000]
+  camera_model: pinhole
+  intrinsics: [285.554027409381, 285.359169799029, 319.581480880634, 198.106160971838] #fu, fv, cu, cv
+  distortion_model: equidistant
+  distortion_coeffs: [-0.002479729093, -0.001978947413, 0.008150695224, -0.003350134628]
+  resolution: [640, 400]
+
+resolution: [640, 400]
+
+IMU:
+    # normal
+    # gyr_white_noise: 9.802845595168861e-05
+    # acc_white_noise: 7.396592909689284e-04
+    # gyr_bias_random_walk: 1.1928619727094072e-06
+    # acc_bias_random_walk: 2.4822734816507667e-05
+
+    # euroc
+    # gyr_white_noise: 1.6968e-04
+    # acc_white_noise: 2.0000e-3
+    # gyr_bias_random_walk: 1.9393e-05
+    # acc_bias_random_walk: 3.0000e-4
+
+    # less accurate
+    gyr_white_noise: 1.0e-4
+    acc_white_noise: 1.0e-3
+    gyr_bias_random_walk: 1.e-4
+    acc_bias_random_walk: 1.e-5
+
+    # less accurate
+    # gyr_white_noise: 1.0e-03
+    # acc_white_noise: 1.0000e-2
+    # gyr_bias_random_walk: 1.816590212458495e-05
+    # acc_bias_random_walk: 0.0001816590212458495
+    
+    # acc_unit: raw
+    # gyr_unit: raw
+    acc_unit: m_s_2
+    gyr_unit: rad
+
+    gyr_A: [0.994167, -0.00566064,   0.0011165,
+            0.0165441, 1.01734, 0.000717814,
+            0.00121413,  0.00403866,   0.996123]
+    
+    gyr_b: [0.0067168, -0.00556566, -0.00263351]
+
+    acc_A: [1.00453,  -0.0151024, -0.00635729,
+            0,    0.997744, -0.00341532,
+            0,           0,      1.0036]
+    
+    acc_b: [0.0424446, -0.189891, 0.162968]
+
+    gravity: 9.81
+    frequency: 200
+    do_rectify: true
+    use_imu: true
+
+Init:
+    static_init_win_size: 10  #102数据包static_init_only=false 的情况下整整，为true和false的轨迹不太一致
+    static_init_acc_thres: 0.3 #acc_white_noise * 6
+    static_need_estimate_bias: true
+    static_init_only:  true #acc_white_noise * 6
+    dynamic_init_frame_num: 10
+    dynamic_init_time_interval: 0.1 #second
+    dynamic_init_bias_cov: [1e-5, 1e-2] 
+
+FeatureDetector:
+  detect_type: "ShiTomasi" # "Fast" or "ShiTomasi"
+  request_feat_num: 70
+  mask_size_rate: 0.25 #mask尺寸与grid大小占比，0的时候不启用mask功能
+  point_supress_half_size: 10 #要比grid_pixel小
+  no_detect_half_size: 10 #要比grid_pixel一半小，或者就直接设置成一半吧
+  enforce_uniformity_radius: 40
+  Fast:
+    fast_thresh: 10
+  ShiTomasi:
+    min_distance: 4
+ 
+
+Triangulation:
+  cond_thres: 1e8
+
+SlideWindows:
+  sw_size: 10
+  rot_prior_sigma: 0.00001
+  pos_prior_sigma: 0.00001
+  use_invdepth: false
+  is_use_hessian_in_marginalization_factor: true
+
+Tracking:
+  enable_zupt_remove_outlier_key_point : false
+  min_track_last_pt_num : 4
+  use_good_project_points: true
+  compare_with_lastframe: true
+  track_all_points_in_stereo: true 
+  cam_0_pre_process_type: 0 #0;=无； 1:均值; 2:直方图 3:clache
+  cam_1_pre_process_type: 0 #0;=无； 1:均值; 2:直方图 3:clache
+  use_track_local_map: false
+  track_local_map_use_optical_flow: true
+  track_local_map_only_track_old_point: false
+
+LostCondition :
+  min_tracker_feat_num : 10
+  max_ba_norm : 2.0
+  max_bg_norm : 2.0
+  max_velocity : 3
+
+FeatureMatcher:
+  resolution: [640, 400]
+  use_cv_optical_flow: false
+  trace_back: false
+  trace_back_pixel_diff: .5
+  always_use_stereo: false
+  stereo_match_win_size: 21
+  tracking_match_win_size: 7
+  
+NewKeyFrame:
+  time: 
+    time_stamp_imu_uninit: 0.25 
+    time_stamp_imu: 0.5
+  tracked_3d:
+    min_tracked_3d_th: 45 # if less than min_tracked_3d_th, the frame should be considered.
+    max_non_tracked_3d_th: 50 # if more than  min_non_tracked_3d_th, the frame should be considered.
+  tracked_2d:
+    min_matches_inliers_ratio_th: 0.75 # ratio = curr_inliers_num/lastkf_inliers_num
+    min_tracked_inliers_to_grid_ratio_th: 0.6
+  parallex:
+    max_disparity_pow: 100   # if more than max_disparity_pow, the frame should be ignored.
+
+Optimization:  
+  FBA:
+    pix_err: 3
+    max_iters: 3
+    min_graph_size: 4
+    huber: 0.004
+    pix_sigma: 1.0
+  FIBA:
+    enable: false
+    pix_err: 3
+    max_iters: 5
+    min_graph_size: 4
+    huber: 1.5
+    pix_sigma: 1.0
+  LBA:
+    use_inversepth: false
+    temporal_kf_size: 10
+    covisible_kf_size: 10
+    max_fix_kf_size: 1
+    min_mappoint_obs_num: 3
+    huber: 0.003
+    pix_err: 2.0
+    distance_err: 2.0
+    max_iters: 5
+    relative_err_tol: 1e-2
+    pix_sigma: 1.0
+  LIBA:
+    temporal_kf_size: 10
+    covisible_kf_size: 0
+    max_fix_kf_size: 1
+    min_mappoint_obs_num: 3
+    huber: 1.0 
+    pix_err: 2.0
+    distance_err: 2.0
+    max_iters: 8
+    relative_err_tol: 1e-2
+    pix_sigma: 1.0
+  SWBA:
+    min_mappoint_obs_num: 4
+    ext_opt: true
+    time_delay_opt: true
+    huber: 1.0
+    pix_err: 3.0
+    max_iters: 1
+    relative_err_tol: 1e-2
+    pix_sigma: 1.5
+
+Mapping:
+  using_keyframe_culling: false
+  min_keyframe_num_for_vis_ba: 2
+  min_keyframes_num_for_imu_init: 10
+  min_time_interval_for_imu_init: 0.5 #seconds
+  Culling:
+    MapPoint:
+      keyframe_interval_num: 2
+      min_observation_num: 3
+      found_ratio: 0.25
+    KeyFrame:
+      redundant_observed_frames_num: 3 # the point is at least detected by n frames
+      redundant_ratio: 0.9  # 90% points are regarded as redundant
+      better_observations_num: 3 # 3 other frames have more accurate measurements
+      
+  Fusion:
+    first_level_neighbor_num: 10
+    second_level_neighbor_num: 5
+
+##
+UpdataZeroVelocityOption:
+  enable: false
+  optimize_weight: 1e5
+  optimize_bias_weight: 1e1
+  outlier_max_disparity: 1
+  zupt_max_velocity: 1.0
+  zupt_delay_frames: 70
+  imu_velocity_option :
+    integrated_accel_constraint: false
+    zupt_noise_multiplier: 1.0
+    zupt_chi2_multipler: 1.0
+  imag_disparity_option:
+    min_disparity_num: 20
+    max_disparity: 0.5
+  que_time_duration: 0.13
+
+DebugParams:
+  show_bias_vel_info: false
+  stop_frame_count: -1
+  exit_stop_frame_count: 2147483647
+  stop_time_stamp: -1
+  show_image_delay_time: 1
+  show_track_no_mapPoint_line: false
+  show_mapPoint_track_success_line: false
+  show_mapPoint_track_driff_line: true
+  show_mapPoint_track_fail_line: true
+  show_mapPoint_track_ref_line: true
+  show_mapPoint_track_refref_line: false
+  show_point_id_type: 0 #0 keyPoint class id; 1 mpa point id
+  trajectory_save_path: "/home/0_datasets/euroc/"
+  debug_track_local_map_class_id: 60

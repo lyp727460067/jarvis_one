@@ -1,0 +1,98 @@
+ #####
+vocabulary_filebrif: /home/lyp/project/metaboundsstereovio/dbow.pbstream
+# vocabulary_filebrif: /home/0_datasets/meta_bounds_bag/vocabulary.pbstream
+
+
+dbow_trasform_level : 4
+constant_local_mapping_optimization_num : 10
+constant_global_mapping_optimization_num : 1000
+optimization_duration : 60.0
+constraint_sample_ration : 1
+culling_sample_ration : 0.03
+all_key_frame_culling_sample_ration : 0.01
+use_4dof : true
+####
+map_manager_option:
+  print_trim_info :  false
+  check_dist_epipolar_line_cos_parallax: 0.9994
+  key_frame_data_option:
+    sharing_words_count_min_is_max_ration : 0.95
+    min_distance_threash_hold : 15
+    min_core : 0.01
+    min_shared_words_num  : 5
+  key_points_extract_option: 
+    type : 0    #0 opencv_good_feautre  1 orbslam method
+    opencv_good_extract_options :
+      extend_key_points_num : 1000
+      min_distance : 2
+      minimal_accepted_quality_corners : 0.01
+    orb_extract_options :
+      extend_key_points_num : 1000
+      min_half_distance : 2
+      scale_factor : 1.2
+      nlevels : 1
+      inith_fast : 10
+      min_th_fast : 5
+#
+#
+
+key_frame_filter_option:
+  max_distance: 0.1
+  max_angle : 10 #度
+  max_time : 5.0
+  min_intersection_ration : 0.7
+###
+loop_detection:
+  non_adjacent_id_count : 50
+  min_filter_dbow_covisi_score : 0.85
+  dbow_match_describe_distance_threashold : 100
+  dbow_search_match_num : 8
+  same_mapping_loop_translation_weight : 200
+  same_mapping_loop_rotation_weight : 100
+ ## 
+  diff_mapping_loop_translation_weight : 1e4
+  diff_mapping_loop_rotation_weight : 5e3
+ ##
+  min_inlier_num : 8
+  constraint_consistent_filter_num : 1
+  detect_num_ration : 5
+  candidata_reproject_min_num : 30
+  candidata_reproject_second_min_num : 20
+  area_search_radius : 8
+  best_map_sim_des_dis : 80
+  relocation_candidata_project_min_num : 50
+  grid_lenth : 10
+  constraint_max_yaw : 30 #度
+  constraint_max_distance :  5
+  print_constraint_info : true
+  covisible_kf_not_need_to_dbow : true
+  pnp_solver_option:
+    min_inliers : 10
+    probability : 0.99
+    max_iterations : 100
+    iterations : 10
+    min_set : 6
+    epsilon : 0.7
+    th2 : 0.0170423
+####
+optimization_option:
+  traslation_factor: 20
+  rotation_factor:  10
+  imu_rotation_factor: 5
+  huber_scale: 0.5 
+  near_kf_constraint_num : 1
+  max_num_iterations : 3
+  ceres_log_enable : false
+
+#
+##
+data_culling_option:
+  viewing_angle :  0.5
+  area_search_radius : 5
+  project_pix_err : 8.99
+  best_map_fuse_des_dis : 60
+  fisrt_covisible_num : 10
+  second_covisible_num : 20
+  map_culling_obs : 3
+  grid_lenth : 10 
+  redundant_observations_ration: 0.90
