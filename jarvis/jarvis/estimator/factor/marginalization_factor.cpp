@@ -8,7 +8,8 @@
  * you may not use this file except in compliance with the License.
  *******************************************************/
 
-#include "marginalization_factor.h"
+#include "jarvis/estimator/factor/marginalization_factor.h"
+#include <Eigen/Eigenvalues> 
 
 #include <fstream>
 namespace jarvis {

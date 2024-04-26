@@ -58,30 +58,26 @@ bool FeatureManager::addFeatureCheckParallax(
   new_feature_num = 0;
   long_track_num = 0;
   for (auto &id_pts : image.data->features) {
-    FeaturePerFrame f_per_fra(
-        Eigen::Matrix<double, 7, 1>{
-            id_pts.second.camera_features[0].normal_points.x(),
-            id_pts.second.camera_features[0].normal_points.y(),
-            id_pts.second.camera_features[0].normal_points.z(),
-            id_pts.second.camera_features[0].uv.x(),
-            id_pts.second.camera_features[0].uv.y(),
-            id_pts.second.camera_features[0].uv_velocity.x(),
-            id_pts.second.camera_features[0].uv_velocity.y()
-
-        },
-        td);
-    //assert(id_pts.second[0].first == 0);
+    Eigen::Matrix<double, 7, 1> f;
+    f << id_pts.second.camera_features[0].normal_points.x(),
+        id_pts.second.camera_features[0].normal_points.y(),
+        id_pts.second.camera_features[0].normal_points.z(),
+        id_pts.second.camera_features[0].uv.x(),
+        id_pts.second.camera_features[0].uv.y(),
+        id_pts.second.camera_features[0].uv_velocity.x(),
+        id_pts.second.camera_features[0].uv_velocity.y();
+    FeaturePerFrame f_per_fra(f, td);
+    // assert(id_pts.second[0].first == 0);
     if (id_pts.second.camera_features.size() == 2) {
-      f_per_fra.rightObservation(Eigen::Matrix<double, 7, 1>{
-          id_pts.second.camera_features[1].normal_points.x(),
+      Eigen::Matrix<double, 7, 1> f;
+      f << id_pts.second.camera_features[1].normal_points.x(),
           id_pts.second.camera_features[1].normal_points.y(),
           id_pts.second.camera_features[1].normal_points.z(),
           id_pts.second.camera_features[1].uv.x(),
           id_pts.second.camera_features[1].uv.y(),
           id_pts.second.camera_features[1].uv_velocity.x(),
-          id_pts.second.camera_features[1].uv_velocity.y()
-
-      });
+          id_pts.second.camera_features[1].uv_velocity.y();
+      f_per_fra.rightObservation(f);
       //assert(id_pts.second[1].first == 1);
     }
 

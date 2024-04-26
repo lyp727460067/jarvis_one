@@ -579,8 +579,9 @@ void Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
       bool flag = false;
 
       // Remember corner and quad
-      int cornerID;
-      int quadID;
+      //may bug 
+      int cornerID=0;
+      int quadID=0  ;
 
       for (int k = 0; k < (int)quadGroup.size(); ++k) {
         ChessboardQuadPtr& q = quadGroup.at(k);

@@ -2,7 +2,7 @@
 #define EIGENUTILS_H
 
 #include <Eigen/Dense>
-
+#include <Eigen/Eigenvalues>
 #include "camera_models/gpl/gpl.h"
 #include "ceres/rotation.h"
 namespace jarvis {

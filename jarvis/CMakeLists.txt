@@ -1,19 +1,12 @@
 cmake_minimum_required(VERSION 3.0)
 project(jarvis VERSION 1.0.0)
 
-
+add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 
 set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -Ofast  -mpopcnt") #-Wno-unused-result
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -Ofast -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 
-
-# #set output folders
-# set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
-# message(STATUS ${CMAKE_BINARY_DIR})
-# set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -22,20 +15,50 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                    -Wreturn-type # warn no return 
                    -Wuninitialized # uninitlialized varibales
                   # -Wshadow # shadow local variable
+                  #  -Werror=unused-but-set-variable
                    -Wmultistatement-macros)
 
 
 option(build_test "build test" ON)
-find_package(Eigen3 3.4.0 EXACT) #version 3.4.0
+set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/libs/eigen3)
+set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/libs/opencv-4.6.0/include/opencv4)
+set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
+set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
+set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
+# find_package(Eigen3 3.4.0 EXACT) #version 3.4.0
 # lie group and lie algebra
-find_package(OpenCV REQUIRED) #version 4.6.0
+# find_package(OpenCV REQUIRED) #version 4.6.0
+set(OpenCV_LIBS
+    ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
+    ${Opencv_lib_dir}/libopencv_imgcodecs.so
+    ${Opencv_lib_dir}/libopencv_imgproc.so
+    ${Opencv_lib_dir}/libopencv_features2d.so
+    ${Opencv_lib_dir}/libopencv_calib3d.so
+    ${Opencv_lib_dir}/libopencv_dnn.so
+    ${Opencv_lib_dir}/libopencv_flann.so
+    ${Opencv_lib_dir}/libopencv_video.so
+)
+
+set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
+set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
+add_library(
+        glog
+        STATIC
+        IMPORTED
+        GLOBAL
+)
+set_target_properties(
+        glog
+        PROPERTIES IMPORTED_LOCATION
+        ${glog_binary_dir}
+)
+
+
 # ceres optimization replace gtsam later
-find_package(Ceres REQUIRED)
-find_package(Glog REQUIRED) #version 0.6.0
+# find_package(Ceres REQUIRED)
+# find_package(Glog REQUIRED) #version 0.6.0
 # test system
-find_package(GTest  REQUIRED) #version 1.12.0
 #
-find_package(yaml-cpp  REQUIRED) #version 0.7.0
 ##
 ##add proto
 # find_package(Protobuf  REQUIRED)
@@ -47,28 +70,24 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
+  ${GLOG_INCLUDE_DIRS}
 )
 
 ##
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp")
 ##
-#file(GLOB_RECURSE VINS_LIBRARY_SRCS "src/mapping/tracking/*test_ros.cc" "src/mapping/tracking/*test_ros.cpp"
-# "src/mapping/tracking/*test_ros.h")
-#list(REMOVE_ITEM ALL_LIBRARY_SRCS ${VINS_LIBRARY_SRCS})
+file(GLOB_RECURSE OJBECT_LIBRARY_SRCS "jarvis/object*.cc")
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${OJBECT_LIBRARY_SRCS})
 ##
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
-add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  ${ALL_LIBRARY_HDRS})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_LIBRARY})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${GRPC_LIB})
+add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
 target_link_libraries( ${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
-  glog::glog
-  yaml-cpp
+  glog
   ${OpenCV_LIBS}
   ${CERES_LIBRARIES}
-  ${Sophus_LIBRARIES}
   ${Boost_LIBRARIES}
   ${PROTOBUF_INCLUDE_DIRS})
 

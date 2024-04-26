@@ -531,13 +531,12 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> ToStruct(
   map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> result;
   for (const auto &feature : image.data->features) {
     for (const auto &image_feature : feature.second.camera_features) {
-      result[feature.first].emplace_back(
-          image_feature.id,
-          Eigen::Matrix<double, 7, 1>{
-              image_feature.normal_points.x(), image_feature.normal_points.y(),
-              image_feature.normal_points.z(), image_feature.uv.x(),
-              image_feature.uv.y(), image_feature.uv_velocity.x(),
-              image_feature.uv_velocity.y()});
+      Eigen::Matrix<double, 7, 1> f;
+      f << image_feature.normal_points.x(), image_feature.normal_points.y(),
+          image_feature.normal_points.z(), image_feature.uv.x(),
+          image_feature.uv.y(), image_feature.uv_velocity.x(),
+          image_feature.uv_velocity.y();
+      result[feature.first].emplace_back(image_feature.id, f);
     }
   }
   return result;
@@ -547,7 +546,6 @@ void Estimator::processImage(const ImageFeatureTrackerResult &image,
   VLOG(kGlogLevel)
       << "new image coming ------------------------------------------";
   VLOG(kGlogLevel) << "Adding feature points " << image.data->features.size();
-  static double last_time = header;
 
   // LOG(INFO) << "delta_time" <<  header - last_time;
   if (f_manager->addFeatureCheckParallax(frame_count, image, td)) {
@@ -731,7 +729,7 @@ bool Estimator::initialStructure() {
   // check imu observibility
   {
     map<double, ImageFrame>::iterator frame_it;
-    Vector3d sum_g;
+    Vector3d sum_g= Eigen::Vector3d::Zero();
     for (frame_it = all_image_frame.begin(), frame_it++;
          frame_it != all_image_frame.end(); frame_it++) {
       double dt = frame_it->second.pre_integration->sum_dt;

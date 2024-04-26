@@ -427,7 +427,7 @@ void PinholeFullCamera::liftProjective(const Eigen::Vector2d& p,
 
     if (1) {
       double r4, r6, a1, a2, a3, cdist, icdist2;
-      double xd, yd, xd0, yd0;
+      double  xd0, yd0;
 
       r2 = x * x + y * y;
       r4 = r2 * r2;
@@ -440,8 +440,8 @@ void PinholeFullCamera::liftProjective(const Eigen::Vector2d& p,
       xd0 = x * cdist * icdist2 + p1 * a1 + p2 * a2;
       yd0 = y * cdist * icdist2 + p1 * a3 + p2 * a1;
 
-      double x_proj = xd * fx + cx;
-      double y_proj = yd * fy + cy;
+      double x_proj = xd0 * fx + cx;
+      double y_proj = yd0 * fy + cy;
 
       error = sqrt(pow(x_proj - u, 2) + pow(y_proj - v, 2));
     }
@@ -504,7 +504,8 @@ void PinholeFullCamera::spaceToPlane(const Eigen::Vector3d& P,
                                      Eigen::Matrix<double, 2, 3>& J) const {
   Eigen::Vector2d p_u, p_d;
   double norm, inv_denom;
-  double dxdmx, dydmx, dxdmy, dydmy;
+  //这里应该有bug需要看
+  double dxdmx=0, dydmx=0, dxdmy=0, dydmy=0;
 
   norm = P.norm();
   // Project points to the normalised plane

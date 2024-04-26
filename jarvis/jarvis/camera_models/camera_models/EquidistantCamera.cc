@@ -8,7 +8,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-
+#include <Eigen/Eigenvalues> 
 #include "camera_models/gpl/gpl.h"
 namespace jarvis {
 namespace camera_models {
@@ -551,7 +551,7 @@ void EquidistantCamera::setParameters(
 
 void EquidistantCamera::readParameters(
     const std::vector<double>& parameterVec) {
-  if (parameterVec.size() != parameterCount()) {
+  if (parameterVec.size() !=static_cast<size_t >( parameterCount())) {
     return;
   }
 

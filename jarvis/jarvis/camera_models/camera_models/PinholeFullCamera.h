@@ -55,16 +55,17 @@ class PinholeFullCamera : public Camera {
    private:
     double m_k1;
     double m_k2;
+    double m_k3;
+    double m_k4;
+    double m_k5;
+    double m_k6;
     double m_p1;
     double m_p2;
     double m_fx;
     double m_fy;
     double m_cx;
     double m_cy;
-    double m_k3;
-    double m_k4;
-    double m_k5;
-    double m_k6;
+
   };
 
   PinholeFullCamera();
@@ -217,7 +218,7 @@ void PinholeFullCamera::spaceToPlane(const T* const params, const T* const q,
   T p2 = params[7];
   T fx = params[8];
   T fy = params[9];
-  T alpha = T(0);  // cameraParams.alpha();
+  // T alpha = T(0);  // cameraParams.alpha();
   T cx = params[10];
   T cy = params[11];
 

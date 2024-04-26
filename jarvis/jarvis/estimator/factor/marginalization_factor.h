@@ -20,10 +20,9 @@
 #include "jarvis/utility/utility.h"
 namespace jarvis {
 namespace estimator {
-const int NUM_THREADS = 1;
+constexpr int NUM_THREADS = 1;
 
 struct ResidualBlockInfo {
-EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ResidualBlockInfo(ceres::CostFunction *_cost_function,
                     ceres::LossFunction *_loss_function,
                     std::vector<double *> _parameter_blocks,
@@ -50,7 +49,6 @@ EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 struct ThreadsStruct {
-EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   std::vector<ResidualBlockInfo *> sub_factors;
   Eigen::MatrixXd A;
   Eigen::VectorXd b;
@@ -60,7 +58,6 @@ EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 class MarginalizationInfo {
  public:
-EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   MarginalizationInfo() { valid = true; };
   ~MarginalizationInfo();
   int localSize(int size) const;
