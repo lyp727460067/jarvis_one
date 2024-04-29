@@ -20,7 +20,7 @@
 #include "jarvis/utility/utility.h"
 namespace jarvis {
 namespace estimator {
-constexpr int NUM_THREADS = 1;
+constexpr int NUM_THREADS = 4;
 
 struct ResidualBlockInfo {
   ResidualBlockInfo(ceres::CostFunction *_cost_function,

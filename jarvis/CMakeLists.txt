@@ -34,8 +34,6 @@ set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_imgproc.so
     ${Opencv_lib_dir}/libopencv_features2d.so
     ${Opencv_lib_dir}/libopencv_calib3d.so
-    ${Opencv_lib_dir}/libopencv_dnn.so
-    ${Opencv_lib_dir}/libopencv_flann.so
     ${Opencv_lib_dir}/libopencv_video.so
 )
 
@@ -89,7 +87,7 @@ target_link_libraries(
   ${OpenCV_LIBS}
   ${CERES_LIBRARIES}
   ${Boost_LIBRARIES}
-  ${PROTOBUF_INCLUDE_DIRS})
+  )
 
 #
 if(${build_test})

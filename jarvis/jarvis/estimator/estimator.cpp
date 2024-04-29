@@ -1240,23 +1240,28 @@ void Estimator::optimization() {
   ceres::Solver::Options options;
 
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 8;
+  options.num_threads = 4;
   options.trust_region_strategy_type = ceres::DOGLEG;
-  options.max_num_iterations = 2;
-  // options.use_explicit_schur_complement = true;
+  options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  // options.dynamic_sparsity =true;
+  options.use_explicit_schur_complement = true;
   // options.minimizer_progress_to_stdout = true;
   // options.use_nonmonotonic_steps = true;
+
   if (marginalization_flag == MARGIN_OLD)
     options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
   else
     options.max_solver_time_in_seconds = SOLVER_TIME;
+  options.max_num_iterations=1;
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  // cout << summary.BriefReport() << endl;
+  cout << summary.FullReport() << endl;
   VLOG(kGlogLevel) << "Iterations : "
                    << static_cast<int>(summary.iterations.size());
   //
+  // static int count= 0;
+  // CHECK(count++ <100);
   std::stringstream info;
   auto tmp_Q = Quaterniond(Rs[WINDOW_SIZE]);
   // info << std::setprecision(5) << std::fixed;
