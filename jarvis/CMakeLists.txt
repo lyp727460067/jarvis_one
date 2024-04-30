@@ -66,7 +66,6 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
   ${PROJECT_SOURCE_DIR}/
-  ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
   ${GLOG_INCLUDE_DIRS}
 )
@@ -74,9 +73,11 @@ include_directories(
 ##
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp")
+file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc")
 ##
 file(GLOB_RECURSE OJBECT_LIBRARY_SRCS "jarvis/object*.cc")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${OJBECT_LIBRARY_SRCS})
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
 ##
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
 add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )

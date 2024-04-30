@@ -2,8 +2,6 @@
 
 #include <Eigen/Dense>
 #include <Eigen/SVD>
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include <cmath>
 #include <cstdio>
 #include <iomanip>
@@ -68,7 +66,7 @@ bool OCAMCamera::Parameters::readFromYamlFile(const std::string& filename) {
     std::string sModelType;
     fs["model_type"] >> sModelType;
 
-    if (!boost::iequals(sModelType, "scaramuzza")) {
+    if (sModelType != "scaramuzza") {
       return false;
     }
   }
@@ -81,12 +79,12 @@ bool OCAMCamera::Parameters::readFromYamlFile(const std::string& filename) {
   cv::FileNode n = fs["poly_parameters"];
   for (int i = 0; i < SCARAMUZZA_POLY_SIZE; i++)
     m_poly[i] = static_cast<double>(
-        n[std::string("p") + boost::lexical_cast<std::string>(i)]);
+        n[std::string("p") +std::to_string(i)]);
 
   n = fs["inv_poly_parameters"];
   for (int i = 0; i < SCARAMUZZA_INV_POLY_SIZE; i++)
     m_inv_poly[i] = static_cast<double>(
-        n[std::string("p") + boost::lexical_cast<std::string>(i)]);
+        n[std::string("p") +std::to_string(i)]);
 
   n = fs["affine_parameters"];
   m_C = static_cast<double>(n["ac"]);
@@ -112,13 +110,13 @@ void OCAMCamera::Parameters::writeToYamlFile(
   fs << "poly_parameters";
   fs << "{";
   for (int i = 0; i < SCARAMUZZA_POLY_SIZE; i++)
-    fs << std::string("p") + boost::lexical_cast<std::string>(i) << m_poly[i];
+    fs << std::string("p") +std::to_string(i) << m_poly[i];
   fs << "}";
 
   fs << "inv_poly_parameters";
   fs << "{";
   for (int i = 0; i < SCARAMUZZA_INV_POLY_SIZE; i++)
-    fs << std::string("p") + boost::lexical_cast<std::string>(i)
+    fs << std::string("p") +std::to_string(i)
        << m_inv_poly[i];
   fs << "}";
 
@@ -164,12 +162,12 @@ std::ostream& operator<<(std::ostream& out,
 
   out << "Poly Parameters" << std::endl;
   for (int i = 0; i < SCARAMUZZA_POLY_SIZE; i++)
-    out << std::string("p") + boost::lexical_cast<std::string>(i) << ": "
+    out << std::string("p") +std::to_string(i) << ": "
         << params.m_poly[i] << std::endl;
 
   out << "Inverse Poly Parameters" << std::endl;
   for (int i = 0; i < SCARAMUZZA_INV_POLY_SIZE; i++)
-    out << std::string("p") + boost::lexical_cast<std::string>(i) << ": "
+    out << std::string("p") +std::to_string(i) << ": "
         << params.m_inv_poly[i] << std::endl;
 
   out << "Affine Parameters" << std::endl;

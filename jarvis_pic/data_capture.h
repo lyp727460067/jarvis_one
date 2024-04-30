@@ -31,18 +31,23 @@ class DataCapture {
  public:
   explicit DataCapture(const DataCaptureOption& option);
   ~DataCapture();
-  void Rigister(std::function<void(const Frame&)>);
-  void Rigister(std::function<void(const ImuData&)>);
+  void Rigister(std::function<void(const Frame&)> f) {
+    frame_call_backs_.push_back(std::move(f));
+  }
+  void Rigister(std::function<void(const ImuData&) >f) {
+    imu_call_backs_.push_back(std::move(f));
+  }
   void Start();
   void Stop();
 
  private:
-  std::vector<std::function<void(const ImuData&)>> imu_call_backs_;
-  std::vector<std::function<void(const Frame&)>> frame_call_backs_;
+
   void Run();
   void SysPorocess(const CameraFrame& frame);
   void ProcessImu(const ModSyncImuFb& imu);
   void ProcessImag(const CameraFrame& frame);
+  std::vector<std::function<void(const ImuData&)>> imu_call_backs_;
+  std::vector<std::function<void(const Frame&)>> frame_call_backs_;
   DataCaptureOption option_;
   std::unique_ptr<ShmSensorQueue> mem_ssq_;
   std::vector<ModSyncImuFb> imu_catch_;

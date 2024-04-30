@@ -4,9 +4,10 @@
 #include <chrono>
 #include <vector>
 #include "glog/logging.h"
-#define FRAME_MAX_LEN 655536
+#define FRAME_MAX_LEN 640*544*100
 namespace jarvis_pic {
 namespace {
+std::array<uint8_t, FRAME_MAX_LEN> read_buf;
 constexpr double kAccUnit = 1.0 / 2048 * 9.81;  // 加速度单位
 cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
                         uint32_t height) {
@@ -55,6 +56,9 @@ ImuData ToImuData(const ModSyncImuFb& imu,
 void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
   imu_catch_.push_back(imu);
   if (!sys_time_base_) {
+    if (imu_catch_.size() > 200) {
+      imu_catch_.erase(imu_catch_.begin());
+    }
     return;
   }
   while (imu_catch_.empty()) {
@@ -64,16 +68,19 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
     }
   }
   imu_catch_.clear();
-};
+}
+
+
+//
 void DataCapture::Run() {
   ModSyncImuFb imudata;
   int32_t res = mem_ssq_->PopImuData(&imudata);
 
   if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
     last_imu_time_stamp_ = imudata.time_stamp;
+    LOG(INFO)<<imudata.time_stamp;
     ProcessImu(imudata);
   }
-  std::array<uint8_t, FRAME_MAX_LEN> read_buf;
   CameraFrame frame;
   frame.buf = read_buf.data();
   frame.max_len = FRAME_MAX_LEN;
@@ -110,8 +117,8 @@ void DataCapture::SysPorocess(const CameraFrame& frame) {
                          });
   auto next_it = std::next(it, option_.cam_durion_imu_cout - 1);
   if (next_it != imu_catch_.end() && next_it->sync_count == it->sync_count) {
-    sys_time_base_ =
-        std::pair<uint64_t, uint64_t>(frame.head.time_stamp, it->time_stamp);
+    sys_time_base_ = std::make_pair(frame.head.time_stamp, it->time_stamp);
+    LOG(INFO)<<it->time_stamp;
     imu_catch_.erase(imu_catch_.begin(), it);
   }
   if (sys_time_base_.has_value()) {
@@ -121,6 +128,7 @@ void DataCapture::SysPorocess(const CameraFrame& frame) {
     LOG(WARNING) << "Imu base not sys."
                  << " imu lenth: " << imu_catch_.size();
   }
+  
 
 }
 

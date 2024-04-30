@@ -1,7 +1,6 @@
 #include "camera_models/camera_models/camera_factory.h"
 
-#include <boost/algorithm/string.hpp>
-
+#include "memory"
 #include "camera_models/camera_models/CataCamera.h"
 #include "camera_models/camera_models/EquidistantCamera.h"
 #include "camera_models/camera_models/PinholeCamera.h"
@@ -11,11 +10,11 @@
 namespace jarvis {
 namespace camera_models {
 
-boost::shared_ptr<CameraFactory> CameraFactory::m_instance;
+std::shared_ptr<CameraFactory> CameraFactory::m_instance;
 
 CameraFactory::CameraFactory() {}
 
-boost::shared_ptr<CameraFactory> CameraFactory::instance(void) {
+std::shared_ptr<CameraFactory> CameraFactory::instance(void) {
   if (m_instance.get() == 0) {
     m_instance.reset(new CameraFactory);
   }
@@ -90,16 +89,16 @@ CameraPtr CameraFactory::generateCameraFromYamlFile(
     std::string sModelType;
     fs["model_type"] >> sModelType;
 
-    if (boost::iequals(sModelType, "kannala_brandt")) {
+    if (sModelType ==  "kannala_brandt") {
       LOG(INFO) << "start kannala_brandt";
       modelType = Camera::KANNALA_BRANDT;
-    } else if (boost::iequals(sModelType, "mei")) {
+    } else if (sModelType ==  "mei") {
       modelType = Camera::MEI;
-    } else if (boost::iequals(sModelType, "scaramuzza")) {
+    } else if (sModelType == "scaramuzza") {
       modelType = Camera::SCARAMUZZA;
-    } else if (boost::iequals(sModelType, "pinhole")) {
+    } else if (sModelType== "pinhole") {
       modelType = Camera::PINHOLE;
-    } else if (boost::iequals(sModelType, "PINHOLE_FULL")) {
+    } else if (sModelType =="PINHOLE_FULL") {
       modelType = Camera::PINHOLE_FULL;
     } else {
       std::cerr << "# ERROR: Unknown camera model: " << sModelType << std::endl;

@@ -43,6 +43,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
   ${GLOG_INCLUDE_DIRS}
+  ${TOP_CMAKE_DIR}/libs/libmpc/include
 )
 
 add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main)
@@ -59,4 +60,5 @@ target_link_libraries(${PROJECT_NAME}_main PUBLIC
   jarvis
   ${OpenCV_LIBS}
   -ldl
+  mpc
 )
