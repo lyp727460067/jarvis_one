@@ -46,8 +46,15 @@ include_directories(
 )
 
 add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main)
+add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
+  glog
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+)
+target_link_libraries(${PROJECT_NAME}_main PUBLIC
   glog
   jarvis
   ${OpenCV_LIBS}
