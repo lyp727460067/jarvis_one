@@ -3,8 +3,9 @@
 #include <array>
 #include <chrono>
 #include <vector>
+
 #include "glog/logging.h"
-#define FRAME_MAX_LEN 640*544*100
+#define FRAME_MAX_LEN 640 * 544 * 100
 namespace jarvis_pic {
 namespace {
 std::array<uint8_t, FRAME_MAX_LEN> read_buf;
@@ -48,8 +49,8 @@ ImuData ToImuData(const ModSyncImuFb& imu,
                  },
                  Eigen::Vector3d{
                      imu.imu_data.gyro_x * 0.001,
-                     imu.imu_data.gyro_x * 0.001,
-                     imu.imu_data.gyro_x * 0.001,
+                     imu.imu_data.gyro_y * 0.001,
+                     imu.imu_data.gyro_z * 0.001,
                  }};
 }
 //
@@ -61,16 +62,14 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
     }
     return;
   }
-  while (imu_catch_.empty()) {
-    const auto imu_data = ToImuData(imu, sys_time_base_.value());
+  while (!imu_catch_.empty()) {
+    const auto imu_data = ToImuData(imu_catch_.front(), sys_time_base_.value());
     for (const auto& f : imu_call_backs_) {
       f(imu_data);
     }
+    imu_catch_.erase(imu_catch_.begin());
   }
-  imu_catch_.clear();
 }
-
-
 //
 void DataCapture::Run() {
   ModSyncImuFb imudata;
@@ -78,7 +77,6 @@ void DataCapture::Run() {
 
   if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
     last_imu_time_stamp_ = imudata.time_stamp;
-    LOG(INFO)<<imudata.time_stamp;
     ProcessImu(imudata);
   }
   CameraFrame frame;
@@ -91,34 +89,46 @@ void DataCapture::Run() {
     uint32_t frame_sys_count = frame.head.sys_count;
     if (last_frame_sys_count_ == frame_sys_count) return;
     last_frame_sys_count_ = frame_sys_count;
-    SysPorocess(frame);
+    ProcessImag(frame);
   }
+  SysPorocess();
 }
-
-void DataCapture::ProcessImag(const CameraFrame& frame) {
+Frame ToFrameData(const CameraFrame& frame,
+                               const DataCaptureOption& option) {
   cv::Mat grayImg = YuvBufToGrayMat(
       frame.buf + sizeof(CameraFrameHead) + (frame.head.len >> 2),
-      (frame.head.len - sizeof(CameraFrameHead)) >> 1, option_.frame_width,
-      option_.frame_hight);
-  const Frame out_frame{0, frame.head.time_stamp, grayImg};
-  for (auto& f : frame_call_backs_) {
-    f(out_frame);
+      (frame.head.len - sizeof(CameraFrameHead)) >> 1, option.frame_width,
+      option.frame_hight);
+  return {0, frame.head.time_stamp, grayImg};
+}
+//
+void DataCapture::ProcessImag(const CameraFrame& frame) {
+  image_catch_.push_back(
+      std::make_pair(frame.head.sys_count, ToFrameData(frame, option_)));
+  if (image_catch_.size() <= 2) {
+    return;
+  }
+  image_catch_.erase(image_catch_.begin());
+  if (sys_time_base_.has_value()) {
+    for (auto& f : frame_call_backs_) {
+      f(image_catch_.front().second);
+    }
   }
 }
 
-void DataCapture::SysPorocess(const CameraFrame& frame) {
-  if (sys_time_base_.has_value()) {
-    return;
-  }
+void DataCapture::SysPorocess() {
+  if (sys_time_base_.has_value() || image_catch_.size() != 2) return;
+  auto& last_frame = image_catch_.front();
 
   auto it = std::find_if(imu_catch_.begin(), imu_catch_.end(),
-                         [frame](const ModSyncImuFb& imu) {
-                           return (frame.head.sys_count == imu.sync_count);
+                         [last_frame](const ModSyncImuFb& imu) {
+                           return (last_frame.first == imu.sync_count);
                          });
   auto next_it = std::next(it, option_.cam_durion_imu_cout - 1);
-  if (next_it != imu_catch_.end() && next_it->sync_count == it->sync_count) {
-    sys_time_base_ = std::make_pair(frame.head.time_stamp, it->time_stamp);
-    LOG(INFO)<<it->time_stamp;
+  if (it != imu_catch_.end() && next_it != imu_catch_.end() &&
+      next_it->sync_count == it->sync_count) {
+    sys_time_base_ = std::make_pair(last_frame.second.time, it->time_stamp);
+    LOG(INFO) <<"find same count: "<<static_cast<int>(last_frame.first);
     imu_catch_.erase(imu_catch_.begin(), it);
   }
   if (sys_time_base_.has_value()) {
@@ -128,8 +138,6 @@ void DataCapture::SysPorocess(const CameraFrame& frame) {
     LOG(WARNING) << "Imu base not sys."
                  << " imu lenth: " << imu_catch_.size();
   }
-  
-
 }
 
 }  // namespace jarvis_pic

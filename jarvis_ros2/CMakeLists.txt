@@ -59,6 +59,8 @@ ${OpenCV_INCLUDE_DIRS}
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_main  jarvis_main.cc ros_component.cc
 )
+add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc 
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -78,6 +80,19 @@ target_link_libraries(${PROJECT_NAME}_main
   jarvis
 )
 ament_target_dependencies(${PROJECT_NAME}_main rclcpp std_msgs nav_msgs sensor_msgs
+visualization_msgs
+tf2_ros
+cv_bridge
+image_transport
+)
+target_link_libraries(${PROJECT_NAME}_zmp_main
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+  glog::glog
+  yaml-cpp
+  jarvis
+)
+ament_target_dependencies(${PROJECT_NAME}_zmp_main rclcpp std_msgs nav_msgs sensor_msgs
 visualization_msgs
 tf2_ros
 cv_bridge

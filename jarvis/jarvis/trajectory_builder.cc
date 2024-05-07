@@ -45,7 +45,7 @@ namespace jarvis {
 TrajectorBuilder::TrajectorBuilder(const std::string &config,
                                    CallBack call_back)
     : tracker_(estimator::TrackerFactory(config)),
-      call_back_(std::move(call_back)) {
+      call_back_(call_back) {
   //  cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   //  int pn = config.find_last_of('/');
   //  std::string configPath = config.substr(0, pn);

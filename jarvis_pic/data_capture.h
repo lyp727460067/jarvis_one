@@ -41,16 +41,17 @@ class DataCapture {
   void Stop();
 
  private:
-
   void Run();
-  void SysPorocess(const CameraFrame& frame);
+  void SysPorocess();
   void ProcessImu(const ModSyncImuFb& imu);
   void ProcessImag(const CameraFrame& frame);
+  
   std::vector<std::function<void(const ImuData&)>> imu_call_backs_;
   std::vector<std::function<void(const Frame&)>> frame_call_backs_;
   DataCaptureOption option_;
   std::unique_ptr<ShmSensorQueue> mem_ssq_;
   std::vector<ModSyncImuFb> imu_catch_;
+  std::vector<std::pair<uint8_t,Frame>> image_catch_;
   std::thread thread_;
   std::optional<std::pair<uint64_t, uint64_t>> sys_time_base_;
   uint32_t last_frame_sys_count_ = 0;

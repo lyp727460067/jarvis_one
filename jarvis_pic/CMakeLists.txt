@@ -6,7 +6,8 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -Ofast -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
-
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/libs/eigen3)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/libs/opencv-4.6.0/include/opencv4)
 set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
@@ -45,9 +46,15 @@ include_directories(
   ${GLOG_INCLUDE_DIRS}
   ${TOP_CMAKE_DIR}/libs/libmpc/include
 )
-
+option(view_debug " view_debug" ON)
+if(${view_debug})
+add_definitions(-D__ZMQ_ENABLAE__)
+endif()
 add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main)
-add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc)
+add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
+socket_wrapper.cc
+
+)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
   glog

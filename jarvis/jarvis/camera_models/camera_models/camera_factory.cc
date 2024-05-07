@@ -89,7 +89,7 @@ CameraPtr CameraFactory::generateCameraFromYamlFile(
     std::string sModelType;
     fs["model_type"] >> sModelType;
 
-    if (sModelType ==  "kannala_brandt") {
+    if (sModelType ==  "KANNALA_BRANDT") {
       LOG(INFO) << "start kannala_brandt";
       modelType = Camera::KANNALA_BRANDT;
     } else if (sModelType ==  "mei") {
