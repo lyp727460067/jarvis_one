@@ -28,15 +28,14 @@ void OrderedMultiQueue::AddData(const std::string &name,
   CHECK(queues_.count(name));
   std::lock_guard<std::mutex> lock(mutex_);
   queues_[name].queue.push(std::move(data));
-  Dispathch();
 }
 void OrderedMultiQueue::Start() {
-  // dispath_thead_ = std::thread([this]() {
-  //   while (!kill_thread) {
-  //     Dispathch();
-  //     std::this_thread::sleep_for(std::chrono::milliseconds(4));
-  //   }
-  // });
+  dispath_thead_ = std::thread([this]() {
+    while (!kill_thread) {
+      Dispathch();
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+  });
 }
 
 //
