@@ -1,0 +1,20 @@
+data_set_typ: euroc
+
+euroc:
+  #源码路径
+  mbvio_folder: /home/catkin_ws/src/metaboundsstereovio
+  #保存结果的路径(后期应该上传到服务器记录每次修改运行的结果)
+  results_folder: /home/catkin_ws/src/metaboundsstereovio/script/auto_test/test_result
+  #数据集所在路径
+  data_folder: /home/catkin_ws/src/metaboundsstereovio/data/slam/EuRocMAV
+  #测试使用的程序名称
+  program_name: sample.eurocStereoVIOSampleBag_main
+  #使用数据集测试循环次数
+  iter: 1
+  #小于0的时候使用所有数据集中数据进行测试，大于等于0时只使用data_names[only_seq]中的数据集进行测试
+  only_seq: -1
+  #数据集中包涵的数据
+  data_names: [MH_01_easy, MH_02_easy, MH_03_medium, MH_04_difficult, MH_05_difficult,
+    V1_01_easy, V1_02_medium, V1_03_difficult, V2_01_easy, V2_02_medium, V2_03_difficult]
+  program_config_file: /home/catkin_ws/src/metaboundsstereovio/config/euroc_bag.yaml
+  ground_truth_folder: /home/catkin_ws/src/metaboundsstereovio/data/slam/EuRocMAV/ground_truth_pose
