@@ -223,7 +223,7 @@ void reduceVector(vector<int> &v, vector<uchar> status) {
 
 FeatureTracker::FeatureTracker() {
   mask_ = cv::imread(
-      "/home/lyp/project/vslam/jarvis/src/jarvis/configuration/mask.png",
+      "/oem/mowpack/vslam/configuration/mask.png",
       cv::IMREAD_GRAYSCALE);
   stereo_cam = 0;
   n_id = 0;

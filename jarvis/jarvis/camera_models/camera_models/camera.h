@@ -2,7 +2,6 @@
 #define _JARVIS_CAMERA_MODELS_CAMERA_H
 
 #include <Eigen/Dense>
-#include <boost/shared_ptr.hpp>
 #include <opencv2/core/core.hpp>
 #include <vector>
 namespace jarvis {
@@ -133,8 +132,8 @@ class Camera {
   cv::Mat m_mask;
 };
 
-typedef boost::shared_ptr<Camera> CameraPtr;
-typedef boost::shared_ptr<const Camera> CameraConstPtr;
+typedef  std::shared_ptr<Camera> CameraPtr;
+typedef  std::shared_ptr<const Camera> CameraConstPtr;
 }  // namespace camera_models
 }  // namespace jarvis
 #endif

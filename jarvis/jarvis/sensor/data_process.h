@@ -50,14 +50,17 @@ class OrderedMultiQueue {
   void AddQueue(std::string name, ImageFuction call_back);
   void AddQueue(std::string name, ImuFuction call_back);
   ~OrderedMultiQueue();
+  void Start();
 
  protected:
+  bool kill_thread = false;
+  std::mutex  mutex_;
+  std::thread  dispath_thead_;
   virtual void Dispathch();
   double GetStartCommontime();
   double common_start_time_ = -1.0f;
   double last_dispatched_time_ = -1;
   std::unordered_map<std::string, Queue> queues_;
-  std::mutex mutex_;
   bool circle_done = false;
 };
 }  // namespace sensor

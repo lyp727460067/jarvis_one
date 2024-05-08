@@ -25,20 +25,19 @@ void OrderedMultiQueue::AddQueue(std::string name, ImuFuction call_back) {
 //
 void OrderedMultiQueue::AddData(const std::string &name,
                                 std::unique_ptr<Data> data) {
-  // CHECK(queues_.count(name));
-  if (queues_.count(name) == 0) return;
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    queues_[name].queue.push(std::move(data));
-  }
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    circle_done = false;
-  }
-  Dispathch();
+  CHECK(queues_.count(name));
   std::lock_guard<std::mutex> lock(mutex_);
-  circle_done = true;
+  queues_[name].queue.push(std::move(data));
 }
+void OrderedMultiQueue::Start() {
+  dispath_thead_ = std::thread([this]() {
+    while (!kill_thread) {
+      Dispathch();
+      std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
+  });
+}
+
 //
 void OrderedMultiQueue::Dispathch() {
   while (true) {
@@ -70,18 +69,11 @@ void OrderedMultiQueue::Dispathch() {
       }
       ++it;
     }
-    if (next_queue == NULL || next_data == NULL) {
-      return;
-    }
-    std::stringstream info;
     const double common_start_time = GetStartCommontime();
     int next_queue_size = 0;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       next_queue_size = next_queue->queue.size();
-    }
-    if (next_queue_size == 0) {
-      return;
     }
     if (next_data->GetTime() >= common_start_time) {
       last_dispatched_time_ = next_data->GetTime();
@@ -137,8 +129,7 @@ double OrderedMultiQueue::GetStartCommontime() {
 
 OrderedMultiQueue::~OrderedMultiQueue() {
   std::lock_guard<std::mutex> lock(mutex_);
-  while (!circle_done)
-    ;
+  kill_thread = true;
 }
 }  // namespace sensor
 }  // namespace jarvis

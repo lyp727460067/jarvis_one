@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <Eigen/Dense>
 namespace jarvis {
 namespace camera_models {

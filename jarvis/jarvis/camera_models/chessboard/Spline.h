@@ -16,7 +16,7 @@
 */
 
 #pragma once
-
+#if 0
 #include <boost/numeric/ublas/lu.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/triangular.hpp>
@@ -309,3 +309,4 @@ class Spline : private std::vector<std::pair<double, double> > {
   }
 };
 }  // namespace jarvis
+#endif

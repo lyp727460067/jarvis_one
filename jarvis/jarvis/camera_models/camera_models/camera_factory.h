@@ -1,7 +1,7 @@
 #ifndef _JARVIS_CAMERA_MODELS_CAMERAFACTORY_H
 #define _JARVIS_CAMERA_MODELS_CAMERAFACTORY_H
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <opencv2/core/core.hpp>
 
 #include "camera_models/camera_models/camera.h"
@@ -13,7 +13,7 @@ class CameraFactory {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   CameraFactory();
 
-  static boost::shared_ptr<CameraFactory> instance(void);
+  static std::shared_ptr<CameraFactory> instance(void);
 
   CameraPtr generateCamera(Camera::ModelType modelType,
                            const std::string& cameraName,
@@ -22,7 +22,7 @@ class CameraFactory {
   CameraPtr generateCameraFromYamlFile(const std::string& filename);
 
  private:
-  static boost::shared_ptr<CameraFactory> m_instance;
+  static std::shared_ptr<CameraFactory> m_instance;
 };
 
 }  // namespace camera_models
