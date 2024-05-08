@@ -100,19 +100,18 @@ int main(int argc, char* argv[]) {
   std::cout << data_dir << std::endl;
   std::mutex mutex;
   std::condition_variable cond;
-   jarvis_pic::ZmqComponent zmq;
+  jarvis_pic::ZmqComponent zmq;
+  jarvis_pic::MpcComponent mpc;
   std::unique_ptr<jarvis_pic::JarvisBrige> jarvis_slam =
       std::make_unique<jarvis_pic::JarvisBrige>(
           std::string(argv[1]), [&](const jarvis::TrackingData& data) {
-            LOG(INFO) << data.data->pose;            
+            LOG(INFO) << data.data->pose;
             {
               std::lock_guard<std::mutex> lock(mutex);
               tracking_data_temp = data;
               cond.notify_all();
             }
-
-            // jarvis_pic::WriteMpc(data);
-
+            mpc.Write(data);
           });
 #ifdef __ZMQ_ENABLAE__
   // jarvis_pic::ZmqComponent zmq;

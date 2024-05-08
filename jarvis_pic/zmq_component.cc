@@ -1,15 +1,29 @@
 #include "zmq_component.h"
-#include "zmq.h"
-#include "data_protocol.h"
-#include "glog/logging.h"
-#include "dev_socket.h"
-#include <opencv2/imgcodecs.hpp>
-#include "opencv2/opencv.hpp"
 
+#include <opencv2/imgcodecs.hpp>
+
+#include "data_protocol.h"
+#include "dev_socket.h"
+#include "glog/logging.h"
+#include "jarvis/common/time.h"
+#include "opencv2/opencv.hpp"
+#include "zmq.h"
 
 namespace jarvis_pic {
+
+namespace {
+
+// ModLocPoseFb ToMpcData(const jarvis::TrackingData &data){return {
+//     jarvis::common::ToUniversal(data.data->time),
+//     data.data->pose.translation().x(), data.data->pose.translation().y(),
+//     data.data->pose.translation().z(), data.data->pose.rotation().w(),
+//     data.data->pose.rotation().x(), data.data->pose.rotation().y(),
+//     data.data->pose.rotation().z(), 0, data.status}};
+
+}
+
 //
-std::pair<std::string,int> host_ip{"127.0.0.1",97555};
+std::pair<std::string, int> host_ip{"127.0.0.1", 97555};
 //
 
 struct PoseData {
@@ -21,13 +35,12 @@ struct PoseData {
   double qy;
   double qz;
 };
- // namespace
+// namespace
 cv::Mat GenerateImageWithKeyPoint(
     const cv::Mat &l_img, const std::vector<cv::KeyPoint> &l_key_points,
     const std::vector<cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
     const std::vector<cv::KeyPoint> &r_key_points, const std::string &l_name,
     const std::string &r_name, std::vector<uint64_t> outlier_pointclass_id) {
-
   cv::Mat gray_img, loop_match_img;
   cvtColor(l_img, loop_match_img, cv::COLOR_GRAY2RGB);
   std::set<uint64_t> class_id(outlier_pointclass_id.begin(),
@@ -41,7 +54,7 @@ cv::Mat GenerateImageWithKeyPoint(
   for (auto &&keypoint : r_key_points) {
     cv::circle(loop_match_img, keypoint.pt, 1, cv::Scalar(0, 255, 0), 1);
   }
-  CHECK_EQ(outlier_pointclass_id.size(),  size_t(1))
+  CHECK_EQ(outlier_pointclass_id.size(), size_t(1))
       << "Outlier_pointclass_id is used display zupt,please assignment it..";
   if (outlier_pointclass_id[0]) {
     cv::putText(loop_match_img, "ZUPT", cv::Point2f(20, 100),
@@ -50,10 +63,10 @@ cv::Mat GenerateImageWithKeyPoint(
 
   return loop_match_img;
 }
-std::vector<uint8_t> ToCData(const jarvis::TrackingData& data) {
+std::vector<uint8_t> ToCData(const jarvis::TrackingData &data) {
   //
   //
-  const auto& tracking_data = data;
+  const auto &tracking_data = data;
   std::vector<uint8_t> datas;
   std::vector<int> params;
   params.resize(9, 0);
@@ -82,7 +95,7 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData& data) {
   // LOG(INFO)<<pose.qw;
   int lenth = datas.size();
   datas.resize(datas.size() + sizeof(PoseData));
-  memcpy((void*)(datas.data() + lenth), (void*)&pose, sizeof(PoseData));
+  memcpy((void *)(datas.data() + lenth), (void *)&pose, sizeof(PoseData));
   // for(size_t i  = 0;i<sizeof(PoseData);i++){
   //   std::cout<<int((datas.data() + lenth)[i])<<" ";
   // }
@@ -95,7 +108,7 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData& data) {
   //
   uint32_t data_lenth = datas.size();
   char c_lenth[4];
-  memcpy((void*)(c_lenth), (void*)&data_lenth, 4);
+  memcpy((void *)(c_lenth), (void *)&data_lenth, 4);
   for (int i = 0; i < 4; i++) {
     result.push_back(c_lenth[i]);
   }
@@ -103,10 +116,10 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData& data) {
   return result;
 }
 //
-ZmqComponent::ZmqComponent(){
+ZmqComponent::ZmqComponent() {
   try {
     device_.emplace_back(
-        new internal::DevSocket(host_ip, [](std::vector<uint8_t>&& d) {}));
+        new internal::DevSocket(host_ip, [](std::vector<uint8_t> &&d) {}));
 
   } catch (const std::string s) {
     LOG(INFO) << "Devive creat err" << s;
@@ -115,15 +128,30 @@ ZmqComponent::ZmqComponent(){
 //
 //
 
-void ZmqComponent::PubLocalData(const jarvis::TrackingData& data) {
+void ZmqComponent::PubLocalData(const jarvis::TrackingData &data) {
   //
-  for (auto& dev : device_) {
+  for (auto &dev : device_) {
     dev->tx(ToCData(data));
   }
-
 };
 
-ZmqComponent::~ZmqComponent() {
+ZmqComponent::~ZmqComponent() {}
+//
+MpcComponent::MpcComponent() : shm_mod_(new ShmMod()) {}
+//
+void MpcComponent::Write(const jarvis::TrackingData &data) {
+  ModLocPoseFb mpc_data{
+      static_cast<uint8_t>(jarvis::common::ToUniversal(data.data->time)),
+      data.data->pose.translation().x(),
+      data.data->pose.translation().y(),
+      data.data->pose.translation().z(),
+      data.data->pose.rotation().w(),
+      data.data->pose.rotation().x(),
+      data.data->pose.rotation().y(),
+      data.data->pose.rotation().z(),
+      0,
+      static_cast<uint8_t>(data.status)};
+
+  shm_mod_->SetModByID(vio_id_, reinterpret_cast<void*>(&mpc_data));
 }
-void WriteMpc(const jarvis::TrackingData& data) {}
 }  // namespace jarvis_pic

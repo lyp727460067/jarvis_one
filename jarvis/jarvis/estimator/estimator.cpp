@@ -1256,7 +1256,7 @@ void Estimator::optimization() {
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  cout << summary.FullReport() << endl;
+  // cout << summary.FullReport() << endl;
   VLOG(kGlogLevel) << "Iterations : "
                    << static_cast<int>(summary.iterations.size());
   //
