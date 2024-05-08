@@ -20,7 +20,7 @@
 #include "../utility/utility.h"
 namespace jarvis {
 namespace estimator {
-
+extern std::string mask_file;
 using namespace std;
 const double FOCAL_LENGTH = 230.0;
 const int WINDOW_SIZE = 10;

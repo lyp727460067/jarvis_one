@@ -130,6 +130,7 @@ double OrderedMultiQueue::GetStartCommontime() {
 OrderedMultiQueue::~OrderedMultiQueue() {
   std::lock_guard<std::mutex> lock(mutex_);
   kill_thread = true;
+  dispath_thead_.join();
 }
 }  // namespace sensor
 }  // namespace jarvis

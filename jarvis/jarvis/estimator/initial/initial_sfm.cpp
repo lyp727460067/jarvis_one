@@ -268,14 +268,15 @@ bool GlobalSFM::construct(int frame_num, Quaterniond *q, Vector3d *T, int l,
     }
   }
   ceres::Solver::Options options;
-  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-  options.max_num_iterations =10;
-  options.max_solver_time_in_seconds = 0.2;
+  options.linear_solver_type = ceres::DENSE_SCHUR;
+  options.max_num_iterations =2;
+  options.num_threads = 4;
+  options.max_solver_time_in_seconds = 0.1;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   // std::cout << summary.BriefReport() << "\n";
   if (summary.termination_type == ceres::CONVERGENCE ||
-      summary.final_cost < 5e-03) {
+      summary.final_cost < 5e-01) {
     LOG(INFO) << "vision only BA converge";
   } else {
     LOG(INFO) << "vision only BA not converge ";

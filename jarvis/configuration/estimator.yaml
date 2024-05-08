@@ -5,29 +5,33 @@
 imu: 1         
 num_of_cam: 1  
 
-imu_topic: "/imu0"
-image0_topic: "/cam0/image_raw"
+imu_topic: "/imu"
+image0_topic: "/usb_cam_1/image_raw/compressed"
 image1_topic: "/usb_cam_2/image_raw/compressed"
-output_path: "/cam1/image_raw"
+output_path: "/home/lyp/project/catkin_ws/log"
 
 # data_folder: "/home/lyp/project/dataset/slam_test/20230908/2023-09-08-11-45-59.bag"
 
 # data_folder: "/home/lyp/project/dataset/relocation_test/2023-07-13-09-59-39.bag"
 # data_folder: "/home/lyp/project/dataset/slam_test/20230810/203/2023-08-10-09-54-04.bag"
 # data_folder: "/home/lyp/project/dataset/slam_test/20230915/000/2023-09-15-11-53-49.bag"
-data_folder: "/home/lyp/project/bag/20240417_1.bag"
-# data_folder: "/home/lyp/project/bag/15/sys_data/15/diccaodi/calib_save.bag"
+# data_folder: "/home/lyp/project/bag/20240417_1.bag"
+#data_folder: "/home/lyp/project/bag/15/sys_data/15/normal/calib_save.bag"
+data_folder: "/home/lyp/project/bag/15/sys_data/15/mower/calib_save.bag"
+#data_folder: "/home/lyp/project/bag/15/sys_data/15/meadcaoping/calib_save.bag"
+#data_folder: "/home/lyp/project/bag/15/sys_data/15/diccaodi/calib_save.bag"
+#data_folder: "/home/lyp/project/bag/15/sys_data/15/caodi/calib_save.bag"
 cam0_calib: "ld_cam0.yaml"
 cam1_calib: "ld_cam1.yaml"
 image_width: 640
 image_height: 544
 # imu_cam_time_offset: 0.028 #1123
-imu_cam_time_offset: -0.009708 #for 1209
-cam0_cam1_time_offset_thresh_hold: 0.005
+imu_cam_time_offset: 0. #for 1209
 image_sample : 1
-offline_play_bag_duration : 0.01  
+offline_play_bag_duration : 0.001  
 
-map_builder_option: mapping_builder.yaml
+mask_id: mask.png
+
 
 # Extrinsic parameter between IMU and Camera.
 estimate_extrinsic: 1   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
@@ -37,10 +41,11 @@ body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data:  [0.00340283,  0.00359881,  0.999996,   0.0863928,
-          0.999991,  -0.00359446,   -0.00239707,   -0.0601841,
-          0.00359061,   0.999992,   -0.00160743,   -0.0601841,
+   data: [0.02125173883257414, 0.9997723090827768, -0.0019218709333909123, 0.04100117061463588,
+          0.011824361274753059, -0.0021735151623933358, -0.9999277275444876, 0.04344196877556,
+         -0.99970423029866, 0.021227478020984902, -0.011867859951668669, -0.03398075777238983,
           0.000000000000,  0.000000000000, 0.000000000000, 1.000000000000]
+
    # data: [0.004119637854333169, 0.9999896970386508, 0.0019064103693632872, -0.01982065921660834, 
    #        0.018578720105320412, -0.0019826356023358582, 0.9998254349211748, 0.04645290656552592, 
    #        0.9998189134754338, -0.004083500044768096, -0.018586696430163863, -0.08745878678942877, 

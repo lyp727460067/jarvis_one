@@ -222,15 +222,16 @@ void reduceVector(vector<int> &v, vector<uchar> status) {
 }
 
 FeatureTracker::FeatureTracker() {
-  mask_ = cv::imread(
-      "/oem/mowpack/vslam/configuration/mask.png",
-      cv::IMREAD_GRAYSCALE);
+
   stereo_cam = 0;
   n_id = 0;
   hasPrediction = false;
 }
 
 void FeatureTracker::setMask() {
+  if (mask_.empty()) {
+    mask_ = cv::imread(mask_file, cv::IMREAD_GRAYSCALE);
+  }
   mask = mask_.clone();
 
   // prefer to keep features that are tracked for long time

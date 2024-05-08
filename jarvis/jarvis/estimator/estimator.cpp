@@ -749,7 +749,7 @@ bool Estimator::initialStructure() {
     var = sqrt(var / ((int)all_image_frame.size() - 1));
     VLOG(kGlogLevel) <<"IMU variation "<< var;
     LOG(INFO) <<"IMU variation "<< var;
-    if (var < 0.15) {
+    if (var < 0.25) {
       LOG(INFO) << "IMU excitation not enouth!";
       return false;
     }

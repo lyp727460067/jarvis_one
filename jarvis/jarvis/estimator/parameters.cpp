@@ -22,7 +22,7 @@ std::vector<Eigen::Matrix3d> RIC;
 std::vector<Eigen::Vector3d> TIC;
 
 Eigen::Vector3d G{0.0, 0.0, 9.8};
-
+std::string mask_file;
 double BIAS_ACC_THRESHOLD;
 double BIAS_GYR_THRESHOLD;
 double SOLVER_TIME;
@@ -61,9 +61,21 @@ void readParameters(std::string config_file) {
   if (!fsSettings.isOpened()) {
     LOG(FATAL) << "ERROR: Wrong path to settings";
   }
+  //
+  {
+    int pn = config_file.find_last_of('/');
+    std::string config_path = config_file.substr(0, pn);
+    std::string mf;
+    fsSettings["mask_id"] >> mf;
+    //
+    mask_file = config_path + "/" + mf;
+  }
 
+  //
+  //
   fsSettings["image0_topic"] >> IMAGE0_TOPIC;
   fsSettings["image1_topic"] >> IMAGE1_TOPIC;
+ 
   MAX_CNT = fsSettings["max_cnt"];
   MIN_DIST = fsSettings["min_dist"];
   F_THRESHOLD = fsSettings["F_threshold"];
