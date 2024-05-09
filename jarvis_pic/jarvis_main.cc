@@ -17,6 +17,9 @@
 #include "unistd.h"
 #include "zmq_component.h"
 #include "jarvis/common/fixed_ratio_sampler.h"
+#include "ostream"
+#include "time.h"
+
 //
 namespace 
 {
@@ -26,12 +29,18 @@ constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
 double imu_cam_time_offset = 0;
 double image_sample =1;
+uint8_t kRecordFlag = 0;
+std::ofstream   kOImuFile;
+std::ofstream   kOPoseFile;
+std::string image_dir;
+
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["imu_cam_time_offset"] >> imu_cam_time_offset;
   fsSettings["image_sample"] >> image_sample;
+  fsSettings["record"] >> kRecordFlag;
 }
-}
+}  // namespace
 //
 // using namespace jarvis;
 namespace jarvis_pic {
@@ -85,6 +94,23 @@ class JarvisBrige {
               jarvis::sensor::ImageData{frame.time * 1e-6 + imu_cam_time_offset,
                                         {temp, temp}}));
     });
+    if (kRecordFlag) {
+      data_capture_->Rigister([&](const ImuData& imu) {
+        std::stringstream info;
+        info << std::to_string(uint64_t(imu.time * 1e3)) << " "
+             << imu.angular_velocity.x() << " " << imu.angular_velocity.y()
+             << " " << imu.angular_velocity.z() << " "
+             << imu.linear_acceleration.x() << " "
+             << imu.linear_acceleration.y() << " "
+             << imu.linear_acceleration.z();
+
+        kOImuFile << info.str() << std::endl;
+      });
+      data_capture_->Rigister([&](const Frame& frame) {
+        cv::imwrite(image_dir + std::to_string(uint64_t(frame.time*1e3)) + ".png",
+                    frame.image);
+      });
+    }
     order_queue_->Start();
     data_capture_->Start();
   }
@@ -97,37 +123,85 @@ class JarvisBrige {
 };
 }  // namespace jarvis_pic
 
+void CreateDataDir() {
+  if (kRecordFlag) {
+    time_t now;
+    struct tm* local;
+    time(&now);
+    local = localtime(&now);
+    std::string name = std::to_string(local->tm_year + 1900) + "_" +
+                       std::to_string(local->tm_mon + 1) + "_" +
+                       std::to_string(local->tm_mday) + "_" +
+                       std::to_string(local->tm_hour) + "_" +
+                       std::to_string(local->tm_min);
+    if (access("/tmp/jarvis/data/", F_OK) == -1) {
+      mkdir("/tmp/jarvis/data/", S_IRWXO | S_IRWXG | S_IRWXU);
+    }
+    const std::string data_dir = std::string("/tmp/jarvis/data/") + name + "/";
+    if (access(data_dir.c_str(), F_OK) == -1) {
+      mkdir(data_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    }
+
+    image_dir = data_dir + "image/";
+    if (access(image_dir.c_str(), F_OK) == -1) {
+      mkdir(image_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    }
+    LOG(INFO) << "Record data dir : " << data_dir;
+    LOG(INFO) << "Record image_dir dir : " << image_dir;
+    const std::string imu_file = data_dir + "imu.txt";
+    const std::string pose_file = data_dir + "vio_odom.txt";
+    kOImuFile.open(imu_file, std::ios::out);
+    if (kOImuFile.good()) {
+      LOG(INFO) << " open imu file : " << imu_file << " done.";
+    }
+    kOPoseFile.open(pose_file, std::ios::out);
+    if (kOPoseFile.good()) {
+      LOG(INFO) << " open pose file : " << pose_file << " done.";
+    }
+  }
+}
 jarvis::TrackingData tracking_data_temp;
+//
 bool kill_thread_ = false;
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging("jarvis");
   FLAGS_log_dir = std::string("/tmp/jarvis/");
+  //
   if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
     mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
   }
-
+  //
+  ParseOption(std::string(argv[1]));
   //
   //
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
-  const std::string data_dir(argv[1]);
-
-  LOG(INFO) << data_dir;
-  std::cout << data_dir << std::endl;
+  //
+  CreateDataDir();
   std::mutex mutex;
   std::condition_variable cond;
   jarvis_pic::ZmqComponent zmq;
   jarvis_pic::MpcComponent mpc;
-  ParseOption(std::string(argv[1]));
   std::unique_ptr<jarvis_pic::JarvisBrige> jarvis_slam =
       std::make_unique<jarvis_pic::JarvisBrige>(
           std::string(argv[1]), [&](const jarvis::TrackingData& data) {
-            // LOG(INFO) << data.data->pose;
+            LOG(INFO) << data.data->pose;
             {
               std::lock_guard<std::mutex> lock(mutex);
               tracking_data_temp = data;
               cond.notify_all();
             }
+            std::stringstream info;
+            info << std::to_string(uint64_t(
+                        jarvis::common::ToUniversal(data.data->time) * 1e2))
+                 << " " << data.data->pose.translation().x() << " "
+                 << data.data->pose.translation().y() << " "
+                 << data.data->pose.translation().z() << " "
+                 << data.data->pose.rotation().w() << " "
+                 << data.data->pose.rotation().x() << " "
+                 << data.data->pose.rotation().y() << " "
+                 << data.data->pose.rotation().z() << std::endl;
+            kOPoseFile << info.str();
             mpc.Write(data);
           });
 #ifdef __ZMQ_ENABLAE__

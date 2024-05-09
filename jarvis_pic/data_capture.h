@@ -59,5 +59,7 @@ class DataCapture {
   bool stop_ = false;
 };
 
+
+
 }  // namespace jarvis_pic
 #endif

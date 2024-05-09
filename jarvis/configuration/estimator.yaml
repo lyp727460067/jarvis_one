@@ -28,6 +28,7 @@ image_height: 544
 # imu_cam_time_offset: 0.028 #1123
 imu_cam_time_offset: 0. #for 1209
 image_sample : 1
+record : 0
 offline_play_bag_duration : 0.001  
 
 mask_id: mask.png
@@ -71,7 +72,7 @@ body_T_cam1: !!opencv-matrix
 multiple_thread: 0
 
 #feature traker paprameters
-max_cnt: 150            # max feature number in feature tracking
+max_cnt: 100            # max feature number in feature tracking
 min_dist: 30            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
