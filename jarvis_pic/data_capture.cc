@@ -125,7 +125,8 @@ void DataCapture::SysPorocess() {
                            return (last_frame.first == imu.sync_count);
                          });
   auto next_it = std::next(it, option_.cam_durion_imu_cout - 1);
-  if (it != imu_catch_.end() && next_it != imu_catch_.end() &&
+  if (it != imu_catch_.end() &&
+      std::distance(it, imu_catch_.end()) >= option_.cam_durion_imu_cout &&
       next_it->sync_count == it->sync_count) {
     sys_time_base_ = std::make_pair(last_frame.second.time, it->time_stamp);
     LOG(INFO) <<"find same count: "<<static_cast<int>(last_frame.first);

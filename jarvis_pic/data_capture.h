@@ -30,7 +30,7 @@ struct ImuData {
 class DataCapture {
  public:
   explicit DataCapture(const DataCaptureOption& option);
-  ~DataCapture();
+  virtual ~DataCapture();
   void Rigister(std::function<void(const Frame&)> f) {
     frame_call_backs_.push_back(std::move(f));
   }
