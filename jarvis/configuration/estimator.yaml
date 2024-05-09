@@ -26,10 +26,10 @@ cam1_calib: "ld_cam1.yaml"
 image_width: 640
 image_height: 544
 # imu_cam_time_offset: 0.028 #1123
-imu_cam_time_offset: 0. #for 1209
+imu_cam_time_offset:  -0.09597202515969253 #for 1209
 image_sample : 1
 record : 0
-offline_play_bag_duration : 0.001  
+offline_play_bag_duration : 0.001 
 
 mask_id: mask.png
 
@@ -42,10 +42,10 @@ body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [0.02125173883257414, 0.9997723090827768, -0.0019218709333909123, 0.04100117061463588,
-          0.011824361274753059, -0.0021735151623933358, -0.9999277275444876, 0.04344196877556,
-         -0.99970423029866, 0.021227478020984902, -0.011867859951668669, -0.03398075777238983,
-          0.000000000000,  0.000000000000, 0.000000000000, 1.000000000000]
+   data:  [0.008733163957597018, 0.9999616398086721, 0.0006713854660220786, 0.042523499653479235,
+          0.01670219696216574, 0.0005254488526089396, -0.9998603705118745, 0.03414749170745267,
+          -0.9998223684554819, 0.008743158162674958, -0.016696967431713505, -0.02750184757058979,
+          0.0, 0.0, 0.0, 1.0]
 
    # data: [0.004119637854333169, 0.9999896970386508, 0.0019064103693632872, -0.01982065921660834, 
    #        0.018578720105320412, -0.0019826356023358582, 0.9998254349211748, 0.04645290656552592, 
@@ -86,7 +86,7 @@ keyframe_parallax: 20.0 # keyframe selection threshold (pixel)
 
 
 #imu parameters       The more accurate parameters you provide, the better performance
-acc_n: 0.01          # accelerometer measurement noise standard deviation. 
+acc_n: 0.1          # accelerometer measurement noise standard deviation. 
 gyr_n: 0.01         # gyroscope measurement noise standard deviation.     
 acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
 gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
