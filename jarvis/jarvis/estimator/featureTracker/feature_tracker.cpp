@@ -124,8 +124,8 @@ void efficientGoodFeaturesToTrack(InputArray _image,
       if (x_cell <= grid_width && y_cell <= grid_height)
         grid[y_cell * grid_width + x_cell].push_back(have_corners[i]);
 
-      corners.push_back(have_corners[i]);
-      ++ncorners;
+      // corners.push_back(have_corners[i]);
+      // ++ncorners;
     }
 
     for (size_t i = 0; i < keypoints_.size(); i++) {
@@ -188,8 +188,8 @@ void efficientGoodFeaturesToTrack(InputArray _image,
     return;
   }
 
-  if (have_corners.size() != 0)
-    corners.erase(corners.begin(), corners.end() + have_corners.size());
+  // if (have_corners.size() != 0)
+  //   corners.erase(corners.begin(), corners.end() + have_corners.size());
 }
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt) {
@@ -358,8 +358,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       // cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
       vector<cv::Point2f> forw_pts;
-      efficientGoodFeaturesToTrack(cur_img, forw_pts, n_pts,
-                                   MAX_CNT - cur_pts.size(), MIN_DIST);
+      efficientGoodFeaturesToTrack(cur_img, cur_pts, n_pts,
+                                    MAX_CNT - cur_pts.size() , MIN_DIST);
     } else {
       n_pts.clear();
     }

@@ -1240,7 +1240,7 @@ void Estimator::optimization() {
   ceres::Solver::Options options;
 
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 4;
+  options.num_threads = 8;
   options.trust_region_strategy_type = ceres::DOGLEG;
   options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
   // options.dynamic_sparsity =true;

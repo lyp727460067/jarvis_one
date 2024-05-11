@@ -7,32 +7,32 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include "glog/logging.h"
+
 #include "data_capture.h"
 #include "fstream"
+#include "glog/logging.h"
+#include "jarvis/common/fixed_ratio_sampler.h"
 #include "jarvis/sensor/data_process.h"
 #include "jarvis/sensor/stereo_sync.h"
 #include "jarvis/trajectory_builder.h"
 #include "mutex"
-#include "unistd.h"
-#include "zmq_component.h"
-#include "jarvis/common/fixed_ratio_sampler.h"
 #include "ostream"
 #include "time.h"
+#include "unistd.h"
+#include "zmq_component.h"
 
 #include "SensorDataCapturer/DataCapturer.h"
 //
-namespace 
-{
+namespace {
 
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
 double imu_cam_time_offset = 0;
-double image_sample =1;
+double image_sample = 1;
 uint8_t kRecordFlag = 0;
-std::ofstream   kOImuFile;
-std::ofstream   kOPoseFile;
+std::ofstream kOImuFile;
+std::ofstream kOPoseFile;
 std::string image_dir;
 
 void ParseOption(const std::string& config) {
@@ -61,18 +61,23 @@ class JarvisBrige {
     order_queue_ = std::make_unique<jarvis::sensor::OrderedMultiQueue>();
     order_queue_->AddQueue(kImuTopic,
                            [&](const jarvis::sensor::ImuData& imu_data) {
-                              // LOG(INFO) << std::to_string(imu_data.time);
-                              // LOG(INFO)<<
-                              //      imu_data.linear_acceleration.transpose()
-                              //     << imu_data.angular_velocity.transpose();
-                              builder_->AddImuData(imu_data);
+                             // LOG(INFO) << std::to_string(imu_data.time);
+                             // LOG(INFO)<<
+                             //      imu_data.linear_acceleration.transpose()
+                             //     << imu_data.angular_velocity.transpose();
+                             builder_->AddImuData(imu_data);
                            });
     //
-    order_queue_->AddQueue(kImagTopic0,
-                           [&](const jarvis::sensor::ImageData& imag_data) {
-                              // LOG(INFO) << std::to_string(imag_data.time);
-                             builder_->AddImageData(imag_data);
-                           });
+    order_queue_->AddQueue(
+        kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
+          // LOG(INFO) << std::to_string(imag_data.time);
+          auto start = std::chrono::high_resolution_clock::now();
+          builder_->AddImageData(imag_data);
+          LOG(INFO) << "One frame cost: "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::high_resolution_clock::now() - start)
+                           .count();
+        });
 
     LOG(INFO) << "Capture start..";
 
@@ -87,7 +92,7 @@ class JarvisBrige {
                          }));
     });
     data_capture_->Rigister([&](const Frame& frame) {
-      if(!image_sample_->Pulse())return;
+      if (!image_sample_->Pulse()) return;
       auto temp = std::make_shared<cv::Mat>(frame.image.clone());
       order_queue_->AddData(
           kImagTopic0,
@@ -109,8 +114,9 @@ class JarvisBrige {
         kOImuFile << info.str() << std::endl;
       });
       data_capture_->Rigister([&](const Frame& frame) {
-        cv::imwrite(image_dir + std::to_string(uint64_t(frame.time*1e3)) + ".png",
-                    frame.image);
+        cv::imwrite(
+            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + ".png",
+            frame.image);
       });
     }
     order_queue_->Start();
@@ -187,7 +193,7 @@ int main(int argc, char* argv[]) {
   std::unique_ptr<jarvis_pic::JarvisBrige> jarvis_slam =
       std::make_unique<jarvis_pic::JarvisBrige>(
           std::string(argv[1]), [&](const jarvis::TrackingData& data) {
-            LOG(INFO) << data.data->pose;
+            // LOG(INFO) << data.data->pose;
             {
               std::lock_guard<std::mutex> lock(mutex);
               tracking_data_temp = data;

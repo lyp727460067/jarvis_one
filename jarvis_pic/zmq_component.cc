@@ -92,14 +92,10 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data) {
       data.data->pose.translation().z(), data.data->pose.rotation().w(),
       data.data->pose.rotation().x(),    data.data->pose.rotation().y(),
       data.data->pose.rotation().z()};
-  // LOG(INFO)<<pose.qw;
   int lenth = datas.size();
   datas.resize(datas.size() + sizeof(PoseData));
   memcpy((void *)(datas.data() + lenth), (void *)&pose, sizeof(PoseData));
-  // for(size_t i  = 0;i<sizeof(PoseData);i++){
-  //   std::cout<<int((datas.data() + lenth)[i])<<" ";
-  // }
-  // std::cout<<std::endl;
+
   std::vector<uint8_t> result;
   result.push_back(0xaa);
   result.push_back(0x55);
@@ -141,7 +137,7 @@ MpcComponent::MpcComponent() : shm_mod_(new ShmMod()) {}
 //
 void MpcComponent::Write(const jarvis::TrackingData &data) {
   ModLocPoseFb mpc_data{
-      static_cast<uint64_t>(jarvis::common::ToUniversal(data.data->time)*1e2),
+      static_cast<uint64_t>(jarvis::common::ToUniversal(data.data->time) * 1e2),
       data.data->pose.translation().x(),
       data.data->pose.translation().y(),
       data.data->pose.translation().z(),
@@ -152,7 +148,6 @@ void MpcComponent::Write(const jarvis::TrackingData &data) {
       0,
       static_cast<uint8_t>(data.status)};
 
-  LOG(INFO) << mpc_data.timestamp;
   shm_mod_->SetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
   //
   //
@@ -160,9 +155,10 @@ void MpcComponent::Write(const jarvis::TrackingData &data) {
   memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
   shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
   //
-  jarvis::transform::Rigid3d read_pose(
-      Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
-      Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  LOG(INFO) << "Read pose: " << mpc_data.timestamp << " " << read_pose;
+  // jarvis::transform::Rigid3d read_pose(
+  //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
+  //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy,
+  //     mpc_data.qz));
+  // LOG(INFO) << "Read pose: " << mpc_data.timestamp << " " << read_pose;
 }
 }  // namespace jarvis_pic
