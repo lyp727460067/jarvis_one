@@ -6,6 +6,7 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 
+#include "CamImuAligner.h"
 #include<chrono>
 
 namespace VSLAM 
@@ -51,6 +52,8 @@ namespace VSLAM
     DataCapturer::DataCapturer() 
     {
         this->mbStop = false;
+        mAligner.Set(10,200);
+        this->mnFrameId = 0;
     }
 
     void DataCapturer::IMUReceiveLoop() 
@@ -114,15 +117,16 @@ namespace VSLAM
             imumessage.wm << imudata.imu_data.gyro_x * 1e-3, imudata.imu_data.gyro_y * 1e-3, imudata.imu_data.gyro_z * 1e-3;             // mrad/s to rad/s
             imumessage.am << imudata.imu_data.accel_x * acc_unit, imudata.imu_data.accel_y * acc_unit, imudata.imu_data.accel_z * acc_unit; // 1/2048 g to m/s2
 
-            ImuData_forSave imu_save;
-            imu_save.time_stamp = imudata.time_stamp;
+            ImuData_NotAligned imu_save;
+            imu_save.time_stamp = imudata.time_stamp * 1000;//us2ns
             imu_save.sync_count = imudata.sync_count;
             imu_save.wm = imumessage.wm;
             imu_save.am = imumessage.am;
             {
                 std::unique_lock<std::mutex> lock(mutex_Save_IMU);
-                this->mqImuData.push(imu_save);
+                this->mqImuDataForSave.push(imu_save);
             }
+            this->mAligner.AddImuData(imu_save);
 
             
             FLOGD("imu,%llu,%lu,%f,%f,%f,%f,%f,%f\n", imudata.time_stamp, imudata.sync_count, 
@@ -172,7 +176,7 @@ namespace VSLAM
 
                     cv::Mat r_grayImg = YuvBufToGrayMat(frame.buf + sizeof(CameraFrameHead) + (frame.head.len >> 1),
                                                     (frame.head.len - sizeof(CameraFrameHead)) >> 1, 640, 544);
-
+                    this->mnFrameId++;
                     //转换为保存对象
                     {
                         StereoImages tmpStereoImage;
@@ -183,6 +187,19 @@ namespace VSLAM
                         tmpStereoImage.mTimeStamp = t_c_newest;
                         this->mqStereoImage.push(tmpStereoImage);
                     }
+
+                    //与IMU对齐
+                    double camTimeStamp = t_c_newest;
+                    std::vector<ImuData> vImus = mAligner.GetAlignImuData(camTimeStamp,nCurCount);
+                    {
+                        std::unique_lock<std::mutex> lock(mutex_Aligned_IMU);
+                        for(long unsigned int id = 0; id < vImus.size();id++)
+                        {
+                            mqImuDataAligned.push(vImus[id]);
+                        }
+                    }
+
+
                 }
 
             }
@@ -203,6 +220,7 @@ namespace VSLAM
 
     void DataCapturer::SaveSensorData()
     {
+        
         std::string strPath("/mnt/UDISK/calib_save/");
         std::ofstream of1(strPath + std::string("imageFile.txt"), std::ios::out);
         if (!of1.is_open()) 
@@ -221,6 +239,9 @@ namespace VSLAM
 
         std::ofstream of3(strPath + std::string("imu1.csv"), std::ios::out);
         of3 << "timestamp,omega_x,omega_y,omega_z,alpha_x,alpha_y,alpha_z" << std::endl;
+
+        std::ofstream of4(strPath + std::string("imu_aligned.csv"), std::ios::out);
+        of4 << "timestamp,omega_x,omega_y,omega_z,alpha_x,alpha_y,alpha_z" << std::endl;
         while(true)
         {
             bool bGetImg = false;
@@ -246,20 +267,21 @@ namespace VSLAM
                 cv::imwrite(rightName1, curStereoImage.mRightImg);
                 of1 << curStereoImage.mTimeStamp << ","<<curStereoImage.count<<","<<nQueueSize<<std::endl;
             }
-
+            
             bool bImuToSave = true;
+            bool bAlignedImuToSave = false;
             int nImuSegCount = 0;
             while(bImuToSave && nImuSegCount < 20)//一次最多存20个
             {
                 bImuToSave = false;
-                ImuData_forSave imudata;
+                ImuData_NotAligned imudata;
                 {
                     std::unique_lock<std::mutex> lock(mutex_Save_IMU);
-                    if(!mqImuData.empty())
+                    if(!mqImuDataForSave.empty())
                     {
                         
-                        imudata = this->mqImuData.front();
-                        this->mqImuData.pop();
+                        imudata = this->mqImuDataForSave.front();
+                        this->mqImuDataForSave.pop();
                         bImuToSave = true;
                         nImuSegCount++;
                     }
@@ -269,24 +291,47 @@ namespace VSLAM
                 if(bImuToSave)
                 {
                     of2  << std::setiosflags(std::ios::fixed) << std::setprecision(20);
-                    of2  <<imudata.time_stamp * 1000 << ","
+                    of2  <<imudata.time_stamp << ","
                         <<imudata.sync_count<<","
                         << imudata.wm(0) << "," << imudata.wm(1) << "," << imudata.wm(2) << ","
                         << imudata.am(0) << "," << imudata.am(1) << "," << imudata.am(2) << std::endl;
 
                     of3 << std::setiosflags(std::ios::fixed) << std::setprecision(20);
-                    of3 <<imudata.time_stamp * 1000 << ","
+                    of3 <<imudata.time_stamp << ","
                         << imudata.wm(0) << "," << imudata.wm(1) << "," << imudata.wm(2) << ","
                         << imudata.am(0) << "," << imudata.am(1) << "," << imudata.am(2) << std::endl;
+                
+                }
+
+                bAlignedImuToSave = false;
+                ImuData AlignedImu;
+                {
+                    std::unique_lock<std::mutex> lock(mutex_Aligned_IMU);
+                    if(!mqImuDataAligned.empty())
+                    {
+                        AlignedImu = mqImuDataAligned.front();
+                        bAlignedImuToSave = true;
+                        mqImuDataAligned.pop();
+                    }
+                }
+
+                if(bAlignedImuToSave)
+                {
+                    of4 << std::setiosflags(std::ios::fixed) << std::setprecision(20);
+                    of4 <<AlignedImu.timestamp * 1.0e9 << ","
+                        << AlignedImu.wm(0) << "," << AlignedImu.wm(1) << "," << AlignedImu.wm(2) << ","
+                        << AlignedImu.am(0) << "," << AlignedImu.am(1) << "," << AlignedImu.am(2) << std::endl;
                 }
             }
-
+            
 
 
         }
         of1.close();
         of2.close();
         of3.close();
+        of4.close();
+        
     }
 
     cv::Mat DataCapturer::YuvBufToGrayMat(uint8_t *buf, long size, uint32_t width, uint32_t height)
@@ -296,7 +341,6 @@ namespace VSLAM
         cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
         return grayMat;
     }
-
 
     DataCapturer::~DataCapturer()
     {

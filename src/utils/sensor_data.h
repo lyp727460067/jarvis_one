@@ -37,7 +37,7 @@ typedef struct StereoImages
     int count;
 }StereoImages;
 
-typedef struct ImuData_forSave
+typedef struct ImuData_NotAligned
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     uint64_t time_stamp;  ///<  MCU端时间戳 [us]
@@ -47,7 +47,7 @@ typedef struct ImuData_forSave
 
     /// Accelerometer reading, linear acceleration (m/s^2)
     Eigen::Matrix<double, 3, 1> am;
-}ImuData_forSave;
+}ImuData_NotAligned;
 
 /**
  * @brief Struct for a single imu measurement (time, wm, am)

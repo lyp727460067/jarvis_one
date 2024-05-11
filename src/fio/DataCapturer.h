@@ -16,8 +16,9 @@
 
 #include "utils/sensor_data.h"
 #include "utils/utility.h"
+#include "CamImuAligner.h"
 
-
+#define FRAME_MAX_LEN (4116580)
 namespace VSLAM 
 {
 
@@ -43,6 +44,8 @@ private:
     void SaveSensorData();
 
     cv::Mat YuvBufToGrayMat(uint8_t *buf, long size, uint32_t width, uint32_t height);
+
+
 private:
     // IMU数据队列
     std::deque<ModSyncImuFb> imu_data_deque_;
@@ -56,12 +59,18 @@ private:
     std::queue<StereoImages> mqStereoImage;//first是路径，second是图像
     std::mutex mutex_Save_Stereo_Image;
 
-    std::queue<ImuData_forSave> mqImuData;
+    std::queue<ImuData_NotAligned> mqImuDataForSave;
     std::mutex mutex_Save_IMU;
+
+    std::mutex mutex_Aligned_IMU;
+    std::queue<ImuData> mqImuDataAligned;
 
     std::thread mtSaveSensorDataThread;
 
     bool mbStop;
+
+    CamImuAligner mAligner;
+    int mnFrameId;
 };
 
 }
