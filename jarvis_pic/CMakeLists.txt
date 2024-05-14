@@ -45,6 +45,7 @@ include_directories(
   ${Boost_INCLUDE_DIR}
   ${GLOG_INCLUDE_DIRS}
   ${TOP_CMAKE_DIR}/libs/libmpc/include
+  
 )
 option(view_debug " view_debug" ON)
 if(${view_debug})
@@ -52,7 +53,7 @@ add_definitions(-D__ZMQ_ENABLAE__)
 endif()
 add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main)
 add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
-socket_wrapper.cc
+socket_wrapper.cc SensorDataCapturer/DataCapturer.cpp SensorDataCapturer/CamImuAligner.cpp
 
 )
 ## Specify libraries to link a library or executable target against

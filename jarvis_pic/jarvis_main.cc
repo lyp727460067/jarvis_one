@@ -20,6 +20,7 @@
 #include "ostream"
 #include "time.h"
 
+#include "SensorDataCapturer/DataCapturer.h"
 //
 namespace 
 {
@@ -47,7 +48,8 @@ namespace jarvis_pic {
 class JarvisBrige {
  public:
   JarvisBrige(const std::string& config, jarvis::CallBack call_back)
-      : data_capture_(new DataCapture(DataCaptureOption{})) {
+      : data_capture_(new VSLAM::DataCapturer(10,200)) 
+  {
     //
     image_sample_ =
         std::make_unique<jarvis::common::FixedRatioSampler>(image_sample);
@@ -202,7 +204,7 @@ int main(int argc, char* argv[]) {
                  << data.data->pose.rotation().y() << " "
                  << data.data->pose.rotation().z() << std::endl;
             kOPoseFile << info.str();
-            mpc.Write(data);
+            // mpc.Write(data);
           });
 #ifdef __ZMQ_ENABLAE__
   // jarvis_pic::ZmqComponent zmq;

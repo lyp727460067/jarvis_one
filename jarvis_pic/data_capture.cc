@@ -21,10 +21,15 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
 }  // namespace
 
 DataCapture::DataCapture(const DataCaptureOption& option)
-    : mem_ssq_(new ShmSensorQueue) {}
+    : mem_ssq_(new ShmSensorQueue) 
+{
+
+}
 //
-void DataCapture::Start() {
-  thread_ = std::thread([this]() {
+void DataCapture::Start() 
+{
+  thread_ = std::thread([this]() 
+  {
     while (!stop_) {
       Run();
       std::this_thread::sleep_for(
@@ -71,7 +76,8 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
   }
 }
 //
-void DataCapture::Run() {
+void DataCapture::Run() 
+{
   ModSyncImuFb imudata;
   int32_t res = mem_ssq_->PopImuData(&imudata);
 
@@ -92,6 +98,7 @@ void DataCapture::Run() {
     ProcessImag(frame);
   }
   SysPorocess();
+  
 }
 Frame ToFrameData(const CameraFrame& frame,
                                const DataCaptureOption& option) {
