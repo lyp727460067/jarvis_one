@@ -3,13 +3,14 @@
 #include <array>
 #include <chrono>
 #include <vector>
-
 #include "glog/logging.h"
-#define FRAME_MAX_LEN 640 * 544 * 100
+//
+#define FRAME_MAX_LEN (640 * 544 * 100)
 namespace jarvis_pic {
 namespace {
 std::array<uint8_t, FRAME_MAX_LEN> read_buf;
-constexpr double kAccUnit = 1.0 / 2048 * 9.81;  // 加速度单位
+constexpr double kAccUnit = (1.0 / 2048 * 9.81);  // 加速度单位
+//
 cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
                         uint32_t height) {
   cv::Mat yuvMat(height + height / 2, width, CV_8UC1, (unsigned char*)buf);
@@ -97,9 +98,13 @@ void DataCapture::Run()
     last_frame_sys_count_ = frame_sys_count;
     ProcessImag(frame);
   }
+  //
+  // ModRTKFB  rtk_data;
   SysPorocess();
   
 }
+//
+//
 Frame ToFrameData(const CameraFrame& frame,
                                const DataCaptureOption& option) {
   cv::Mat grayImg = YuvBufToGrayMat(
@@ -148,4 +153,5 @@ void DataCapture::SysPorocess() {
   }
 }
 
+//
 }  // namespace jarvis_pic

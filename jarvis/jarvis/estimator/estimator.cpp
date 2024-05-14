@@ -114,13 +114,13 @@ std::unique_ptr<EstimatorResult> ExtractKeyFrameMapPoints(
         std::make_unique<TrackingData>(
             TrackingData{std::make_shared<TrackingData::Data>(
                 TrackingData::Data{common::Time(common::FromSeconds(time)),
-                                   tracking_cam_pose,
+                                   tracking_imu_pose,
                                    std::move(point_clouds),
                                    std::move(key_points),
                                    image,
                                    {},
                                    {},
-                                   {0}})}),
+                                   {0}}),2}),
     });
   } else {
     //
@@ -182,7 +182,7 @@ std::unique_ptr<EstimatorResult> ExtractKeyFrameMapPoints(
     return std::make_unique<EstimatorResult>(
         EstimatorResult{nullptr,
                              {common::Time(common::FromSeconds(time)), image,
-                              std::move(key_points), tracking_cam_pose}});
+                              std::move(key_points), tracking_imu_pose}});
   }
   return nullptr;
 }

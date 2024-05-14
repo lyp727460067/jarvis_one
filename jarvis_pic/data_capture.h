@@ -8,7 +8,6 @@
 #include "Eigen/Core"
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
-
 namespace jarvis_pic {
 struct DataCaptureOption {
   uint32_t cam_durion_imu_cout = 20;

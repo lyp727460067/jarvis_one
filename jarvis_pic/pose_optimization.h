@@ -5,6 +5,7 @@
 #include "jarvis/sensor/fixed_frame_pose_data.h"
 #include "jarvis/motion_filter.h"
 #include "queue"
+#include "jarvis/transform/transform_interpolation_buffer.h"
 namespace jarvis_pic {
 struct PoseOptimizationOption {
   int win_size = 20;
@@ -17,7 +18,7 @@ struct PoseData {
 //
 class PoseOptimization {
  public:
-  PoseOptimization(const PoseOptimizationOption& option);
+  explicit PoseOptimization(const PoseOptimizationOption& option);
   //
   void AddPose(const PoseData& pose);
   //
@@ -29,11 +30,13 @@ class PoseOptimization {
   jarvis::transform::Rigid3d CeresUpdata(
       const jarvis::transform::Rigid3d pose_expect,
       const jarvis::sensor::FixedFramePoseData& fix_data);
-
+PoseOptimizationOption  options_;
   std::unique_ptr<jarvis::MotionFilter> pose_motion_filter_;
   std::unique_ptr<jarvis::MotionFilter> rtk_motion_filter_;
   std::deque<jarvis::sensor::FixedFramePoseData> rtk_pose_;
-  std::deque<PoseData> rtk_pose_;
+  std::deque<PoseData> odom_pose_;
+  std::unique_ptr<jarvis::transform::TransformInterpolationBuffer>
+      rtk_interpolateion_;
   jarvis::transform::Rigid3d pose_gps_to_local_;
 };
 

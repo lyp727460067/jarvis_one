@@ -1,13 +1,21 @@
 
+
 #include "pose_optimization.h"
 
 #include <Eigen/Core>
 
 #include "ceres/ceres.h"
+#include "jarvis/transform/timestamped_transform.h"
 #include "jarvis/transform/transform.h"
 //
 using namespace jarvis;
+
 namespace jarvis_pic {
+//
+struct NodePose {
+  Eigen::Vector3d p;
+  Eigen::Quaterniond q;
+};
 //
 template <typename T>
 inline T NormalizeAngle(const T& angle_radians) {
@@ -107,7 +115,6 @@ std::array<T, 6> ScaleError(const std::array<T, 6>& error,
 
 class GpsWindCostFunction {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   GpsWindCostFunction(const transform::Rigid3d& pose,
                       const std::array<double, 2>& weitht)
       : mearemnt_pose_(pose), weigth_(weitht) {}
@@ -132,36 +139,7 @@ class GpsWindCostFunction {
   const transform::Rigid3d mearemnt_pose_;
   const std::array<double, 2> weigth_;
 };
-class Gps2dWindCostFunction {
- public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  Gps2dWindCostFunction(const transform::Rigid3d& pose,
-                        const std::array<double, 2>& weitht)
-      : mearemnt_pose_(pose), weigth_(weitht) {}
-  template <typename T>
-  bool operator()(const T* const c_i_angle, const T* const c_i_translation,
-                  const T* const c_j_rotation, const T* const c_j_translation,
-                  T* const e) const {
-    std::array<T, 4> c_i_rotation{
-        {cos(c_i_angle[0] * T(0.5)), T(0), T(0), sin(c_i_angle[0] * T(0.5))}};
-    const std::array<T, 6> error = ScaleError(
-        ComputeUnscaledError(mearemnt_pose_, c_i_rotation.data(),
-                             c_i_translation, c_j_rotation, c_j_translation),
-        weigth_[0], weigth_[1]);
-    std::copy(std::begin(error), std::end(error), e);
-    return true;
-  }
-  static ceres::CostFunction* CreateAutoDiffCostFunction(
-      const transform::Rigid3d& pose, const std::array<double, 2>& weitht) {
-    return new ceres::AutoDiffCostFunction<Gps2dWindCostFunction, 6, 1, 3, 4,
-                                           3>(
-        new Gps2dWindCostFunction(pose, weitht));
-  }
 
- private:
-  const transform::Rigid3d mearemnt_pose_;
-  const std::array<double, 2> weigth_;
-};
 
 std::pair<std::array<double, 3>, std::array<double, 4>> ToCeresPose(
     const transform::Rigid3d& pose) {
@@ -183,92 +161,71 @@ transform::Rigid3d ArrayToRigid(
                          pose.second[3]));
 }
 
-transform::Rigid3d PoseOptimization::CeresUpdata(
-    const transform::Rigid3d pose_expect,
+std::unique_ptr<transform::Rigid3d> PoseOptimization::AddFixedFramePoseData(
     const sensor::FixedFramePoseData& fix_data) {
-  //
-  const auto ceres_pose = ToCeresPose(pose_expect);
-  if (slide_windows_pose_.size() < 2) {
-    slide_windows_pose_.push_back(
-        {ceres_pose.first, ceres_pose.second, {pose_expect, fix_data}});
-    return transform::Rigid3d::Identity();
+  if (rtk_motion_filter_->IsSimilar(fix_data.time, fix_data.pose)) {
+    return nullptr;
   }
-  slide_windows_pose_.push_back({slide_windows_pose_.back().traslation,
-                                 slide_windows_pose_.back().rotation,
-                                 {pose_expect, fix_data}});
+  // rtk_interpolateion_->SetSizeLimit(options_.win_size);
+  // rtk_interpolateion_->Push(fix_data.time, fix_data.pose);
+
+  // if(rtk_interpolateion_->size()>options_.win_size){
+  //   rtk_interpolateion_->earliest_time
+  // }
+  // if (rtk_pose_.size() > options_.win_size) {
+  //   rtk_pose_.pop_back();
+  // }
+
+  //   pose_update = UpdataPose(pose_expect, fix_data);
+}
+
+std::unique_ptr<jarvis::transform::Rigid3d> PoseOptimization::GetDeltaPose() {
+  while ((rtk_pose_.size() > 2 && odom_pose_.size() > 2) &&
+         rtk_pose_.front().time > odom_pose_.front().time) {
+    odom_pose_.pop_front();
+  }
+  if (rtk_pose_.size() < options_.win_size) return nullptr;
+
+  std::vector<NodePose> node_poses;
+  for (int i = 0; i < odom_pose_.size(); i++) {
+    node_poses.push_back(NodePose{odom_pose_[i].pose.translation(),
+                                  odom_pose_[i].pose.rotation()});
+  }
   ceres::LocalParameterization* quaternion_local =
       new ceres::EigenQuaternionParameterization;
   ceres::Problem problem;
-  auto fix_local_to_map_ = transform::Rigid3d(
-      pose_gps_to_local_.translation(),
-      Eigen::AngleAxisd(transform::GetYaw(pose_gps_to_local_.rotation()),
-                        Eigen::Vector3d::UnitZ()));
-  auto fix_local_to_map_arry = ToCeresPose(fix_local_to_map_);
-  double fix_local_to_map_arry_angle =
-      transform::GetYaw(pose_gps_to_local_.rotation());
-  for (auto& slide_widons_data : slide_windows_pose_) {
-    problem.AddResidualBlock(
-        Gps2dWindCostFunction::CreateAutoDiffCostFunction(
-            slide_widons_data.local_data_.fix_data.pose,
-            std::array<double, 2>{option_.fix_weitht_traslation,
-                                  option_.fix_weitht_rotation}),
-        new ceres::HuberLoss(0.01), &fix_local_to_map_arry_angle,
-        fix_local_to_map_arry.first.data(), slide_widons_data.rotation.data(),
-        slide_widons_data.traslation.data());
-    // problem.SetParameterization(fix_local_to_map_arry.second.data(),
-    //                             quaternion_local);
-    problem.SetParameterization(slide_widons_data.rotation.data(),
-                                quaternion_local);
-  }
+  std::array<double, 3> local_to_fix_translation;
+  double local_to_fix_yaw = 0;
 
-  // problem.SetParameterUpperBound(fix_local_to_map_arry.second.data(), 1,
-  // 0.0); problem.SetParameterUpperBound(fix_local_to_map_arry.second.data(),
-  // 2, 0.0);
-  std::array<double, 3> traslation{0, 0, 0};
-  std::array<double, 4> rotation{1, 0, 0, 0};
-  for (int i = 0; i < slide_windows_pose_.size(); i++) {
-    problem.AddResidualBlock(
-        GpsWindCostFunction::CreateAutoDiffCostFunction(
-            slide_windows_pose_[i].local_data_.local_data,
-            {option_.extraplaton_weitht, option_.extraplaton_weitht}),
-        nullptr, rotation.data(), traslation.data(),
-        slide_windows_pose_[i].rotation.data(),
-        slide_windows_pose_[i].traslation.data());
+  for (int i = 1; i < node_poses.size(); i++) {
+    //
+    //  auto fix_pose =   Interpolate();
+    //   problem.AddResidualBlock(
+    //       Gps2dWindCostFunction::CreateAutoDiffCostFunction(
+
+    //           std::array<double, 2>{option_.fix_weitht_traslation,
+    //                                 option_.fix_weitht_rotation}),
+    //       new ceres::HuberLoss(0.01), &fix_local_to_map_arry_angle,
+    //       fix_local_to_map_arry.first.data(),
+    //       slide_widons_data.rotation.data(),
+    //       slide_widons_data.traslation.data());
+    //   // problem.SetParameterization(fix_local_to_map_arry.second.data(),
+    //   //                             quaternion_local);
+    //   problem.SetParameterization(slide_widons_data.rotation.data(),
+    //                               quaternion_local);
   }
-  problem.SetParameterBlockConstant(traslation.data());
-  problem.SetParameterBlockConstant(rotation.data());
-  ceres::Solver::Options options;
-  options.minimizer_progress_to_stdout = false;
-  options.max_num_iterations = 20;
-  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-  ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
-  auto pose_gps_to_local_temp = ArrayToRigid(fix_local_to_map_arry);
-  pose_gps_to_local_ =
-      transform::Rigid3d(pose_gps_to_local_temp.translation(),
-                         Eigen::AngleAxisd((fix_local_to_map_arry_angle),
-                                           Eigen::Vector3d::UnitZ()));
-  auto const pose_optimazation =
-      ArrayToRigid({slide_windows_pose_.back().traslation,
-                    slide_windows_pose_.back().rotation});
-  if (slide_windows_pose_.size() >= option_.slide_windows_num) {
-    slide_windows_pose_.pop_front();
-  }
-  LOG(INFO) << pose_gps_to_local_;
-  LOG(INFO) << pose_optimazation;
-  return pose_optimazation;
 }
+//
+PoseOptimization::PoseOptimization(const PoseOptimizationOption& option)
+    : pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{})),
+      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{})) {}
 
-std::unique_ptr<transform::Rigid3d> PoseOptimization::AddFixedFramePoseData(
-    const sensor::FixedFramePoseData& fix_data) {
-  pose_update = UpdataPose(pose_expect, fix_data);
+//
+void PoseOptimization::AddPose(const PoseData& pose) {
+  if (pose_motion_filter_->IsSimilar(pose.time, pose.pose)) {
+    return;
+  }
+  odom_pose_.push_front(pose);
 }
-
-PoseOptimization::PoseOptimization()
-    : pose_motion_filter_(new MotionFilter()),
-      rtk_motion_filter_(new MotionFilter()) {}
-
-void PoseOptimization::AddFixedFramePose(
-    const jarvis::sensor::FixedFramePoseData& pose) {
 
 }  // namespace jarvis_pic

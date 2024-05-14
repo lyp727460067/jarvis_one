@@ -135,9 +135,13 @@ ZmqComponent::~ZmqComponent() {}
 //
 MpcComponent::MpcComponent() : shm_mod_(new ShmMod()) {}
 //
-void MpcComponent::Write(const jarvis::TrackingData &data) {
+void MpcComponent::Write(const jarvis::TrackingData &data,
+                         const std::pair<uint64_t, uint64_t> &time_base) {
   ModLocPoseFb mpc_data{
       static_cast<uint64_t>(jarvis::common::ToUniversal(data.data->time) * 1e2),
+      static_cast<uint64_t>((jarvis::common::ToUniversal(data.data->time) -
+                             time_base.first * 10 + time_base.second*10) *
+                            1e2),
       data.data->pose.translation().x(),
       data.data->pose.translation().y(),
       data.data->pose.translation().z(),
@@ -151,14 +155,18 @@ void MpcComponent::Write(const jarvis::TrackingData &data) {
   shm_mod_->SetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
   //
   //
-
+  LOG(INFO)<<mpc_data.imu_timestamp;
+  LOG(INFO)<<static_cast<int>( mpc_data.state);
   memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
-  shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
+  int32_t lenth =
+      shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
   //
-  // jarvis::transform::Rigid3d read_pose(
-  //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
-  //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy,
-  //     mpc_data.qz));
-  // LOG(INFO) << "Read pose: " << mpc_data.timestamp << " " << read_pose;
+
+  LOG(INFO)<<mpc_data.imu_timestamp;
+  jarvis::transform::Rigid3d read_pose(
+      Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
+      Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
+  LOG(INFO) << "Read pose: " << mpc_data.timestamp << " " << read_pose << " "
+            << lenth;
 }
 }  // namespace jarvis_pic

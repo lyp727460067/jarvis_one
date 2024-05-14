@@ -89,7 +89,7 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
                                tracking_data->feature_result.images,
                                {},
                                nullptr,
-                               {0}})};
+                               {0}}),0};
     if (call_back_) {
       call_back_(data);
     }

@@ -1,106 +1,80 @@
 #!/usr/bin/python
 #
-# Plots the results from the 2D pose graph optimization. It will draw a line
+# Plots the results from the 3D pose graph optimization. It will draw a line
 # between consecutive vertices.  The commandline expects two optional filenames:
 #
-#   ./plot_results.py --initial_poses optional --optimized_poses optional
+#   ./plot_results.py --initial_poses filename  --optimized_poses filename
 #
 # The files have the following format:
-#   ID x y yaw_radians
+#   ID x y z q_x q_y q_z q_w
 
+from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plot
-import numpy as np
+import numpy
 import sys
 from optparse import OptionParser
 
+def set_axes_equal(axes):
+    ''' Sets the axes of a 3D plot to have equal scale. '''
+    x_limits = axes.get_xlim3d()
+    y_limits = axes.get_ylim3d()
+    z_limits = axes.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = numpy.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = numpy.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = numpy.mean(z_limits)
+
+    length = 0.5 * max([x_range, y_range, z_range])
+
+    axes.set_xlim3d([x_middle - length, x_middle + length])
+    axes.set_ylim3d([y_middle - length, y_middle + length])
+    axes.set_zlim3d([z_middle - length, z_middle + length])
 
 parser = OptionParser()
-parser.add_option("--befor_ceres", dest="befor_ceres_time",
-                  default="", help="time befro feed stero time")
-parser.add_option("--after_ceres", dest="after_ceres_time",
-                  default="", help="after_ceres_time")
-parser.add_option("--filter", dest="filter",
-                  default="", help="filter")
+parser.add_option("--initial_poses", dest="initial_poses",
+                  default="", help="The filename that contains the original poses.")
+parser.add_option("--optimized_poses", dest="optimized_poses",
+                  default="", help="The filename that contains the optimized poses.")
+parser.add_option("-e", "--axes_equal", action="store_true", dest="axes_equal",
+                  default="", help="Make the plot axes equal.")
 (options, args) = parser.parse_args()
 
 # Read the original and optimized poses files.
-befor_ceres_time= [] 
-befor_ceres_time_durion= [] 
+poses_original = None
+if options.initial_poses != '':
+  poses_original = numpy.genfromtxt(options.initial_poses,
+                                    usecols = (1, 2, 3))
 
-after_ceres_time= [] 
-after_ceres_time_durion= [] 
+poses_optimized = None
+if options.optimized_poses != '':
+  poses_optimized = numpy.genfromtxt(options.optimized_poses,
+                                     usecols = (1, 2, 3))
 
-def ParseFromLog(file):
-  time_start = 0.0
-  delte_num  = 0
-  feed_stere_time_cost= []
-  feed_stere_time= []
-  f=open(file, encoding='UTF-8')
-  txt=[]
-  info= ""
-  for line in f:
-    line_strip = line.strip()
-    time_strng_index = line_strip.find(options.filter)
-    if time_strng_index!= '-1':
-      time_string_index_string =  line_strip[time_strng_index:]
-      time_index = time_string_index_string.find(":")
-      time = time_string_index_string[time_index+2:]
-      if time =='':
-        continue
-      if delte_num  < 10:
-        delte_num =  delte_num+1
-        continue
-      info= info+time
-      info+=" "
-      # print(time)
-      feed_stere_time_cost.append(int(time)) 
-      feed_stere_time.append(time_start)
-      time_start= time_start+0.5
-  print(info)
-  return feed_stere_time_cost,feed_stere_time 
+# Plots the results for the specified poses.
+figure = plot.figure()
+
+if poses_original is not None:
+  axes = plot.subplot(1, 2, 1, projection='3d')
+  plot.plot(poses_original[:, 0], poses_original[:, 1], poses_original[:, 2],
+            '-', alpha=0.5, color="green")
+  plot.title('Original')
+  if options.axes_equal:
+    axes.set_aspect('equal')
+    set_axes_equal(axes)
 
 
-def  MyPlot(plot,befor_ceres_time1,tilte, x_offset=0):
-  mean  = sum(befor_ceres_time1)/len(befor_ceres_time1)
-  info = tilte+"\n"
-  info += "mean : "+str(int(mean))+"\n"
-  info += "max: "+str(max(befor_ceres_time1))+"\n"
-  info += "min: "+str(min(befor_ceres_time1))+"\n"
-
-  plot.axhline(y=0,color="blue")
-  xmin, xmax, ymin, ymax = plot.axis()
-  plot.text(xmin+x_offset, ymax ,info, fontsize=15)
-  return mean
-
-print("read befor")
-if options.befor_ceres_time != '':
-  befor_ceres_time,befor_ceres_time_durion = ParseFromLog(options.befor_ceres_time)
-
-print("read after")
-if options.after_ceres_time != '':
-  after_ceres_time,after_ceres_time_durion = ParseFromLog(options.after_ceres_time)
+if poses_optimized is not None:
+  axes = plot.subplot(1, 2, 2, projection='3d')
+  plot.plot(poses_optimized[:, 0], poses_optimized[:, 1], poses_optimized[:, 2],
+            '-', alpha=0.5, color="blue")
+  plot.title('Optimized')
+  if options.axes_equal:
+    axes.set_aspect('equal')
+    set_axes_equal(plot.gca())
 
 
-
-
-if len(befor_ceres_time) !=0:
-  plot.plot(befor_ceres_time_durion, befor_ceres_time, '-', label="befor_ceres",
-            alpha=1, color="green")
-  mean = MyPlot(plot,befor_ceres_time,"befor_ceres")
-  plot.axhline(y=mean,color="green")
-
-if len(after_ceres_time) !=0:
-  plot.plot(after_ceres_time_durion, after_ceres_time, '-', label="after_ceres",
-            alpha=1, color="red")
-  mean = MyPlot(plot,after_ceres_time,"after_ceres",300)
-  plot.axhline(y=mean,color="red")
-
-
-
-
-
-
-plot.axis('equal')
-plot.legend()
 # Show the plot and wait for the user to close.
 plot.show()

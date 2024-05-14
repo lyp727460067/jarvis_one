@@ -122,6 +122,7 @@ class JarvisBrige {
     order_queue_->Start();
     data_capture_->Start();
   }
+  DataCapture* GetDataCapture() { return data_capture_.get(); }
 
  private:
   std::unique_ptr<DataCapture> data_capture_;
