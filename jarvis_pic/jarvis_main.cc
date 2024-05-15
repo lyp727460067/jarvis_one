@@ -21,25 +21,27 @@
 #include "unistd.h"
 #include "zmq_component.h"
 
-#include "SensorDataCapturer/DataCapturer.h"
 //
 namespace {
 
+jarvis::TrackingData tracking_data_temp;
+bool kill_thread_ = false;
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
 double imu_cam_time_offset = 0;
 double image_sample = 1;
 uint8_t kRecordFlag = 0;
+uint8_t kDataCaputureType = 0;
 std::ofstream kOImuFile;
 std::ofstream kOPoseFile;
 std::string image_dir;
-
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["imu_cam_time_offset"] >> imu_cam_time_offset;
   fsSettings["image_sample"] >> image_sample;
   fsSettings["record"] >> kRecordFlag;
+  fsSettings["data_capture"] >> kDataCaputureType;
 }
 }  // namespace
 //
@@ -48,8 +50,7 @@ namespace jarvis_pic {
 class JarvisBrige {
  public:
   JarvisBrige(const std::string& config, jarvis::CallBack call_back)
-      : data_capture_(new VSLAM::DataCapturer(10,200)) 
-  {
+      : data_capture_(CreateDataCaputure({kDataCaputureType})) {
     //
     image_sample_ =
         std::make_unique<jarvis::common::FixedRatioSampler>(image_sample);
@@ -169,9 +170,7 @@ void CreateDataDir() {
     }
   }
 }
-jarvis::TrackingData tracking_data_temp;
 //
-bool kill_thread_ = false;
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging("jarvis");
   FLAGS_log_dir = std::string("/tmp/jarvis/");
@@ -180,56 +179,64 @@ int main(int argc, char* argv[]) {
     mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
   }
   //
-  ParseOption(std::string(argv[1]));
+  //
+  const std::string config_file(
+      "/oem/mowpack_2/vslam/configuration/estimator.yaml");
+  //
+  ParseOption(config_file);
   //
   //
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
   //
   CreateDataDir();
-  std::mutex mutex;
-  std::condition_variable cond;
-  jarvis_pic::ZmqComponent zmq;
-  jarvis_pic::MpcComponent mpc;
+  std::mutex jarvis_mutex;
+  std::condition_variable con_variable;
+
   std::unique_ptr<jarvis_pic::JarvisBrige> jarvis_slam =
       std::make_unique<jarvis_pic::JarvisBrige>(
-          std::string(argv[1]), [&](const jarvis::TrackingData& data) {
-            // LOG(INFO) << data.data->pose;
+          std::string(config_file), [&](const jarvis::TrackingData& data) {
             {
-              std::lock_guard<std::mutex> lock(mutex);
+              std::lock_guard<std::mutex> lock(jarvis_mutex);
               tracking_data_temp = data;
-              cond.notify_all();
             }
-            std::stringstream info;
-            info << std::to_string(uint64_t(
-                        jarvis::common::ToUniversal(data.data->time) * 1e2))
-                 << " " << data.data->pose.translation().x() << " "
-                 << data.data->pose.translation().y() << " "
-                 << data.data->pose.translation().z() << " "
-                 << data.data->pose.rotation().w() << " "
-                 << data.data->pose.rotation().x() << " "
-                 << data.data->pose.rotation().y() << " "
-                 << data.data->pose.rotation().z() << std::endl;
-            kOPoseFile << info.str();
-            // mpc.Write(data);
+             con_variable.notify_all();
           });
-#ifdef __ZMQ_ENABLAE__
-  // jarvis_pic::ZmqComponent zmq;
+  jarvis_pic::ZmqComponent zmq;
+  jarvis_pic::MpcComponent mpc;
   while (!kill_thread_) {
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
     jarvis::TrackingData tracking_data;
     {
-      std::unique_lock<std::mutex> lock(mutex);
-      cond.wait(lock);
+      std::unique_lock<std::mutex> lock(jarvis_mutex);
+      con_variable.wait(lock);
       tracking_data = tracking_data_temp;
     }
-    zmq.PubLocalData(tracking_data);
-  }
-#else
-  while (!kill_thread_) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-  }
-#endif
 
+    LOG(INFO) << tracking_data.data->pose;
+    if (kRecordFlag) {
+      std::stringstream info;
+      info << std::to_string(uint64_t(
+                  jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
+           << " " << tracking_data.data->pose.translation().x() << " "
+           << tracking_data.data->pose.translation().y() << " "
+           << tracking_data.data->pose.translation().z() << " "
+           << tracking_data.data->pose.rotation().w() << " "
+           << tracking_data.data->pose.rotation().x() << " "
+           << tracking_data.data->pose.rotation().y() << " "
+           << tracking_data.data->pose.rotation().z() << std::endl;
+      kOPoseFile << info.str();
+    }
+
+    //
+    mpc.Write(
+        tracking_data,
+        jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
+            jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
+    //
+#ifdef __ZMQ_ENABLAE__
+    zmq.PubLocalData(tracking_data);
+#endif
+    std::this_thread::sleep_for(std::chrono::microseconds(100));
+  }
   return 0;
 }

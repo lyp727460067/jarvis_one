@@ -9,7 +9,7 @@ imu_topic: "/imu"
 image0_topic: "/usb_cam_1/image_raw/compressed"
 image1_topic: "/usb_cam_2/image_raw/compressed"
 output_path: "/home/lyp/project/catkin_ws/log"
-
+data_capture: 0
 # data_folder: "/home/lyp/project/dataset/slam_test/20230908/2023-09-08-11-45-59.bag"
 
 # data_folder: "/home/lyp/project/dataset/relocation_test/2023-07-13-09-59-39.bag"

@@ -33,15 +33,15 @@ typedef struct StereoImages
 {
     cv::Mat mLeftImg;
     cv::Mat mRightImg;
-    uint64_t mTimeStamp;
-    int count;
+    uint64_t mTimeStamp=0;
+    int count=0;
 }StereoImages;
 
 typedef struct ImuData_NotAligned
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    uint64_t time_stamp;  ///<  MCU端时间戳 [us]
-    uint32_t sync_count;   ///<  脉冲计数
+    uint64_t time_stamp=0;  ///<  MCU端时间戳 [us]
+    uint32_t sync_count=0;   ///<  脉冲计数
       /// Gyroscope reading, angular velocity (rad/s)
     Eigen::Matrix<double, 3, 1> wm;
 
@@ -56,7 +56,7 @@ struct ImuData
 {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   /// Timestamp of the reading
-  double timestamp;
+  double timestamp=0;
 
   /// Gyroscope reading, angular velocity (rad/s)
   Eigen::Matrix<double, 3, 1> wm;

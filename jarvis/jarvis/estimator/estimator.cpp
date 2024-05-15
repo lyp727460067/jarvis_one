@@ -176,13 +176,24 @@ std::unique_ptr<EstimatorResult> ExtractKeyFrameMapPoints(
                                     Eigen::Quaterniond(estimator.ric[0]));
     transform::Rigid3d tracking_cam_pose = transform::Rigid3d::Identity();
     if (estimator.solver_flag != Estimator::SolverFlag::INITIAL) {
-      tracking_cam_pose = tracking_imu_pose * extric;
+    return std::make_unique<EstimatorResult>(EstimatorResult{
+        std::make_unique<TrackingData>(
+            TrackingData{std::make_shared<TrackingData::Data>(
+                TrackingData::Data{common::Time(common::FromSeconds(time)),
+                                   tracking_imu_pose,
+                                   {},
+                                   std::move(key_points),
+                                   image,
+                                   {},
+                                   {},
+                                   {0}}),2}),
+    });
     }
 
-    return std::make_unique<EstimatorResult>(
-        EstimatorResult{nullptr,
-                             {common::Time(common::FromSeconds(time)), image,
-                              std::move(key_points), tracking_imu_pose}});
+    return std::make_unique<EstimatorResult>(EstimatorResult{
+        nullptr,
+        {common::Time(common::FromSeconds(time)), image, std::move(key_points),
+          transform::Rigid3d::Rotation(tracking_imu_pose.rotation())}});
   }
   return nullptr;
 }
@@ -615,7 +626,7 @@ void Estimator::processImage(const ImageFeatureTrackerResult &image,
         map<double, ImageFrame>::iterator frame_it;
         int i = 0;
         for (frame_it = all_image_frame.begin();
-             frame_it != all_image_frame.end(); frame_it++) {
+             frame_it != all_image_frame.end(); ++frame_it) {
           frame_it->second.R = Rs[i];
           frame_it->second.T = Ps[i];
           i++;
@@ -730,8 +741,8 @@ bool Estimator::initialStructure() {
   {
     map<double, ImageFrame>::iterator frame_it;
     Vector3d sum_g= Eigen::Vector3d::Zero();
-    for (frame_it = all_image_frame.begin(), frame_it++;
-         frame_it != all_image_frame.end(); frame_it++) {
+    for (frame_it = all_image_frame.begin(), ++frame_it;
+         frame_it != all_image_frame.end(); ++frame_it) {
       double dt = frame_it->second.pre_integration->sum_dt;
       Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
       sum_g += tmp_g;
@@ -739,8 +750,8 @@ bool Estimator::initialStructure() {
     Vector3d aver_g;
     aver_g = sum_g * 1.0 / ((int)all_image_frame.size() - 1);
     double var = 0;
-    for (frame_it = all_image_frame.begin(), frame_it++;
-         frame_it != all_image_frame.end(); frame_it++) {
+    for (frame_it = all_image_frame.begin(), ++frame_it;
+         frame_it != all_image_frame.end(); ++frame_it) {
       double dt = frame_it->second.pre_integration->sum_dt;
       Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
       var += (tmp_g - aver_g).transpose() * (tmp_g - aver_g);
@@ -791,7 +802,7 @@ bool Estimator::initialStructure() {
   map<double, ImageFrame>::iterator frame_it;
   map<int, Vector3d>::iterator it;
   frame_it = all_image_frame.begin();
-  for (int i = 0; frame_it != all_image_frame.end(); frame_it++) {
+  for (int i = 0; frame_it != all_image_frame.end(); ++frame_it) {
     // provide initial guess
     cv::Mat r, rvec, t, D, tmp_r;
     if ((frame_it->first) == Headers[i]) {
@@ -886,7 +897,7 @@ bool Estimator::visualInitialAlign() {
   int kv = -1;
   map<double, ImageFrame>::iterator frame_i;
   for (frame_i = all_image_frame.begin(); frame_i != all_image_frame.end();
-       frame_i++) {
+       ++frame_i) {
     if (frame_i->second.is_key_frame) {
       kv++;
       Vs[kv] = frame_i->second.R * x.segment<3>(kv * 3);

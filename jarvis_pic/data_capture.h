@@ -10,6 +10,7 @@
 #include "shm_sensor_queue.h"
 namespace jarvis_pic {
 struct DataCaptureOption {
+  int use_method = 0;
   uint32_t cam_durion_imu_cout = 20;
   int imu_durition = 4;  // ms
   int frame_width = 640;
@@ -23,7 +24,6 @@ struct Frame {
 };
 struct ImuData 
 {
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   uint64_t time;
   Eigen::Vector3d linear_acceleration;
   Eigen::Vector3d angular_velocity;
@@ -40,6 +40,7 @@ class DataCapture {
   void Rigister(std::function<void(const ImuData&) >f) {
     imu_call_backs_.push_back(std::move(f));
   }
+  virtual uint64_t GetOrigImuTime(const uint64_t& time);
   virtual void Start();
   virtual void Stop();
 
@@ -62,6 +63,7 @@ class DataCapture {
   bool stop_ = false;
 
 };
-
+std::unique_ptr<DataCapture> CreateDataCaputure(
+    const DataCaptureOption& option);
 }  // namespace jarvis_pic
 #endif

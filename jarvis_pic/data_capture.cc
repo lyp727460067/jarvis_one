@@ -3,11 +3,13 @@
 #include <array>
 #include <chrono>
 #include <vector>
+
+#include "SensorDataCapturer/DataCapturer.h"
 #include "glog/logging.h"
 //
-#define FRAME_MAX_LEN (640 * 544 * 100)
 namespace jarvis_pic {
 namespace {
+// #define FRAME_MAX_LEN (640 * 544 * 100)
 std::array<uint8_t, FRAME_MAX_LEN> read_buf;
 constexpr double kAccUnit = (1.0 / 2048 * 9.81);  // 加速度单位
 //
@@ -22,15 +24,10 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
 }  // namespace
 
 DataCapture::DataCapture(const DataCaptureOption& option)
-    : mem_ssq_(new ShmSensorQueue) 
-{
-
-}
+    : mem_ssq_(new ShmSensorQueue) {}
 //
-void DataCapture::Start() 
-{
-  thread_ = std::thread([this]() 
-  {
+void DataCapture::Start() {
+  thread_ = std::thread([this]() {
     while (!stop_) {
       Run();
       std::this_thread::sleep_for(
@@ -77,8 +74,7 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
   }
 }
 //
-void DataCapture::Run() 
-{
+void DataCapture::Run() {
   ModSyncImuFb imudata;
   int32_t res = mem_ssq_->PopImuData(&imudata);
 
@@ -101,18 +97,24 @@ void DataCapture::Run()
   //
   // ModRTKFB  rtk_data;
   SysPorocess();
-  
 }
 //
 //
-Frame ToFrameData(const CameraFrame& frame,
-                               const DataCaptureOption& option) {
+Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
   cv::Mat grayImg = YuvBufToGrayMat(
       frame.buf + sizeof(CameraFrameHead) + (frame.head.len >> 2),
       (frame.head.len - sizeof(CameraFrameHead)) >> 1, option.frame_width,
       option.frame_hight);
   return {0, frame.head.time_stamp, grayImg};
 }
+//
+uint64_t DataCapture::GetOrigImuTime(const uint64_t& time) {
+  if (sys_time_base_.has_value()) {
+    return time - sys_time_base_.value().first + sys_time_base_.value().second;
+  }
+  return 0;
+}
+//
 //
 void DataCapture::ProcessImag(const CameraFrame& frame) {
   image_catch_.push_back(
@@ -141,17 +143,27 @@ void DataCapture::SysPorocess() {
       std::distance(it, imu_catch_.end()) >= option_.cam_durion_imu_cout &&
       next_it->sync_count == it->sync_count) {
     sys_time_base_ = std::make_pair(last_frame.second.time, it->time_stamp);
-    LOG(INFO) <<"find same count: "<<static_cast<int>(last_frame.first);
+    LOG(INFO) << "find same count: " << static_cast<int>(last_frame.first);
     imu_catch_.erase(imu_catch_.begin(), it);
   }
   if (sys_time_base_.has_value()) {
     LOG(INFO) << " Capture start cam time: " << sys_time_base_.value().first
               << " imu base: " << sys_time_base_.value().second;
   } else {
-    LOG(WARNING) << "Imu base not sys."
-                 << " imu lenth: " << imu_catch_.size();
+    LOG(WARNING) << "Imu base not sys." << " imu lenth: " << imu_catch_.size();
   }
 }
-
+//
+std::unique_ptr<DataCapture> CreateDataCaputure(
+    const DataCaptureOption& option) {
+  if (option.use_method == 0) {
+    return std::make_unique<DataCapture>(DataCaptureOption{});
+  } else if (option.use_method == 1) {
+    return std::make_unique<VSLAM::DataCapturer>(10, 200);
+  } else {
+    LOG(FATAL) << "Unsupport capture type...";
+  }
+  return nullptr;
+}
 //
 }  // namespace jarvis_pic

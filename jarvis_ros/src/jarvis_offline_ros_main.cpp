@@ -54,7 +54,7 @@ class RosbagProscess {
  public:
   using pair_image_fuction = std::function<int(const sensor::ImageData &)>;
   using imu_fuction = std::function<int(const sensor::ImuData &)>;
-  RosbagProscess(const std::string bag_file) {
+  RosbagProscess(const std::string &bag_file) {
     try {
       in_bag_.open(bag_file, rosbag::bagmode::Read);
     } catch (...) {

@@ -26,7 +26,7 @@ void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame,
   map<double, ImageFrame>::iterator frame_i;
   map<double, ImageFrame>::iterator frame_j;
   for (frame_i = all_image_frame.begin();
-       next(frame_i) != all_image_frame.end(); frame_i++) {
+       next(frame_i) != all_image_frame.end(); ++frame_i) {
     frame_j = next(frame_i);
     MatrixXd tmp_A(3, 3);
     tmp_A.setZero();
@@ -48,7 +48,7 @@ void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame,
   for (int i = 0; i <= WINDOW_SIZE; i++) Bgs[i] += delta_bg;
 
   for (frame_i = all_image_frame.begin();
-       next(frame_i) != all_image_frame.end(); frame_i++) {
+       next(frame_i) != all_image_frame.end(); ++frame_i) {
     frame_j = next(frame_i);
     frame_j->second.pre_integration->repropagate(Vector3d::Zero(), Bgs[0]);
   }
@@ -87,7 +87,7 @@ void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g,
     lxly = TangentBasis(g0);
     int i = 0;
     for (frame_i = all_image_frame.begin();
-         next(frame_i) != all_image_frame.end(); frame_i++, i++) {
+         next(frame_i) != all_image_frame.end(); ++frame_i, i++) {
       frame_j = next(frame_i);
 
       MatrixXd tmp_A(6, 9);
@@ -157,7 +157,7 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g,
   map<double, ImageFrame>::iterator frame_j;
   int i = 0;
   for (frame_i = all_image_frame.begin();
-       next(frame_i) != all_image_frame.end(); frame_i++, i++) {
+       next(frame_i) != all_image_frame.end(); ++frame_i, i++) {
     frame_j = next(frame_i);
 
     MatrixXd tmp_A(6, 10);
