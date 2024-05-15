@@ -239,12 +239,15 @@ namespace VSLAM
         // 申请IMU数据的处理线程
         this->get_imu_thread_ = std::thread([](DataCapturer *p_this) { p_this->IMUReceiveLoop(); }, this);
 
-        if(this->mbSaveData)
+        // if(this->mbSaveData)
         {
-            this->mtSaveSensorDataThread = std::thread([](DataCapturer *p_this) { p_this->SaveSensorData(); }, this);
+            this->mtSaveSensorDataThread = std::thread([this](DataCapturer *p_this) {
+                 ImageReceiveLoop();
+                 //p_this->SaveSensorData(); 
+                 }, this);
         }
 
-        ImageReceiveLoop();
+
     } 
 
     void DataCapturer::Stop()

@@ -27,7 +27,6 @@ namespace VSLAM
 
         this->mLastImuAlignedTime = -1.0;
         this->mbImuTimeLess = false;
-        this->mLastAlignTime = -1.0;
         this->mPreImgImuTimeDiff = 0.0;
 
         this->mPreImgTime = 0.0;
@@ -60,7 +59,6 @@ namespace VSLAM
 
         this->mLastImuAlignedTime = -1.0;
         this->mbImuTimeLess = false;
-        this->mLastAlignTime = -1.0;
         this->mPreImgImuTimeDiff = 0.0;
 
         this->mPreImgTime = 0.0;
@@ -74,6 +72,17 @@ namespace VSLAM
         this->mqNotAlignedImu.push(imu);
     }
 
+    void CamImuAligner::PopNotAlignedImu()
+    {
+        std::unique_lock<std::mutex> lock(mutex_Align_IMU);
+        mqNotAlignedImu.pop();
+    }
+
+    ImuData_NotAligned CamImuAligner::GetFrontNotAlignedImu()
+    {
+        std::unique_lock<std::mutex> lock(mutex_Align_IMU);
+        return mqNotAlignedImu.front();
+    }
     uint32_t CamImuAligner::ProessImg(double camTimeStamp,uint32_t imgCount)
     {
         int rightImgCount = imgCount - 1;
@@ -132,15 +141,10 @@ namespace VSLAM
         double curImgTimeStamp = camTimeStamp / (double)(1.0e9);
         uint32_t rightImgCount = ProessImg(curImgTimeStamp,imgCount);
         this->mbImuTimeLess = false;
-        this->mlOutdatedImu.clear();
-
         while(mnFrameId > 1 && !mqNotAlignedImu.empty())
         {
             ImuData_NotAligned nAImuData;
-            {
-                std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                nAImuData = mqNotAlignedImu.front();
-            }
+            nAImuData = GetFrontNotAlignedImu();
 
             ImuData aImuData;
             aImuData.am = nAImuData.am;
@@ -218,10 +222,7 @@ namespace VSLAM
 
                     mPreImuTime = curImuTimeStamp;
 
-                    {
-                        std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                        mqNotAlignedImu.pop();
-                    }
+                    PopNotAlignedImu();
                     
                     break;
                 }
@@ -255,12 +256,8 @@ namespace VSLAM
                         vRetIMU.push_back(aImuData);
 
                         mPreImuTime = curImuTimeStamp;
-                        {
-                            std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                            mqNotAlignedImu.pop();
-                        }
+                        PopNotAlignedImu();
                         
-
                         mbImuTimeLess = mImgImuTimeDiff > 0;
                         mLastImuAlignedTime = aImuData.timestamp;
                         break;
@@ -277,35 +274,14 @@ namespace VSLAM
 
                         mPreImuTime = curImuTimeStamp;
 
-                        {
-                            std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                            mqNotAlignedImu.pop();
-                        }
+                        PopNotAlignedImu();
                         
-
                         mbImuTimeLess = mImgImuTimeDiff > 0;
                         mLastImuAlignedTime = aImuData.timestamp;
-
-                        //==================================================
-                        // double curAlignedTime = curImgTimeStamp;
-                        if(mLastAlignTime < 0.0)
-                        {
-                            mLastAlignTime = curImgTimeStamp;
-                        }
-                        else
-                        {
-                            // double diff = curImgTimeStamp - mLastAlignTime;
-                            // std::cout<<"aligned_diff = "<<diff<<std::endl;
-                            // FILE  *fdiff = fopen("aligned.txt","a+");
-                            // fprintf(fdiff,"%lf\n",diff);
-                            // fclose(fdiff);
-                            mLastAlignTime = curImgTimeStamp;
-                        }
-                        //==================================================
                         break;
                     }
                     else
-                    {                     
+                    {
                         if(curImgTimeStamp > predictImuTime)
                         {
                             //图像时间比IMU预测时间大，说明从上一帧对齐后，出现了图像和IMU count相等，但是时间不对齐的情况；
@@ -424,10 +400,7 @@ namespace VSLAM
 
                             mPreImuTime = curImuTimeStamp;
 
-                            {
-                                std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                                mqNotAlignedImu.pop();
-                            }
+                            PopNotAlignedImu();
                             
                             mbImuTimeLess = true;
                             mPreImgImuTimeDiff = curImgTimeStamp - predictImuTime;
@@ -438,7 +411,7 @@ namespace VSLAM
                             //IMU预测时间比图像时间大，则可能是MCU没收到硬件同步信号
                             double imuSegTime = curImuTimeStamp - mImuSegStartTime;
                             int nImuSegImgFrames = (int)(imuSegTime / mImgInverval); 
-                            if(nImuSegImgFrames > 1)
+                            if(nImuSegImgFrames >= 1)
                             {
                                 //MCU确实没收到触发信号，导致大量的IMU数据使用同一个count，跳过了多帧图像，则保持IMU不变，获取新的图像
                                 break;
@@ -449,11 +422,7 @@ namespace VSLAM
 
                                 mPreImuTime = curImuTimeStamp;
 
-                                {
-                                    std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                                    mqNotAlignedImu.pop();
-                                }
-                                
+                                PopNotAlignedImu();
                                 
                                 if(imuSegTime > mMaxImgInverval)
                                 {
@@ -504,10 +473,7 @@ namespace VSLAM
                     {
                         //抛弃当前的IMU
                         
-                        {
-                            std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                            mqNotAlignedImu.pop();
-                        }
+                        PopNotAlignedImu();
                         mPreImuTime = curImuTimeStamp;
                         continue;
                     }
@@ -526,12 +492,8 @@ namespace VSLAM
 
                             mPreImuTime = curImuTimeStamp;
 
-                            {
-                                std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                                mqNotAlignedImu.pop();
-                            }
+                            PopNotAlignedImu();
                             
-
                             mbImuTimeLess = true;
                             mPreImgImuTimeDiff = curImgTimeStamp - predictImuTime;
                             mLastImuAlignedTime = aImuData.timestamp;
@@ -551,11 +513,7 @@ namespace VSLAM
 
                                 mPreImuTime = curImuTimeStamp;
 
-                                {
-                                    std::unique_lock<std::mutex> lock(mutex_Align_IMU);
-                                    mqNotAlignedImu.pop();
-                                }
-                                
+                                PopNotAlignedImu();
                                 
                                 if(imuSegTime > mMaxImgInverval)
                                 {
@@ -569,9 +527,8 @@ namespace VSLAM
                                         tmpAImuData.am = tmpNaImuData.am;
                                         tmpAImuData.wm = tmpNaImuData.wm;
                                         double tmpCurImuTimeStamp = tmpNaImuData.time_stamp / (double)(1.0e9);
-                                        tmpAImuData.timestamp = curImgTimeStamp;
+                                        tmpAImuData.timestamp = tmpCurImuTimeStamp + mImgImuTimeDiff;
                                         vRetIMU.push_back(tmpAImuData);
-                                        mImgImuTimeDiff = curImgTimeStamp - tmpCurImuTimeStamp;
                                         mImuSegStartTime = tmpCurImuTimeStamp;
                                         mLastImuAlignedTime = tmpAImuData.timestamp;
                                     }
