@@ -117,7 +117,9 @@ class GpsWindCostFunction {
  public:
   GpsWindCostFunction(const transform::Rigid3d& pose,
                       const std::array<double, 2>& weitht)
-      : mearemnt_pose_(pose), weigth_(weitht) {}
+      : mearemnt_pose_(pose), weigth_(weitht) {
+        LOG(INFO)<<pose;
+      }
   template <typename T>
   bool operator()(const T* const c_i_rotation, const T* const c_i_translation,
                   const T* const c_j_rotation, const T* const c_j_translation,
@@ -126,12 +128,15 @@ class GpsWindCostFunction {
         ComputeUnscaledError(mearemnt_pose_, c_i_rotation, c_i_translation,
                              c_j_rotation, c_j_translation),
         weigth_[0], weigth_[1]);
-    std::copy(std::begin(error), std::end(error), e);
+    e[0] =  error[0];
+    e[1] =  error[1];
+    e[2] =  error[2];
+    // std::copy(std::begin(error), std::begin(error)+3, e);
     return true;
   }
   static ceres::CostFunction* CreateAutoDiffCostFunction(
       const transform::Rigid3d& pose, const std::array<double, 2>& weitht) {
-    return new ceres::AutoDiffCostFunction<GpsWindCostFunction, 6, 4, 3, 4, 3>(
+    return new ceres::AutoDiffCostFunction<GpsWindCostFunction, 3, 4, 3, 4, 3>(
         new GpsWindCostFunction(pose, weitht));
   }
 
@@ -139,7 +144,6 @@ class GpsWindCostFunction {
   const transform::Rigid3d mearemnt_pose_;
   const std::array<double, 2> weigth_;
 };
-
 
 std::pair<std::array<double, 3>, std::array<double, 4>> ToCeresPose(
     const transform::Rigid3d& pose) {
@@ -161,70 +165,108 @@ transform::Rigid3d ArrayToRigid(
                          pose.second[3]));
 }
 
-std::unique_ptr<transform::Rigid3d> PoseOptimization::AddFixedFramePoseData(
-    const sensor::FixedFramePoseData& fix_data) {
-  if (rtk_motion_filter_->IsSimilar(fix_data.time, fix_data.pose)) {
-    return nullptr;
-  }
-  // rtk_interpolateion_->SetSizeLimit(options_.win_size);
-  // rtk_interpolateion_->Push(fix_data.time, fix_data.pose);
-
-  // if(rtk_interpolateion_->size()>options_.win_size){
-  //   rtk_interpolateion_->earliest_time
-  // }
-  // if (rtk_pose_.size() > options_.win_size) {
-  //   rtk_pose_.pop_back();
-  // }
-
-  //   pose_update = UpdataPose(pose_expect, fix_data);
+std::unique_ptr<jarvis::transform::Rigid3d> PoseOptimization::Optimization() {
+  //
 }
 
-std::unique_ptr<jarvis::transform::Rigid3d> PoseOptimization::GetDeltaPose() {
-  while ((rtk_pose_.size() > 2 && odom_pose_.size() > 2) &&
-         rtk_pose_.front().time > odom_pose_.front().time) {
-    odom_pose_.pop_front();
+std::unique_ptr<transform::Rigid3d> PoseOptimization::AddFixedFramePoseData(
+    const sensor::FixedFramePoseData& fix_data) {
+  // if (rtk_motion_filter_->IsSimilar(fix_data.time, fix_data.pose)) {
+  //   return nullptr;
+  // }
+  if (!rtk_interpolateion_) {
+    rtk_pose_.push_back(fix_data);
+  } else {
+    rtk_interpolateion_->Push(fix_data.time, fix_data.pose);
   }
-  if (rtk_pose_.size() < options_.win_size) return nullptr;
+  Alignment();
+  return nullptr;
+}
+
+void PoseOptimization::Alignment() {
+  if (rtk_interpolateion_) return;
+  while (!odom_pose_.empty() && (rtk_pose_.back().time > odom_pose_.back().time)) {
+    odom_pose_.pop_back();
+  }
+  //
+  if (!odom_pose_.empty() && !rtk_pose_.empty()) {
+    rtk_interpolateion_ =
+        std::make_unique<jarvis::transform::TransformInterpolationBuffer>();
+    for (const auto& r : rtk_pose_) {
+      rtk_interpolateion_->Push(r.time, r.pose);
+    }
+  }
+  
+}
+//
+//
+std::unique_ptr<jarvis::transform::Rigid3d>
+PoseOptimization::AlignmentOptimization() {
+  //
 
   std::vector<NodePose> node_poses;
+  //
+  LOG(INFO) << "Using odom size :" << odom_pose_.size();
+  LOG(INFO) << "Using rtk size :" << rtk_interpolateion_->size();
   for (int i = 0; i < odom_pose_.size(); i++) {
+    if (!rtk_interpolateion_->Has(odom_pose_[i].time)) {
+      LOG(INFO) << "At odom time not has rtk " << odom_pose_[i].time;
+      return nullptr;
+    }
+
     node_poses.push_back(NodePose{odom_pose_[i].pose.translation(),
                                   odom_pose_[i].pose.rotation()});
+    // auto init = rtk_interpolateion_->Lookup(odom_pose_[i].time);
+    // node_poses.push_back(NodePose{init.translation(),
+    //                               init.rotation() });
   }
+  //
   ceres::LocalParameterization* quaternion_local =
       new ceres::EigenQuaternionParameterization;
   ceres::Problem problem;
-  std::array<double, 3> local_to_fix_translation;
-  double local_to_fix_yaw = 0;
-
+  //
+  std::array<double, 3> local_to_fix_translation{0,0,0};
+  std::array<double, 4> local_to_fix_rotation{1,0,0,0};
+  //
   for (int i = 1; i < node_poses.size(); i++) {
-    //
-    //  auto fix_pose =   Interpolate();
-    //   problem.AddResidualBlock(
-    //       Gps2dWindCostFunction::CreateAutoDiffCostFunction(
-
-    //           std::array<double, 2>{option_.fix_weitht_traslation,
-    //                                 option_.fix_weitht_rotation}),
-    //       new ceres::HuberLoss(0.01), &fix_local_to_map_arry_angle,
-    //       fix_local_to_map_arry.first.data(),
-    //       slide_widons_data.rotation.data(),
-    //       slide_widons_data.traslation.data());
-    //   // problem.SetParameterization(fix_local_to_map_arry.second.data(),
-    //   //                             quaternion_local);
-    //   problem.SetParameterization(slide_widons_data.rotation.data(),
-    //                               quaternion_local);
+    problem.AddResidualBlock(
+        GpsWindCostFunction::CreateAutoDiffCostFunction(
+            rtk_interpolateion_->Lookup(odom_pose_[i].time),
+            std::array<double, 2>{options_.fix_weitht_traslation,
+                                  options_.fix_weitht_rotation}),
+        nullptr, local_to_fix_rotation.data(),
+        local_to_fix_translation.data(), node_poses[i].q.coeffs().data(),
+        node_poses[i].p.data());
+    problem.SetParameterization(node_poses[i].q.coeffs().data(),
+                                quaternion_local);
+    problem.SetParameterBlockConstant(node_poses[i].q.coeffs().data());
+    problem.SetParameterBlockConstant(node_poses[i].p.data());
   }
+
+  ceres::Solver::Options options;
+  options.minimizer_progress_to_stdout =true;
+  options.max_num_iterations = 20;
+  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  pose_local_to_fix_ =
+      ArrayToRigid({local_to_fix_translation, local_to_fix_rotation});
+  return std::make_unique<transform::Rigid3d>(pose_local_to_fix_);
+  //
 }
 //
 PoseOptimization::PoseOptimization(const PoseOptimizationOption& option)
-    : pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{})),
-      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{})) {}
+    : options_(option),
+      pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,0.4})),
+      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,0.4})) {}
 
 //
 void PoseOptimization::AddPose(const PoseData& pose) {
   if (pose_motion_filter_->IsSimilar(pose.time, pose.pose)) {
     return;
   }
+  if (odom_pose_.size() > options_.win_size) odom_pose_.pop_back();
+  LOG(INFO) << pose.time;
   odom_pose_.push_front(pose);
 }
 
