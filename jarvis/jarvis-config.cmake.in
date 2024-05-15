@@ -1,0 +1,22 @@
+
+
+@PACKAGE_INIT@
+
+
+set_and_check(JARVIS_CMAKE_DIR "@PACKAGE_JARVIS_CMAKE_DIR@")
+set(CERES_DIR_HINTS @Ceres_DIR@)
+if (jarvis_FIND_QUIETLY)
+   set(QUIET_OR_REQUIRED_OPTION "QUIET")
+elseif (jarvis_FIND_REQUIRED)
+   set(QUIET_OR_REQUIRED_OPTION "REQUIRED")
+else ()
+   set(QUIET_OR_REQUIRED_OPTION "")
+endif()
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${JARVIS_CMAKE_DIR}/modules)
+
+find_package(Ceres ${QUIET_OR_REQUIRED_OPTION} HINTS ${CERES_DIR_HINTS})
+
+include("${JARVIS_CMAKE_DIR}/JarvisTargets.cmake")
+
+unset(QUIET_OR_REQUIRED_OPTION)

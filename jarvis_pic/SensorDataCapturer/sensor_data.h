@@ -33,21 +33,22 @@ typedef struct StereoImages
 {
     cv::Mat mLeftImg;
     cv::Mat mRightImg;
-    uint64_t mTimeStamp=0;
-    int count=0;
+    uint64_t mTimeStamp;
+    int count;
 }StereoImages;
 
 typedef struct ImuData_NotAligned
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    uint64_t time_stamp=0;  ///<  MCU端时间戳 [us]
-    uint32_t sync_count=0;   ///<  脉冲计数
+    uint64_t time_stamp;  ///<  MCU端时间戳 [us]
+    uint32_t sync_count;   ///<  脉冲计数
       /// Gyroscope reading, angular velocity (rad/s)
     Eigen::Matrix<double, 3, 1> wm;
 
     /// Accelerometer reading, linear acceleration (m/s^2)
     Eigen::Matrix<double, 3, 1> am;
 }ImuData_NotAligned;
+
 
 /**
  * @brief Struct for a single imu measurement (time, wm, am)
@@ -56,7 +57,7 @@ struct ImuData
 {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   /// Timestamp of the reading
-  double timestamp=0;
+  double timestamp;
 
   /// Gyroscope reading, angular velocity (rad/s)
   Eigen::Matrix<double, 3, 1> wm;
@@ -67,39 +68,6 @@ struct ImuData
   /// Sort function to allow for using of STL containers
   bool operator<(const ImuData &other) const { return timestamp < other.timestamp; }
 };
-
-/**
- * @brief Struct for a collection of camera measurements.
- *
- * For each image we have a camera id and timestamp that it occured at.
- * If there are multiple cameras we will treat it as pair-wise stereo tracking.
- */
-struct CameraData {
-
-  /// Timestamp of the reading
-  double timestamp;
-
-  /// Camera ids for each of the images collected
-  std::vector<int> sensor_ids;
-
-  /// Raw image we have collected for each camera
-  std::vector<cv::Mat> images;
-
-  /// Tracking masks for each camera we have
-  std::vector<cv::Mat> masks;
-
-  /// Sort function to allow for using of STL containers
-  bool operator<(const CameraData &other) const {
-    if (timestamp == other.timestamp) {
-      int id = *std::min_element(sensor_ids.begin(), sensor_ids.end());
-      int id_other = *std::min_element(other.sensor_ids.begin(), other.sensor_ids.end());
-      return id < id_other;
-    } else {
-      return timestamp < other.timestamp;
-    }
-  }
-};
-
 } // namespace ov_core
 
 #endif // OV_CORE_SENSOR_DATA_H
