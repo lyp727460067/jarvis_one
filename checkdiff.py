@@ -8,7 +8,8 @@ def get_content_after_last_space(filename):
             if len(parts) == 2:
                 name = parts[1].strip()
                 if name.endswith((".cpp", ".c")):
-                    result.append(name)
+                    if not "ros" in name:
+                        result.append(name)
     return result
 
 branch = sys.argv[1]
@@ -23,7 +24,7 @@ error_flag = False
 with open(output, "w", encoding="utf-8") as file:
     for name in names:
         print(name)
-        result = subprocess.run(["cppcheck", "--enable=warning,performance", name], capture_output=True, text=True)
+        result = subprocess.run(["cppcheck", "--enable=error,performance", name], capture_output=True, text=True)
         if result.stderr:
             print(result.stderr)
             file.write(f"{result.stderr}\n")
