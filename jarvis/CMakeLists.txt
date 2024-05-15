@@ -52,6 +52,12 @@ include_directories(
 ##
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp")
+file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc")
+##
+file(GLOB_RECURSE OJBECT_LIBRARY_SRCS "jarvis/object*.cc")
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${OJBECT_LIBRARY_SRCS})
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
+##
 ##
 #file(GLOB_RECURSE VINS_LIBRARY_SRCS "src/mapping/tracking/*test_ros.cc" "src/mapping/tracking/*test_ros.cpp"
 # "src/mapping/tracking/*test_ros.h")

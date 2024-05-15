@@ -158,7 +158,6 @@ void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
             itor->second.linear_acceleration,
             itor->second.angular_velocity,
         }));
-    // LOG(INFO) << "   Imu time: " << itor->first;
   }
   imu_datas.erase(imu_datas.begin(), it);
 }
@@ -223,6 +222,8 @@ int main(int argc, char* argv[]) {
   builder_ = std::make_unique<TrajectorBuilder>(
       std::string(argv[1]), [&](const TrackingData& data) {
         std::unique_lock<std::mutex> lock(mutex);
+        LOG(INFO)<<data.data->pose;
+        LOG(INFO)<<jarvis::common::ToUniversal(data.data->time) ;
         tracking_data_temp = data;
         cond.notify_one();
       });
@@ -261,15 +262,15 @@ int main(int argc, char* argv[]) {
         cond.wait(lock);
         tracking_data = tracking_data_temp;
       }
-
       ros_compont->OnLocalTrackingResultCallback(
           tracking_data, nullptr, transform::Rigid3d::Identity());
       ros_compont->PosePub(tracking_data.data->pose,
                            transform::Rigid3d::Identity());
     }
   });
-
+  order_queue_->Start();
   Run(imu_datas, image_datas);
+  pub_map_points.join();
   LOG(INFO) << "Done";
   return 0;
 }

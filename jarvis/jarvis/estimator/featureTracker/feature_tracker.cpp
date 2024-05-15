@@ -63,7 +63,7 @@ void efficientGoodFeaturesToTrack(InputArray _image,
   corners.clear();
   Mat image = _image.getMat();
   if (image.empty()) return;
-
+  
   vector<cv::KeyPoint> keypoints;
   cv::FAST(image, keypoints, 20, true);
 
@@ -75,7 +75,7 @@ void efficientGoodFeaturesToTrack(InputArray _image,
   vector<double> grad_y;
   grad_x = convolution(image, keypoints, kernal_x);
   grad_y = convolution(image, keypoints, kernal_y);
-
+  LOG(INFO)<<have_corners.size();
   // 2. minMaxLoc
   std::vector<pair<int, double>> eigens;
   for (size_t i = 0; i < grad_x.size(); i++) {
@@ -127,7 +127,7 @@ void efficientGoodFeaturesToTrack(InputArray _image,
       corners.push_back(have_corners[i]);
       ++ncorners;
     }
-
+    LOG(INFO)<<"1";
     for (size_t i = 0; i < keypoints_.size(); i++) {
       if (keypoints_[i].pt.y < 0 || keypoints_[i].pt.y > image.rows - 1)
         continue;
@@ -188,8 +188,8 @@ void efficientGoodFeaturesToTrack(InputArray _image,
     return;
   }
 
-  if (have_corners.size() != 0)
-    corners.erase(corners.begin(), corners.end() + have_corners.size());
+  // if (have_corners.size() != 0)
+  //   corners.erase(corners.begin(), corners.end() + have_corners.size());
 }
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt) {
@@ -223,7 +223,7 @@ void reduceVector(vector<int> &v, vector<uchar> status) {
 
 FeatureTracker::FeatureTracker() {
   mask_ = cv::imread(
-      "/oem/mowpack/vslam/configuration/mask.png",
+      "/home/lyp/project/vslam/jarvis/src/jarvis/configuration/mask.png",
       cv::IMREAD_GRAYSCALE);
   stereo_cam = 0;
   n_id = 0;
@@ -357,8 +357,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       // cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
       vector<cv::Point2f> forw_pts;
-      efficientGoodFeaturesToTrack(cur_img, forw_pts, n_pts,
-                                   MAX_CNT - cur_pts.size(), MIN_DIST);
+      efficientGoodFeaturesToTrack(cur_img, cur_pts, n_pts,
+                                   MAX_CNT, MIN_DIST);
     } else {
       n_pts.clear();
     }

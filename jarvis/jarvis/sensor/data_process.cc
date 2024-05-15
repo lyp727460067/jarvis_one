@@ -27,6 +27,7 @@ void OrderedMultiQueue::AddData(const std::string &name,
                                 std::unique_ptr<Data> data) {
   CHECK(queues_.count(name));
   std::lock_guard<std::mutex> lock(mutex_);
+  if(kill_thread)return;
   queues_[name].queue.push(std::move(data));
 }
 void OrderedMultiQueue::Start() {
@@ -130,6 +131,7 @@ double OrderedMultiQueue::GetStartCommontime() {
 OrderedMultiQueue::~OrderedMultiQueue() {
   std::lock_guard<std::mutex> lock(mutex_);
   kill_thread = true;
+  dispath_thead_.join();
 }
 }  // namespace sensor
 }  // namespace jarvis
