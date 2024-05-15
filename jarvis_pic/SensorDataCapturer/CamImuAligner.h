@@ -8,10 +8,11 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <mutex>
 #include "Eigen/Core"
 // #include "datatype.h"
 #include "sensor_data.h"
-
+// using namespace VSLAM;
 namespace VSLAM
 {
     class CamImuAligner
@@ -27,36 +28,42 @@ namespace VSLAM
 
         uint32_t ProessImg(double camTimeStamp,uint32_t imgCount);
         void AddImuData(ImuData_NotAligned &imu);
+        void PopNotAlignedImu();
+        ImuData_NotAligned GetFrontNotAlignedImu();
     private:
-        double mPreImuTime;
-        bool   mbFirstImu;
+        
         double mRealImuInverval;
         double mImuInverval;
         double mMaxImuInverval;
         double mMinImuInverval;
+        double mImgInverval;
+        double mMaxImgInverval;
+        double mMinImgInverval;
+
+        double mImgImuTimeDiff;
+        double mPreImgImuTimeDiff;
+        double mImuSegStartTime;
+        double mLastImuAlignedTime;
+
+        double mPreImgTime;
+        double mPreImuTime;
+
         bool mbImuInterrupt;
+        bool mbFirstImu;
+        bool mbIsFirstImg;
+        bool mbImuTimeLess;
+
+
+        int mnFrameId;
         uint32_t mnLastImuCountNotRec;
         uint32_t mnLastImuCount;
-        bool mbIsFirstImg;
-        double mImgImuTimeDiff;
-        double mImuSegStartTime;
+        uint32_t mnLastImgCount;
+
 
         std::mutex mutex_Align_IMU;
         std::queue<ImuData_NotAligned> mqNotAlignedImu;
 
         std::list<ImuData_NotAligned> mlOutdatedImu;
-        double mLastImuAlignedTime;
-        bool mbImuTimeLess;
-        double mImgInverval;
-        double mLastAlignTime;
-        double mPreImgImuTimeDiff;
-        double mMaxImgInverval;
-        double mMinImgInverval;
-
-        double mPreImgTime;
-        double mnFrameId;
-        uint32_t mnLastImgCount;
     };
-
 }
 #endif
