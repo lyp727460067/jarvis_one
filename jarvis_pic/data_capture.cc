@@ -7,6 +7,7 @@
 #include "SensorDataCapturer/DataCapturer.h"
 #include "glog/logging.h"
 //
+#define GET_BIT(var, bit) (((var) >> (bit)) & 0x01)
 namespace jarvis_pic {
 namespace {
 // #define FRAME_MAX_LEN (640 * 544 * 100)
@@ -101,11 +102,18 @@ void DataCapture::Run() {
 //
 //
 Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
-  cv::Mat grayImg = YuvBufToGrayMat(
-      frame.buf + sizeof(CameraFrameHead) + (frame.head.len >> 2),
-      (frame.head.len - sizeof(CameraFrameHead)) >> 1, option.frame_width,
-      option.frame_hight);
-  return {0, frame.head.time_stamp, grayImg};
+  //
+  if (GET_BIT(frame.head.capture_flag, 1) == 1) {
+    uint64_t camera_data_lenth =
+        (option.frame_width * option.frame_hight * 3 * 2) >> 2;
+    //
+    cv::Mat grayImg = YuvBufToGrayMat(
+        frame.buf + sizeof(CameraFrameHead) + camera_data_lenth,
+        camera_data_lenth, option.frame_width, option.frame_hight);
+
+    return {0, frame.head.time_stamp, grayImg};
+  }
+  return {};
 }
 //
 uint64_t DataCapture::GetOrigImuTime(const uint64_t& time) {
@@ -117,8 +125,11 @@ uint64_t DataCapture::GetOrigImuTime(const uint64_t& time) {
 //
 //
 void DataCapture::ProcessImag(const CameraFrame& frame) {
-  image_catch_.push_back(
-      std::make_pair(frame.head.sys_count, ToFrameData(frame, option_)));
+  const auto frame_data = ToFrameData(frame, option_);
+  if (frame_data.image.empty()) {
+    return;
+  }
+  image_catch_.push_back(std::make_pair(frame.head.sys_count, frame_data));
   if (image_catch_.size() <= 2) {
     return;
   }

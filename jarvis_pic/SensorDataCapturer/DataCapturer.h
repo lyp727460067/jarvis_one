@@ -39,11 +39,11 @@ namespace VSLAM
 class DataCapturer:public jarvis_pic::DataCapture{
 
 public:
-    DataCapturer(int camFreq,int imuFreq,bool saveData = true);
+    DataCapturer(int camFreq,int imuFreq,bool saveData =false);
 
     DataCapturer(){};
 
-    void Set(int camFreq,int imuFreq,bool saveData = true);
+    void Set(int camFreq,int imuFreq,bool saveData =false);
 
     void Start();
 

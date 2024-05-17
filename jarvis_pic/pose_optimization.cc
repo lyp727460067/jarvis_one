@@ -303,13 +303,13 @@ PoseOptimization::AlignmentOptimization() {
   std::array<double, 3> fix_imu_extri{0,0,0};
   //
 
-  for (int i = 0; i < node_poses.size(); i++) {
+  for (int i = 1; i < node_poses.size(); i++) {
     problem.AddResidualBlock(
         GpsWindCostFunction::CreateAutoDiffCostFunction(
             rtk_interpolateion_->Lookup(odom_pose_[i].time),
             std::array<double, 2>{options_.fix_weitht_traslation,
                                   options_.fix_weitht_rotation}),
-        new ceres::HuberLoss(1), local_to_fix_rotation.data(),
+        nullptr, local_to_fix_rotation.data(),
         local_to_fix_translation.data(), node_poses[i].q.coeffs().data(),
         node_poses[i].p.data());
     problem.SetParameterization(node_poses[i].q.coeffs().data(),

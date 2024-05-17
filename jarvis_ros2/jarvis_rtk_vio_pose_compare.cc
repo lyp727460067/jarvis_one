@@ -30,6 +30,10 @@
 
 namespace {
 using namespace jarvis;
+//
+//
+jarvis::transform::TransformInterpolationBuffer kRtkInterPolateion;
+//
 Eigen::Vector3d LatLongAltToEcef(const double latitude, const double longitude,
                                  const double altitude) {
   // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_geodetic_to_ECEF_coordinates
@@ -52,8 +56,8 @@ Eigen::Vector3d LatLongAltToEcef(const double latitude, const double longitude,
 }
 
 jarvis::transform::Rigid3d ComputeLocalFrameFromLatLong(
-    const double latitude, const double longitude) {
-  const Eigen::Vector3d translation = LatLongAltToEcef(latitude, longitude, 0.);
+    const double latitude, const double longitude,const double alt) {
+  const Eigen::Vector3d translation = LatLongAltToEcef(latitude, longitude, alt);
   const Eigen::Quaterniond rotation =
       Eigen::AngleAxisd(jarvis::common::DegToRad(latitude - 90.),
                         Eigen::Vector3d::UnitY()) *
@@ -150,13 +154,13 @@ std::vector<TypeName> ReadFile(const std::string& txt) {
 jarvis::transform::Rigid3d RtkToPose(const RtkData& data) {
   if (!kEcefToLocalFrame.has_value()) {
     kEcefToLocalFrame =
-        ComputeLocalFrameFromLatLong(data.latitude, data.longitude);
+        ComputeLocalFrameFromLatLong(data.latitude, data.longitude,data.altitude);
     LOG(INFO) << "Using NavSatFix. Setting ecef_to_local_frame with lat = "
               << data.latitude << ", long = " << data.longitude << ".";
   }
   return transform::Rigid3d::Translation(
       kEcefToLocalFrame.value() *
-      LatLongAltToEcef(data.latitude, data.longitude, data.altitude-43));
+      LatLongAltToEcef(data.latitude, data.longitude, data.altitude));
 }
 //
 std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
@@ -164,19 +168,23 @@ std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
   for (const auto& d : datas) {
 
     auto r = RtkToPose(d);
-    LOG(INFO)<<r<<d.time;
     result.push_back(Pose{d.time*1000, d.local_time*1000, r.translation(), r.rotation()});
+    LOG(INFO)<<d.time;
   }
   return result;
 }
 
+//
 std::unique_ptr<jarvis::transform::Rigid3d> Alignment(
     const std::vector<Pose>& vio_data, const std::vector<Pose>& rt_data,
-    int lenth = 100) {
+    int &&lenth = 100) {
+  //
+  lenth = vio_data.size();
   jarvis_pic::PoseOptimization pose_alignment(
       jarvis_pic::PoseOptimizationOption{lenth});
   int l = 0;
-  for (int i = 0; pose_alignment.PoseSize() < lenth; i++) {
+  for (int i = 0; pose_alignment.PoseSize() < lenth&&i<vio_data.size(); i++) {
+    if(vio_data[i].time>(rt_data.back().time-100))break;
     l++;
     pose_alignment.AddPose(jarvis_pic::PoseData{
         common::FromUniversal(static_cast<int64_t>(vio_data[i].time / 100)),
@@ -184,10 +192,14 @@ std::unique_ptr<jarvis::transform::Rigid3d> Alignment(
 
     });
   }
+  LOG(INFO)<<l;
   for (const auto& d : rt_data) {
     pose_alignment.AddFixedFramePoseData(jarvis::sensor::FixedFramePoseData{
         common::FromUniversal(d.time / 100), transform::Rigid3d(d.p, d.q)});
-    if (d.time > vio_data[l].time) break;
+    //
+
+    //
+    if (d.time > vio_data[l-1].time) break;
   }
   //
   return pose_alignment.AlignmentOptimization();
@@ -244,9 +256,105 @@ void PubPoseWithMark(rclcpp::Node* nh,
   }
 }
 
+void ComputeErro(const std::vector<Pose>& base_data,
+                 const std::vector<Pose>& target_data) {
+  //
+  jarvis::transform::TransformInterpolationBuffer base_inter_polateion;
+  for (const auto& b : base_data) {
+    base_inter_polateion.Push(common::FromUniversal(b.time / 100),
+                              transform::Rigid3d(b.p, b.q));
+  }
+  LOG(INFO)<<"Start compute erro... ";
+  {
+    std::array<double, 3> erros{0, 0, 0};
+    std::array<double, 2> max_min{0, 0};
+    double sum_erro = 0;
+    int val_lenth = 0;
+    for (int i = 0; i < target_data.size(); i++) {
+      common::Time target_data_time_point =
+          common::FromUniversal(target_data[i].time / 100);
+      if (!base_inter_polateion.Has(target_data_time_point)) continue;
+      const auto base_pose =
+          base_inter_polateion.Lookup(target_data_time_point);
+
+      const double distance =
+          (transform::Rigid3d(target_data[i].p, target_data[i].q).inverse() *
+           base_pose)
+              .translation()
+              .head<2>()
+              .norm();
+      //
+      if (i > 5) {
+        if (distance < max_min[1]) {
+          max_min[1] = distance;
+        }
+        if (distance > max_min[0]) {
+          max_min[0] = distance;
+        }
+        sum_erro += distance;
+        val_lenth++;
+      }
+    }
+    std::stringstream info;
+    info << "\nATE:  total data size " << val_lenth << "\n";
+    info << "Max err: " << max_min[0] << "\n";
+    info << "Min  err: " << max_min[1]<<"\n";
+    info << "Rmse err: " << sum_erro / val_lenth;
+    LOG(INFO)<<info.str();
+  }
+  {
+    std::array<double, 3> erros{0, 0, 0};
+    std::array<double, 2> max_min{0, 0};
+    double sum_erro = 0;
+    int val_lenth = 0;
+    for (int i = 1; i < target_data.size(); i++) {
+      //
+      common::Time target_data_time_point =
+          common::FromUniversal(target_data[i].time / 100);
+      common::Time target_pre_data_time_point =
+          common::FromUniversal(target_data[i - 1].time / 100);
+      //
+      if (!base_inter_polateion.Has(target_data_time_point)) continue;
+      if (!base_inter_polateion.Has(target_pre_data_time_point)) continue;
+      const auto base_pose =
+          base_inter_polateion.Lookup(target_data_time_point);
+      //
+      const auto pre_base_pose =
+          base_inter_polateion.Lookup(target_pre_data_time_point);
+      const auto re_pose =
+          transform::Rigid3d(target_data[i - 1].p, target_data[i - 1].q)
+              .inverse() *
+          transform::Rigid3d(target_data[i].p, target_data[i].q);
+      const auto re_base_pose = pre_base_pose.inverse() * base_pose;
+
+      const double distance =
+          (re_pose.inverse() * re_base_pose).translation().head<2>().norm();
+
+      //
+      if (i > 5) {
+        if (distance < max_min[1]) {
+          max_min[1] = distance;
+        }
+        if (distance > max_min[0]) {
+          max_min[0] = distance;
+        }
+        sum_erro += distance;
+        val_lenth++;
+      }
+    }
+    std::stringstream info;
+    info << "\nRPE:  total data size " << val_lenth << "\n";
+    info << "Max err: " << max_min[0] << "\n";
+    info << "Min  err: " << max_min[1]<<"\n";
+    info << "Rmse err: " << sum_erro / val_lenth;
+    LOG(INFO)<<info.str();
+  }
+  LOG(INFO)<<"Erro done.";
+}
+
 }  // namespace
 //
-
+//
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   //
@@ -264,13 +372,15 @@ int main(int argc, char* argv[]) {
   //
   auto local_to_rtk_transform = Alignment(vio_data, rtk_data);
   CHECK(local_to_rtk_transform) << "  Alignment Failed..";
-
+  //
   LOG(INFO) << *local_to_rtk_transform;
   for (auto& p : vio_data) {
-  auto correct_pose = (*local_to_rtk_transform).inverse() * transform::Rigid3d(p.p, p.q);
+    auto correct_pose =
+        (*local_to_rtk_transform).inverse() * transform::Rigid3d(p.p, p.q);
     p.p = correct_pose.translation();
     p.q = correct_pose.rotation();
   }
+  ComputeErro(rtk_data, vio_data);
   //
   std::map<std::string, std::vector<Pose>> poses{
       {"vio_poses", std::move(vio_data)}, {"rtk_poses", std::move(rtk_data)}};
