@@ -64,7 +64,7 @@ namespace VSLAM
         while (!mbStop) 
         {
             // 读取共享内存
-            ModSyncImuFb imudata{};
+            ModSyncImuFb imudata;
             int32_t res = imu_ssq.PopImuData(&imudata);
             if (res <= 0) {
                 // std::cout << "Pop imu data failed, id: " << res << std::endl;
@@ -93,13 +93,13 @@ namespace VSLAM
             
 
             // 输入imu数据
-            ImuData imumessage{};
+            ImuData imumessage;
             // 将时间戳转化成以秒为单位
             imumessage.timestamp = us2s(imudata.time_stamp);
             imumessage.wm << imudata.imu_data.gyro_x * 1e-3, imudata.imu_data.gyro_y * 1e-3, imudata.imu_data.gyro_z * 1e-3;             // mrad/s to rad/s
             imumessage.am << imudata.imu_data.accel_x * acc_unit, imudata.imu_data.accel_y * acc_unit, imudata.imu_data.accel_z * acc_unit; // 1/2048 g to m/s2
 
-            ImuData_NotAligned imu_save{};
+            ImuData_NotAligned imu_save;
             imu_save.time_stamp = imudata.time_stamp * 1000;//us2ns
             imu_save.sync_count = imudata.sync_count;
             imu_save.wm = imumessage.wm;
@@ -141,6 +141,9 @@ namespace VSLAM
         // 最新一帧相机图像帧的时间戳
         uint64_t t_c_newest = 0;
 
+        
+        uint32_t camera_data_lenth = (640 * 544 * 3 * 2 );
+
         // 该标志量用于表示上一帧双目图像是否已经更新
         int nLastCount = -1;
         while (!mbStop) 
@@ -149,8 +152,8 @@ namespace VSLAM
             // 读取图像buf
             int ret_len = cam_ssq.PopAllCameraData(IMAGE_RESIZE_HALF, frame);
             
-
-            if(ret_len >= 0) 
+            bool bOK = GET_BIT(frame.head.capture_flag, LEFT_MIDDEL_CAMERA_BIT_FLAG) == 1 && GET_BIT(frame.head.capture_flag, RIGHT_MIDDEL_CAMERA_BIT_FLAG) == 1;
+            if(ret_len >= 0 && bOK) 
             {
                 int nCurCount = frame.head.sys_count;
                 LOGD("Get New Frame,count = %d",nCurCount);
@@ -161,11 +164,9 @@ namespace VSLAM
                     
                     t_c_newest = frame.head.time_stamp * 1000;
 
-                    cv::Mat l_grayImg = YuvBufToGrayMat(frame.buf + sizeof(CameraFrameHead) + (frame.head.len >> 2),
-                                                (frame.head.len - sizeof(CameraFrameHead)) >> 1, 640, 544);
+                    cv::Mat l_grayImg = YuvBufToGrayMat(frame.buf + sizeof(CameraFrameHead) + (camera_data_lenth >> 2),640, 544);
 
-                    cv::Mat r_grayImg = YuvBufToGrayMat(frame.buf + sizeof(CameraFrameHead) + (frame.head.len >> 1),
-                                                    (frame.head.len - sizeof(CameraFrameHead)) >> 1, 640, 544);
+                    cv::Mat r_grayImg = YuvBufToGrayMat(frame.buf + sizeof(CameraFrameHead) + (camera_data_lenth >> 1), 640, 544);
                     this->mnFrameId++;
 
                     //转换为保存对象
@@ -237,17 +238,16 @@ namespace VSLAM
     {
         this->mbStop = false;
         // 申请IMU数据的处理线程
-        this->get_imu_thread_ = std::thread([](DataCapturer *p_this) { p_this->IMUReceiveLoop(); }, this);
+        this->mtGetimuthread = std::thread([](DataCapturer *p_this) { p_this->IMUReceiveLoop(); }, this);
 
-        // if(this->mbSaveData)
+        if(this->mbSaveData)
         {
-            this->mtSaveSensorDataThread = std::thread([this](DataCapturer *p_this) {
-                 ImageReceiveLoop();
-                 //p_this->SaveSensorData(); 
-                 }, this);
+            this->mtSaveSensorDataThread = std::thread([](DataCapturer *p_this) { p_this->SaveSensorData(); }, this);
         }
 
+        this->mtCamCapture_AlignedThread = std::thread([](DataCapturer *p_this) { p_this->ImageReceiveLoop(); }, this);
 
+        this->mtCamCapture_AlignedThread.join();
     } 
 
     void DataCapturer::Stop()
@@ -284,7 +284,7 @@ namespace VSLAM
         {
             bool bGetImg = false;
             int nQueueSize = 0;
-            StereoImages curStereoImage{};
+            StereoImages curStereoImage;
             {
                 std::unique_lock<std::mutex> lock(mutex_Save_Stereo_Image);
                 if(!mqStereoImage.empty())
@@ -312,7 +312,7 @@ namespace VSLAM
             while(bImuToSave && nImuSegCount < 20)//一次最多存20个
             {
                 bImuToSave = false;
-                ImuData_NotAligned imudata{};
+                ImuData_NotAligned imudata;
                 {
                     std::unique_lock<std::mutex> lock(mutex_Save_IMU);
                     if(!mqImuDataForSave.empty())
@@ -342,7 +342,7 @@ namespace VSLAM
                 }
 
                 bAlignedImuToSave = false;
-                ImuData AlignedImu{};
+                ImuData AlignedImu;
                 {
                     std::unique_lock<std::mutex> lock(mutex_Aligned_IMU);
                     if(!mqImuDataAligned.empty())
@@ -371,7 +371,7 @@ namespace VSLAM
         of4.close();
     }
 
-    cv::Mat DataCapturer::YuvBufToGrayMat(uint8_t *buf, long size, uint32_t width, uint32_t height)
+    cv::Mat DataCapturer::YuvBufToGrayMat(uint8_t *buf, uint32_t width, uint32_t height)
     {
         cv::Mat yuvMat(height + height/2, width, CV_8UC1, (unsigned char*)buf);
         cv::Mat grayMat;
@@ -382,7 +382,7 @@ namespace VSLAM
     DataCapturer::~DataCapturer()
     {
         this->mbStop = true;
-        this->get_imu_thread_.join();
+        this->mtGetimuthread.join();
 
         if(this->mbSaveData)
         {

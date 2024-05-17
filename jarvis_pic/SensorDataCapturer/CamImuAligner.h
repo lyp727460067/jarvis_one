@@ -44,6 +44,7 @@ namespace VSLAM
         double mPreImgImuTimeDiff;
         double mImuSegStartTime;
         double mLastImuAlignedTime;
+        double mCountStartImuTime;//同一个count的起始时间
 
         double mPreImgTime;
         double mPreImuTime;
@@ -58,6 +59,7 @@ namespace VSLAM
         uint32_t mnLastImuCountNotRec;
         uint32_t mnLastImuCount;
         uint32_t mnLastImgCount;
+        uint32_t mnPrevImuCount;
 
 
         std::mutex mutex_Align_IMU;
