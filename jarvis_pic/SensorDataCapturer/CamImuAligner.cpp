@@ -32,6 +32,9 @@ namespace VSLAM
         this->mPreImgTime = 0.0;
         this->mnFrameId = 0;
         this->mnLastImgCount = 0;
+        this->mCountStartImuTime = 0.0;
+
+        this->mnPrevImuCount = 100;
     }
 
     void CamImuAligner::Set(int imgFreq,int imuFreq)
@@ -64,6 +67,9 @@ namespace VSLAM
         this->mPreImgTime = 0.0;
         this->mnFrameId = 0;
         this->mnLastImgCount = 0;
+        this->mCountStartImuTime = 0.0;
+
+        this->mnPrevImuCount = 100;
     }
 
     void CamImuAligner::AddImuData(ImuData_NotAligned &imu)
@@ -151,6 +157,13 @@ namespace VSLAM
             aImuData.wm = nAImuData.wm;
             double curImuTimeStamp = nAImuData.time_stamp / (double)(1.0e9);
 
+            if(nAImuData.sync_count != mnLastImuCountNotRec)
+            {
+                this->mCountStartImuTime = curImuTimeStamp;
+            }
+
+            int nNewCount = nAImuData.sync_count ;
+            uint32_t nOriCount = nAImuData.sync_count ;
             if(curImuTimeStamp > mPreImuTime)
             {
                 if(mbFirstImu)//防止第一个IMU对应的mPreImuTime没有值的情况
@@ -158,41 +171,47 @@ namespace VSLAM
                     mPreImuTime = curImuTimeStamp;
                     mbFirstImu = false; 
                 }
-                mRealImuInverval = curImuTimeStamp - mPreImuTime;
-                int nPossibleCountInc = mRealImuInverval / mMinImuInverval;
-                if(mRealImuInverval > mMaxImuInverval && mRealImuInverval / mMinImuInverval >= 2)
+
+                bool bStatus = (nAImuData.sync_count == 0 && this->mnPrevImuCount == 20);
+                if(!bStatus)
                 {
-                    //存在图像丢失的情况
-                    mbImuInterrupt = true;
-                }
-                
-                int nNewCount = nAImuData.sync_count ;
-                if(nAImuData.sync_count != mnLastImuCountNotRec)
-                {
-                    if(nAImuData.sync_count != mnLastImuCount && mnLastImuCount >= 0)
+                    mRealImuInverval = curImuTimeStamp - mPreImuTime;
+                    int nPossibleCountInc = mRealImuInverval / mMinImuInverval;
+                    
+                    if(mRealImuInverval > mMaxImuInverval && mRealImuInverval / mMinImuInverval >= 2)
                     {
-                        //预防出现，时间戳间隔是对的，但是count不对的情况
-                        int nCountDiff = nAImuData.sync_count - mnLastImuCount;
-                        if(nCountDiff < 0)
+                        //存在图像丢失的情况
+                        mbImuInterrupt = true;
+                    }
+                    
+                    
+                    if(nAImuData.sync_count != mnLastImuCountNotRec)
+                    {
+                        if(nAImuData.sync_count != mnLastImuCount && mnLastImuCount >= 0)
                         {
-                            nCountDiff = nAImuData.sync_count + 21 - mnLastImuCount;
-                        }
-                        if(abs(nCountDiff) > 1 && nPossibleCountInc == 1)
-                        {
-                            nNewCount = mnLastImuCount + 1;
-                            if(nAImuData.sync_count > 20)
+                            //预防出现，时间戳间隔是对的，但是count不对的情况
+                            int nCountDiff = nAImuData.sync_count - mnLastImuCount;
+                            if(nCountDiff < 0)
                             {
-                                nNewCount = 21 - nAImuData.sync_count;
+                                nCountDiff = nAImuData.sync_count + 21 - mnLastImuCount;
+                            }
+                            if(abs(nCountDiff) > 1 && nPossibleCountInc == 1)
+                            {
+                                nNewCount = mnLastImuCount + 1;
+                                if(nAImuData.sync_count > 20)
+                                {
+                                    nNewCount = 21 - nAImuData.sync_count;
+                                }
                             }
                         }
                     }
-                }
-                else
-                {
-                    nNewCount = mnLastImuCount;
+                    else
+                    {
+                        nNewCount = mnLastImuCount;
+                    }  
                 }
 
-
+                this->mnPrevImuCount = nOriCount;
                 mnLastImuCountNotRec = nAImuData.sync_count;
                 nAImuData.sync_count = nNewCount;
                 mnLastImuCount =nAImuData.sync_count;
@@ -381,89 +400,29 @@ namespace VSLAM
                 {
                     if(mbIsFirstImg)
                     {
-                        //第一帧图像，抛弃该图像
-                        mPreImuTime = curImuTimeStamp;
+                        //第一张图像，由于无法比较图像和IMU时间的大小，认为图像比IMU时间小
+                        break;
+                    }
+                    double predictImuTime = curImuTimeStamp + mImgImuTimeDiff;
+                    double predictTimeDiff = curImgTimeStamp - predictImuTime;
+                    if(predictTimeDiff < 0.0)
+                    {
+                        //图像时间比IMU时间小,则该IMU不是该图像对齐的，图像时间靠前，图像跳过当前一帧
                         break;
                     }
                     else
                     {
-                        //不是第一帧图像，则对IMU时间进行预测
-                        double predictImuTime = curImuTimeStamp + mImgImuTimeDiff;
-                        // double predictTimeDiff = curImgTimeStamp - predictImuTime;
+                        //图像比IMU时间靠后，则IMU是之前的数据，则全部按照之前的推算预测,这种情况，可能是图像比IMU快得较多
+                        aImuData.timestamp = predictImuTime;
+                        vRetIMU.push_back(aImuData);
+
+                        mPreImuTime = curImuTimeStamp;
+
+                        PopNotAlignedImu();
                         
-                        
-                        if(curImgTimeStamp > predictImuTime)
-                        {
-                            //图像时间比IMU预测时间大，则使用上一次对齐的数据，IMU继续往后，直到找到差距最小的
-                            aImuData.timestamp = predictImuTime;
-                            vRetIMU.push_back(aImuData);
-
-                            mPreImuTime = curImuTimeStamp;
-
-                            PopNotAlignedImu();
-                            
-                            mbImuTimeLess = true;
-                            mPreImgImuTimeDiff = curImgTimeStamp - predictImuTime;
-                            mLastImuAlignedTime = aImuData.timestamp;
-                        }
-                        else
-                        {
-                            //IMU预测时间比图像时间大，则可能是MCU没收到硬件同步信号
-                            double imuSegTime = curImuTimeStamp - mImuSegStartTime;
-                            int nImuSegImgFrames = (int)(imuSegTime / mImgInverval); 
-                            if(nImuSegImgFrames >= 1)
-                            {
-                                //MCU确实没收到触发信号，导致大量的IMU数据使用同一个count，跳过了多帧图像，则保持IMU不变，获取新的图像
-                                break;
-                            }
-                            if(mbImuTimeLess)
-                            {
-                                mlOutdatedImu.push_back(nAImuData);
-
-                                mPreImuTime = curImuTimeStamp;
-
-                                PopNotAlignedImu();
-                                
-                                if(imuSegTime > mMaxImgInverval)
-                                {
-                                    //很可能就是MCU没有收到触发信号
-                                    //则以lImuGreater的第一帧IMU为对齐时间,即预测时间大于图像时间的第一帧IMU
-                                    if(mlOutdatedImu.size() > 0)
-                                    {
-                                        ImuData_NotAligned tmpNaImuData = mlOutdatedImu.front();
-                                        mlOutdatedImu.pop_front();
-                                        ImuData tmpAImuData;
-                                        tmpAImuData.am = tmpNaImuData.am;
-                                        tmpAImuData.wm = tmpNaImuData.wm;
-                                        double tmpCurImuTimeStamp = tmpNaImuData.time_stamp / (double)(1.0e9);
-                                        tmpAImuData.timestamp = curImgTimeStamp;
-                                        vRetIMU.push_back(tmpAImuData);
-                                        mImgImuTimeDiff = curImgTimeStamp - tmpCurImuTimeStamp;
-                                        mImuSegStartTime = tmpCurImuTimeStamp;
-                                        mLastImuAlignedTime = tmpAImuData.timestamp;
-                                    }
-                                    while(mlOutdatedImu.size() > 0)
-                                    {
-                                        ImuData_NotAligned tmpNaImuData = mlOutdatedImu.front();
-                                        mlOutdatedImu.pop_front();
-                                        ImuData tmpAImuData;
-                                        tmpAImuData.am = tmpNaImuData.am;
-                                        tmpAImuData.wm = tmpNaImuData.wm;
-                                        double tmpCurImuTimeStamp = tmpNaImuData.time_stamp / (double)(1.0e9);
-                                        tmpAImuData.timestamp = tmpCurImuTimeStamp + mImgImuTimeDiff;
-                                        vRetIMU.push_back(tmpAImuData);
-                                        mLastImuAlignedTime = tmpAImuData.timestamp;
-                                    }
-
-
-                                    mbImuTimeLess = false;
-                                    continue;;
-                                }
-
-                                //虽然IMU预测的时间已经超过图像了，但是还没超过最大间隔
-                                continue;
-                            }
-                        }//if(curImgTimeStamp > predictImuTime)
+                        mbImuTimeLess = true;
+                        mPreImgImuTimeDiff = curImgTimeStamp - predictImuTime;
+                        mLastImuAlignedTime = aImuData.timestamp;
                     }
                 }
                 else//(tmpRightCount > nAImuData.sync_count)
@@ -481,10 +440,10 @@ namespace VSLAM
                     {
                         //不是第一帧图像，则对IMU时间进行预测
                         double predictImuTime = curImuTimeStamp + mImgImuTimeDiff;
-                        // double predictTimeDiff = curImgTimeStamp - predictImuTime;
+                        double predictTimeDiff = curImgTimeStamp - predictImuTime;
                         
                         //比较图像和IMU预测时间之间的大小，分大小测试
-                        if(curImgTimeStamp > predictImuTime)
+                        if(predictTimeDiff > 0.0)
                         {
                             //IMU继续往后，直到找到差距最小的
                             aImuData.timestamp = predictImuTime;
