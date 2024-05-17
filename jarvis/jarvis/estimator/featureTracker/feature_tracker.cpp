@@ -65,7 +65,7 @@ void efficientGoodFeaturesToTrack(InputArray _image,
   if (image.empty()) return;
 
   vector<cv::KeyPoint> keypoints;
-  cv::FAST(image, keypoints, 20, true);
+  cv::FAST(image, keypoints, 10, true);
 
   if (keypoints.empty()) return;
 

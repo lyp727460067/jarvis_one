@@ -239,5 +239,16 @@ int main(int argc, char* argv[]) {
 #endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));
   }
+
+  if (kRecordFlag) {
+    kOPoseFile.close();
+    kOImuFile.close();
+  }
+  LOG(INFO) << "Release jarvis...";
+  kill_thread_ = false;
+  jarvis_slam = nullptr;
+  sleep(1);
+  con_variable.notify_all();
+
   return 0;
 }
