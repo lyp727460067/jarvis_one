@@ -21,4 +21,8 @@ ros2  在jarvis_ros1新建CATKIN_IGNORE(可以忽略当前的包编译)
 ./build/jarvis_ros2/jarvis_ros2_main  src/jarvis/configuration/euroc_test_new/euroc_stereo_config_15.yaml  /home/lyp/project/rosbag/0429/0429_sys/0429_sys/0429/zhengchang/
 ####
 
+轨迹对比   在ros2工程当中
+ ./build/jarvis_ros2/ld_jarvis_ros2_pose_compare_main /home/lyp/data/202405161053/vio_traj_202405161053.txt /home/lyp/data/202405161053/with_rtk_imu_rtk_odom_202405161053.txt
+
+####
 在MR527上运行的时候 设置 yaml 中的record =1 会同时录取image和imu.txt和pose.txt，写入在/tmp/jarvis/data/日期/

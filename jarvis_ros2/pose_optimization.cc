@@ -17,6 +17,11 @@ struct NodePose {
   Eigen::Quaterniond q;
 };
 //
+transform::Rigid3d NodePoseToTransform(const NodePose& node_pose) {
+  return transform::Rigid3d(node_pose.p, node_pose.q);
+}
+
+//
 template <typename T>
 inline T NormalizeAngle(const T& angle_radians) {
   T two_pi(2.0 * M_PI);
@@ -144,6 +149,74 @@ class GpsWindCostFunction {
   const transform::Rigid3d mearemnt_pose_;
   const std::array<double, 2> weigth_;
 };
+class PoseGraphExtricCostFunction {
+ public:
+  PoseGraphExtricCostFunction(const transform::Rigid3d& pose,
+                              const std::array<double, 2>& weitht)
+      : mearemnt_pose_(pose), weigth_(weitht) {
+        LOG(INFO)<< mearemnt_pose_;
+      }
+  template <typename T>
+  bool operator()(const T* const c_i_rotation, const T* const c_i_translation,
+                  const T* const c_j_rotation, const T* const c_j_translation,
+                  const T* const extric_translation, T* const e) const {
+    //
+    const Eigen::Quaternion<T> r_i(c_i_rotation[0], c_i_rotation[1],
+                                   c_i_rotation[2], c_i_rotation[3]);
+    //
+    const Eigen::Quaternion<T> r_j(c_j_rotation[0], c_j_rotation[1],
+                                   c_j_rotation[2], c_j_rotation[3]);
+    //
+
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_i(c_i_translation);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_j(c_j_translation);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> extric(extric_translation);
+
+    //
+    const Eigen::Matrix<T, 3, 1> p_i_e = r_i * extric+ p_i;
+    const Eigen::Matrix<T, 3, 1> p_j_e = r_j * extric+ p_j;
+
+    const Eigen::Quaternion<T> r_i_inverse(c_i_rotation[0], -c_i_rotation[1],
+                                           -c_i_rotation[2], -c_i_rotation[3]);
+
+    const Eigen::Matrix<T, 3, 1> delta(p_j_e[0] - p_i_e[0], p_j_e[1] - p_i_e[1],
+                                       p_j_e[2] - p_i_e[2]);
+    const Eigen::Matrix<T, 3, 1> h_translation = r_i_inverse * delta;
+
+    const Eigen::Quaternion<T> h_rotation_inverse =
+        Eigen::Quaternion<T>(c_j_rotation[0], -c_j_rotation[1],
+                             -c_j_rotation[2], -c_j_rotation[3]) *
+        Eigen::Quaternion<T>(c_i_rotation[0], c_i_rotation[1], c_i_rotation[2],
+                             c_i_rotation[3]);
+
+    const Eigen::Matrix<T, 3, 1> angle_axis_difference =
+        transform::RotationQuaternionToAngleAxisVector(
+            h_rotation_inverse * mearemnt_pose_.rotation().cast<T>());
+
+    //
+    e[0] = T(weigth_[0]) *
+           (T(mearemnt_pose_.translation().x()) - h_translation[0]);
+    e[1] =
+        T(weigth_[0]) * ((mearemnt_pose_.translation().y()) - h_translation[1]);
+    e[2] =
+        T(weigth_[0]) * ((mearemnt_pose_.translation().z()) - h_translation[2]);
+    e[3] = T(weigth_[1]) * angle_axis_difference[0];
+    e[4] = T(weigth_[1]) * angle_axis_difference[1];
+    e[5] = T(weigth_[1]) * angle_axis_difference[2];
+
+    return true;
+  }
+  static ceres::CostFunction* CreateAutoDiffCostFunction(
+      const transform::Rigid3d& pose, const std::array<double, 2>& weitht) {
+    return new ceres::AutoDiffCostFunction<PoseGraphExtricCostFunction, 6, 4, 3,
+                                           4, 3, 3>(
+        new PoseGraphExtricCostFunction(pose, weitht));
+  }
+
+ private:
+  const transform::Rigid3d mearemnt_pose_;
+  const std::array<double, 2> weigth_;
+};
 
 std::pair<std::array<double, 3>, std::array<double, 4>> ToCeresPose(
     const transform::Rigid3d& pose) {
@@ -227,14 +300,16 @@ PoseOptimization::AlignmentOptimization() {
   //
   std::array<double, 3> local_to_fix_translation{0,0,0};
   std::array<double, 4> local_to_fix_rotation{1,0,0,0};
+  std::array<double, 3> fix_imu_extri{0,0,0};
   //
-  for (int i = 1; i < node_poses.size(); i++) {
+
+  for (int i = 0; i < node_poses.size(); i++) {
     problem.AddResidualBlock(
         GpsWindCostFunction::CreateAutoDiffCostFunction(
             rtk_interpolateion_->Lookup(odom_pose_[i].time),
             std::array<double, 2>{options_.fix_weitht_traslation,
                                   options_.fix_weitht_rotation}),
-        nullptr, local_to_fix_rotation.data(),
+        new ceres::HuberLoss(1), local_to_fix_rotation.data(),
         local_to_fix_translation.data(), node_poses[i].q.coeffs().data(),
         node_poses[i].p.data());
     problem.SetParameterization(node_poses[i].q.coeffs().data(),
@@ -242,6 +317,19 @@ PoseOptimization::AlignmentOptimization() {
     problem.SetParameterBlockConstant(node_poses[i].q.coeffs().data());
     problem.SetParameterBlockConstant(node_poses[i].p.data());
   }
+  //
+  // for (int i = 1; i < node_poses.size(); i++) {
+  //   problem.AddResidualBlock(
+  //       PoseGraphExtricCostFunction::CreateAutoDiffCostFunction(
+  //           odom_pose_[i - 1].pose.inverse() * odom_pose_[i].pose,
+  //           std::array<double, 2>{1000,100}),
+  //       new ceres::HuberLoss(1), node_poses[i - 1].q.coeffs().data(),
+  //       node_poses[i-1].p.data(), node_poses[i].q.coeffs().data(),
+  //       node_poses[i].p.data(), fix_imu_extri.data());
+  // }
+  // problem.SetParameterBlockConstant(node_poses[0].q.coeffs().data());
+  // problem.SetParameterBlockConstant(node_poses[0].p.data());
+
 
   ceres::Solver::Options options;
   options.minimizer_progress_to_stdout =true;
@@ -249,16 +337,19 @@ PoseOptimization::AlignmentOptimization() {
   options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
+  LOG(INFO) << "Eetric: " << fix_imu_extri[0] << " " << fix_imu_extri[1] << " "
+            << fix_imu_extri[2]; 
   pose_local_to_fix_ =
       ArrayToRigid({local_to_fix_translation, local_to_fix_rotation});
+  LOG(INFO)<<"Local To fix transform: "<<pose_local_to_fix_ ;
   return std::make_unique<transform::Rigid3d>(pose_local_to_fix_);
   //
 }
 //
 PoseOptimization::PoseOptimization(const PoseOptimizationOption& option)
     : options_(option),
-      pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,0.4})),
-      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,0.4})) {}
+      pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,2})),
+      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,2})) {}
 
 //
 void PoseOptimization::AddPose(const PoseData& pose) {
@@ -266,7 +357,7 @@ void PoseOptimization::AddPose(const PoseData& pose) {
     return;
   }
   if (odom_pose_.size() > options_.win_size) odom_pose_.pop_back();
-  LOG(INFO) << pose.time;
+  // LOG(INFO) << pose.time;
   odom_pose_.push_front(pose);
 }
 

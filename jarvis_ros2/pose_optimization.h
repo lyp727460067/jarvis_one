@@ -28,9 +28,9 @@ class PoseOptimization {
       const jarvis::sensor::FixedFramePoseData& fix_data);
 
   std::unique_ptr<jarvis::transform::Rigid3d> AlignmentOptimization();
-  int PoseSize() {
-    return odom_pose_.size();
-  }
+  
+  int PoseSize() { return odom_pose_.size(); }
+
  private:
   void Alignment();
   std::unique_ptr<jarvis::transform::Rigid3d> Optimization();

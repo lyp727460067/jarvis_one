@@ -132,7 +132,7 @@ class JarvisBrige {
   std::unique_ptr<jarvis::common::FixedRatioSampler> image_sample_;
 };
 }  // namespace jarvis_pic
-
+std::string kDataDir  = "/mnt/UDISK/jarvis/";
 void CreateDataDir() {
   if (kRecordFlag) {
     time_t now;
@@ -144,10 +144,11 @@ void CreateDataDir() {
                        std::to_string(local->tm_mday) + "_" +
                        std::to_string(local->tm_hour) + "_" +
                        std::to_string(local->tm_min);
-    if (access("/tmp/jarvis/data/", F_OK) == -1) {
-      mkdir("/tmp/jarvis/data/", S_IRWXO | S_IRWXG | S_IRWXU);
+    std::string data_d = kDataDir + "data/";
+    if (access(data_d.c_str(), F_OK) == -1) {
+      mkdir(data_d.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
     }
-    const std::string data_dir = std::string("/tmp/jarvis/data/") + name + "/";
+    const std::string data_dir = data_d + name + "/";
     if (access(data_dir.c_str(), F_OK) == -1) {
       mkdir(data_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
     }
@@ -173,7 +174,7 @@ void CreateDataDir() {
 //
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging("jarvis");
-  FLAGS_log_dir = std::string("/tmp/jarvis/");
+  FLAGS_log_dir = kDataDir;
   //
   if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
     mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
