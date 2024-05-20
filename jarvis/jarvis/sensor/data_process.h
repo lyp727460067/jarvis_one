@@ -52,6 +52,7 @@ class OrderedMultiQueue {
   ~OrderedMultiQueue();
   void Start();
 
+  void Stop() ;
  protected:
   bool kill_thread = false;
   std::mutex  mutex_;
