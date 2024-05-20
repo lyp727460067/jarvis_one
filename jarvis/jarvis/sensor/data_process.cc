@@ -38,16 +38,14 @@ void OrderedMultiQueue::AddData(const std::string &name,
   {
   std::lock_guard<std::mutex> lock(mutex_);
   queues_[name].queue.push(std::move(data));
-  }
-  Dispathch();
 }
 void OrderedMultiQueue::Start() {
-  // dispath_thead_ = std::thread([this]() {
-  //   while (!kill_thread) {
-  //     Dispathch();
-  //     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-  //   }
-  // });
+  dispath_thead_ = std::thread([this]() {
+    while (!kill_thread) {
+      Dispathch();
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+  });
 }
 void OrderedMultiQueue::Stop() {
   kill_thread = true;
@@ -57,7 +55,7 @@ void OrderedMultiQueue::Stop() {
 //
 void OrderedMultiQueue::Dispathch() {
   while (true) {
-    for (const auto &queue : queues_) {
+    // for (const auto &queue : queues_) {
     const Data *next_data = nullptr;
     Queue *next_queue = nullptr;
     std::string next_queue_key;
