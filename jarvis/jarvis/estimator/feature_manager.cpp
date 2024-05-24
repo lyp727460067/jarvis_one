@@ -121,8 +121,9 @@ bool FeatureManager::addFeatureCheckParallax(
                      << "parallax_num: " << parallax_num;
     VLOG(kGlogLevel) << "current parallax: "
                      << parallax_sum / parallax_num * FOCAL_LENGTH;
+    LOG(INFO)<< parallax_sum / parallax_num<<" " <<  MIN_PARALLAX;
     last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
-    return parallax_sum / parallax_num >= 0.005;  // MIN_PARALLAX;
+    return parallax_sum / parallax_num >=  20*MIN_PARALLAX;
   }
 }
 

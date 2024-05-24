@@ -374,12 +374,24 @@ int main(int argc, char* argv[]) {
   CHECK(local_to_rtk_transform) << "  Alignment Failed..";
   //
   LOG(INFO) << *local_to_rtk_transform;
+  //
+  std::ofstream correct_vio_pose_file(vio_pose_file + ".correct.txt");
+  std::ofstream correct_rtk_pose_file(rtk_pose_file + ".correct.txt");
   for (auto& p : vio_data) {
     auto correct_pose =
         (*local_to_rtk_transform).inverse() * transform::Rigid3d(p.p, p.q);
     p.p = correct_pose.translation();
     p.q = correct_pose.rotation();
+
+    correct_vio_pose_file << p.time << " " << p.p.x() << " " << p.p.y()
+                          << " " << p.p.z() << std::endl;
   }
+  for(const auto &p:rtk_data){
+      correct_rtk_pose_file<< p.time << " " << p.p.x() << " " << p.p.y()
+                          << " " << p.p.z() << std::endl;
+  }
+  correct_rtk_pose_file.close();
+  correct_vio_pose_file.close();
   ComputeErro(rtk_data, vio_data);
   //
   std::map<std::string, std::vector<Pose>> poses{
