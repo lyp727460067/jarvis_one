@@ -123,6 +123,10 @@ void MarginalizationInfo::addResidualBlockInfo(
 }
 
 void MarginalizationInfo::preMarginalize() {
+  LOG(INFO)<< factors.size();
+
+  
+
   for (auto it : factors) {
     it->Evaluate();
 

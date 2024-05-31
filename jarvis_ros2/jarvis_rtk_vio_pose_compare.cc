@@ -22,6 +22,7 @@
 #include "std_msgs/msg/string.hpp"
 #include "unistd.h"
 //
+
 #include "jarvis/common/time.h"
 #include "glog/logging.h"
 #include "jarvis/transform/rigid_transform.h"
@@ -125,6 +126,7 @@ std::istringstream& operator>>(std::istringstream& ifs, Pose& pose) {
   ifs >> pose.time >> pose.local_time;
   ifs >> pose.p.x() >> pose.p.y() >> pose.p.z() >> pose.q.x() >> pose.q.y() >>
       pose.q.z() >> pose.q.w();
+   pose.p.z()  = 0;
   return ifs;
 }
 
@@ -154,13 +156,13 @@ std::vector<TypeName> ReadFile(const std::string& txt) {
 jarvis::transform::Rigid3d RtkToPose(const RtkData& data) {
   if (!kEcefToLocalFrame.has_value()) {
     kEcefToLocalFrame =
-        ComputeLocalFrameFromLatLong(data.latitude, data.longitude,data.altitude);
+        ComputeLocalFrameFromLatLong(data.latitude, data.longitude,0);
     LOG(INFO) << "Using NavSatFix. Setting ecef_to_local_frame with lat = "
               << data.latitude << ", long = " << data.longitude << ".";
   }
   return transform::Rigid3d::Translation(
       kEcefToLocalFrame.value() *
-      LatLongAltToEcef(data.latitude, data.longitude, data.altitude));
+      LatLongAltToEcef(data.latitude, data.longitude, 0));
 }
 //
 std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
@@ -173,15 +175,18 @@ std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
   }
   return result;
 }
-
+std::unique_ptr < jarvis_pic::PoseOptimization >kPoseAlignment;
 //
 std::unique_ptr<jarvis::transform::Rigid3d> Alignment(
     const std::vector<Pose>& vio_data, const std::vector<Pose>& rt_data,
     int &&lenth = 100) {
   //
   lenth = vio_data.size();
-  jarvis_pic::PoseOptimization pose_alignment(
+
+  kPoseAlignment = std::make_unique<jarvis_pic::PoseOptimization>(
       jarvis_pic::PoseOptimizationOption{lenth});
+  auto& pose_alignment = *kPoseAlignment;
+
   int l = 0;
   for (int i = 0; pose_alignment.PoseSize() < lenth&&i<vio_data.size(); i++) {
     if(vio_data[i].time>(rt_data.back().time-100))break;
@@ -215,7 +220,7 @@ void PubPoseWithMark(rclcpp::Node* nh,
       nh->create_publisher<visualization_msgs::msg::MarkerArray>("poses", 10);
   //
   visualization_msgs::msg::MarkerArray marks;
-  std::default_random_engine e;
+  static std::default_random_engine e;
 
   int mark_id = 0;
   for (const auto& pose_with_name : poses) {
@@ -224,8 +229,9 @@ void PubPoseWithMark(rclcpp::Node* nh,
     mark.ns = pose_with_name.first.c_str();
     mark.header.stamp = rclcpp::Time();
     mark.id = mark_id++;
-    mark.action = visualization_msgs__msg__Marker__ADD;
-    mark.type = visualization_msgs__msg__Marker__POINTS;
+    mark.action = visualization_msgs::msg::Marker::ADD;
+    mark.type = visualization_msgs::msg::Marker::POINTS;
+
     // mark.type = visualization_msgs::Marker::ARROW;
     // mark.lifetime = rclcpp::Duration(0);
     mark.scale.x = 0.1;
@@ -284,11 +290,12 @@ void ComputeErro(const std::vector<Pose>& base_data,
               .head<2>()
               .norm();
       //
-      if (i > 5) {
+      if (i > 20) {
         if (distance < max_min[1]) {
           max_min[1] = distance;
         }
         if (distance > max_min[0]) {
+          LOG(INFO) << max_min[0] << " " << i;
           max_min[0] = distance;
         }
         sum_erro += distance;
@@ -331,12 +338,14 @@ void ComputeErro(const std::vector<Pose>& base_data,
           (re_pose.inverse() * re_base_pose).translation().head<2>().norm();
 
       //
-      if (i > 5) {
+      if (i > 50) {
         if (distance < max_min[1]) {
           max_min[1] = distance;
         }
         if (distance > max_min[0]) {
+
           max_min[0] = distance;
+          LOG(INFO)<<max_min[0];
         }
         sum_erro += distance;
         val_lenth++;
@@ -353,6 +362,16 @@ void ComputeErro(const std::vector<Pose>& base_data,
 }
 
 }  // namespace
+//
+std::vector<Pose> TransformToPose(
+    const std::vector<jarvis::transform::Rigid3d>& pose) {
+  std::vector<Pose> result;
+  for (const auto& p : pose) {
+    result.push_back(Pose{0,0, p.translation(), p.rotation()});
+  }
+
+  return result;
+}
 //
 //
 int main(int argc, char* argv[]) {
@@ -377,9 +396,9 @@ int main(int argc, char* argv[]) {
   //
   std::ofstream correct_vio_pose_file(vio_pose_file + ".correct.txt");
   std::ofstream correct_rtk_pose_file(rtk_pose_file + ".correct.txt");
-  for (auto& p : vio_data) {
+  for (auto& p : rtk_data) {
     auto correct_pose =
-        (*local_to_rtk_transform).inverse() * transform::Rigid3d(p.p, p.q);
+        (*local_to_rtk_transform) * transform::Rigid3d(p.p, p.q);
     p.p = correct_pose.translation();
     p.q = correct_pose.rotation();
 
@@ -394,8 +413,12 @@ int main(int argc, char* argv[]) {
   correct_vio_pose_file.close();
   ComputeErro(rtk_data, vio_data);
   //
+  
   std::map<std::string, std::vector<Pose>> poses{
-      {"vio_poses", std::move(vio_data)}, {"rtk_poses", std::move(rtk_data)}};
+      {"vio_poses", std::move(vio_data)},
+      {"rtk_poses", std::move(rtk_data)},
+      {"opimizaiton_pose",
+     TransformToPose(kPoseAlignment->GetOptimazationPose())}};
   PubPoseWithMark(node.get(),poses);
   LOG(INFO) << "Done";
   return 0;

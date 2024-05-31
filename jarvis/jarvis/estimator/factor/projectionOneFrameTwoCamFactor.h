@@ -37,7 +37,7 @@ class ProjectionOneFrameTwoCamFactor
   Eigen::Vector3d velocity_i, velocity_j;
   double td_i = 0.0, td_j = 0.0;
   Eigen::Matrix<double, 2, 3> tangent_base;
-  static Eigen::Matrix2d sqrt_info;
+  Eigen::Matrix2d sqrt_info;
   static double sum_t;
 };
 }  // namespace estimator

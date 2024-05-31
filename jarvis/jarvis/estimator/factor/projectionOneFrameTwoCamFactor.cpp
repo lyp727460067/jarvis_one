@@ -13,8 +13,8 @@
 #include "projectionOneFrameTwoCamFactor.h"
 namespace jarvis {
 namespace estimator {
-Eigen::Matrix2d ProjectionOneFrameTwoCamFactor::sqrt_info =
-    Eigen::Matrix2d::Identity();
+// Eigen::Matrix2d ProjectionOneFrameTwoCamFactor::sqrt_info =
+//     Eigen::Matrix2d::Identity();
 double ProjectionOneFrameTwoCamFactor::sum_t = 0.0;
 
 ProjectionOneFrameTwoCamFactor::ProjectionOneFrameTwoCamFactor(

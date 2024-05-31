@@ -44,21 +44,13 @@
 namespace jarvis {
 namespace estimator {
 //
+class ImuExtrapolator;
 
-struct EstimatorResult {
-  std::unique_ptr<TrackingData> tracking_result;
-  struct FeatureResult {
-    common::Time time;
-    std::shared_ptr<cv::Mat> images;
-    std::vector<cv::KeyPoint> key_points;
-    transform::Rigid3d pose;
-  } feature_result;
-};
 
 class Estimator {
  public:
   Estimator(const std::string &config_file);
-  std::unique_ptr<EstimatorResult> AddImageData(
+  std::unique_ptr<TrackingData> AddImageData(
       const sensor::ImageData &images);
   //
   void AddImuData(const sensor::ImuData &imu_data);
@@ -92,9 +84,14 @@ class Estimator {
   void vector2double();
   void double2vector();
   bool failureDetection();
+  
   bool getIMUInterval(double t0, double t1,
                       vector<pair<double, Eigen::Vector3d>> &accVector,
                       vector<pair<double, Eigen::Vector3d>> &gyrVector);
+  bool GetImuInterval(
+    double t0, double t1, vector<pair<double, Eigen::Vector3d>> &accVector,
+    vector<pair<double, Eigen::Vector3d>> &gyrVector);
+
   void getPoseInWorldFrame(Eigen::Matrix4d &T);
   void getPoseInWorldFrame(int index, Eigen::Matrix4d &T);
   void predictPtsInNextFrame();
@@ -112,7 +109,6 @@ class Estimator {
   enum SolverFlag { INITIAL = 0, NON_LINEAR };
 
   enum MarginalizationFlag { MARGIN_OLD = 0, MARGIN_SECOND_NEW = 1 };
-
   std::mutex mProcess;
   std::mutex mBuf;
   std::mutex mPropagate;
@@ -120,6 +116,7 @@ class Estimator {
   queue<pair<double, Eigen::Vector3d>> gyrBuf;
   queue<pair<double, ImageFeatureTrackerResult>> featureBuf;
   double prevTime = 0, curTime = 0;
+  double prev_time_ = 0;
   bool openExEstimation = false;
 
   std::thread trackThread;
@@ -177,9 +174,9 @@ class Estimator {
   double para_Retrive_Pose[SIZE_POSE];
   double para_Td[1][1];
   double para_Tr[1][1];
-
+  double angle_ = 0.0;
   int loop_window_index = 0;
-
+  std::unique_ptr<ImuExtrapolator> imu_extrapolator_;
   MarginalizationInfo *last_marginalization_info = nullptr;
   vector<double *> last_marginalization_parameter_blocks;
 
@@ -197,9 +194,10 @@ class Estimator {
   bool initFirstPoseFlag = false;
   bool initThreadFlag = false;
 };
-
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 
 }  // namespace estimator
 }  // namespace jarvis
+
+
 #endif

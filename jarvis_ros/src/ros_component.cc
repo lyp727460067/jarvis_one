@@ -441,8 +441,8 @@ void RosCompont::OnLocalTrackingResultCallback(
     const transform::Rigid3d &local_to_global) {
   auto image_result = GenerateImageWithKeyPoint(
       *tracking_data.data->image, tracking_data.data->key_points, {},
-      *tracking_data.data->rimage, tracking_data.data->extend_points,
-      "pre_imag", "curr_imag", tracking_data.data->outlier_pointclass_id);
+      cv::Mat(), {},
+      "pre_imag", "curr_imag",{0} );
 
   std::vector<transform::Rigid3d> mark_pose;
   std::map<int, std::vector<object::ObjectImageResult>> same_marks;

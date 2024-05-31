@@ -30,6 +30,10 @@ class PoseOptimization {
   std::unique_ptr<jarvis::transform::Rigid3d> AlignmentOptimization();
   
   int PoseSize() { return odom_pose_.size(); }
+  //
+  const std::vector<jarvis::transform::Rigid3d>& GetOptimazationPose() {
+    return optimazation_poses_;
+  }
 
  private:
   void Alignment();
@@ -43,6 +47,7 @@ class PoseOptimization {
       rtk_interpolateion_;
   // 
   jarvis::transform::Rigid3d pose_local_to_fix_;
+  std::vector<jarvis::transform::Rigid3d> optimazation_poses_;
   //
   // std::deque<PoseData> optimization_pose_;
 };

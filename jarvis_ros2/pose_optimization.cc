@@ -123,7 +123,6 @@ class GpsWindCostFunction {
   GpsWindCostFunction(const transform::Rigid3d& pose,
                       const std::array<double, 2>& weitht)
       : mearemnt_pose_(pose), weigth_(weitht) {
-        LOG(INFO)<<pose;
       }
   template <typename T>
   bool operator()(const T* const c_i_rotation, const T* const c_i_translation,
@@ -170,7 +169,7 @@ class PoseGraphExtricCostFunction {
 
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_i(c_i_translation);
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_j(c_j_translation);
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> extric(extric_translation);
+    const Eigen::Matrix<T, 3, 1> extric(extric_translation[0],extric_translation[1],T(0));
 
     //
     const Eigen::Matrix<T, 3, 1> p_i_e = r_i * extric+ p_i;
@@ -209,7 +208,7 @@ class PoseGraphExtricCostFunction {
   static ceres::CostFunction* CreateAutoDiffCostFunction(
       const transform::Rigid3d& pose, const std::array<double, 2>& weitht) {
     return new ceres::AutoDiffCostFunction<PoseGraphExtricCostFunction, 6, 4, 3,
-                                           4, 3, 3>(
+                                           4, 3, 2>(
         new PoseGraphExtricCostFunction(pose, weitht));
   }
 
@@ -309,7 +308,7 @@ PoseOptimization::AlignmentOptimization() {
             rtk_interpolateion_->Lookup(odom_pose_[i].time),
             std::array<double, 2>{options_.fix_weitht_traslation,
                                   options_.fix_weitht_rotation}),
-        new ceres::HuberLoss(1), local_to_fix_rotation.data(),
+        nullptr, local_to_fix_rotation.data(),
         local_to_fix_translation.data(), node_poses[i].q.coeffs().data(),
         node_poses[i].p.data());
     problem.SetParameterization(node_poses[i].q.coeffs().data(),
@@ -322,7 +321,7 @@ PoseOptimization::AlignmentOptimization() {
   //   problem.AddResidualBlock(
   //       PoseGraphExtricCostFunction::CreateAutoDiffCostFunction(
   //           odom_pose_[i - 1].pose.inverse() * odom_pose_[i].pose,
-  //           std::array<double, 2>{1000,100}),
+  //           std::array<double, 2>{100000,100000}),
   //       new ceres::HuberLoss(1), node_poses[i - 1].q.coeffs().data(),
   //       node_poses[i-1].p.data(), node_poses[i].q.coeffs().data(),
   //       node_poses[i].p.data(), fix_imu_extri.data());
@@ -342,14 +341,17 @@ PoseOptimization::AlignmentOptimization() {
   pose_local_to_fix_ =
       ArrayToRigid({local_to_fix_translation, local_to_fix_rotation});
   LOG(INFO)<<"Local To fix transform: "<<pose_local_to_fix_ ;
+  for(const auto&p:node_poses){
+    optimazation_poses_.push_back(jarvis::transform::Rigid3d(p.p,p.q));
+  }
   return std::make_unique<transform::Rigid3d>(pose_local_to_fix_);
   //
 }
 //
 PoseOptimization::PoseOptimization(const PoseOptimizationOption& option)
     : options_(option),
-      pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,2})),
-      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.5,2})) {}
+      pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.2,0.5})),
+      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.2,0.5})) {}
 
 //
 void PoseOptimization::AddPose(const PoseData& pose) {

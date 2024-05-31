@@ -11,6 +11,8 @@
  *******************************************************/
 
 #include "solve_5pts.h"
+
+#include <glog/logging.h>
 namespace {
   using namespace Eigen;
   using namespace std;
@@ -227,6 +229,7 @@ bool MotionEstimator::solveRelativeRT(
 
     Rotation = R.transpose();
     Translation = -R.transpose() * T;
+    LOG(INFO)<<inlier_cnt ;
     if (inlier_cnt > 12)
       return true;
     else

@@ -13,14 +13,14 @@
 #include "projectionTwoFrameOneCamFactor.h"
 namespace jarvis {
 namespace estimator {
-Eigen::Matrix2d ProjectionTwoFrameOneCamFactor::sqrt_info =
-    Eigen::Matrix2d::Identity();
+// Eigen::Matrix2d ProjectionTwoFrameOneCamFactor::sqrt_info =
+//     Eigen::Matrix2d::Identity();
 double ProjectionTwoFrameOneCamFactor::sum_t = 0.0;
 
 ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
     const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
     const Eigen::Vector2d &_velocity_i, const Eigen::Vector2d &_velocity_j,
-    const double _td_i, const double _td_j)
+    const double _td_i, const double _td_j,double weight)
     : pts_i(_pts_i), pts_j(_pts_j), td_i(_td_i), td_j(_td_j) {
   velocity_i.x() = _velocity_i.x();
   velocity_i.y() = _velocity_i.y();
@@ -28,6 +28,7 @@ ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
   velocity_j.x() = _velocity_j.x();
   velocity_j.y() = _velocity_j.y();
   velocity_j.z() = 0;
+  sqrt_info = weight * Eigen::Matrix2d::Identity();
 
 #ifdef UNIT_SPHERE_ERROR
   Eigen::Vector3d b1, b2;
@@ -57,13 +58,11 @@ bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
   Eigen::Quaterniond qic(parameters[2][6], parameters[2][3], parameters[2][4],
                          parameters[2][5]);
 
-  double inv_dep_i = parameters[3][0];
+  const double &inv_dep_i = parameters[3][0];
 
-  double td = parameters[4][0];
-
-  Eigen::Vector3d pts_i_td, pts_j_td;
-  pts_i_td = pts_i - (td - td_i) * velocity_i;
-  pts_j_td = pts_j - (td - td_j) * velocity_j;
+  const double &td = parameters[4][0];
+  Eigen::Vector3d pts_i_td = pts_i - (td - td_i) * velocity_i; 
+  Eigen::Vector3d pts_j_td = pts_j - (td - td_j) * velocity_j;
   Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
   Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
   Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;

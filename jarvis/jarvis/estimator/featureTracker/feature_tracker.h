@@ -40,11 +40,11 @@ struct ImageFeatureTrackerResult {
       Eigen::Vector2d uv;
       Eigen::Vector2d uv_velocity;
     };
-    std::vector<CameraFeature> camera_features;
+    std::vector<CameraFeature> camera_features;//多个相机的ID
   };
   struct Data {
     double time;
-    std::map<int, FeatureTrackerResult> features;
+    std::map<int, FeatureTrackerResult> features;//feature_id
     std::map<int, int> tracker_features_num;
     std::map<int, cv::Mat> images;  // camera_id,image
   };
@@ -60,7 +60,7 @@ class FeatureTracker {
   FeatureTracker();
   ImageFeatureTrackerResult trackImage(double _cur_time, const cv::Mat &_img,
                                        const cv::Mat &_img1 = cv::Mat(),
-                                       std::map<int, int> *track_cnt = nullptr);
+                                       std::map<int, int> *track_cnt = nullptr,const double angle=0);
   void setMask();
   void readIntrinsicParameter(const std::vector<string> &calib_file);
   void showUndistortion(const string &name);

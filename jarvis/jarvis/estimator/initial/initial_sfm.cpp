@@ -236,6 +236,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond *q, Vector3d *T, int l,
   ceres::LocalParameterization *local_parameterization =
       new ceres::QuaternionParameterization();
   // cout << " begin full BA " << endl;
+  LOG(INFO)<< frame_num;
   for (int i = 0; i < frame_num; i++) {
     // double array for ceres
     c_translation[i][0] = c_Translation[i].x();
@@ -251,10 +252,10 @@ bool GlobalSFM::construct(int frame_num, Quaterniond *q, Vector3d *T, int l,
       problem.SetParameterBlockConstant(c_rotation[i]);
     }
     if (i == l || i == frame_num - 1) {
+      LOG(INFO)<<c_translation[i][0]<<c_translation[i][1]<<c_translation[i][2];
       problem.SetParameterBlockConstant(c_translation[i]);
     }
   }
-
   for (int i = 0; i < feature_num; i++) {
     if (sfm_f[i].state != true) continue;
     for (int j = 0; j < int(sfm_f[i].observation.size()); j++) {
@@ -262,14 +263,14 @@ bool GlobalSFM::construct(int frame_num, Quaterniond *q, Vector3d *T, int l,
       ceres::CostFunction *cost_function =
           ReprojectionError3D::Create(sfm_f[i].observation[j].second.x(),
                                       sfm_f[i].observation[j].second.y());
-
       problem.AddResidualBlock(cost_function, NULL, c_rotation[l],
                                c_translation[l], sfm_f[i].position);
     }
   }
+
   ceres::Solver::Options options;
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.max_num_iterations =2;
+  options.max_num_iterations =20;
   options.num_threads = 4;
   options.max_solver_time_in_seconds = 0.1;
   ceres::Solver::Summary summary;

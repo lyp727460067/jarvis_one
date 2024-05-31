@@ -59,14 +59,15 @@ bool cmp_by_value(const PAIR &lhs, const PAIR &rhs) {
 void efficientGoodFeaturesToTrack(InputArray _image,
                                   vector<cv::Point2f> &have_corners,
                                   vector<cv::Point2f> &corners, int maxCorners,
-                                  double minDistance) {
+                                  double minDistance,const cv::Mat &mask) {
   corners.clear();
   Mat image = _image.getMat();
   if (image.empty()) return;
 
   vector<cv::KeyPoint> keypoints;
-  cv::FAST(image, keypoints, 10, true);
-
+  // cv::FAST(cv::Mat(image, cv::Rect2i(5, 5, image.cols - 5, image.rows - 5)),
+  //          keypoints, 15, true);
+  cv::FAST(image, keypoints, 15, true);
   if (keypoints.empty()) return;
 
   cv::Mat kernal_x = (cv::Mat_<double>(3, 3) << -1, 0, 1, -2, 0, 2, -1, 0, 1);
@@ -133,6 +134,7 @@ void efficientGoodFeaturesToTrack(InputArray _image,
         continue;
       if (keypoints_[i].pt.x < 0 || keypoints_[i].pt.x > image.cols - 1)
         continue;
+      if(mask.at<uchar>(keypoints_[i].pt)==0)continue;
       int y = (int)(keypoints_[i].pt.y);
       int x = (int)(keypoints_[i].pt.x);
 
@@ -270,7 +272,7 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2) {
 
 ImageFeatureTrackerResult
 FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
-                           const cv::Mat &_img1,std::map<int,int>* track_num  ) {
+                           const cv::Mat &_img1,std::map<int,int>* track_num ,const double angle ) {
   TicToc t_r;
   cur_time = _cur_time;
   cur_img = _img;
@@ -286,7 +288,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   }
   */
   cur_pts.clear();
-
+  int level =  angle<0.5?2:3;
+  LOG(WARNING)<<level;
   if (prev_pts.size() > 0) {
     TicToc t_o;
     vector<uchar> status;
@@ -295,7 +298,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       cur_pts = predict_pts;
       cv::calcOpticalFlowPyrLK(
           prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21),
-          2,
+          level,
           cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30,
                            0.01),
           cv::OPTFLOW_USE_INITIAL_FLOW);
@@ -306,17 +309,17 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       }
       if (succ_num < 10)
         cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status,
-                                 err, cv::Size(21, 21), 4);
+                                 err, cv::Size(21, 21), level+1);
     } else
       cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status,
-                               err, cv::Size(21, 21), 4);
+                               err, cv::Size(21, 21), 2);
     // reverse check
     if (FLOW_BACK) {
       vector<uchar> reverse_status;
       vector<cv::Point2f> reverse_pts = prev_pts;
       cv::calcOpticalFlowPyrLK(
           cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err,
-          cv::Size(21, 21), 1,
+          cv::Size(21, 21), level+1,
           cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30,
                            0.01),
           cv::OPTFLOW_USE_INITIAL_FLOW);
@@ -357,9 +360,9 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       if (mask.type() != CV_8UC1) cout << "mask type wrong " << endl;
       // cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
-      vector<cv::Point2f> forw_pts;
+      // vector<cv::Point2f> forw_pts;
       efficientGoodFeaturesToTrack(cur_img, cur_pts, n_pts,
-                                    MAX_CNT - cur_pts.size() , MIN_DIST);
+                                    MAX_CNT - cur_pts.size() , MIN_DIST,mask);
     } else {
       n_pts.clear();
     }
@@ -389,12 +392,12 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       vector<float> err;
       // cur left ---- cur right
       cv::calcOpticalFlowPyrLK(cur_img, rightImg, cur_pts, cur_right_pts,
-                               status, err, cv::Size(21, 21), 4);
+                               status, err, cv::Size(21, 21), 7);
       // reverse check cur right ---- cur left
       if (FLOW_BACK) {
         cv::calcOpticalFlowPyrLK(rightImg, cur_img, cur_right_pts,
                                  reverseLeftPts, statusRightLeft, err,
-                                 cv::Size(21, 21), 4);
+                                 cv::Size(21, 21), 7);
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
               distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)

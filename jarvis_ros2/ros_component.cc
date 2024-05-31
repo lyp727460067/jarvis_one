@@ -42,7 +42,7 @@ cv::Mat GenerateImageWithKeyPoint(
                               outlier_pointclass_id.end());
   //
   for (auto &&keypoint : (l_key_points)) {
-    double len = std::min(1.0, 1.0 * keypoint.octave / 20);
+    double len = std::min(1.0, 1.0 * keypoint.octave / 10);
     cv::Scalar color = cv::Scalar(255 * (1 - len), 0, 255 * len);
     // if (class_id.count(keypoint.class_id)) {
     //   cv::circle(loop_match_img, keypoint.pt, 2 ,cv::Scalar(0, 0, 255), 2);
@@ -233,7 +233,8 @@ RosCompont::RosCompont(rclcpp::Node *nh)
           "local_tracking_result_image/image_raw", 20);
 
 
-
+   pose_mark_publisher_ =
+      nh->create_publisher<visualization_msgs::msg::MarkerArray>("poses", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_local_tracking_result =
@@ -447,9 +448,8 @@ void RosCompont::OnLocalTrackingResultCallback(
     std::vector<object::ObjectImageResult> *object_result,
     const transform::Rigid3d &local_to_global) {
   auto image_result = GenerateImageWithKeyPoint(
-      *tracking_data.data->image, tracking_data.data->key_points, {},
-      *tracking_data.data->rimage, tracking_data.data->extend_points,
-      "pre_imag", "curr_imag", tracking_data.data->outlier_pointclass_id);
+      *tracking_data.data->image, tracking_data.data->key_points, {}, {}, {},
+      "pre_imag", "curr_imag", {0});
 
   std::vector<transform::Rigid3d> mark_pose;
   std::map<int, std::vector<object::ObjectImageResult>> same_marks;
@@ -484,6 +484,29 @@ void RosCompont::OnLocalTrackingResultCallback(
   // pub_local_tracking_result.publish(img);
   CommpressedImagePub(image_result);
   OnMapPointsCallback(tracking_data.data->tracking_map_points, local_to_global);
+
+  geometry_msgs::msg::PoseStamped pose_stamped;
+  pose_stamped.header.stamp = rclcpp::Time();
+  pose_stamped.header.frame_id = "map";
+  pose_stamped.pose.position.x =
+      tracking_data.data->imu_state.data->pose.translation().x();
+  pose_stamped.pose.position.y =
+      tracking_data.data->imu_state.data->pose.translation().y();
+  pose_stamped.pose.position.z =
+      tracking_data.data->imu_state.data->pose.translation().z();
+
+  poses_["local_imu_pose"].push_back(
+      tracking_data.data->imu_state.data->pose.translation());
+
+  path_.header.frame_id = "map";
+  if (pub_path_->get_subscription_count() != 0) {
+    path_.poses.push_back(pose_stamped);
+    pub_path_->publish(path_);
+  } else {
+    path_.poses.clear();
+  }
+
+
 }
 //
 
@@ -502,6 +525,46 @@ void RosCompont::PubMapPoints(const std::vector<Eigen::Vector3d> &points) {
   sensor_msgs::convertPointCloudToPointCloud2(point_cloud, point_cloud2);
   map_point_cloud_pub_->publish(point_cloud2);
 }
+void RosCompont::PubPoseWithMark(
+    const std::map<std::string, std::vector<Eigen::Vector3d>> &poses) {
+  //
+  visualization_msgs::msg::MarkerArray marks;
+  std::default_random_engine e;
+  int mark_id = 0;
+  for (const auto &pose_with_name : poses) {
+    visualization_msgs::msg::Marker mark;
+    mark.header.frame_id = "map";
+    mark.ns = pose_with_name.first.c_str();
+    mark.header.stamp = rclcpp::Time();
+    mark.id = mark_id++;
+    mark.action = visualization_msgs::msg::Marker::ADD;
+    mark.type = visualization_msgs::msg::Marker::POINTS;
+
+    // mark.type = visualization_msgs::Marker::ARROW;
+    // mark.lifetime = rclcpp::Duration(0);
+    mark.scale.x = 0.01;
+    mark.scale.y = 0.01;
+    mark.scale.z = 0.01;
+    std::uniform_real_distribution<float> ran(0, 1);
+    mark.color.r = 1;       // ran(e);//1.0;
+    mark.color.a = 1;       // ran(e);
+    mark.color.g = ran(e);  //(mark_id / sizeofils);
+    mark.color.b = ran(e);  //(sizeofils- mark_id) / sizeofils;
+    // LOG(INFO)<<mark.color.g<<mark.color.b;
+    int cnt = 0;
+    //
+    for (const auto &pose : pose_with_name.second) {
+      geometry_msgs::msg::Point point;
+      point.x = pose.x();
+      point.y = pose.y();
+      point.z = pose.z();
+      mark.points.push_back(point);
+    }
+    marks.markers.push_back(mark);
+  }
+  pose_mark_publisher_->publish(marks);
+}
+
 //
 void RosCompont::PosePub(const transform::Rigid3d &pose,
                          const transform::Rigid3d &local_to_global) {
@@ -536,20 +599,11 @@ void RosCompont::PosePub(const transform::Rigid3d &pose,
   global_tf_trans.transform.rotation.w = global_pose.rotation().w();
   tf_broadcaster_->sendTransform(global_tf_trans);
   //
-  geometry_msgs::msg::PoseStamped pose_stamped;
-  pose_stamped.header.stamp = rclcpp::Time();
-  pose_stamped.header.frame_id = "map";
-  pose_stamped.pose.position.x = tf_trans.transform.translation.x;
-  pose_stamped.pose.position.y = tf_trans.transform.translation.y;
-  pose_stamped.pose.position.z = tf_trans.transform.translation.z;
+  poses_["imu_pose"].push_back(global_pose.translation());
+  // poses_["vins_imu_pose"]= std::move(GetGlobleImuPose());
+  PubPoseWithMark( poses_);
+  //
 
-  path_.header.frame_id = "map";
-  if (pub_path_->get_subscription_count() != 0) {
-    path_.poses.push_back(pose_stamped);
-    pub_path_->publish(path_);
-  } else {
-    path_.poses.clear();
-  }
 }
 
 //

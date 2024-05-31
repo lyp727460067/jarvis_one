@@ -9,9 +9,19 @@
  *******************************************************/
 
 #include "jarvis/estimator/estimator.h"
-
 #include "common/time.h"
+#include <ceres/tiny_solver_autodiff_function.h>
+#include <ceres/tiny_solver.h>
+#include "imu_extrapolator.h"
+
 namespace jarvis {
+std::vector<Eigen::Vector3d> kGlobleImuPose;
+std::pair<double, transform::Rigid3d> kGlobleImuExtrapolatorPose;
+
+std::vector<Eigen::Vector3d> GetGlobleImuPose() { return kGlobleImuPose; }
+std::pair<double, transform::Rigid3d> GetGlobleImuExtrapolatorPose() {
+  return kGlobleImuExtrapolatorPose;
+}
 namespace estimator {
 namespace {
 constexpr uint8_t kGlogLevel = 1;
@@ -21,6 +31,7 @@ ofstream cam_time_babg("/tmp/cam_time_babg.txt");
 Estimator::Estimator(const std::string &config_file) {
   //
   f_manager = std::make_unique<FeatureManager>(Rs);
+  // imu_extrapolator_ = std::make_unique<ImuExtrapolator>();
   LOG(INFO) << "init begins";
   initThreadFlag = false;
   clearState();
@@ -43,172 +54,96 @@ Estimator::~Estimator() {
   }
 }
 //
+cv::KeyPoint EigenToCv(const Eigen::Vector2d&p){
+  return cv::KeyPoint(p.x(),p.y(),2);
+} 
+
 namespace {
 std::map<int, int> track_num;
-std::unique_ptr<EstimatorResult> ExtractKeyFrameMapPoints(
-    const Estimator &estimator) {
-  // pub camera pose, 2D-3D points of keyframe
-  if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR &&
-      estimator.marginalization_flag == 0) {
-    int i = WINDOW_SIZE - 2;
-    // Vector3d P = estimator.Ps[i] + estimator.Rs[i] * estimator.tic[0];
-    Vector3d P = estimator.Ps[i];
-    Quaterniond R = Quaterniond(estimator.Rs[i]);
-
-    const transform::Rigid3d tracking_imu_pose(
-        Eigen::Vector3d{estimator.Ps[i].x(), estimator.Ps[i].y(),
-                        estimator.Ps[i].z()},
-        Eigen::Quaterniond(estimator.Rs[i]));
-    const transform::Rigid3d extric(estimator.tic[0],
-                                    Eigen::Quaterniond(estimator.ric[0]));
-    const transform::Rigid3d tracking_cam_pose = tracking_imu_pose * extric;
-
-    std::vector<Eigen::Vector3d> point_clouds;
-    std::vector<cv::KeyPoint> key_points;
-    const double time = estimator.Headers[i];
-    //
-    for (auto &it_per_id : estimator.f_manager->feature) {
-      int frame_size = it_per_id.feature_per_frame.size();
-      if (it_per_id.start_frame < WINDOW_SIZE - 2 &&
-          it_per_id.start_frame + frame_size - 1 >= WINDOW_SIZE - 2 &&
-          it_per_id.solve_flag == 1) {
-        int imu_i = it_per_id.start_frame;
-        Vector3d pts_i =
-            it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
-        Vector3d w_pts_i = estimator.Rs[imu_i] *
-                               (estimator.ric[0] * pts_i + estimator.tic[0]) +
-                           estimator.Ps[imu_i];
-        point_clouds.push_back(w_pts_i);
-
-        int imu_j = WINDOW_SIZE - 2 - it_per_id.start_frame;
-        //
-        cv::KeyPoint key_point(
-            cv::Point2f{
-                static_cast<float>(it_per_id.feature_per_frame[imu_j].uv.x()),
-                static_cast<float>(it_per_id.feature_per_frame[imu_j].uv.y())},
-            2);
-        key_point.class_id = it_per_id.feature_id;
-        //
-        if (estimator.images_[i].second.data) {
-          key_point.octave =
-              estimator.images_[i]
-                  .second.data->tracker_features_num[it_per_id.feature_id];
-        }
-        //
-        key_points.push_back(key_point);
-      }
-    }
-    std::shared_ptr<cv::Mat> image = nullptr;
-    for (int j = 0; j <= estimator.frame_count; j++) {
-      if (fabs(estimator.images_[j].first - time) < 0.001) {
-        if (estimator.images_[i].second.data == nullptr) break;
-        image = std::make_shared<cv::Mat>(
-            estimator.images_[i].second.data->images[0].clone());
-        break;
-      }
-    }
-    if (image == nullptr) return nullptr;
-
-    // LOG(INFO) << key_points.size();
-    return std::make_unique<EstimatorResult>(EstimatorResult{
-        std::make_unique<TrackingData>(
-            TrackingData{std::make_shared<TrackingData::Data>(
-                TrackingData::Data{common::Time(common::FromSeconds(time)),
-                                   tracking_imu_pose,
-                                   std::move(point_clouds),
-                                   std::move(key_points),
-                                   image,
-                                   {},
-                                   {},
-                                   {0}}),2}),
-    });
-  } else {
-    //
-    int i = estimator.frame_count;
-    if (i < 0) return nullptr;
-    const double time = estimator.Headers[i];
-    //
-    std::vector<cv::KeyPoint> key_points;
-    for (auto &it_per_id : estimator.f_manager->feature) {
-      int frame_size = it_per_id.feature_per_frame.size();
-      if (it_per_id.start_frame < WINDOW_SIZE - 2 &&
-          it_per_id.start_frame + frame_size - 1 >= WINDOW_SIZE - 2) {
-        int imu_j = WINDOW_SIZE - 1 - it_per_id.start_frame;
-        //
-        cv::KeyPoint key_point(
-            cv::Point2f{
-                static_cast<float>(it_per_id.feature_per_frame[imu_j].uv.x()),
-                static_cast<float>(it_per_id.feature_per_frame[imu_j].uv.y())},
-            2);
-        key_point.class_id = it_per_id.feature_id;
-        if (estimator.images_[i].second.data) {
-          key_point.octave =
-              estimator.images_[i]
-                  .second.data->tracker_features_num[it_per_id.feature_id];
-        }
-        key_points.push_back(key_point);
-      }
-    }
-    std::shared_ptr<cv::Mat> image = nullptr;
-    for (int j = 0; j <= estimator.frame_count; j++) {
-      if (fabs(estimator.images_[j].first - time) < 0.005) {
-        if (estimator.images_[i].second.data == nullptr) break;
-        image = std::make_shared<cv::Mat>(
-            estimator.images_[i].second.data->images[0].clone());
-
-        break;
-      }
-    }
-    if (image == nullptr) {
-      LOG(INFO) << "empty";
-      return nullptr;
-    }
-    // cv::imshow("image ",*image);
-    // cv::waitKey(0);
-    Vector3d P = estimator.Ps[i];
-    Quaterniond R = Quaterniond(estimator.Rs[i]);
-
-    const transform::Rigid3d tracking_imu_pose(
-        Eigen::Vector3d{estimator.Ps[i].x(), estimator.Ps[i].y(),
-                        estimator.Ps[i].z()},
-        Eigen::Quaterniond(estimator.Rs[i]));
-    const transform::Rigid3d extric(estimator.tic[0],
-                                    Eigen::Quaterniond(estimator.ric[0]));
-    transform::Rigid3d tracking_cam_pose = transform::Rigid3d::Identity();
-    if (estimator.solver_flag != Estimator::SolverFlag::INITIAL) {
-    return std::make_unique<EstimatorResult>(EstimatorResult{
-        std::make_unique<TrackingData>(
-            TrackingData{std::make_shared<TrackingData::Data>(
-                TrackingData::Data{common::Time(common::FromSeconds(time)),
-                                   tracking_imu_pose,
-                                   {},
-                                   std::move(key_points),
-                                   image,
-                                   {},
-                                   {},
-                                   {0}}),2}),
-    });
-    }
-
-    return std::make_unique<EstimatorResult>(EstimatorResult{
-        nullptr,
-        {common::Time(common::FromSeconds(time)), image, std::move(key_points),
-          transform::Rigid3d::Rotation(tracking_imu_pose.rotation())}});
+std::unique_ptr<TrackingData> ExtractKeyFrameMapPoints(
+    const Estimator &estimator,
+    const ImageFeatureTrackerResult &feature_result) {
+  TrackingData result;
+  result.data = std::make_shared<TrackingData::Data>();
+  for (const auto &p : feature_result.data->features) {
+    result.data->key_points.push_back(
+        EigenToCv(p.second.camera_features[0].uv));
+    result.data->key_points.back().class_id = p.first;
+    result.data->key_points.back().octave =
+        feature_result.data->tracker_features_num[p.first];
   }
-  return nullptr;
+
+  result.data->image =
+      std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
+
+  return std::make_unique<TrackingData>(result);
 }
 }  // namespace
 //
-std::unique_ptr<EstimatorResult> Estimator::AddImageData(
+
+
+std::unique_ptr<TrackingData> Estimator::AddImageData(
     const sensor::ImageData &images) {
   TicToc add_image_data_cost;
-
   track_num.clear();
   //
   //
-  inputImage(images.time, *images.image[0], *images.image[1]);
+
+  inputImageCnt++;
+  ImageFeatureTrackerResult featureFrame;
+  TicToc featureTrackerTime;
+
+  //
+  vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
+  // double angle = 0.0;
+  if(GetImuInterval(prev_time_,images.time , accVector, gyrVector)){
+    
+
+  auto pre_integrations_temp = std::make_unique<IntegrationBase>(
+      accVector[0].second, gyrVector[0].second, Bas[frame_count], Bgs[frame_count]);
+  LOG(INFO)<<accVector.size();
+  for (int i = 0; i < accVector.size(); i++) {
+    double dt = 0;
+    if (i == 0)
+      dt = accVector[i].first - prev_time_;
+    else if (i == accVector.size() - 1)
+      dt = images.time+td - accVector[i - 1].first;
+    else
+      dt = accVector[i].first - accVector[i - 1].first;
+
+    pre_integrations_temp->push_back(dt, accVector[i].second,
+                                     gyrVector[i].second);
+  }
+  //
+  auto angle = common::RadToDeg(transform::GetAngle(
+      transform::Rigid3d::Rotation(pre_integrations_temp->delta_q)));
+  angle_ = angle_*0.2+0.8*angle;
+  LOG(INFO)<< angle;
+  }
+
+  prev_time_ = images.time;
+  featureFrame = featureTracker.trackImage(images.time, *images.image[0],
+                                           cv::Mat(), &track_num,angle_);
+  //
+  featureBuf.push(make_pair(images.time, featureFrame));
+  TicToc processTime;
+  processMeasurements();
   LOG(INFO) << "one frame cost : " << add_image_data_cost.toc();
-  return ExtractKeyFrameMapPoints(*this);
+  auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
+  tracking_data->data->time = common::Time(common::FromSeconds(images.time));
+  if (solver_flag == INITIAL) {
+    tracking_data->status = 0;
+  auto imu_state_data = std::make_shared<ImuState::Data>(ImuState::Data{
+      transform::Rigid3d({0,0,0}, Eigen::Quaterniond(Rs[frame_count]))});
+    tracking_data->data->imu_state = ImuState{imu_state_data};
+  } else {
+  auto imu_state_data = std::make_shared<ImuState::Data>(ImuState::Data{
+      transform::Rigid3d(Ps[frame_count], Eigen::Quaterniond(Rs[frame_count])),
+      Vs[frame_count], Bas[frame_count], Bgs[frame_count],g});
+    tracking_data->data->imu_state = ImuState{imu_state_data};
+    tracking_data->status = 2;
+  }
+  return tracking_data;
 }
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
@@ -303,12 +238,12 @@ void Estimator::setParameter() {
          << tic[i].transpose() << endl;
   }
   f_manager->setRic(ric);
-  ProjectionTwoFrameOneCamFactor::sqrt_info =
-      FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+  // ProjectionTwoFrameOneCamFactor::sqrt_info =
+  //     FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
   ProjectionTwoFrameTwoCamFactor::sqrt_info =
       FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
-  ProjectionOneFrameTwoCamFactor::sqrt_info =
-      FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+  // ProjectionOneFrameTwoCamFactor::sqrt_info =
+  //     FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
   td = TD;
   g = G;
   cout << "set g " << g.transpose() << endl;
@@ -355,21 +290,7 @@ void Estimator::changeSensorType(int use_imu, int use_stereo) {
 
 void Estimator::inputImage(double t, const cv::Mat &_img,
                            const cv::Mat &_img1) {
-  inputImageCnt++;
-  ImageFeatureTrackerResult featureFrame;
-  TicToc featureTrackerTime;
-  // cv::imshow("left",_img);
-  // cv::imshow("right",_img1);
-  // cv::waitKey(0);
-  if (_img1.empty())
-    featureFrame = featureTracker.trackImage(t, _img, cv::Mat(), &track_num);
-  else
-    featureFrame = featureTracker.trackImage(t, _img, _img1, &track_num);
-  // printf("featureTracker time: %f\n", featureTrackerTime.toc());
 
-  featureBuf.push(make_pair(t, featureFrame));
-  TicToc processTime;
-  processMeasurements();
   // printf("process time: %f\n", processTime.toc());
 }
 
@@ -379,10 +300,15 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration,
   accBuf.push(make_pair(t, linearAcceleration));
   gyrBuf.push(make_pair(t, angularVelocity));
   // printf("input imu with time %f \n", t);
+  
   mBuf.unlock();
   if (solver_flag == NON_LINEAR) {
     mPropagate.lock();
     fastPredictIMU(t, linearAcceleration, angularVelocity);
+    kGlobleImuPose.push_back(latest_P);
+    kGlobleImuExtrapolatorPose.first = t;
+    kGlobleImuExtrapolatorPose.second = transform::Rigid3d(latest_P, latest_Q);
+
     // pubLatestOdometry(latest_P, latest_Q, latest_V, t);
     mPropagate.unlock();
   }
@@ -396,7 +322,40 @@ void Estimator::inputFeature(double t,
 
   if (!MULTIPLE_THREAD) processMeasurements();
 }
+//
+bool Estimator::GetImuInterval(
+    double t0, double t1, vector<pair<double, Eigen::Vector3d>> &accVector,
+    vector<pair<double, Eigen::Vector3d>> &gyrVector) {
+  auto acc_buf_temp =  accBuf;
+  auto gyr_buf_temp =  gyrBuf;
 
+  if (acc_buf_temp.empty()) {
+    printf("not receive imu\n");
+    return false;
+  }
+  // printf("get imu from %f %f\n", t0, t1);
+
+  // accBuf.back().first);
+  // if (t1 <= acc_buf_temp.back().first) {
+    while (!acc_buf_temp.empty()&& acc_buf_temp.front().first <= t0) {
+      acc_buf_temp.pop();
+      gyr_buf_temp.pop();
+    }
+    while ( !acc_buf_temp.empty()&& acc_buf_temp.front().first < t1) {
+      accVector.push_back(acc_buf_temp.front());
+      acc_buf_temp.pop();
+      gyrVector.push_back(gyr_buf_temp.front());
+      gyr_buf_temp.pop();
+    }
+    accVector.push_back(acc_buf_temp.front());
+    gyrVector.push_back(gyr_buf_temp.front());
+  // } else {
+  //   LOG(WARNING)<<"wait for imu";
+  //   return false;
+  // }
+  return true;
+}
+//
 bool Estimator::getIMUInterval(
     double t0, double t1, vector<pair<double, Eigen::Vector3d>> &accVector,
     vector<pair<double, Eigen::Vector3d>> &gyrVector) {
@@ -693,10 +652,8 @@ void Estimator::processImage(const ImageFeatureTrackerResult &image,
     set<int> removeIndex;
     outliersRejection(removeIndex);
     f_manager->removeOutlier(removeIndex);
-    if (!MULTIPLE_THREAD) {
-      featureTracker.removeOutliers(removeIndex);
-      predictPtsInNextFrame();
-    }
+    featureTracker.removeOutliers(removeIndex);
+    predictPtsInNextFrame();
 
     VLOG(kGlogLevel) << "solver costs: " << t_solve.toc() << " ms";
 
@@ -753,7 +710,7 @@ bool Estimator::initialStructure() {
       double dt = frame_it->second.pre_integration->sum_dt;
       Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
       var += (tmp_g - aver_g).transpose() * (tmp_g - aver_g);
-      // cout << "frame g " << tmp_g.transpose() << endl;
+      cout << "frame g " << tmp_g.transpose() << endl;
     }
     var = sqrt(var / ((int)all_image_frame.size() - 1));
     VLOG(kGlogLevel) <<"IMU variation "<< var;
@@ -763,6 +720,7 @@ bool Estimator::initialStructure() {
       return false;
     }
   }
+  LOG(INFO)<<frame_count;
   // global sfm
   Quaterniond Q[frame_count + 1];
   Vector3d T[frame_count + 1];
@@ -929,6 +887,7 @@ bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T,
   for (int i = 0; i < WINDOW_SIZE; i++) {
     vector<pair<Vector3d, Vector3d>> corres;
     corres = f_manager->getCorresponding(i, WINDOW_SIZE);
+    LOG(INFO)<<corres.size(); 
     if (corres.size() > 20) {
       double sum_parallax = 0;
       double average_parallax;
@@ -939,6 +898,7 @@ bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T,
         sum_parallax = sum_parallax + parallax;
       }
       average_parallax = 1.0 * sum_parallax / int(corres.size());
+      LOG(INFO)<<average_parallax * 460;
       if (average_parallax * 460 > 30 &&
           m_estimator.solveRelativeRT(corres, relative_R, relative_T)) {
         l = i;
@@ -975,10 +935,11 @@ void Estimator::vector2double() {
       para_SpeedBias[i][6] = Bgs[i].x();
       para_SpeedBias[i][7] = Bgs[i].y();
       para_SpeedBias[i][8] = Bgs[i].z();
-      // LOG(INFO)<<Bas[i].transpose();
-      // LOG(INFO)<<Bgs[i].transpose();
+
     }
   }
+  //  LOG(INFO)<<Bas[WINDOW_SIZE].transpose();
+  //  LOG(INFO)<<Bgs[WINDOW_SIZE].transpose();
 
   for (int i = 0; i < NUM_OF_CAM; i++) {
     para_Ex_Pose[i][0] = tic[i].x();
@@ -1049,8 +1010,8 @@ void Estimator::double2vector() {
       // info<<" " << i << " bas :" << Ps[i].transpose()
       //           << " bgs :" << Bgs[i].transpose();
 
-      LOG(INFO) << " " << i << " Ps :" << Ps[i].transpose()
-                << " bgs :" << Bgs[i].transpose();
+      // LOG(INFO) << " " << i << " Ps :" << Ps[i].transpose()
+                // << " bgs :" << Bgs[i].transpose();
     }
   } else {
     for (int i = 0; i <= WINDOW_SIZE; i++) {
@@ -1132,9 +1093,9 @@ void Estimator::optimization() {
   ceres::Problem problem;
   ceres::LossFunction *loss_function;
   // loss_function = NULL;
-  loss_function = new ceres::HuberLoss(1.0);
+  loss_function = new ceres::HuberLoss(1);
   ceres::ParameterBlockOrdering *ordering = new ceres::ParameterBlockOrdering();
-
+  
   // loss_function = new ceres::CauchyLoss(1.0 / FOCAL_LENGTH);
   // ceres::LossFunction* loss_function = new ceres::HuberLoss(1.0);
   for (int i = 0; i < frame_count + 1; i++) {
@@ -1186,7 +1147,6 @@ void Estimator::optimization() {
     for (int i = 0; i < frame_count; i++) {
       int j = i + 1;
 
-      LOG(INFO) << abs(Headers[i] - Headers[j]);
       if (abs(Headers[i] - Headers[j]) > 4.0) {
       }
       // if (pre_integrations[j]->sum_dt > 2.0) continue;
@@ -1208,9 +1168,11 @@ void Estimator::optimization() {
 
   int f_m_cnt = 0;
   int feature_index = -1;
+  const int convin_used_num =4;
+  const double  cam_weight = FOCAL_LENGTH / 1;
   for (auto &it_per_id : f_manager->feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
-    if (it_per_id.used_num < 4) continue;
+    if (it_per_id.used_num < convin_used_num) continue;
 
     ++feature_index;
 
@@ -1226,7 +1188,7 @@ void Estimator::optimization() {
             new ProjectionTwoFrameOneCamFactor(
                 pts_i, pts_j, it_per_id.feature_per_frame[0].velocity,
                 it_per_frame.velocity, it_per_id.feature_per_frame[0].cur_td,
-                it_per_frame.cur_td);
+                it_per_frame.cur_td, cam_weight);
       auto id =   problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i],
                                  para_Pose[imu_j], para_Ex_Pose[0],
                                  para_Feature[feature_index], para_Td[0]);
@@ -1341,7 +1303,7 @@ void Estimator::optimization() {
       int feature_index = -1;
       for (auto &it_per_id : f_manager->feature) {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4) continue;
+        if (it_per_id.used_num < convin_used_num) continue;
 
         ++feature_index;
 
@@ -1358,7 +1320,7 @@ void Estimator::optimization() {
                 new ProjectionTwoFrameOneCamFactor(
                     pts_i, pts_j, it_per_id.feature_per_frame[0].velocity,
                     it_per_frame.velocity,
-                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td, cam_weight);
             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
                 f_td, loss_function,
                 vector<double *>{para_Pose[imu_i], para_Pose[imu_j],
@@ -1700,10 +1662,9 @@ void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration,
   Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
   latest_P = latest_P + dt * latest_V + 0.5 * dt * dt * un_acc;
   latest_V = latest_V + dt * un_acc;
-  // LOG(INFO)<<"p "<<latest_P.transpose();
-  // LOG(INFO)<<"v "<<latest_V.transpose();
   latest_acc_0 = linear_acceleration;
   latest_gyr_0 = angular_velocity;
+
 }
 
 void Estimator::updateLatestStates() {
@@ -1717,7 +1678,14 @@ void Estimator::updateLatestStates() {
   latest_acc_0 = acc_0;
   latest_gyr_0 = gyr_0;
   mBuf.lock();
+
+
   queue<pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
+  // imu_extrapolator_->AddState(
+  //     latest_time,
+  //     ImuState{transform::Rigid3d(Ps[frame_count], Eigen::Quaterniond( Rs[frame_count])),
+  //              Vs[frame_count], Bas[frame_count], Bgs[frame_count]});
+  // //
   queue<pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
   mBuf.unlock();
   while (!tmp_accBuf.empty()) {

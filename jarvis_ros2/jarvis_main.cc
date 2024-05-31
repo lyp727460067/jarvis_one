@@ -21,7 +21,7 @@
 #include "unistd.h"
 //
 #include <glog/logging.h>
-
+#include "jarvis/estimator/imu_extrapolator.h"
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
@@ -208,8 +208,6 @@ int main(int argc, char* argv[]) {
   //
   //
   //
-  std::unique_ptr<jarvis::common::FixedRatioSampler> image_sample_ =
-      std::make_unique<jarvis::common::FixedRatioSampler>(image_sample);
 
   if (kRecordFlag) {
     kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
@@ -225,6 +223,8 @@ int main(int argc, char* argv[]) {
   LOG(INFO) << "config file : " << argv[1];
   //
   ParseOption(argv[1]);
+  std::unique_ptr<jarvis::common::FixedRatioSampler> image_sample_ =
+      std::make_unique<jarvis::common::FixedRatioSampler>(image_sample);
   std::unique_ptr<jarvis_ros::RosCompont> ros_compont =
       std::make_unique<jarvis_ros::RosCompont>(node.get());
   TrackingData tracking_data_temp;
@@ -234,22 +234,39 @@ int main(int argc, char* argv[]) {
   const std::string image_file = data_dir + "image/";
   const std::string imu_file = data_dir + "imu.txt";
   //
+  std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_ =
+      std::make_unique<jarvis::estimator::ImuExtrapolator>();
+
   builder_ = std::make_unique<TrajectorBuilder>(
       std::string(argv[1]), [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
-        LOG(INFO) << data.data->pose;
         //
         tracking_data_temp = data;
         cond.notify_one();
       });
   //
+  //
+
+  //
   order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
-  order_queue_->AddQueue(kImuTopic, [](const sensor::ImuData& imu_data) {
+  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu_data) {
     builder_->AddImuData(imu_data);
+    // auto pose = jarvis::GetGlobleImuExtrapolatorPose();
+    // ros_compont->PosePub(pose.second, transform::Rigid3d::Identity());
+    // auto state = imu_extrapolator_->Exrapolate(imu_data.time);
+    // if (state.data != nullptr) {
+      // ros_compont->PosePub(state.data->pose, transform::Rigid3d::Identity());
+    // }
   });
   //
   order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
-    if (!image_sample_->Pulse()) return;
+
+    LOG(INFO)<<"1";
+    if (!image_sample_->Pulse()) {
+      LOG(INFO)<<"2";
+      return ;
+    }
+    // usleep(100000);
     builder_->AddImageData(imag_data);
   });
   LOG(INFO) << "Parse image dir: " << image_file;
@@ -278,6 +295,11 @@ int main(int argc, char* argv[]) {
         cond.wait(lock);
         tracking_data = tracking_data_temp;
       }
+      if (tracking_data.status == 2) {
+        // imu_extrapolator_->AddState(
+        //     common::ToSeconds(tracking_data.data->time - common::FromUniversal(0)),
+        //     tracking_data.data->imu_state);
+      }
       if (kRecordFlag) {
         std::stringstream info;
         info
@@ -286,20 +308,21 @@ int main(int argc, char* argv[]) {
             << " "
             << std::to_string(uint64_t(
                    jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
-            << " " << tracking_data.data->pose.translation().x() << " "
-            << tracking_data.data->pose.translation().y() << " "
-            << tracking_data.data->pose.translation().z() << " "
-            << tracking_data.data->pose.rotation().x() << " "
-            << tracking_data.data->pose.rotation().x() << " "
-            << tracking_data.data->pose.rotation().y() << " "
-            << tracking_data.data->pose.rotation().z() ;
+            << " " << tracking_data.data->imu_state.data->pose.translation().x() << " "
+            << tracking_data.data->imu_state.data->pose.translation().y() << " "
+            << tracking_data.data->imu_state.data->pose.translation().z() << " "
+            << tracking_data.data->imu_state.data->pose.rotation().x() << " "
+            << tracking_data.data->imu_state.data->pose.rotation().x() << " "
+            << tracking_data.data->imu_state.data->pose.rotation().y() << " "
+            << tracking_data.data->imu_state.data->pose.rotation().z() ;
         kOPoseFile << info.str()<<std::endl;
       }
 
       ros_compont->OnLocalTrackingResultCallback(
           tracking_data, nullptr, transform::Rigid3d::Identity());
-      ros_compont->PosePub(tracking_data.data->pose,
+      ros_compont->PosePub(tracking_data.data->imu_state.data->pose,
                            transform::Rigid3d::Identity());
+      rclcpp::spin_some(node);
     }
   });
   order_queue_->Start();

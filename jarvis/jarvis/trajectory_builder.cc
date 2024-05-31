@@ -72,28 +72,9 @@ TrajectorBuilder::TrajectorBuilder(const std::string &config,
 //
 void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   auto tracking_data = tracker_->AddImageData(images);
-  if (tracking_data != nullptr && tracking_data->tracking_result) {
-    // if (!tracking_data->tracking_result->data->tracking_map_points.empty()) {
-      // map_builder_->AddTrackingData(0, *tracking_data->tracking_result);
-      if (call_back_) {
-        call_back_(*tracking_data->tracking_result);
-      }
-    // }
-  } else if (tracking_data != nullptr) {
-    TrackingData data{
-        std::make_shared<TrackingData::Data>(
-            TrackingData::Data{tracking_data->feature_result.time,
-                               tracking_data->feature_result.pose,
-                               {},
-                               tracking_data->feature_result.key_points,
-                               tracking_data->feature_result.images,
-                               {},
-                               nullptr,
-                               {0}}),0};
-    if (call_back_) {
-      call_back_(data);
-    }
-  };
+  if (call_back_) {
+    call_back_(*tracking_data);
+  }
 }
 //
 void TrajectorBuilder::AddImuData(const   sensor::ImuData &imu_data) {
