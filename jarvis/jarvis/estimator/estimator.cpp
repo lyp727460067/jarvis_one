@@ -305,7 +305,7 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration,
   if (solver_flag == NON_LINEAR) {
     mPropagate.lock();
     fastPredictIMU(t, linearAcceleration, angularVelocity);
-    kGlobleImuPose.push_back(latest_P);
+    // kGlobleImuPose.push_back(latest_P);
     kGlobleImuExtrapolatorPose.first = t;
     kGlobleImuExtrapolatorPose.second = transform::Rigid3d(latest_P, latest_Q);
 
