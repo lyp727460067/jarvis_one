@@ -1218,7 +1218,7 @@ void Estimator::optimization() {
   //   options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
   // else
   //   options.max_solver_time_in_seconds = SOLVER_TIME;
-  options.max_num_iterations=1;
+  options.max_num_iterations=4;
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
