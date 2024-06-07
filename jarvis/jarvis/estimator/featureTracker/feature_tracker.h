@@ -26,6 +26,7 @@
 #include "camera_models/camera_models/camera_factory.h"
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/tic_toc.h"
+#include "jarvis/estimator/featureTracker/pyramid_image.h"
 namespace jarvis {
 namespace estimator {
 
@@ -109,6 +110,7 @@ class FeatureTracker {
   int n_id = 0;
   bool hasPrediction = false;
   cv::Mat  mask_;
+  std::unique_ptr<PyramidImage> pyramid_image_;
 };
 }  // namespace estimator
 }  // namespace jarvis

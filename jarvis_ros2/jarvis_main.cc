@@ -260,10 +260,7 @@ int main(int argc, char* argv[]) {
   });
   //
   order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
-
-    LOG(INFO)<<"1";
     if (!image_sample_->Pulse()) {
-      LOG(INFO)<<"2";
       return ;
     }
     // usleep(100000);
@@ -295,29 +292,36 @@ int main(int argc, char* argv[]) {
         cond.wait(lock);
         tracking_data = tracking_data_temp;
       }
+      LOG(INFO)<<tracking_data.status;
       if (tracking_data.status == 2) {
+        LOG(INFO) << tracking_data.data->imu_state.data->pose;
         // imu_extrapolator_->AddState(
-        //     common::ToSeconds(tracking_data.data->time - common::FromUniversal(0)),
-        //     tracking_data.data->imu_state);
-      }
-      if (kRecordFlag) {
-        std::stringstream info;
-        info
-            << std::to_string(uint64_t(
-                   jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
-            << " "
-            << std::to_string(uint64_t(
-                   jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
-            << " " << tracking_data.data->imu_state.data->pose.translation().x() << " "
-            << tracking_data.data->imu_state.data->pose.translation().y() << " "
-            << tracking_data.data->imu_state.data->pose.translation().z() << " "
-            << tracking_data.data->imu_state.data->pose.rotation().x() << " "
-            << tracking_data.data->imu_state.data->pose.rotation().x() << " "
-            << tracking_data.data->imu_state.data->pose.rotation().y() << " "
-            << tracking_data.data->imu_state.data->pose.rotation().z() ;
-        kOPoseFile << info.str()<<std::endl;
-      }
+        //     common::ToSeconds(tracking_data.data->time -
+        //     common::FromUniversal(0)), tracking_data.data->imu_state);
 
+        if (kRecordFlag) {
+          std::stringstream info;
+          info << std::to_string(uint64_t(
+                      jarvis::common::ToUniversal(tracking_data.data->time) *
+                      1e2))
+               << " "
+               << std::to_string(uint64_t(
+                      jarvis::common::ToUniversal(tracking_data.data->time) *
+                      1e2))
+               << " "
+               << tracking_data.data->imu_state.data->pose.translation().x()
+               << " "
+               << tracking_data.data->imu_state.data->pose.translation().y()
+               << " "
+               << tracking_data.data->imu_state.data->pose.translation().z()
+               << " " << tracking_data.data->imu_state.data->pose.rotation().x()
+               << " " << tracking_data.data->imu_state.data->pose.rotation().x()
+               << " " << tracking_data.data->imu_state.data->pose.rotation().y()
+               << " "
+               << tracking_data.data->imu_state.data->pose.rotation().z();
+          kOPoseFile << info.str() << std::endl;
+        }
+      }
       ros_compont->OnLocalTrackingResultCallback(
           tracking_data, nullptr, transform::Rigid3d::Identity());
       ros_compont->PosePub(tracking_data.data->imu_state.data->pose,
