@@ -8,7 +8,6 @@ void PyramidImage::build_pyramids(const cv::Mat& img,
                     std::vector<cv::Mat>* _pyramids,
                     uchar* const pyra_buf_ptr) {
   std::vector<cv::Mat> pyra;
-  // _pyramids->resize(max_level + 1);
   // _pyramids->resize(pyra.size());
   cv::buildOpticalFlowPyramid(
       img, *_pyramids, cv::Size(option_.lk_win_size, option_.lk_win_size),

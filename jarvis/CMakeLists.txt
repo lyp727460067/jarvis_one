@@ -18,8 +18,14 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   #  -Werror=unused-but-set-variable
                    -Wmultistatement-macros)
 
-
+option(view_debug " arm_neon" ON)
 option(build_test "build test" ON)
+if(${view_debug})
+add_definitions(-D__ARM_NEON__)
+else()
+add_definitions(-D__SSE2__)
+endif()
+add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/libs/eigen3)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/libs/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
