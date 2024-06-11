@@ -270,7 +270,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond *q, Vector3d *T, int l,
 
   ceres::Solver::Options options;
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.max_num_iterations =20;
+  options.max_num_iterations =2;
   options.num_threads = 4;
   options.max_solver_time_in_seconds = 0.1;
   ceres::Solver::Summary summary;

@@ -47,11 +47,11 @@ class Connection {
   }
   ~Connection() {
     kill_thread_ = true;
+    fu.get();
     if (fd != -1) {
       linx_socket::Close(fd);
     }
     fd = -1;
-    fu.get();
   }
   std::future<void>& GetFu() { return fu; }
   int GetFd() { return fd; }
@@ -88,10 +88,9 @@ class DevSocket::Socket {
               std::cout << "connetion break fd=" << (*it)->GetFd() << std::endl;
               std::lock_guard<std::mutex> lock(mutex_);
               it = connections_.erase(it);
+              continue;
             }
-            if (it != connections_.end()) {
-              ++it;
-            }
+            ++it;
           }
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }

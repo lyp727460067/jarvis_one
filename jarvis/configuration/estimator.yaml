@@ -25,7 +25,7 @@ cam0_calib: "ld_cam0.yaml"
 cam1_calib: "ld_cam1.yaml"
 image_width: 640
 image_height: 544
-imu_cam_time_offset: 0.005 #1123
+imu_cam_time_offset: 0.000 #1123
 #imu_cam_time_offset:  -0.09597202515969253 #for 1209
 image_sample : 1
 record : 0
@@ -72,7 +72,7 @@ body_T_cam1: !!opencv-matrix
 multiple_thread: 0
 
 #feature traker paprameters
-max_cnt: 100            # max feature number in feature tracking
+max_cnt: 80            # max feature number in feature tracking
 min_dist: 30            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
@@ -88,7 +88,7 @@ keyframe_parallax: 20.0 # keyframe selection threshold (pixel)
 
 #imu parameters       The more accurate parameters you provide, the better performance
 acc_n: 0.1          # accelerometer measurement noise standard deviation. 
-gyr_n: 0.01        # gyroscope measurement noise standard deviation.     
+gyr_n: 0.005        # gyroscope measurement noise standard deviation.     
 acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
 gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
 g_norm: 9.81007     # gravity magnitude

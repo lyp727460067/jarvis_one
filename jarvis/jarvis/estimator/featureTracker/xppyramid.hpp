@@ -16,7 +16,6 @@
 #ifndef XP_INCLUDE_XP_UTILXPPYRAMID_HPP_
 #define XP_INCLUDE_XP_UTILXPPYRAMID_HPP_
 #include <glog/logging.h>
-
 #include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/video/tracking.hpp>

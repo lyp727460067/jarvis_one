@@ -307,8 +307,11 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   */
   cur_pts.clear();
   pyramid_image_->Build(_img);
-  // cv::imshow("pre",pyramid_image_->PrePyram()[4]);
-  // cv::imshow("pre1",pyramid_image_->CurrPyram()[4]);
+  // for(int i  =0;i<pyramid_image_->PrePyram().size();i++){
+  //   LOG(INFO)<<pyramid_image_->PrePyram()[i].size();
+  // }
+  // cv::imshow("pre",pyramid_image_->PrePyram().back());
+  // cv::imshow("pre1",pyramid_image_->CurrPyram().back());
   // cv::waitKey(0);
   const int level =  pyramid_image_->Layer();
   const int start_level = 0;
@@ -378,11 +381,10 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       //     level, start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
       vector<uchar> reverse_status;
       vector<cv::Point2f> reverse_pts = prev_pts;
-      cv::calcOpticalFlowPyrLK(
-          pyramid_image_->CurrPyram(), pyramid_image_->PrePyram(), cur_pts, reverse_pts, reverse_status, err,
-          win_size, level,
-          criteria,
-          cv::OPTFLOW_USE_INITIAL_FLOW);
+      cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(),
+                               pyramid_image_->PrePyram(), cur_pts, reverse_pts,
+                               reverse_status, err, win_size, level, criteria,
+                               cv::OPTFLOW_USE_INITIAL_FLOW);
       // cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts,
       // reverse_status, err, cv::Size(21, 21), 3);
       for (size_t i = 0; i < status.size(); i++) {

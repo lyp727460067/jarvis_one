@@ -12,6 +12,7 @@ namespace jarvis_pic {
 namespace {
 // #define FRAME_MAX_LEN (640 * 544 * 100)
 std::array<uint8_t, FRAME_MAX_LEN> read_buf;
+constexpr double kGryUnit = 0.001;
 constexpr double kAccUnit = (1.0 / 2048 * 9.81);  // 加速度单位
 //
 cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
@@ -52,9 +53,9 @@ ImuData ToImuData(const ModSyncImuFb& imu,
                      imu.imu_data.accel_z * kAccUnit,
                  },
                  Eigen::Vector3d{
-                     imu.imu_data.gyro_x * 0.001,
-                     imu.imu_data.gyro_y * 0.001,
-                     imu.imu_data.gyro_z * 0.001,
+                     imu.imu_data.gyro_x *kGryUnit,
+                     imu.imu_data.gyro_y *kGryUnit,
+                     imu.imu_data.gyro_z *kGryUnit,
                  }};
 }
 //
@@ -78,7 +79,6 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
 void DataCapture::Run() {
   ModSyncImuFb imudata;
   int32_t res = mem_ssq_->PopImuData(&imudata);
-
   if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
     last_imu_time_stamp_ = imudata.time_stamp;
     ProcessImu(imudata);
@@ -86,11 +86,10 @@ void DataCapture::Run() {
   CameraFrame frame;
   frame.buf = read_buf.data();
   frame.max_len = FRAME_MAX_LEN;
-
   int ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
-
   if (ret_len >= 0) {
     uint32_t frame_sys_count = frame.head.sys_count;
+    LOG(INFO)<<frame_sys_count ;
     if (last_frame_sys_count_ == frame_sys_count) return;
     last_frame_sys_count_ = frame_sys_count;
     ProcessImag(frame);

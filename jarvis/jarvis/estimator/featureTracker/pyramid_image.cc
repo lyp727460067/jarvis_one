@@ -9,9 +9,12 @@ void build_pyramids(const cv::Mat& img, int max_level,
                     std::vector<cv::Mat>* _pyramids,
                     uchar* const pyra_buf_ptr) {
   std::vector<cv::Mat> pyra;
+  // _pyramids->resize(max_level + 1);
   // _pyramids->resize(pyra.size());
   buildOpticalFlowPyramid(img, *_pyramids, cv::Size(lk_win_size, lk_win_size),
                           max_level, true);
+
+  LOG(INFO)<<_pyramids->size()<<max_level;
   // (*_pyramids)[0] =  img;
   // for(int i  =0;i<pyra.size();i++){
   //   (*_pyramids)[i] =  cv::cvtColor(pyra[i],cv::) ;
@@ -26,6 +29,7 @@ void build_pyramids(const cv::Mat& img, int max_level,
     pyramids[0] = img.clone();
     for (int i = 1; i <= max_level; ++i) {
       pyramids[i] = XP::fast_pyra_down(pyramids[i - 1]);
+      LOG(INFO)<<pyramids[i].size();
     }
   } else {
     // fixed buffer provided
@@ -70,6 +74,7 @@ void PyramidImage::Build(const cv::Mat& image) {
     build_pyramids(image, lk_pre_max_layer, &prev_img_pyramids_,
                    nullptr);
   }
+  LOG(INFO)<< lk_pre_max_layer;
   //
   build_pyramids(image, lk_pre_max_layer, &curr_img_pyramids_,
                  nullptr);

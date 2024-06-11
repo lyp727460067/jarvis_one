@@ -20,7 +20,7 @@ parser.add_option("--proc_memlog", dest="proc_memlog",
                   default="", help="proc_memlog")
 (options, args) = parser.parse_args()
 # ParseFromLog()
-options.proc_memlog="/home/lyp/data/0605/mem/proc_memlog.back.txt"
+options.proc_memlog="/home/lyp/project/vslam/jarvis/proc_memlog.txt"
 # Read the original and optimized poses files.
 def ParseFromLog(file):
   time_start = 0.0
@@ -39,7 +39,7 @@ def ParseFromLog(file):
       time_index = time_string_index_string.find(":")
       v_string = time_string_index_string[time_index:]
       line_strip = v_string.split()
-      mem_cost.append(int(line_strip[1])/104)
+      mem_cost.append(int(line_strip[1])/1024)
       # time = time_string_index_string[time_index:]
       # print(line_strip[1])
 
@@ -83,7 +83,7 @@ if options.proc_memlog != '':
   plot.plot(index, mem_cost, '-', label="mem_cost",
             alpha=1, color="green")
   MyPlot(plot,mem_cost,"mem_cost", x_offset=100)
-  plot.plot(index, cpu_cost, '.', label="cpu_cost",
+  plot.plot(cpu_index, cpu_cost, '.', label="cpu_cost",
             alpha=1, color="red")
 
   MyPlot(plot,cpu_cost,"cpu_cost")

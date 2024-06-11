@@ -247,7 +247,7 @@ namespace VSLAM
 
         this->mtCamCapture_AlignedThread = std::thread([](DataCapturer *p_this) { p_this->ImageReceiveLoop(); }, this);
 
-        this->mtCamCapture_AlignedThread.join();
+        // this->mtCamCapture_AlignedThread.join();
     } 
 
     void DataCapturer::Stop()

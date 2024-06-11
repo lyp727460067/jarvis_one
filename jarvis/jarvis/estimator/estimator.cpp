@@ -98,11 +98,11 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   // double angle = 0.0;
   if(GetImuInterval(prev_time_,images.time , accVector, gyrVector)){
     
-
+  if(!accVector.empty()){
   auto pre_integrations_temp = std::make_unique<IntegrationBase>(
-      accVector[0].second, gyrVector[0].second, Bas[frame_count], Bgs[frame_count]);
+      accVector[0].second, gyrVector[0].second, Eigen::Vector3d{0,0,0}, Eigen::Vector3d{0,0,0});
   LOG(INFO)<<accVector.size();
-  for (int i = 0; i < accVector.size(); i++) {
+  for (size_t i = 0; i < accVector.size(); i++) {
     double dt = 0;
     if (i == 0)
       dt = accVector[i].first - prev_time_;
@@ -113,14 +113,20 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
 
     pre_integrations_temp->push_back(dt, accVector[i].second,
                                      gyrVector[i].second);
+    // LOG(INFO)<<gyrVector[i].second.transpose();
+    // LOG(INFO)<<accVector[i].second.transpose();
+
   }
-  //
-  auto angle = common::RadToDeg(transform::GetAngle(
-      transform::Rigid3d::Rotation(pre_integrations_temp->delta_q)));
-  angle_ = angle_*0.2+0.8*angle;
-  LOG(INFO)<< angle;
+    auto angle = common::RadToDeg(transform::GetYaw(
+    transform::Rigid3d::Rotation(pre_integrations_temp->delta_q)));
+    angle_ = angle_*0.2+0.8*angle;
+    LOG(INFO)<< angle_<<" "<<angle;
   }
 
+  //
+
+  }
+  
   prev_time_ = images.time;
   featureFrame = featureTracker.trackImage(images.time, *images.image[0],
                                            cv::Mat(), &track_num,angle_);
@@ -347,8 +353,8 @@ bool Estimator::GetImuInterval(
       gyrVector.push_back(gyr_buf_temp.front());
       gyr_buf_temp.pop();
     }
-    accVector.push_back(acc_buf_temp.front());
-    gyrVector.push_back(gyr_buf_temp.front());
+    // accVector.push_back(acc_buf_temp.front());
+    // gyrVector.push_back(gyr_buf_temp.front());
   // } else {
   //   LOG(WARNING)<<"wait for imu";
   //   return false;
@@ -710,12 +716,12 @@ bool Estimator::initialStructure() {
       double dt = frame_it->second.pre_integration->sum_dt;
       Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
       var += (tmp_g - aver_g).transpose() * (tmp_g - aver_g);
-      cout << "frame g " << tmp_g.transpose() << endl;
+      // cout << "frame g " << tmp_g.transpose() << endl;
     }
     var = sqrt(var / ((int)all_image_frame.size() - 1));
     VLOG(kGlogLevel) <<"IMU variation "<< var;
     LOG(INFO) <<"IMU variation "<< var;
-    if (var < 0.25) {
+    if (var < 0.35) {
       LOG(INFO) << "IMU excitation not enouth!";
       return false;
     }
@@ -938,8 +944,8 @@ void Estimator::vector2double() {
 
     }
   }
-  //  LOG(INFO)<<Bas[WINDOW_SIZE].transpose();
-  //  LOG(INFO)<<Bgs[WINDOW_SIZE].transpose();
+   LOG(INFO)<<Bas[WINDOW_SIZE].transpose();
+   LOG(INFO)<<Bgs[WINDOW_SIZE].transpose();
 
   for (int i = 0; i < NUM_OF_CAM; i++) {
     para_Ex_Pose[i][0] = tic[i].x();
@@ -1093,7 +1099,7 @@ void Estimator::optimization() {
   ceres::Problem problem;
   ceres::LossFunction *loss_function;
   // loss_function = NULL;
-  loss_function = new ceres::HuberLoss(1);
+  loss_function = new ceres::HuberLoss(1.0 );
   ceres::ParameterBlockOrdering *ordering = new ceres::ParameterBlockOrdering();
   
   // loss_function = new ceres::CauchyLoss(1.0 / FOCAL_LENGTH);
@@ -1147,9 +1153,9 @@ void Estimator::optimization() {
     for (int i = 0; i < frame_count; i++) {
       int j = i + 1;
 
-      if (abs(Headers[i] - Headers[j]) > 4.0) {
-      }
-      // if (pre_integrations[j]->sum_dt > 2.0) continue;
+      // if (abs(Headers[i] - Headers[j]) > 4.0) {
+      // }
+      if (pre_integrations[j]->sum_dt > 10.0) continue;
       IMUFactor *imu_factor = new IMUFactor(pre_integrations[j]);
       auto id = problem.AddResidualBlock(imu_factor, NULL, para_Pose[i],
                                          para_SpeedBias[i], para_Pose[j],
@@ -1169,7 +1175,7 @@ void Estimator::optimization() {
   int f_m_cnt = 0;
   int feature_index = -1;
   const int convin_used_num =4;
-  const double  cam_weight = FOCAL_LENGTH / 1;
+  const double  cam_weight = FOCAL_LENGTH / 1.5;
   for (auto &it_per_id : f_manager->feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
     if (it_per_id.used_num < convin_used_num) continue;
@@ -1218,7 +1224,7 @@ void Estimator::optimization() {
   //   options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
   // else
   //   options.max_solver_time_in_seconds = SOLVER_TIME;
-  options.max_num_iterations=4;
+  options.max_num_iterations=1;
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);

@@ -21,7 +21,7 @@
 
 #include <algorithm>
 #include <vector>
-
+// #include <emmintrin.h>
 #include "feature_utils.h"
 
 #define DBG_XP_PYRAMID(msg) \
@@ -31,28 +31,22 @@ namespace XP {
 namespace XP_OPTICAL_FLOW {
 // temporary buffer used for storing bigger patch in optical flow iterarion loop
 // [NOTE] aligned_alloc is NOT supported by GCC on OSX or Windows
-#ifdef __APPLE__
-inline void* aligned_alloc(size_t align, size_t size) {
-  void* result;
-  if (posix_memalign(&result, align, size)) {
-    result = 0;
-  }
-  return result;
-}
-#elif defined _MSC_VER
-inline void* aligned_alloc(size_t align, size_t size) {
-  void* result;
-  result = _aligned_malloc(size, align);
-  return result;
-}
-#endif
+
+struct D {
+  void operator()(uchar* p) const { std::free(p); }
+};
+struct D1 {
+  void operator()(deriv_type* p) const { free(p); }
+};
+
 
 static std::shared_ptr<uchar> iteration_patch_buffer(
-    reinterpret_cast<uchar*>(aligned_alloc(64, 256)));
+    reinterpret_cast<uchar*>(aligned_alloc(64, 2048)),D());
 // temporary buffer for storing graident data in each pyramid level.
 static std::shared_ptr<deriv_type> xy_gradient_buffer_prev(
     reinterpret_cast<deriv_type*>(
-        aligned_alloc(64, 640 * 480 * sizeof(deriv_type) * 2)));
+        aligned_alloc(64, 640 * 544 * sizeof(deriv_type) * 2)),
+    D1());
 
 #define CV_DESCALE(x, n) (((x) + (1 << ((n) - 1))) >> (n))
 #ifdef __ARM_NEON__
@@ -88,11 +82,10 @@ void calcSharrDeriv(const cv::Mat& src, cv::Mat* dst) {
   CHECK_EQ(dst->channels(), 2);  // x and y gradient
   CHECK_EQ(dst->depth(), DataType<deriv_type>::depth);
 #endif
-
-  int x, y, delta = static_cast<int>(alignSize((cols + 2) * cn, 16));
+  int x, y, delta = static_cast<int>(cv::alignSize((cols + 2) * cn, 16));
   AutoBuffer<deriv_type> _tempBuf(delta * 2 + 64);
-  deriv_type *trow0 = alignPtr(_tempBuf + cn, 16),
-             *trow1 = alignPtr(trow0 + delta, 16);
+  deriv_type *trow0 = cv::alignPtr(_tempBuf + cn, 16),
+             *trow1 = cv::alignPtr(trow0 + delta, 16);
 
 #if CV_SSE2
   __m128i z = _mm_setzero_si128(), c3 = _mm_set1_epi16(3),
@@ -142,8 +135,8 @@ void calcSharrDeriv(const cv::Mat& src, cv::Mat* dst) {
       vst1q_u16(reinterpret_cast<uint16_t*>(&trow0[x]), q10);
       vst1q_u16(reinterpret_cast<uint16_t*>(&trow1[x]), q11);
     }
+    
 #endif
-
     for (; x < colsn; x++) {
       int t0 = (srow0[x] + srow2[x]) * 3 + srow1[x] * 10;
       int t1 = srow2[x] - srow0[x];
@@ -162,7 +155,6 @@ void calcSharrDeriv(const cv::Mat& src, cv::Mat* dst) {
 
     // do horizontal convolution, interleave the results and store them to dst
     x = 0;
-
 #if CV_SSE2
     for (; x <= colsn - 8; x += 8) {
       __m128i s0 =
@@ -198,9 +190,12 @@ void calcSharrDeriv(const cv::Mat& src, cv::Mat* dst) {
 
       int16x4x2_t q5x2 = {vget_low_s16(q5), vget_low_s16(q11)};
       int16x4x2_t q11x2 = {vget_high_s16(q5), vget_high_s16(q11)};
+
       vst2_s16(static_cast<int16_t*>(&drow[x * 2]), q5x2);
       vst2_s16(static_cast<int16_t*>(&drow[(x * 2) + 8]), q11x2);
+
     }
+
 #endif
     for (; x < colsn; x++) {
       deriv_type t0 = (deriv_type)(trow0[x + cn] - trow0[x - cn]);
