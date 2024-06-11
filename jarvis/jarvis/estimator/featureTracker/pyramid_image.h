@@ -37,10 +37,10 @@ class PyramidImage {
 
  private:
   const PyramidImageOption option_;
-  std::shared_ptr<uchar>
-      prev_pyramids_buffer_;  // buffer for storing previous pyramids
-  std::shared_ptr<uchar>
-      curr_pyramids_buffer_;  // buffer for storing current pyramids
+  // std::shared_ptr<uchar> 
+  //     prev_pyramids_buffer_=nullptr; 
+  // std::shared_ptr<uchar>
+  //     curr_pyramids_buffer_ =nullptr; 
   std::vector<cv::Mat> prev_img_pyramids_;
   std::vector<cv::Mat> curr_img_pyramids_;
 };

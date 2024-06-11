@@ -23,7 +23,7 @@ namespace estimator {
 extern std::string mask_file;
 using namespace std;
 const double FOCAL_LENGTH = 377.0;
-const int WINDOW_SIZE = 6;
+const int WINDOW_SIZE = 8;
 const int NUM_OF_F = 1000;
 // #define UNIT_SPHERE_ERROR
 
@@ -65,7 +65,8 @@ extern int MIN_DIST;
 extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int FLOW_BACK;
-
+extern int lk_win_size;
+extern int lk_pre_max_layer;
 void readParameters(std::string config_file);
 
 enum SIZE_PARAMETERIZATION {

@@ -8,16 +8,15 @@ namespace {
 void build_pyramids(const cv::Mat& img, int max_level,
                     std::vector<cv::Mat>* _pyramids,
                     uchar* const pyra_buf_ptr) {
-  // std::vector<cv::Mat> pyra;
-  // LOG(INFO)<<img.channels();
-  // // _pyramids->resize(pyra.size());
-  // buildOpticalFlowPyramid(img, *_pyramids, cv::Size(21,21),max_level, true);
-  // // (*_pyramids)[0] =  img;
-  // // for(int i  =0;i<pyra.size();i++){
-  // //   (*_pyramids)[i] =  cv::cvtColor(pyra[i],cv::) ;
-  // // }
-  // LOG(INFO) << (*_pyramids)[0].channels();
-  // return ;
+  std::vector<cv::Mat> pyra;
+  // _pyramids->resize(pyra.size());
+  buildOpticalFlowPyramid(img, *_pyramids, cv::Size(lk_win_size, lk_win_size),
+                          max_level, true);
+  // (*_pyramids)[0] =  img;
+  // for(int i  =0;i<pyra.size();i++){
+  //   (*_pyramids)[i] =  cv::cvtColor(pyra[i],cv::) ;
+  // }
+  return ;
   CHECK_NOTNULL(_pyramids);
   std::vector<cv::Mat>& pyramids = *_pyramids;
   pyramids.resize(max_level + 1);
@@ -55,30 +54,26 @@ void build_pyramids(const cv::Mat& img, int max_level,
 }  // namespace
 
 PyramidImage::PyramidImage(const PyramidImageOption& option)
-    : option_(option),
-      prev_pyramids_buffer_(
-          new uchar[option.image_size.x() * option.image_size.y() * 2]),
-      curr_pyramids_buffer_(
-          new uchar[option.image_size.x() * option.image_size.y() * 2]) {}
+    : option_(option) {}
 //
 
 void PyramidImage::Build(const cv::Mat& image) {
   //
   //
   if (!prev_img_pyramids_.empty()) {
-    curr_img_pyramids_.swap(prev_img_pyramids_);
-    curr_pyramids_buffer_.swap(prev_pyramids_buffer_);
+    prev_img_pyramids_ = std::move(curr_img_pyramids_);
+    curr_img_pyramids_.clear();
+    // curr_img_pyramids_.swap(prev_img_pyramids_);
+    // curr_pyramids_buffer_.swap(prev_pyramids_buffer_);
 
   } else {
-    build_pyramids(image, option_.layer, &prev_img_pyramids_,
+    build_pyramids(image, lk_pre_max_layer, &prev_img_pyramids_,
                    nullptr);
   }
   //
-  LOG(INFO)<<"1";
-  build_pyramids(image, option_.layer, &curr_img_pyramids_,
+  build_pyramids(image, lk_pre_max_layer, &curr_img_pyramids_,
                  nullptr);
 
-  LOG(INFO)<<"1";
           
 }
 

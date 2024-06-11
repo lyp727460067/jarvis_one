@@ -49,11 +49,13 @@ int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
-
+int lk_win_size;
+int lk_pre_max_layer;
 void readParameters(std::string config_file) {
   FILE *fh = fopen(config_file.c_str(), "r");
   if (fh == NULL) {
-    LOG(FATAL) << "config_file dosen't exist; wrong config_file path";
+    LOG(FATAL) << "config_file dosen't exist; wrong config_file path"
+               << config_file;
     return;
   }
   fclose(fh);
@@ -81,7 +83,8 @@ void readParameters(std::string config_file) {
   F_THRESHOLD = fsSettings["F_threshold"];
   SHOW_TRACK = fsSettings["show_track"];
   FLOW_BACK = fsSettings["flow_back"];
-
+  lk_win_size = fsSettings["lk_win_size"];
+  lk_pre_max_layer = fsSettings["lk_pre_max_layer"];
   MULTIPLE_THREAD = fsSettings["multiple_thread"];
 
   USE_IMU = fsSettings["imu"];

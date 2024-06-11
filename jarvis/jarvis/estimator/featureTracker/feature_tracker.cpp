@@ -68,8 +68,10 @@ void efficientGoodFeaturesToTrack(InputArray _image,
   vector<cv::KeyPoint> keypoints;
   // cv::FAST(cv::Mat(image, cv::Rect2i(5, 5, image.cols - 5, image.rows - 5)),
   //          keypoints, 15, true);
-  cv::FAST(image, keypoints, 15, true);
-  if (keypoints.empty()) return;
+  cv::FAST(image, keypoints, 20, true);
+  if (keypoints.size() < (maxCorners - have_corners.size())) {
+    cv::FAST(image, keypoints, 10, true);
+  }
 
   cv::Mat kernal_x = (cv::Mat_<double>(3, 3) << -1, 0, 1, -2, 0, 2, -1, 0, 1);
   cv::Mat kernal_y = (cv::Mat_<double>(3, 3) << -1, -2, -1, 0, 0, 0, 1, 2, 1);
@@ -237,7 +239,7 @@ void reduceVector(vector<int> &v, vector<bool> status) {
   v.resize(j);
 }
 FeatureTracker::FeatureTracker() {
-  pyramid_image_ =  std::make_unique<PyramidImage>(PyramidImageOption{3,
+  pyramid_image_ =  std::make_unique<PyramidImage>(PyramidImageOption{5,
     Eigen::Vector2i{640,544}});
   stereo_cam = 0;
   n_id = 0;
@@ -305,79 +307,82 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   */
   cur_pts.clear();
   pyramid_image_->Build(_img);
-  // cv::imshow("pre",pyramid_image_->PrePyram().back());
-  // cv::imshow("pre1",pyramid_image_->CurrPyram().back());
+  // cv::imshow("pre",pyramid_image_->PrePyram()[4]);
+  // cv::imshow("pre1",pyramid_image_->CurrPyram()[4]);
   // cv::waitKey(0);
   const int level =  pyramid_image_->Layer();
   const int start_level = 0;
-  cv::Size win_size(7,7);
-  cv::TermCriteria criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 40, 0.01);
+  cv::Size win_size(lk_win_size , lk_win_size);
+  cv::TermCriteria criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
   LOG(WARNING)<<level;
   if (prev_pts.size() > 0) {
     TicToc t_o;
-    vector<bool> status;
+    vector<uchar> status;
     vector<float> err;
-    cur_pts = prev_pts;
+    // cur_pts = prev_pts;
     if (hasPrediction) {
       cur_pts = predict_pts;
-    }
-    // LOG(INFO)<<"1";
-    // cv::calcOpticalFlowPyrLK(
-    //     pyramid_image_->PrePyram()[0], pyramid_image_->CurrPyram()[0], prev_pts,
-    //     cur_pts, status, err, win_size, pyramid_image_->Layer(),
-    //     cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30,
-    //                      0.01),
-    //     cv::OPTFLOW_USE_INITIAL_FLOW);
+      cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
+                               pyramid_image_->CurrPyram(), prev_pts, cur_pts,
+                               status, err, win_size, level, criteria,
+                               cv::OPTFLOW_USE_INITIAL_FLOW);
+      //
+      // std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
+      // pre_xp_kp_small.reserve(prev_pts.size());
+      // for (const auto &p : prev_pts) {
+      //   pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p));
+      // }
 
-    //
-    std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
-    pre_xp_kp_small.reserve(prev_pts.size());
-    for (const auto &p : prev_pts) {
-      pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p));
-    }
+      // XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLK(
+      //     pyramid_image_->PrePyram(), pyramid_image_->CurrPyram(),
+      //     &pre_xp_kp_small, &cur_pts, &status, &err, win_size, level,
+      //     start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
 
-    XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLK(
-        pyramid_image_->PrePyram(), pyramid_image_->CurrPyram(),
-        &pre_xp_kp_small, &cur_pts, &status, &err, win_size, level,
-        start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
-
-    int succ_num = 0;
-    for (size_t i = 0; i < status.size(); i++) {
-      if (status[i]) succ_num++;
+      int succ_num = 0;
+      for (size_t i = 0; i < status.size(); i++) {
+        if (status[i]) succ_num++;
+      }
+      LOG(INFO) << succ_num;
+      if (succ_num < 10) {
+        cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
+                                 pyramid_image_->CurrPyram(), prev_pts, cur_pts,
+                                 status, err, win_size, level, criteria);
+      }
+    } else {
+      cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
+                               pyramid_image_->CurrPyram(), prev_pts, cur_pts,
+                               status, err, win_size, level, criteria);
     }
-    LOG(INFO) << succ_num;
     // }
     // } else {
-      
-      // cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
-      //                          pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-      //                          status, err, win_size, 2);
+
+    // cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
+    //                          pyramid_image_->CurrPyram(), prev_pts, cur_pts,
+    //                          status, err, win_size, 2);
     // }
 
     // reverse check
     if (FLOW_BACK) {
-      vector<bool> reverse_status;
+      // vector<bool> reverse_status;
+      // vector<cv::Point2f> reverse_pts = prev_pts;
+
+      // std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
+      // pre_xp_kp_small.reserve(cur_pts.size());
+      // for (const auto &p : cur_pts) {
+      //   pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p));
+      // }
+      // //
+      // XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLK(
+      //     pyramid_image_->CurrPyram(), pyramid_image_->PrePyram(),
+      //     &pre_xp_kp_small, &reverse_pts, &reverse_status, &err, win_size,
+      //     level, start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
+      vector<uchar> reverse_status;
       vector<cv::Point2f> reverse_pts = prev_pts;
-
-      std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
-      pre_xp_kp_small.reserve(cur_pts.size());
-      for (const auto &p : cur_pts) {
-        pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p));
-      }
-      //
-      XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLK(
-          pyramid_image_->CurrPyram(), pyramid_image_->PrePyram(),
-          &pre_xp_kp_small, &reverse_pts, &reverse_status, &err, win_size, level,
-          start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
-
-      // cv::calcOpticalFlowPyrLK(
-      //     pyramid_image_->PrePyram(), pyramid_image_->CurrPyram(), cur_pts, reverse_pts, reverse_status, err,
-      //     win_size, pyramid_image_->Layer(),
-      //     cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30,
-      //                      0.01),
-      //     cv::OPTFLOW_USE_INITIAL_FLOW);
-
-
+      cv::calcOpticalFlowPyrLK(
+          pyramid_image_->CurrPyram(), pyramid_image_->PrePyram(), cur_pts, reverse_pts, reverse_status, err,
+          win_size, level,
+          criteria,
+          cv::OPTFLOW_USE_INITIAL_FLOW);
       // cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts,
       // reverse_status, err, cv::Size(21, 21), 3);
       for (size_t i = 0; i < status.size(); i++) {
@@ -389,6 +394,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       }
     }
 
+      LOG(INFO)<<"1";
     for (int i = 0; i < int(cur_pts.size()); i++)
       if (status[i] && !inBorder(cur_pts[i])) status[i] = 0;
     reduceVector(prev_pts, status);

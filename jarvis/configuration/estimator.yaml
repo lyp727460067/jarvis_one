@@ -25,8 +25,8 @@ cam0_calib: "ld_cam0.yaml"
 cam1_calib: "ld_cam1.yaml"
 image_width: 640
 image_height: 544
-#imu_cam_time_offset: 0.005 #1123
-imu_cam_time_offset:  -0.09597202515969253 #for 1209
+imu_cam_time_offset: 0.005 #1123
+#imu_cam_time_offset:  -0.09597202515969253 #for 1209
 image_sample : 1
 record : 0
 offline_play_bag_duration : 0.001 
@@ -76,9 +76,10 @@ max_cnt: 100            # max feature number in feature tracking
 min_dist: 30            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1           # publish tracking image as topic
+show_track: 0           # publish tracking image as topic
 flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
-
+lk_win_size : 21
+lk_pre_max_layer : 5
 #optimization parameters
 max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
 max_num_iterations: 8   # max solver itrations, to guarantee real time
@@ -87,7 +88,7 @@ keyframe_parallax: 20.0 # keyframe selection threshold (pixel)
 
 #imu parameters       The more accurate parameters you provide, the better performance
 acc_n: 0.1          # accelerometer measurement noise standard deviation. 
-gyr_n: 0.008        # gyroscope measurement noise standard deviation.     
+gyr_n: 0.01        # gyroscope measurement noise standard deviation.     
 acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
 gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
 g_norm: 9.81007     # gravity magnitude
