@@ -2,13 +2,13 @@
 
 namespace VSLAM
 {
-    CamImuAligner::CamImuAligner(int imgFreq,int imuFreq)
+    CamImuAligner::CamImuAligner(float duri,int imuFreq)
     {
         this->mPreImuTime = 0.0;
         this->mbFirstImu  = true;
         this->mRealImuInverval = 0.0;
         this->mImuInverval = 1.0 / imuFreq;
-        this->mImgInverval = 1.0 / imgFreq;
+        this->mImgInverval = duri;
 
         double halfImuInverval = mImuInverval / 4.0;
         double halfImgInverval = mImgInverval / 4.0;

@@ -6,7 +6,10 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 #set(BUILD_TYPE Release)
 set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -Ofast  -mpopcnt") #-Wno-unused-result
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Ofast -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
+
+
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -42,7 +45,24 @@ set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_calib3d.so
     ${Opencv_lib_dir}/libopencv_video.so
 )
+set(sut_lib_dir  ${TOP_CMAKE_DIR}/third_party/SuiteSparse/lib)
+set(SUTI_LIBS
+#  ${TOP_CMAKE_DIR}/third_party/lapack/lib/liblapack.a
+#  ${sut_lib_dir}/libamd.a  
+#  ${sut_lib_dir}/libccolamd.a 
+#  ${sut_lib_dir}/libcxsparse.a 
+#  ${sut_lib_dir}/librbio.a              
+#  ${sut_lib_dir}/libumfpack.a
+#  ${sut_lib_dir}/libbtf.a 
+#  ${sut_lib_dir}/libcholmod.a
+#  ${sut_lib_dir}/libklu.a      
+#  ${sut_lib_dir}/libspqr.a
+#  ${sut_lib_dir}/libcamd.a
+#  ${sut_lib_dir}/libcolamd.a  
+#  ${sut_lib_dir}/libldl.a
+#  ${sut_lib_dir}/libsuitesparseconfig.so
 
+)
 set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
 set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
 add_library(
@@ -93,9 +113,11 @@ target_link_libraries( ${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
   glog
+  # -lgfortran
   ${OpenCV_LIBS}
   ${CERES_LIBRARIES}
   ${Boost_LIBRARIES}
+  ${SUTI_LIBS}
   )
 
 #
@@ -110,6 +132,7 @@ if(${build_test})
       -lgtest_main
       -lgtest
       -lpthread
+
       ${PROJECT_NAME}
     )
    endforeach()

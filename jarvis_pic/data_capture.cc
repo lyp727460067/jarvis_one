@@ -243,7 +243,7 @@ std::unique_ptr<DataCapture> CreateDataCaputure(
   if (option.use_method == 0) {
     return std::make_unique<DataCapture>(DataCaptureOption{});
   } else if (option.use_method == 1) {
-    return std::make_unique<VSLAM::DataCapturer>(10, 200);
+    return std::make_unique<VSLAM::DataCapturer>(0.07, 200);
   } else {
     LOG(FATAL) << "Unsupport capture type...";
   }
