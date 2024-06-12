@@ -721,7 +721,7 @@ bool Estimator::initialStructure() {
     var = sqrt(var / ((int)all_image_frame.size() - 1));
     VLOG(kGlogLevel) <<"IMU variation "<< var;
     LOG(INFO) <<"IMU variation "<< var;
-    if (var < 0.35) {
+    if (var < 0.25) {
       LOG(INFO) << "IMU excitation not enouth!";
       return false;
     }
@@ -1155,7 +1155,7 @@ void Estimator::optimization() {
 
       // if (abs(Headers[i] - Headers[j]) > 4.0) {
       // }
-      if (pre_integrations[j]->sum_dt > 10.0) continue;
+      // if (pre_integrations[j]->sum_dt > 10.0) continue;
       IMUFactor *imu_factor = new IMUFactor(pre_integrations[j]);
       auto id = problem.AddResidualBlock(imu_factor, NULL, para_Pose[i],
                                          para_SpeedBias[i], para_Pose[j],
@@ -1175,7 +1175,7 @@ void Estimator::optimization() {
   int f_m_cnt = 0;
   int feature_index = -1;
   const int convin_used_num =4;
-  const double  cam_weight = FOCAL_LENGTH / 1.5;
+  const double  cam_weight = FOCAL_LENGTH / 1;
   for (auto &it_per_id : f_manager->feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
     if (it_per_id.used_num < convin_used_num) continue;

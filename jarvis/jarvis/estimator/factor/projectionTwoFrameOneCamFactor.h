@@ -31,6 +31,15 @@ class ProjectionTwoFrameOneCamFactor
                                  const double _td_i, const double _td_j,double weight);
   virtual bool Evaluate(double const *const *parameters, double *residuals,
                         double **jacobians) const;
+
+  bool EvaluateNormal(double const *const *parameters, double *residuals,
+                        double **jacobians) const;
+
+  bool EvaluateSIMD(double const *const *parameters, double *residuals,
+                        double **jacobians) const;
+
+
+
   void check(double **parameters);
 
   Eigen::Vector3d pts_i, pts_j;

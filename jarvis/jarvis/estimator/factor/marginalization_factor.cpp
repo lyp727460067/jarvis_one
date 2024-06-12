@@ -10,14 +10,10 @@
 
 #include "jarvis/estimator/factor/marginalization_factor.h"
 #include <Eigen/Eigenvalues> 
-#include "mutex"
-#include "thread"
+
 #include <fstream>
 namespace jarvis {
 namespace estimator {
-namespace {
-constexpr uint8_t kGlogLevel = 1;
-}
 void ResidualBlockInfo::Evaluate() {
   residuals.resize(cost_function->num_residuals());
 
@@ -154,9 +150,8 @@ int MarginalizationInfo::localSize(int size) const {
 int MarginalizationInfo::globalSize(int size) const {
   return size == 6 ? 7 : size;
 }
-std::mutex mutex;
+
 void *ThreadsConstructA(void *threadsstruct) {
-  // TicToc zero_matrix;
   ThreadsStruct *p = ((ThreadsStruct *)threadsstruct);
   for (auto it : p->sub_factors) {
     for (int i = 0; i < static_cast<int>(it->parameter_blocks.size()); i++) {
@@ -186,8 +181,6 @@ void *ThreadsConstructA(void *threadsstruct) {
       p->b.segment(idx_i, size_i) += jacobian_i.transpose() * it->residuals;
     }
   }
-//  std::lock_guard<std::mutex> lock(mutex);
-  // std::cout << "ThreadsConstructA  " << zero_matrix.toc()<<std::endl;
   return threadsstruct;
 }
 
@@ -257,60 +250,32 @@ void MarginalizationInfo::marginalize() {
   // multi thread
 
   TicToc t_thread_summing;
-  const int num__thread  = factors.size()>=NUM_THREADS?NUM_THREADS:factors.size();
-  // std::vector<std::thread> threads;
-  pthread_t tids[num__thread];
-  ThreadsStruct threadsstruct[num__thread];
+  pthread_t tids[NUM_THREADS];
+  ThreadsStruct threadsstruct[NUM_THREADS];
   int i = 0;
   for (auto it : factors) {
     threadsstruct[i].sub_factors.push_back(it);
     i++;
-    i = i % num__thread;
+    i = i % NUM_THREADS;
   }
-
-  // for (int i = 0; i < num__thread; i++) {
-  //   threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
-  //   threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
-  //   threadsstruct[i].parameter_block_size = parameter_block_size;
-  //   threadsstruct[i].parameter_block_idx = parameter_block_idx;
-  //   void * a = (void *)&(threadsstruct[i]);
-  //   threads.emplace_back([=](){
-  //     ThreadsConstructA(a);
-  //   });
-  // }
-  for (int i = 0; i < num__thread; i++) {
+  for (int i = 0; i < NUM_THREADS; i++) {
     TicToc zero_matrix;
     threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
     threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
     threadsstruct[i].parameter_block_size = parameter_block_size;
     threadsstruct[i].parameter_block_idx = parameter_block_idx;
-    pthread_attr_t attr1;
-    struct sched_param param1;
-    pthread_attr_init(&attr1);
-    pthread_attr_setinheritsched(&attr1, PTHREAD_EXPLICIT_SCHED);
-    pthread_attr_setschedpolicy(&attr1, SCHED_FIFO);
-    param1.sched_priority = 90-i;// 线程1设置优先级为10
-    pthread_attr_setschedparam(&attr1, &param1);
-
-    int ret = pthread_create(&tids[i],NULL, ThreadsConstructA,
+    int ret = pthread_create(&tids[i], NULL, ThreadsConstructA,
                              (void *)&(threadsstruct[i]));
     CHECK(ret == 0) << "pthread_create error";
   }
-  for (int i = 0; i < num__thread; i++) {
-    // TicToc t_thread_summing_pluse;    
+  for (int i = NUM_THREADS - 1; i >= 0; i--) {
     pthread_join(tids[i], NULL);
-    // if(threads[i].joinable()){
-    //    threads[i].join();
-    // }
-
-    // TicToc t_thread_summing_pluse1;    
     A += threadsstruct[i].A;
     b += threadsstruct[i].b;
-    // std::cout  << "matrix plus costs  " << t_thread_summing_pluse.toc()<<" "<<t_thread_summing_pluse1.toc()<< std::endl;
   }
-  VLOG(kGlogLevel) << "thread summing up costs  " << t_thread_summing.toc();
+  // ROS_DEBUG("thread summing up costs %f ms", t_thread_summing.toc());
   // ROS_INFO("A diff %f , b diff %f ", (A - tmp_A).sum(), (b - tmp_b).sum());
-  TicToc matrix_muty_total;
+
   // TODO
   Eigen::MatrixXd Amm =
       0.5 * (A.block(0, 0, m, m) + A.block(0, 0, m, m).transpose());
@@ -319,7 +284,6 @@ void MarginalizationInfo::marginalize() {
   // ROS_ASSERT_MSG(saes.eigenvalues().minCoeff() >= -1e-4, "min eigenvalue %f",
   // saes.eigenvalues().minCoeff());
 
-  TicToc matrix_muty_total_inv;
   Eigen::MatrixXd Amm_inv =
       saes.eigenvectors() *
       Eigen::VectorXd((saes.eigenvalues().array() > eps)
@@ -329,20 +293,14 @@ void MarginalizationInfo::marginalize() {
   // printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m,
   // m)).sum());
 
-  VLOG(kGlogLevel) << "matrix_muty_total_inv costs  " << matrix_muty_total_inv.toc();
-
-  TicToc matrix_muty_total_margina;
   Eigen::VectorXd bmm = b.segment(0, m);
   Eigen::MatrixXd Amr = A.block(0, m, m, n);
   Eigen::MatrixXd Arm = A.block(m, 0, n, m);
   Eigen::MatrixXd Arr = A.block(m, m, n, n);
   Eigen::VectorXd brr = b.segment(m, n);
-  Eigen::VectorXd tmp = Arm * Amm_inv;
-  A = Arr -  tmp* Amr;
-  b = brr -  tmp * bmm;
-  VLOG(kGlogLevel) << "matrix_muty_total_margina costs  " << matrix_muty_total_margina.toc();
+  A = Arr - Arm * Amm_inv * Amr;
+  b = brr - Arm * Amm_inv * bmm;
 
-  TicToc matrix_muty_total_margina1;
   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
   Eigen::VectorXd S =
       Eigen::VectorXd((saes2.eigenvalues().array() > eps)
@@ -351,19 +309,12 @@ void MarginalizationInfo::marginalize() {
       Eigen::VectorXd((saes2.eigenvalues().array() > eps)
                           .select(saes2.eigenvalues().array().inverse(), 0));
 
-  VLOG(kGlogLevel) << "matrix_muty_total_margina1 costs  " << matrix_muty_total_margina1.toc();
-
-  TicToc matrix_muty_total_margina2;
   Eigen::VectorXd S_sqrt = S.cwiseSqrt();
   Eigen::VectorXd S_inv_sqrt = S_inv.cwiseSqrt();
 
   linearized_jacobians = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
   linearized_residuals =
       S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
-      
-  VLOG(kGlogLevel) << "matrix_muty_total_margina2 costs  " << matrix_muty_total_margina2.toc();
-  VLOG(kGlogLevel) << "matrix_muty_total costs  " << matrix_muty_total.toc();
-  // LOG(INFO)<<"linearized_residuals"<<linearized_residuals.norm(); 
   // std::cout << A << std::endl
   //           << std::endl;
   // std::cout << linearized_jacobians << std::endl;

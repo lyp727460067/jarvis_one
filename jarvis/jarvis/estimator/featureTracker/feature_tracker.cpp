@@ -46,10 +46,20 @@ vector<double> convolution(const cv::Mat &image,
     grad.push_back(abs(pixSum));
     pixSum = 0;
   }
-
   return grad;
 }
-
+//
+void convolution(const cv::Mat &image, const vector<cv::KeyPoint> &pts,
+                 const cv::Mat &derive, vector<short> &x_c,
+                 vector<short> &y_c) {
+  for (size_t i = 0; i < pts.size(); i++) {
+    int row = floor(pts[i].pt.y);
+    int col = floor(pts[i].pt.x);
+    x_c.push_back(derive.ptr<short>(row, col)[0]);
+    y_c.push_back(derive.ptr<short>(row, col)[1]);
+  }
+}
+//
 typedef pair<int, double> PAIR;
 bool cmp_by_value(const PAIR &lhs, const PAIR &rhs) {
   return lhs.second > rhs.second;
@@ -60,7 +70,8 @@ bool cmp_by_value(const PAIR &lhs, const PAIR &rhs) {
 void efficientGoodFeaturesToTrack(InputArray _image,
                                   vector<cv::Point2f> &have_corners,
                                   vector<cv::Point2f> &corners, int maxCorners,
-                                  double minDistance,const cv::Mat &mask) {
+                                  double minDistance,const cv::Mat &mask,
+                                  const cv::Mat&derive) {
   corners.clear();
   Mat image = _image.getMat();
   if (image.empty()) return;
@@ -68,26 +79,37 @@ void efficientGoodFeaturesToTrack(InputArray _image,
   vector<cv::KeyPoint> keypoints;
   // cv::FAST(cv::Mat(image, cv::Rect2i(5, 5, image.cols - 5, image.rows - 5)),
   //          keypoints, 15, true);
-  cv::FAST(image, keypoints, 20, true);
-  if (keypoints.size() < (maxCorners - have_corners.size())) {
-    cv::FAST(image, keypoints, 10, true);
-  }
-
+  cv::FAST(image, keypoints, 15, true);
+  // if (keypoints.size() < (maxCorners - have_corners.size())) {
+  //   cv::FAST(image, keypoints, 10, true);
+  // }
+  LOG(INFO)<< keypoints.size();
   cv::Mat kernal_x = (cv::Mat_<double>(3, 3) << -1, 0, 1, -2, 0, 2, -1, 0, 1);
   cv::Mat kernal_y = (cv::Mat_<double>(3, 3) << -1, -2, -1, 0, 0, 0, 1, 2, 1);
-  vector<double> grad_x;
-  vector<double> grad_y;
-  grad_x = convolution(image, keypoints, kernal_x);
-  grad_y = convolution(image, keypoints, kernal_y);
-
+  // vector<double> grad_x;
+  // vector<double> grad_y;
+  // grad_x = convolution(image, keypoints, kernal_x);
+  // grad_y = convolution(image, keypoints, kernal_y);
+  std::vector<short> grad_x;
+  std::vector<short> grad_y;
+  convolution(image, keypoints,derive,grad_x,grad_y);
   // 2. minMaxLoc
   std::vector<pair<int, double>> eigens;
-  for (size_t i = 0; i < grad_x.size(); i++) {
+  for (size_t i = 0; i < keypoints.size(); i++) {
+    int row = floor(keypoints[i].pt.y);
+    int col = floor(keypoints[i].pt.x);
+    const auto &grad_x =derive.ptr<short>(row, col)[0];
+    const auto &grad_y =derive.ptr<short>(row, col)[1];
     Eigen::Matrix2d cov;
-    cov(0, 0) = grad_x[i] * grad_x[i];
-    cov(0, 1) = grad_x[i] * grad_y[i];
-    cov(1, 0) = grad_x[i] * grad_y[i];
-    cov(1, 1) = grad_y[i] * grad_y[i];
+    // cov(0, 0) = grad_x[i] * grad_x[i];
+    // cov(0, 1) = grad_x[i] * grad_y[i];
+    // cov(1, 0) = grad_x[i] * grad_y[i];
+    // cov(1, 1) = grad_y[i] * grad_y[i];
+    cov(0, 0) = grad_x * grad_x;
+    cov(0, 1) = grad_x * grad_y;
+    cov(1, 0) = grad_x * grad_y;
+    cov(1, 1) = grad_y * grad_y;
+
 
     Eigen::EigenSolver<Matrix2d> es(cov);
     Eigen::Vector2cd eig_ = es.eigenvalues();
@@ -307,13 +329,10 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   */
   cur_pts.clear();
   pyramid_image_->Build(_img);
-  // for(int i  =0;i<pyramid_image_->PrePyram().size();i++){
-  //   LOG(INFO)<<pyramid_image_->PrePyram()[i].size();
-  // }
   // cv::imshow("pre",pyramid_image_->PrePyram().back());
   // cv::imshow("pre1",pyramid_image_->CurrPyram().back());
   // cv::waitKey(0);
-  const int level =  pyramid_image_->Layer();
+  const int level =  pyramid_image_->Layer()-1;
   const int start_level = 0;
   cv::Size win_size(lk_win_size , lk_win_size);
   cv::TermCriteria criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
@@ -349,12 +368,12 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       if (succ_num < 10) {
         cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
                                  pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                                 status, err, win_size, level, criteria);
+                                 status, err, win_size, level+1, criteria);
       }
     } else {
       cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
                                pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                               status, err, win_size, level, criteria);
+                               status, err, win_size, level+1, criteria);
     }
     // }
     // } else {
@@ -383,7 +402,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       vector<cv::Point2f> reverse_pts = prev_pts;
       cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(),
                                pyramid_image_->PrePyram(), cur_pts, reverse_pts,
-                               reverse_status, err, win_size, level, criteria,
+                               reverse_status, err, win_size, level+1, criteria,
                                cv::OPTFLOW_USE_INITIAL_FLOW);
       // cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts,
       // reverse_status, err, cv::Size(21, 21), 3);
@@ -425,7 +444,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       //                         MIN_DIST, mask);
       // vector<cv::Point2f> forw_pts;
       efficientGoodFeaturesToTrack(cur_img, cur_pts, n_pts,
-                                    MAX_CNT - cur_pts.size() , MIN_DIST,mask);
+                                    MAX_CNT - cur_pts.size() , MIN_DIST,mask,pyramid_image_->PrePyram()[1]);
     } else {
       n_pts.clear();
     }

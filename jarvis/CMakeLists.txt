@@ -5,8 +5,12 @@ project(jarvis VERSION 1.0.0)
 
 set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -Ofast  -mpopcnt") #-Wno-unused-result
-
+if((CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64"))
+    # set(CMAKE_CXX_FLAGS "-D__ARM_NEON__ -DENABLE_NEON -mfloat-abi=hard -mfpu=neon -Ofast -fPIC") # -Wno-unused-result
+    set(CMAKE_CXX_FLAGS "-mfloat-abi=hard -mfpu=neon -Ofast -mfma -mavx -fPIC -mpopcnt") # -Wno-unused-result
+else()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -Ofast -mfma -mavx -mpopcnt") #-Wno-unused-result
+endif()
 
 # #set output folders
 # set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
@@ -44,11 +48,12 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
-  ${PROJECT_SOURCE_DIR}/
+  ${PROJECT_SOURCE_DIR}/third_part/rtm/includes/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
 )
 
+add_subdirectory("${PROJECT_SOURCE_DIR}/third_part/rtm")
 ##
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp")
