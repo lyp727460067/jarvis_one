@@ -211,10 +211,15 @@ void MarginalizationInfo::marginalize() {
   }
 
   TicToc t_summing;
-  Eigen::MatrixXd A(pos, pos);
-  Eigen::VectorXd b(pos);
-  A.setZero();
-  b.setZero();
+  std::vector<double> a_mec(pos * pos,0);
+  std::vector<double> b_mec(pos,0);
+  Eigen::Map<Eigen::MatrixXd> A(a_mec.data(), pos, pos);
+  Eigen::Map<Eigen::VectorXd> b(b_mec.data(), pos);
+  // Eigen::MatrixXd A(pos, pos);
+  // Eigen::VectorXd b(pos);
+  // A.setZero();
+  // b.setZero();
+  // LOG(INFO)<<"1";
   /*
   for (auto it : factors)
   {
@@ -252,6 +257,10 @@ void MarginalizationInfo::marginalize() {
   TicToc t_thread_summing;
   pthread_t tids[NUM_THREADS];
   ThreadsStruct threadsstruct[NUM_THREADS];
+  std::vector<std::vector<double>> pre_amem(NUM_THREADS,
+                                            std::vector<double>(pos * pos,0));
+  std::vector<std::vector<double>> pre_bmem(NUM_THREADS,
+                                            std::vector<double>(pos,0));
   int i = 0;
   for (auto it : factors) {
     threadsstruct[i].sub_factors.push_back(it);
@@ -260,8 +269,11 @@ void MarginalizationInfo::marginalize() {
   }
   for (int i = 0; i < NUM_THREADS; i++) {
     TicToc zero_matrix;
-    threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
-    threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
+    threadsstruct[i].A = Eigen::Map<Eigen::MatrixXd>(pre_amem[i].data(),pos,pos); 
+    threadsstruct[i].b = Eigen::Map<Eigen::VectorXd>(pre_bmem[i].data(),pos); 
+
+    // threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
+    // threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
     threadsstruct[i].parameter_block_size = parameter_block_size;
     threadsstruct[i].parameter_block_idx = parameter_block_idx;
     int ret = pthread_create(&tids[i], NULL, ThreadsConstructA,
@@ -292,14 +304,14 @@ void MarginalizationInfo::marginalize() {
       saes.eigenvectors().transpose();
   // printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m,
   // m)).sum());
-
   Eigen::VectorXd bmm = b.segment(0, m);
   Eigen::MatrixXd Amr = A.block(0, m, m, n);
   Eigen::MatrixXd Arm = A.block(m, 0, n, m);
   Eigen::MatrixXd Arr = A.block(m, m, n, n);
   Eigen::VectorXd brr = b.segment(m, n);
-  A = Arr - Arm * Amm_inv * Amr;
-  b = brr - Arm * Amm_inv * bmm;
+  {
+  auto  A = Arr - Arm * Amm_inv * Amr;
+  auto b = brr - Arm * Amm_inv * bmm;
 
   Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
   Eigen::VectorXd S =
@@ -315,6 +327,7 @@ void MarginalizationInfo::marginalize() {
   linearized_jacobians = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
   linearized_residuals =
       S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
+  }
   // std::cout << A << std::endl
   //           << std::endl;
   // std::cout << linearized_jacobians << std::endl;

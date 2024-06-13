@@ -652,7 +652,6 @@ void Estimator::processImage(const ImageFeatureTrackerResult &image,
 
     if (!USE_IMU) f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
     f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
-
     optimization();
 
     set<int> removeIndex;
@@ -1214,7 +1213,7 @@ void Estimator::optimization() {
   options.linear_solver_type = ceres::DENSE_SCHUR;
   options.num_threads = 8;
   options.trust_region_strategy_type = ceres::DOGLEG;
-  options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  // options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
   // options.dynamic_sparsity =true;
   options.use_explicit_schur_complement = true;
   // options.minimizer_progress_to_stdout = true;

@@ -22,6 +22,7 @@
 //
 #include <glog/logging.h>
 #include "jarvis/estimator/imu_extrapolator.h"
+// #define CHECK_DATA
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
@@ -79,6 +80,11 @@ std::optional<std::pair<uint64_t, uint64_t>> init_imu_time;
 std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
   uint64_t time;
   ifs >> time;
+#ifdef CHECK_DATA
+  static uint64_t last_imu_time = time;
+  LOG(INFO) << (time - last_imu_time);
+  last_imu_time = time;
+#endif
   imu_data.time   = time;
   ifs >> imu_data.angular_velocity.x() >> imu_data.angular_velocity.y() >>
       imu_data.angular_velocity.z() >> imu_data.linear_acceleration.x() >>
@@ -142,7 +148,15 @@ struct ImageData {
     CHECK(!image_files_name.empty()) << "Need Image file in dir..";
     std::map<uint64_t, ImageData> result;
     //
+
     for (const auto& file : image_files_name) {
+
+#ifdef CHECK_DATA
+      static uint64_t last_imu_time = GetTimeFromName(file);
+      LOG(INFO) << (GetTimeFromName(file) - last_imu_time);      
+      last_imu_time = GetTimeFromName(file);
+
+#endif
     //   LOG(INFO) << "Read Image: " << file;
       LOG_IF(ERROR, !result
                          .emplace(GetTimeFromName(file),
@@ -255,7 +269,7 @@ int main(int argc, char* argv[]) {
     // ros_compont->PosePub(pose.second, transform::Rigid3d::Identity());
     // auto state = imu_extrapolator_->Exrapolate(imu_data.time);
     // if (state.data != nullptr) {
-      // ros_compont->PosePub(state.data->pose, transform::Rigid3d::Identity());
+    //   ros_compont->PosePub(state.data->pose, transform::Rigid3d::Identity());
     // }
   });
   //
@@ -270,7 +284,9 @@ int main(int argc, char* argv[]) {
   LOG(INFO) << "Parse imu dir: " << imu_file;
   auto image_datas = ImageData::Parse(image_file);
   auto imu_datas = ImuData::Parse(imu_file);
-
+#ifdef CHECK_DATA
+  return 0;
+#endif
   //
   //
   LOG(INFO) << "Start run...";
