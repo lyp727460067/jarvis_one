@@ -39,8 +39,8 @@ class PoseOptimization {
   void Alignment();
   std::unique_ptr<jarvis::transform::Rigid3d> Optimization();
   PoseOptimizationOption options_;
-  std::unique_ptr<jarvis::MotionFilter> pose_motion_filter_;
-  std::unique_ptr<jarvis::MotionFilter> rtk_motion_filter_;
+  std::unique_ptr<jarvis::MotionFilter> pose_motion_filter_=nullptr;
+  std::unique_ptr<jarvis::MotionFilter> rtk_motion_filter_ =nullptr;
   std::deque<jarvis::sensor::FixedFramePoseData> rtk_pose_;
   std::deque<PoseData> odom_pose_;
   std::unique_ptr<jarvis::transform::TransformInterpolationBuffer>

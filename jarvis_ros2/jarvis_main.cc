@@ -170,13 +170,26 @@ struct ImageData {
 //
 void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
   auto it = imu_datas.upper_bound(time);
+  const Eigen::Vector3d gry_bias(0.00846608 ,0.00315094 ,0.00699567);
+  // static Eigen::Vector3d sum(0,0,0);
+  // static int count = 0;
+
   for (auto itor = imu_datas.begin(); itor != it; ++itor) {
+  // if(count++ <1000){
+  //   sum+=itor->second.angular_velocity;
+  // }   
+  // if(count==1000){
+
+  //   LOG(INFO)<<sum/1000;
+  //   CHECK(false);
+  // } 
+  // LOG(INFO)<<itor->second.linear_acceleration.norm()
     order_queue_->AddData(
         kImuTopic,
         std::make_unique<sensor::DispathcData<sensor::ImuData>>(sensor::ImuData{
             itor->first * 1e-9,
             itor->second.linear_acceleration,
-            itor->second.angular_velocity,
+            itor->second.angular_velocity-gry_bias,
         }));
   }
   imu_datas.erase(imu_datas.begin(), it);
@@ -277,7 +290,7 @@ int main(int argc, char* argv[]) {
     if (!image_sample_->Pulse()) {
       return ;
     }
-    // usleep(100000);
+    // usleep(30000);
     builder_->AddImageData(imag_data);
   });
   LOG(INFO) << "Parse image dir: " << image_file;
@@ -321,16 +334,12 @@ int main(int argc, char* argv[]) {
                       jarvis::common::ToUniversal(tracking_data.data->time) *
                       1e2))
                << " "
-               << std::to_string(uint64_t(
-                      jarvis::common::ToUniversal(tracking_data.data->time) *
-                      1e2))
-               << " "
                << tracking_data.data->imu_state.data->pose.translation().x()
                << " "
                << tracking_data.data->imu_state.data->pose.translation().y()
                << " "
                << tracking_data.data->imu_state.data->pose.translation().z()
-               << " " << tracking_data.data->imu_state.data->pose.rotation().x()
+               << " " << tracking_data.data->imu_state.data->pose.rotation().w()
                << " " << tracking_data.data->imu_state.data->pose.rotation().x()
                << " " << tracking_data.data->imu_state.data->pose.rotation().y()
                << " "

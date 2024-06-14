@@ -77,9 +77,13 @@ void efficientGoodFeaturesToTrack(InputArray _image,
   if (image.empty()) return;
 
   vector<cv::KeyPoint> keypoints;
-  // cv::FAST(cv::Mat(image, cv::Rect2i(5, 5, image.cols - 5, image.rows - 5)),
-  //          keypoints, 15, true);
-  cv::FAST(image, keypoints, 15, true);
+  // cv::FAST(cv::Mat(image, cv::Rect2i(10, image.rows/2, image.cols-10, image.rows/2-10)),
+  //          keypoints, 10, true);
+  // for(int i  =0;i<keypoints.size();i++){
+  //   keypoints[i].pt.x+=10;
+  //   keypoints[i].pt.y+=image.rows/2;
+  // }
+  cv::FAST(image, keypoints, 10, true);
   // if (keypoints.size() < (maxCorners - have_corners.size())) {
   //   cv::FAST(image, keypoints, 10, true);
   // }

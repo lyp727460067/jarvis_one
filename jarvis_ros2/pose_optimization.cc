@@ -298,7 +298,7 @@ PoseOptimization::AlignmentOptimization() {
   ceres::Problem problem;
   //
   std::array<double, 3> local_to_fix_translation{0,0,0};
-  std::array<double, 4> local_to_fix_rotation{1,0,0,0};
+  std::array<double, 4> local_to_fix_rotation{0,1,1,1};
   std::array<double, 3> fix_imu_extri{0,0,0};
   //
 
@@ -317,15 +317,15 @@ PoseOptimization::AlignmentOptimization() {
     problem.SetParameterBlockConstant(node_poses[i].p.data());
   }
   //
-  // for (int i = 1; i < node_poses.size(); i++) {
-  //   problem.AddResidualBlock(
-  //       PoseGraphExtricCostFunction::CreateAutoDiffCostFunction(
-  //           odom_pose_[i - 1].pose.inverse() * odom_pose_[i].pose,
-  //           std::array<double, 2>{100000,100000}),
-  //       new ceres::HuberLoss(1), node_poses[i - 1].q.coeffs().data(),
-  //       node_poses[i-1].p.data(), node_poses[i].q.coeffs().data(),
-  //       node_poses[i].p.data(), fix_imu_extri.data());
-  // }
+  for (int i = 1; i < node_poses.size(); i++) {
+    problem.AddResidualBlock(
+        PoseGraphExtricCostFunction::CreateAutoDiffCostFunction(
+            odom_pose_[i - 1].pose.inverse() * odom_pose_[i].pose,
+            std::array<double, 2>{100000,100000}),
+        new ceres::HuberLoss(1), node_poses[i - 1].q.coeffs().data(),
+        node_poses[i-1].p.data(), node_poses[i].q.coeffs().data(),
+        node_poses[i].p.data(), fix_imu_extri.data());
+  }
   // problem.SetParameterBlockConstant(node_poses[0].q.coeffs().data());
   // problem.SetParameterBlockConstant(node_poses[0].p.data());
 
@@ -349,10 +349,15 @@ PoseOptimization::AlignmentOptimization() {
 }
 //
 PoseOptimization::PoseOptimization(const PoseOptimizationOption& option)
-    : options_(option),
-      pose_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.2,0.5})),
-      rtk_motion_filter_(new jarvis::MotionFilter(MotionFilterOptions{1000,0.2,0.5})) {}
+    : options_(option) {
+      LOG(INFO)<<"!";
+  pose_motion_filter_ = std::make_unique<jarvis::MotionFilter>(
+      jarvis::MotionFilterOptions{1000, 0.2, 0.5}); 
 
+      LOG(INFO)<<"!";
+  rtk_motion_filter_ = std::make_unique<jarvis::MotionFilter>(
+      jarvis::MotionFilterOptions{1000, 0.2, 0.5});
+}
 //
 void PoseOptimization::AddPose(const PoseData& pose) {
   if (pose_motion_filter_->IsSimilar(pose.time, pose.pose)) {

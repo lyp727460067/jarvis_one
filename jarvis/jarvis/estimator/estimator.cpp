@@ -97,28 +97,17 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
   // double angle = 0.0;
   if(GetImuInterval(prev_time_,images.time , accVector, gyrVector)){
-    
+  Eigen::Quaterniond  delta_q =  Eigen::Quaterniond::Identity();   
   if(!accVector.empty()){
-  auto pre_integrations_temp = std::make_unique<IntegrationBase>(
-      accVector[0].second, gyrVector[0].second, Eigen::Vector3d{0,0,0}, Eigen::Vector3d{0,0,0});
-  LOG(INFO)<<accVector.size();
-  for (size_t i = 0; i < accVector.size(); i++) {
-    double dt = 0;
-    if (i == 0)
-      dt = accVector[i].first - prev_time_;
-    else if (i == accVector.size() - 1)
-      dt = images.time+td - accVector[i - 1].first;
-    else
-      dt = accVector[i].first - accVector[i - 1].first;
-
-    pre_integrations_temp->push_back(dt, accVector[i].second,
-                                     gyrVector[i].second);
-    // LOG(INFO)<<gyrVector[i].second.transpose();
-    // LOG(INFO)<<accVector[i].second.transpose();
+  
+  for (size_t i = 1; i < accVector.size(); i++) {
+      auto dt =  gyrVector[i].first-gyrVector[i-1].first;
+      delta_q*= Utility::deltaQ(gyrVector[i].second* dt);
 
   }
     auto angle = common::RadToDeg(transform::GetYaw(
-    transform::Rigid3d::Rotation(pre_integrations_temp->delta_q)));
+    transform::Rigid3d::Rotation(delta_q)));
+    LOG(INFO)<<angle;
     angle_ = angle_*0.2+0.8*angle;
     LOG(INFO)<< angle_<<" "<<angle;
   }
@@ -139,6 +128,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   tracking_data->data->time = common::Time(common::FromSeconds(images.time));
   if (solver_flag == INITIAL) {
     tracking_data->status = 0;
+  LOG(INFO)<< Eigen::Quaterniond(Rs[frame_count]);
   auto imu_state_data = std::make_shared<ImuState::Data>(ImuState::Data{
       transform::Rigid3d({0,0,0}, Eigen::Quaterniond(Rs[frame_count]))});
     tracking_data->data->imu_state = ImuState{imu_state_data};
@@ -311,7 +301,7 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration,
   if (solver_flag == NON_LINEAR) {
     mPropagate.lock();
     fastPredictIMU(t, linearAcceleration, angularVelocity);
-    // kGlobleImuPose.push_back(latest_P);
+    kGlobleImuPose.push_back(latest_P);
     kGlobleImuExtrapolatorPose.first = t;
     kGlobleImuExtrapolatorPose.second = transform::Rigid3d(latest_P, latest_Q);
 
@@ -493,6 +483,8 @@ void Estimator::processIMU(double t, double dt,
     int j = frame_count;
     Vector3d un_acc_0 = Rs[j] * (acc_0 - Bas[j]) - g;
     Vector3d un_gyr = 0.5 * (gyr_0 + angular_velocity) - Bgs[j];
+    LOG(INFO)<<un_gyr * dt;
+    LOG(INFO)<<Utility::deltaQ(un_gyr * dt);
     Rs[j] *= Utility::deltaQ(un_gyr * dt).toRotationMatrix();
     Vector3d un_acc_1 = Rs[j] * (linear_acceleration - Bas[j]) - g;
     Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
@@ -720,7 +712,7 @@ bool Estimator::initialStructure() {
     var = sqrt(var / ((int)all_image_frame.size() - 1));
     VLOG(kGlogLevel) <<"IMU variation "<< var;
     LOG(INFO) <<"IMU variation "<< var;
-    if (var < 0.25) {
+    if (var < 0.35) {
       LOG(INFO) << "IMU excitation not enouth!";
       return false;
     }
@@ -1174,7 +1166,7 @@ void Estimator::optimization() {
   int f_m_cnt = 0;
   int feature_index = -1;
   const int convin_used_num =4;
-  const double  cam_weight = FOCAL_LENGTH / 1;
+  const double  cam_weight = FOCAL_LENGTH / 1.5;
   for (auto &it_per_id : f_manager->feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
     if (it_per_id.used_num < convin_used_num) continue;
@@ -1211,9 +1203,9 @@ void Estimator::optimization() {
   ceres::Solver::Options options;
   options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 8;
+  options.num_threads = 4;
   options.trust_region_strategy_type = ceres::DOGLEG;
-  // options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
   // options.dynamic_sparsity =true;
   options.use_explicit_schur_complement = true;
   // options.minimizer_progress_to_stdout = true;

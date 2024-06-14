@@ -4,7 +4,9 @@
 
 namespace jarvis {
 MotionFilter::MotionFilter(const MotionFilterOptions& options)
-    : options_(options) {}
+    : options_(options) {
+        LOG(INFO)<<"1";
+    }
 
 bool MotionFilter::IsSimilar(const jarvis::common::Time time,
                              const jarvis::transform::Rigid3d& pose) {

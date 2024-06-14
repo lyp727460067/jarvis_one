@@ -134,11 +134,22 @@ std::istringstream& operator>>(std::istringstream& ifs, FusionData& pose) {
 }
 
 //
+double scale = 1.03;
 std::istringstream& operator>>(std::istringstream& ifs, Pose& pose) {
   ifs >> pose.time ;
-  ifs >> pose.p.x() >> pose.p.y() >> pose.p.z() >> pose.q.x() >> pose.q.y() >>
-      pose.q.z() >> pose.q.w();
+
+  ifs >> pose.p.x() >> pose.p.y() >> pose.p.z() >> pose.q.w() >> pose.q.x() >>
+      pose.q.y() >> pose.q.z();
    pose.p.z()  = 0;
+
+  //  pose.p.x() *=1.06;
+  //  pose.p.y() *=1.01;
+  // LOG(INFO)<<pose.time;
+  Eigen::Quaterniond ex_r(0.983681, -0.029403, -0.174547 ,-0.0322581);
+  auto extirc =  transform::Rigid3d(Eigen::Vector3d(0.451,0,0),ex_r.inverse());
+  auto p =   transform::Rigid3d(pose.p,pose.q)*extirc;
+  pose.p = p.translation();
+  pose.q = p.rotation();
   LOG(INFO)<<pose.p;
   return ifs;
 }
@@ -184,7 +195,7 @@ std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
 
     auto r = RtkToPose(d);
     result.push_back(Pose{d.time*1000, d.local_time*1000, r.translation(), r.rotation()});
-    LOG(INFO)<<d.time;
+    // LOG(INFO)<<d.time;
   }
   return result;
 }
@@ -198,7 +209,6 @@ std::vector<Pose> FusionToPose(const std::vector<FusionData>& datas) {
 }
 //
 
-std::unique_ptr < jarvis_pic::PoseOptimization >kPoseAlignment;
 //
 std::unique_ptr<jarvis::transform::Rigid3d> Alignment(
     const std::vector<Pose>& vio_data, const std::vector<Pose>& rt_data,
@@ -206,15 +216,19 @@ std::unique_ptr<jarvis::transform::Rigid3d> Alignment(
   //
 
   lenth = vio_data.size();
-  LOG(INFO)<<"vio size: "<<lenth;
+std::unique_ptr < jarvis_pic::PoseOptimization >
   kPoseAlignment = std::make_unique<jarvis_pic::PoseOptimization>(
       jarvis_pic::PoseOptimizationOption{lenth});
+  CHECK(kPoseAlignment);
+  LOG(INFO)<<"rtk size :"<<rt_data.size();
   auto& pose_alignment = *kPoseAlignment;
+
   LOG(INFO)<<"rtk size :"<<rt_data.size();
   int l = 0;
   for (int i = 0; pose_alignment.PoseSize() < lenth&&i<vio_data.size(); i++) {
-    if(vio_data[i].time>(rt_data.back().time-100))break;
+    if(vio_data[i].time>(rt_data.back().time-1000))break;
     l++;
+    if(l>=1000)break;
     pose_alignment.AddPose(jarvis_pic::PoseData{
         common::FromUniversal(static_cast<int64_t>(vio_data[i].time / 100)),
         transform::Rigid3d(vio_data[i].p, vio_data[i].q)
@@ -319,7 +333,7 @@ void ComputeErro(const std::vector<Pose>& base_data,
           max_min[1] = distance;
         }
         if (distance > max_min[0]) {
-          LOG(INFO) << max_min[0] << " " << i;
+          // LOG(INFO) << max_min[0] << " " << i;
           max_min[0] = distance;
         }
         sum_erro += distance;
@@ -411,38 +425,38 @@ int main(int argc, char* argv[]) {
   std::string vio_pose_file(argv[1]);
   std::string rtk_pose_file(argv[2]);
   auto vio_data = ReadFile<Pose>(vio_pose_file);
-  auto rtk_data =  FusionToPose(ReadFile<FusionData>(rtk_pose_file));
+  // auto rtk_data =  FusionToPose(ReadFile<FusionData>(rtk_pose_file));
 
-  // auto rtk_data = RtkToPose(ReadFile<RtkData>(rtk_pose_file));
+  auto rtk_data = RtkToPose(ReadFile<RtkData>(rtk_pose_file));
+  
+  auto local_to_rtk_transform = Alignment(vio_data, rtk_data);
+  CHECK(local_to_rtk_transform) << "  Alignment Failed..";
   //
-  // auto local_to_rtk_transform = Alignment(vio_data, rtk_data);
-  // CHECK(local_to_rtk_transform) << "  Alignment Failed..";
-  // //
-  // LOG(INFO) << *local_to_rtk_transform;
-  // //
-  // std::ofstream correct_vio_pose_file(vio_pose_file + ".correct.txt");
-  // std::ofstream correct_rtk_pose_file(rtk_pose_file + ".correct.txt");
-  // for (auto& p : rtk_data) {
-  //   auto correct_pose =
-  //       (*local_to_rtk_transform) * transform::Rigid3d(p.p, p.q);
-  //   p.p = correct_pose.translation();
-  //   p.q = correct_pose.rotation();
+  LOG(INFO) << *local_to_rtk_transform;
+  //
+  std::ofstream correct_vio_pose_file(vio_pose_file + ".correct.txt");
+  std::ofstream correct_rtk_pose_file(rtk_pose_file + ".correct.txt");
+  for (auto& p : rtk_data) {
+    auto correct_pose =
+        (*local_to_rtk_transform) * transform::Rigid3d(p.p, p.q);
+    p.p = correct_pose.translation();
+    p.q = correct_pose.rotation();
 
-  //   correct_vio_pose_file << p.time << " " << p.p.x() << " " << p.p.y()
-  //                         << " " << p.p.z() << std::endl;
-  // }
-  // for(const auto &p:rtk_data){
-  //     correct_rtk_pose_file<< p.time << " " << p.p.x() << " " << p.p.y()
-  //                         << " " << p.p.z() << std::endl;
-  // }
-  // correct_rtk_pose_file.close();
-  // correct_vio_pose_file.close();
-  // ComputeErro(rtk_data, vio_data);
-  //
+    correct_vio_pose_file << p.time << " " << p.p.x() << " " << p.p.y()
+                          << " " << p.p.z() << std::endl;
+  }
+  for(const auto &p:rtk_data){
+      correct_rtk_pose_file<< p.time << " " << p.p.x() << " " << p.p.y()
+                          << " " << p.p.z() << std::endl;
+  }
+  correct_rtk_pose_file.close();
+  correct_vio_pose_file.close();
+  ComputeErro(rtk_data, vio_data);
+  
   
   std::map<std::string, std::vector<Pose>> poses{
       {"vio_poses", std::move(vio_data)},
-      {"rtk_poses", std::move(rtk_data)},
+      {"rtk_poses", std::move(rtk_data)}
      /* {"opimizaiton_pose",
      TransformToPose(kPoseAlignment->GetOptimazationPose())}*/};
   PubPoseWithMark(node.get(),poses);

@@ -129,11 +129,11 @@ void readParameters(std::string config_file) {
     fsSettings["body_T_cam0"] >> cv_T;
     Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
     Eigen::Matrix4d T1;
-    cv::cv2eigen(cv_T, T1);
-    std::cout<<T1<<std::endl;
-    T.block<3, 3>(0, 0) = T1.block<3, 3>(0, 0).transpose();
-    T.block<3, 1>(0, 3) =
-        -(T1.block<3, 3>(0, 0).transpose() * T1.block<3, 1>(0, 3));
+    cv::cv2eigen(cv_T, T);
+    // std::cout<<T1<<std::endl;
+    // T.block<3, 3>(0, 0) = T1.block<3, 3>(0, 0).transpose();
+    // T.block<3, 1>(0, 3) =
+    //     -(T1.block<3, 3>(0, 0).transpose() * T1.block<3, 1>(0, 3));
 
     std::cout<<T<<std::endl;
     RIC.push_back(T.block<3, 3>(0, 0));

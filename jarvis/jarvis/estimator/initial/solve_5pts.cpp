@@ -205,7 +205,7 @@ namespace estimator {
 bool MotionEstimator::solveRelativeRT(
     const vector<pair<Vector3d, Vector3d>> &corres, Matrix3d &Rotation,
     Vector3d &Translation) {
-  if (corres.size() >= 15) {
+  if (corres.size() >= 20) {
     vector<cv::Point2f> ll, rr;
     for (int i = 0; i < int(corres.size()); i++) {
       ll.push_back(cv::Point2f(corres[i].first(0), corres[i].first(1)));
@@ -213,7 +213,7 @@ bool MotionEstimator::solveRelativeRT(
     }
     cv::Mat mask;
     cv::Mat E =
-        cv::findFundamentalMat(ll, rr, cv::FM_RANSAC, 0.3 / 460, 0.99, mask);
+        cv::findFundamentalMat(ll, rr, cv::FM_RANSAC, 0.3 / 377, 0.99, mask);
     cv::Mat cameraMatrix =
         (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);
     cv::Mat rot, trans;
@@ -230,7 +230,7 @@ bool MotionEstimator::solveRelativeRT(
     Rotation = R.transpose();
     Translation = -R.transpose() * T;
     LOG(INFO)<<inlier_cnt ;
-    if (inlier_cnt > 12)
+    if (inlier_cnt > 15)
       return true;
     else
       return false;

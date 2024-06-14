@@ -542,9 +542,9 @@ void RosCompont::PubPoseWithMark(
 
     // mark.type = visualization_msgs::Marker::ARROW;
     // mark.lifetime = rclcpp::Duration(0);
-    mark.scale.x = 0.01;
-    mark.scale.y = 0.01;
-    mark.scale.z = 0.01;
+    mark.scale.x = 0.001;
+    mark.scale.y = 0.001;
+    mark.scale.z = 0.001;
     std::uniform_real_distribution<float> ran(0, 1);
     mark.color.r = 1;       // ran(e);//1.0;
     mark.color.a = 1;       // ran(e);
@@ -600,7 +600,7 @@ void RosCompont::PosePub(const transform::Rigid3d &pose,
   tf_broadcaster_->sendTransform(global_tf_trans);
   //
   poses_["imu_pose"].push_back(global_pose.translation());
-  // poses_["vins_imu_pose"]= std::move(GetGlobleImuPose());
+  poses_["vins_imu_pose"]= std::move(GetGlobleImuPose());
   PubPoseWithMark( poses_);
   //
 
