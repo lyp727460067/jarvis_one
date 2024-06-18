@@ -141,9 +141,8 @@ std::istringstream& operator>>(std::istringstream& ifs, Pose& pose) {
   ifs >> pose.p.x() >> pose.p.y() >> pose.p.z() >> pose.q.w() >> pose.q.x() >>
       pose.q.y() >> pose.q.z();
    pose.p.z()  = 0;
-
-  //  pose.p.x() *=1.06;
-  //  pose.p.y() *=1.01;
+   pose.p.x() *=1.06;
+   pose.p.y() *=1.01;
   // LOG(INFO)<<pose.time;
   Eigen::Quaterniond ex_r(0.983681, -0.029403, -0.174547 ,-0.0322581);
   auto extirc =  transform::Rigid3d(Eigen::Vector3d(0.451,0,0),ex_r.inverse());
@@ -299,7 +298,8 @@ void PubPoseWithMark(rclcpp::Node* nh,
     pose_mark_publisher->publish(marks);
   }
 }
-
+std::ofstream ate_err_file("/tmp/ate.txt");
+std::ofstream rpe_err_file("/tmp/rpe.txt");
 void ComputeErro(const std::vector<Pose>& base_data,
                  const std::vector<Pose>& target_data) {
   //
@@ -329,6 +329,7 @@ void ComputeErro(const std::vector<Pose>& base_data,
               .norm();
       //
       if (i > 20) {
+        ate_err_file<<target_data[i].time <<" " << distance<<std::endl;
         if (distance < max_min[1]) {
           max_min[1] = distance;
         }
@@ -377,6 +378,8 @@ void ComputeErro(const std::vector<Pose>& base_data,
 
       //
       if (i > 50) {
+
+        rpe_err_file<<target_data[i].time <<" " << distance<<std::endl;
         if (distance < max_min[1]) {
           max_min[1] = distance;
         }
