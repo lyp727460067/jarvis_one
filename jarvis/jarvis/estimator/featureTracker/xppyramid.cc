@@ -21,7 +21,7 @@
 
 #include <algorithm>
 #include <vector>
-// #include <emmintrin.h>
+#include <emmintrin.h>
 #include "feature_utils.h"
 
 #define DBG_XP_PYRAMID(msg) \

@@ -8,8 +8,6 @@ set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -Ofast -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
-set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/libs/eigen3)
-set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/libs/opencv-4.6.0/include/opencv4)
 set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
 set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}

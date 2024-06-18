@@ -7,7 +7,7 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O3 -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Ofast -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 
 
 
@@ -21,16 +21,16 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   #  -Werror=unused-but-set-variable
                    -Wmultistatement-macros)
 
-option(view_debug " arm_neon" ON)
+option(arm_neon " arm_neon" ON)
 option(build_test "build test" ON)
-if(${view_debug})
+if(${arm_neon})
 add_definitions(-D__ARM_NEON__)
 else()
 add_definitions(-D__SSE2__)
 endif()
 add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
-set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/libs/eigen-3.4.0)
-set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/libs/opencv-4.6.0/include/opencv4)
+# set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
+set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
 set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
 set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)

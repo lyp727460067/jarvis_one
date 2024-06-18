@@ -18,7 +18,7 @@ namespace VSLAM
     class CamImuAligner
     {
     public:
-        CamImuAligner(float duri,int imuFreq);
+        CamImuAligner(int imgFreq,int imuFreq);
         CamImuAligner(){};
 
         void Set(int imgFreq,int imuFreq);

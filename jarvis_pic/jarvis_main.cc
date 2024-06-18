@@ -119,7 +119,9 @@ class JarvisBrige {
           std::make_unique<
               jarvis::sensor::DispathcData<jarvis::sensor::ImageData>>(
               jarvis::sensor::ImageData{
-                  jarvis::common::FromUniversal(frame.time*10),
+                  jarvis::common::FromUniversal(
+                      frame.time *
+                      10)+ common::FromSeconds(imu_cam_time_offset),
                   {std::make_shared<cv::Mat>(frame.images[0].clone()),
                    std::make_shared<cv::Mat>(frame.images[1].clone())}}));
     });
