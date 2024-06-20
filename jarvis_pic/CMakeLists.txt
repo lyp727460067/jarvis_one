@@ -50,6 +50,9 @@ if(${view_debug})
 add_definitions(-D__ZMQ_ENABLAE__)
 endif()
 add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main)
+add_executable(${PROJECT_NAME}_slip_detect_main  jarvis_slipe_detect_main.cc  
+  SensorDataCapturer/DataCapturer.cpp SensorDataCapturer/CamImuAligner.cpp
+ data_capture.cc zmq_component.cc dev_socket.cc socket_wrapper.cc)
 add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
 socket_wrapper.cc SensorDataCapturer/DataCapturer.cpp SensorDataCapturer/CamImuAligner.cpp
 
@@ -60,6 +63,13 @@ target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
   jarvis
   ${OpenCV_LIBS}
   -ldl
+)
+target_link_libraries(${PROJECT_NAME}_slip_detect_main PUBLIC
+  glog
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+   mpc
 )
 target_link_libraries(${PROJECT_NAME}_main PUBLIC
   glog
