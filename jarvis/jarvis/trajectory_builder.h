@@ -16,18 +16,21 @@ namespace estimator{
 using CallBack = std::function<void(const TrackingData &)>;
 class TrajectorBuilder {
  public:
+  TrajectorBuilder();
   TrajectorBuilder(const std::string &config, CallBack call_back);
-  void AddImageData(const sensor::ImageData &images);
+  virtual void AddImageData(const sensor::ImageData &images);
   //
-  void AddImuData(const sensor::ImuData &imu_data);
+  virtual void AddImuData(const sensor::ImuData &imu_data);
   // MapBuilderInterface *GetMapBuilder() { return map_builder_.get(); }
 
-  std::vector<Eigen::Vector3d> GetMapPoints();
+   std::vector<Eigen::Vector3d> GetMapPoints();
   //
-  std::map<KeyFrameId, transform::TimestampedTransform>
-  GetKeyFrameGlobalPose(); std::vector<std::pair<KeyFrameId, KeyFrameId>>
-  ConstraintId(); transform::Rigid3d GetLocalToGlobalTransform();
-  ~TrajectorBuilder();
+   std::map<
+      KeyFrameId,
+      transform::TimestampedTransform> virtual GetKeyFrameGlobalPose();
+  std::vector<std::pair<KeyFrameId, KeyFrameId>> virtual ConstraintId();
+   transform::Rigid3d GetLocalToGlobalTransform();
+  virtual ~TrajectorBuilder();
 
  private:
   // std::unique_ptr<tracking::TrackingInterface> tracker_;

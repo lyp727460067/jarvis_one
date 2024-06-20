@@ -53,9 +53,9 @@ ImuData ToImuData(const ModSyncImuFb& imu,
                      imu.imu_data.accel_z * kAccUnit,
                  },
                  Eigen::Vector3d{
-                     imu.imu_data.gyro_x *kGryUnit,
-                     imu.imu_data.gyro_y *kGryUnit,
-                     imu.imu_data.gyro_z *kGryUnit,
+                     imu.imu_data.gyro_x * kGryUnit,
+                     imu.imu_data.gyro_y * kGryUnit,
+                     imu.imu_data.gyro_z * kGryUnit,
                  }};
 }
 //
@@ -75,6 +75,30 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
     imu_catch_.erase(imu_catch_.begin());
   }
 }
+void DataCapture::ProcessOdom(const ModSyncChassisPosFb& odom) {
+  odom_catch_.emplace_back(odom.sync_count,
+                           EncoderData{
+                               odom.time_stamp,
+                               odom.chassis_pos.left_encoder_pos,
+                               odom.chassis_pos.right_encoder_pos,
+                           });
+
+  if (!sys_odom_time_base_) {
+    if (odom_catch_.size() > 200) {
+      odom_catch_.erase(odom_catch_.begin());
+    }
+    return;
+  }
+  while (!odom_catch_.empty()) {
+    auto odom_data = odom_catch_.front();
+    odom_data.time = sys_odom_time_base_.first + odom_catch_.front().time -
+                     sys_odom_time_base_.second;
+    for (const auto& f : encoder_call_backs_) {
+      f(odom_data);
+    }
+    odom_catch_.erase(odom_catch_.begin());
+  }
+}
 //
 void DataCapture::Run() {
   ModSyncImuFb imudata;
@@ -89,14 +113,22 @@ void DataCapture::Run() {
   int ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
   if (ret_len >= 0) {
     uint32_t frame_sys_count = frame.head.sys_count;
-    LOG(INFO)<<frame_sys_count ;
+    LOG(INFO) << frame_sys_count;
     if (last_frame_sys_count_ == frame_sys_count) return;
     last_frame_sys_count_ = frame_sys_count;
     ProcessImag(frame);
   }
+
+  ModSyncChassisPosFb odom_data;
+  int ret_len = mem_ssq_->PopEncodeData(&odom_data);
+  if (ret_len > 0 && last_odom_time_stamp_ != odom_data.time_stamp) {
+    last_odom_time_stamp_ = odom_data.time_stamp;
+    ProcessOdom(odom_data);
+  }
   //
   // ModRTKFB  rtk_data;
   SysPorocess();
+  SysPorocessOdom();
 }
 //
 //
@@ -133,11 +165,11 @@ void DataCapture::ProcessImag(const CameraFrame& frame) {
     return;
   }
   image_catch_.erase(image_catch_.begin());
-  if (sys_time_base_.has_value()) {
-    for (auto& f : frame_call_backs_) {
-      f(image_catch_.front().second);
-    }
+  // if (sys_time_base_.has_value()) {
+  for (auto& f : frame_call_backs_) {
+    f(image_catch_.front().second);
   }
+  // }
 }
 
 void DataCapture::SysPorocess() {
@@ -161,6 +193,33 @@ void DataCapture::SysPorocess() {
               << " imu base: " << sys_time_base_.value().second;
   } else {
     LOG(WARNING) << "Imu base not sys." << " imu lenth: " << imu_catch_.size();
+  }
+}
+void DataCapture::SysPorocessOdom() {
+  if (sys_odom_time_base_.has_value() || odom_catch_.size() != 2) return;
+  auto& last_frame = image_catch_.front();
+
+  auto it =
+      std::find_if(odom_catch_.begin(), odom_catch_.end(),
+                   [last_frame](const std::pair<uint64_t, EncoderData>& odom) {
+                     return (last_frame.first == odom.first);
+                   });
+  auto next_it = std::next(it, option_.cam_durion_odom_cout - 1);
+  if (it != odom_catch_.end() &&
+      std::distance(it, odom_catch_.end()) >= option_.cam_durion_odom_cout &&
+      next_it->first == it->first) {
+    sys_odom_time_base_ =
+        std::make_pair(last_frame.second.time, it->sencond.time);
+    LOG(INFO) << "find same count: " << static_cast<int>(last_frame.first);
+    odom_catch_.erase(odom_catch_.begin(), it);
+  }
+  if (sys_odom_time_base_.has_value()) {
+    LOG(INFO) << " Capture start cam time: "
+              << sys_odom_time_base_.value().first
+              << " odom base: " << sys_odom_time_base_.value().second;
+  } else {
+    LOG(WARNING) << "odom base not sys."
+                 << " odom lenth: " << odom_catch_.size();
   }
 }
 //

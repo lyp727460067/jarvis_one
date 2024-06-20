@@ -1,9 +1,9 @@
 
-#ifndef __METABOUNDS_VIO_STEREO_SYNC_H
-#define __METABOUNDS_VIO_STEREO_SYNC_H
+#ifndef ___JARVIS_VIO_STEREO_SYNC_H
+#define __JARVIS_VIO_STEREO_SYNC_H
 #include <memory>
 #include <string>
-
+#include "jarvis/common/time.h"
 #include "opencv2/opencv.hpp"
 #include "jarvis/sensor/data_process.h"
 #include <functional>
@@ -14,7 +14,7 @@ namespace sensor {
 class StereoSync {
  public:
   struct LocalImageData {
-    double time;
+    common::Time time;
     std::string topic;
     std::shared_ptr<cv::Mat> image;
   };
@@ -29,7 +29,7 @@ class StereoSync {
 
  private:
   double cam0_cam1_time_offset_threash_hold_ = 0;
-  std::map<std::string, std::vector<std::pair<double, LocalImageData>>>
+  std::map<std::string, std::vector<std::pair<common::Time, LocalImageData>>>
       cache_images_;
   std::string main_base_topic_;
   std::vector<std::string> images_topics_;

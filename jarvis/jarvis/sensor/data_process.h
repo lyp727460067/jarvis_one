@@ -7,22 +7,24 @@
 #include <mutex>
 #include <queue>
 #include <string>
-
+#include <optional>
 #include "Eigen/Core"
 #include "glog/logging.h"
 #include "opencv2/opencv.hpp"
 #include "jarvis/sensor/image_data.h"
 #include "jarvis/sensor/imu_data.h"
+#include "jarvis/sensor/odometry_data.h"
 namespace jarvis {
 namespace sensor {
 
 
 using ImageFuction = std::function<void(const ImageData &)>;
 using ImuFuction = std::function<void(const ImuData &)>;
+using OdomFuction = std::function<void(const OdometryData &)>;
 
 class Data {
  public:
-  virtual double GetTime() const = 0;
+  virtual common::Time GetTime() const = 0;
   virtual ~Data() {}
 
 
@@ -33,7 +35,7 @@ class DispathcData : public Data {
  public:
   DispathcData(const DataType &data) : data_(data) {}
   const DataType &Data() const { return data_; }
-  double GetTime() const { return data_.time; }
+  common::Time  GetTime() const { return data_.time; }
   ~DispathcData() {}
  private:
   const DataType data_;
@@ -49,6 +51,7 @@ class OrderedMultiQueue {
   void AddData(const std::string &name, std::unique_ptr<Data> data);
   void AddQueue(std::string name, ImageFuction call_back);
   void AddQueue(std::string name, ImuFuction call_back);
+  void AddQueue(std::string name, OdomFuction call_back);
   ~OrderedMultiQueue();
   void Start();
 
@@ -58,9 +61,9 @@ class OrderedMultiQueue {
   std::mutex  mutex_;
   std::thread  dispath_thead_;
   virtual void Dispathch();
-  double GetStartCommontime();
-  double common_start_time_ = -1.0f;
-  double last_dispatched_time_ = -1;
+  common::Time GetStartCommontime();
+  std::optional<common::Time>common_start_time_ ;
+  common::Time last_dispatched_time_ ;
   std::unordered_map<std::string, Queue> queues_;
   bool circle_done = false;
 };

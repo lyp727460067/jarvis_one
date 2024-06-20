@@ -27,13 +27,14 @@
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/tic_toc.h"
 #include "jarvis/estimator/featureTracker/pyramid_image.h"
+#include "jarvis/estimator/featureTracker/feature_detect.h"
 namespace jarvis {
 namespace estimator {
 
 //
 
-struct ImageFeatureTrackerResult {
-  struct FeatureTrackerResult {
+struct ImageFeatureTrackerData {
+  struct FeatureTrackerData {
     int id;
     struct CameraFeature {
       int id;
@@ -45,7 +46,7 @@ struct ImageFeatureTrackerResult {
   };
   struct Data {
     double time;
-    std::map<int, FeatureTrackerResult> features;//feature_id
+    std::map<uint64_t, FeatureTrackerData> features;//feature_id
     std::map<int, int> tracker_features_num;
     std::map<int, cv::Mat> images;  // camera_id,image
   };
@@ -56,15 +57,23 @@ bool inBorder(const cv::Point2f &pt);
 void reduceVector(std::vector<cv::Point2f> &v, std::vector<uchar> status);
 void reduceVector(std::vector<int> &v, std::vector<uchar> status);
 
+struct FeatureTrackerOption {
+  PyramidImageOption pyrmid_option;
+  FeatureDetectOption feature_detect_option;
+  std::vector<std::string> calib_file;
+  std::string mask_file;
+  int track_back=0;
+};
+
 class FeatureTracker {
  public:
-  FeatureTracker();
-  ImageFeatureTrackerResult trackImage(double _cur_time, const cv::Mat &_img,
+  explicit FeatureTracker(const FeatureTrackerOption&option);
+  ImageFeatureTrackerData trackImage(double _cur_time, const cv::Mat &_img,
                                        const cv::Mat &_img1 = cv::Mat(),
                                        std::map<int, int> *track_cnt = nullptr,const double angle=0);
   void setMask();
-  void readIntrinsicParameter(const std::vector<string> &calib_file);
-  void showUndistortion(const string &name);
+  void readIntrinsicParameter(const std::vector<std::string> &calib_file);
+  void showUndistortion(const std::string &name);
   void rejectWithF();
   void undistortedPoints();
   std::vector<cv::Point2f> undistortedPts(std::vector<cv::Point2f> &pts,
@@ -86,7 +95,7 @@ class FeatureTracker {
   void removeOutliers(set<int> &removePtsIds);
   cv::Mat getTrackImage();
   bool inBorder(const cv::Point2f &pt);
-
+  const FeatureTrackerOption options_; 
   int row = 0, col = 0;
   cv::Mat imTrack;
   cv::Mat mask;
@@ -111,6 +120,7 @@ class FeatureTracker {
   bool hasPrediction = false;
   cv::Mat  mask_;
   std::unique_ptr<PyramidImage> pyramid_image_;
+  std::unique_ptr<FeatureDetect> feature_detect_;
 };
 }  // namespace estimator
 }  // namespace jarvis

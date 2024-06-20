@@ -59,8 +59,8 @@ ${OpenCV_INCLUDE_DIRS}
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_main  jarvis_main.cc ros_component.cc
 )
-add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc 
-)
+add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc)
+add_executable(${PROJECT_NAME}_slip_main   jarvis_slip_detect_main.cc ros_component.cc)
 add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare.cc pose_optimization.cc
 )
 ## Rename C++ executable without prefix
@@ -75,6 +75,13 @@ add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_main
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+  glog::glog
+  yaml-cpp
+  jarvis
+)
+target_link_libraries(${PROJECT_NAME}_slip_main
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   glog::glog
@@ -96,7 +103,12 @@ tf2_ros
 cv_bridge
 image_transport
 )
-
+ament_target_dependencies(${PROJECT_NAME}_slip_main rclcpp std_msgs nav_msgs sensor_msgs
+visualization_msgs
+tf2_ros
+cv_bridge
+image_transport
+)
 ament_target_dependencies(${PROJECT_NAME}_main rclcpp std_msgs nav_msgs sensor_msgs
 visualization_msgs
 tf2_ros

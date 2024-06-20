@@ -69,6 +69,7 @@ TrajectorBuilder::TrajectorBuilder(const std::string &config,
   //          map_builder_option, std::make_unique<CameraModules>(config));
   //  map_builder_ = CreateMapBuilder(config);
 }
+TrajectorBuilder::TrajectorBuilder() {}
 //
 void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   auto tracking_data = tracker_->AddImageData(images);

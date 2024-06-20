@@ -38,12 +38,19 @@ Estimator::Estimator(const std::string &config_file) {
   for (int i = 0; i < WINDOW_SIZE + 1; i++) {
     pre_integrations[i] = nullptr;
     Headers[i] = 0.0;
-    images_[i] = std::make_pair<double, ImageFeatureTrackerResult>(0, {});
+    images_[i] = std::make_pair<double, ImageFeatureTrackerData>(0, {});
   }
 
   //
   readParameters(config_file);
   setParameter();
+  feature_tracker_ = std::make_unique<FeatureTracker>(FeatureTrackerOption{
+      PyramidImageOption{lk_pre_max_layer, lk_win_size,
+                         Eigen::Vector2i{COL, ROW}},
+      FeatureDetectOption{20, MIN_DIST}, CAM_NAMES, mask_file, FLOW_BACK
+
+  });
+
   //
 }
 
@@ -62,7 +69,7 @@ namespace {
 std::map<int, int> track_num;
 std::unique_ptr<TrackingData> ExtractKeyFrameMapPoints(
     const Estimator &estimator,
-    const ImageFeatureTrackerResult &feature_result) {
+    const ImageFeatureTrackerData &feature_result) {
   TrackingData result;
   result.data = std::make_shared<TrackingData::Data>();
   for (const auto &p : feature_result.data->features) {
@@ -90,13 +97,15 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   //
 
   inputImageCnt++;
-  ImageFeatureTrackerResult featureFrame;
+  ImageFeatureTrackerData featureFrame;
   TicToc featureTrackerTime;
 
   //
   vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
   // double angle = 0.0;
-  if(GetImuInterval(prev_time_,images.time , accVector, gyrVector)){
+  double d_time = common::ToSeconds(images.time - common::FromUniversal(0));
+  //
+  if(GetImuInterval(prev_time_,d_time, accVector, gyrVector)){
   Eigen::Quaterniond  delta_q =  Eigen::Quaterniond::Identity();   
   if(!accVector.empty()){
   
@@ -116,16 +125,16 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
 
   }
   
-  prev_time_ = images.time;
-  featureFrame = featureTracker.trackImage(images.time, *images.image[0],
+  prev_time_ = d_time;
+  featureFrame = feature_tracker_->trackImage(d_time, *images.image[0],
                                            cv::Mat(), &track_num,angle_);
   //
-  featureBuf.push(make_pair(images.time, featureFrame));
+  featureBuf.push(make_pair(d_time, featureFrame));
   TicToc processTime;
   processMeasurements();
   LOG(INFO) << "one frame cost : " << add_image_data_cost.toc();
   auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
-  tracking_data->data->time = common::Time(common::FromSeconds(images.time));
+  tracking_data->data->time = images.time;
   if (solver_flag == INITIAL) {
     tracking_data->status = 0;
   LOG(INFO)<< Eigen::Quaterniond(Rs[frame_count]);
@@ -143,7 +152,8 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
 }
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
-  inputIMU(imu_data.time, imu_data.linear_acceleration,
+  double d_time = common::ToSeconds(imu_data.time - common::FromUniversal(0));
+  inputIMU(d_time, imu_data.linear_acceleration,
            imu_data.angular_velocity);
 }
 //
@@ -243,7 +253,7 @@ void Estimator::setParameter() {
   td = TD;
   g = G;
   cout << "set g " << g.transpose() << endl;
-  featureTracker.readIntrinsicParameter(CAM_NAMES);
+
 
   std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
   // if (MULTIPLE_THREAD && !initThreadFlag) {
@@ -311,7 +321,7 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration,
 }
 
 void Estimator::inputFeature(double t,
-                             const ImageFeatureTrackerResult &featureFrame) {
+                             const ImageFeatureTrackerData &featureFrame) {
   mBuf.lock();
   featureBuf.push(make_pair(t, featureFrame));
   mBuf.unlock();
@@ -391,7 +401,7 @@ bool Estimator::IMUAvailable(double t) {
 
 void Estimator::processMeasurements() {
   // printf("process measurments\n");
-  pair<double, ImageFeatureTrackerResult> feature;
+  pair<double, ImageFeatureTrackerData> feature;
   vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
 
   if (!featureBuf.empty()) {
@@ -495,7 +505,7 @@ void Estimator::processIMU(double t, double dt,
   gyr_0 = angular_velocity;
 }
 map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> ToStruct(
-    const ImageFeatureTrackerResult &image) {
+    const ImageFeatureTrackerData &image) {
   map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> result;
   for (const auto &feature : image.data->features) {
     for (const auto &image_feature : feature.second.camera_features) {
@@ -509,7 +519,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> ToStruct(
   }
   return result;
 }
-void Estimator::processImage(const ImageFeatureTrackerResult &image,
+void Estimator::processImage(const ImageFeatureTrackerData &image,
                              const double header) {
   VLOG(kGlogLevel)
       << "new image coming ------------------------------------------";
@@ -649,7 +659,7 @@ void Estimator::processImage(const ImageFeatureTrackerResult &image,
     set<int> removeIndex;
     outliersRejection(removeIndex);
     f_manager->removeOutlier(removeIndex);
-    featureTracker.removeOutliers(removeIndex);
+    feature_tracker_->removeOutliers(removeIndex);
     predictPtsInNextFrame();
 
     VLOG(kGlogLevel) << "solver costs: " << t_solve.toc() << " ms";
@@ -1583,7 +1593,7 @@ void Estimator::predictPtsInNextFrame() {
       }
     }
   }
-  featureTracker.setPrediction(predictPts);
+  feature_tracker_->setPrediction(predictPts);
   // printf("estimator output %d predict pts\n",(int)predictPts.size());
 }
 

@@ -51,7 +51,7 @@ include_directories(
 add_subdirectory("${PROJECT_SOURCE_DIR}/third_part/rtm")
 ##
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
-file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp")
+file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
 file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc")
 ##
 file(GLOB_RECURSE OJBECT_LIBRARY_SRCS "jarvis/object*.cc")
@@ -135,7 +135,7 @@ install(
 
 
 
-file(GLOB_RECURSE INSTALL_SOURCE_HDRS "jarvis/*.h"
+file(GLOB_RECURSE INSTALL_SOURCE_HDRS "jarvis/*.h" "slip_detection/*.h"
 )
 
 foreach(HDR ${INSTALL_SOURCE_HDRS})

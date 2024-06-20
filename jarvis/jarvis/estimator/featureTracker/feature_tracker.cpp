@@ -17,7 +17,6 @@
 #include <opencv2/highgui/highgui_c.h>
 #include <opencv2/imgcodecs/legacy/constants_c.h>
 #include <opencv2/imgproc/types_c.h>
-#include "Eigen/Eigenvalues"
 #include "jarvis/estimator/featureTracker/xppyramid.hpp"
 #include "glog/logging.h"
 namespace jarvis {
@@ -26,202 +25,6 @@ namespace {
 constexpr uint8_t kGlogLevel = 1;
 }
 
-using namespace std;
-using namespace cv;
-using namespace Eigen;
-using namespace std::chrono;
-vector<double> convolution(const cv::Mat &image,
-                           const vector<cv::KeyPoint> &pts,
-                           const cv::Mat &kernal) {
-  double pixSum = 0;
-  vector<double> grad;
-  for (size_t i = 0; i < pts.size(); i++) {
-    int row = floor(pts[i].pt.y);
-    int col = floor(pts[i].pt.x);
-    // the pixel locates in the middle of the kernal
-    for (int k = 0; k < kernal.rows; k++)
-      for (int l = 0; l < kernal.cols; l++)
-        pixSum += kernal.at<double>(k, l) *
-                  double(image.at<uchar>(k + row - 1, l + col - 1));
-    grad.push_back(abs(pixSum));
-    pixSum = 0;
-  }
-  return grad;
-}
-//
-void convolution(const cv::Mat &image, const vector<cv::KeyPoint> &pts,
-                 const cv::Mat &derive, vector<short> &x_c,
-                 vector<short> &y_c) {
-  for (size_t i = 0; i < pts.size(); i++) {
-    int row = floor(pts[i].pt.y);
-    int col = floor(pts[i].pt.x);
-    x_c.push_back(derive.ptr<short>(row, col)[0]);
-    y_c.push_back(derive.ptr<short>(row, col)[1]);
-  }
-}
-//
-typedef pair<int, double> PAIR;
-bool cmp_by_value(const PAIR &lhs, const PAIR &rhs) {
-  return lhs.second > rhs.second;
-}
-
-// have_corners：图像已有特征点， corners：用来存放额外检测到的特征点，
-// maxCorners:图像最多特征点数量
-void efficientGoodFeaturesToTrack(InputArray _image,
-                                  vector<cv::Point2f> &have_corners,
-                                  vector<cv::Point2f> &corners, int maxCorners,
-                                  double minDistance,const cv::Mat &mask,
-                                  const cv::Mat&derive) {
-  corners.clear();
-  Mat image = _image.getMat();
-  if (image.empty()) return;
-
-  vector<cv::KeyPoint> keypoints;
-  // cv::FAST(cv::Mat(image, cv::Rect2i(10, image.rows/2, image.cols-10, image.rows/2-10)),
-  //          keypoints, 10, true);
-  // for(int i  =0;i<keypoints.size();i++){
-  //   keypoints[i].pt.x+=10;
-  //   keypoints[i].pt.y+=image.rows/2;
-  // }
-  cv::FAST(image, keypoints, 10, true);
-  // if (keypoints.size() < (maxCorners - have_corners.size())) {
-  //   cv::FAST(image, keypoints, 10, true);
-  // }
-  LOG(INFO)<< keypoints.size();
-  cv::Mat kernal_x = (cv::Mat_<double>(3, 3) << -1, 0, 1, -2, 0, 2, -1, 0, 1);
-  cv::Mat kernal_y = (cv::Mat_<double>(3, 3) << -1, -2, -1, 0, 0, 0, 1, 2, 1);
-  // vector<double> grad_x;
-  // vector<double> grad_y;
-  // grad_x = convolution(image, keypoints, kernal_x);
-  // grad_y = convolution(image, keypoints, kernal_y);
-  std::vector<short> grad_x;
-  std::vector<short> grad_y;
-  convolution(image, keypoints,derive,grad_x,grad_y);
-  // 2. minMaxLoc
-  std::vector<pair<int, double>> eigens;
-  for (size_t i = 0; i < keypoints.size(); i++) {
-    int row = floor(keypoints[i].pt.y);
-    int col = floor(keypoints[i].pt.x);
-    const auto &grad_x =derive.ptr<short>(row, col)[0];
-    const auto &grad_y =derive.ptr<short>(row, col)[1];
-    Eigen::Matrix2d cov;
-    // cov(0, 0) = grad_x[i] * grad_x[i];
-    // cov(0, 1) = grad_x[i] * grad_y[i];
-    // cov(1, 0) = grad_x[i] * grad_y[i];
-    // cov(1, 1) = grad_y[i] * grad_y[i];
-    cov(0, 0) = grad_x * grad_x;
-    cov(0, 1) = grad_x * grad_y;
-    cov(1, 0) = grad_x * grad_y;
-    cov(1, 1) = grad_y * grad_y;
-
-
-    Eigen::EigenSolver<Matrix2d> es(cov);
-    Eigen::Vector2cd eig_ = es.eigenvalues();
-    Vector2d eig = eig_.real();
-    double eg1 = eig(0);
-    double eg2 = eig(1);
-    if (eg1 >= eg2)
-      eigens.push_back(make_pair(i, eg1));
-    else
-      eigens.push_back(make_pair(i, eg2));
-  }
-
-  sort(eigens.begin(), eigens.end(), cmp_by_value);
-  vector<cv::KeyPoint> keypoints_;
-  for (size_t i = 0; i < eigens.size(); i++)
-    keypoints_.push_back(keypoints[eigens[i].first]);
-
-  if (minDistance >= 1) {
-    int ncorners = 0;
-    int w = image.cols;
-    int h = image.rows;
-
-    const int cell_size = cvRound(minDistance);
-    const int grid_width = (w + cell_size - 1) / cell_size;
-    const int grid_height = (h + cell_size - 1) / cell_size;
-
-    std::vector<std::vector<cv::Point2f>> grid(grid_width * grid_height);
-
-    minDistance *= minDistance;
-    // push the already exist feature points into the grid
-    for (size_t i = 0; i < have_corners.size(); i++) {
-      int y = (int)(have_corners[i].y);
-      int x = (int)(have_corners[i].x);
-
-      int x_cell = x / cell_size;
-      int y_cell = y / cell_size;
-
-      if (x_cell <= grid_width && y_cell <= grid_height)
-        grid[y_cell * grid_width + x_cell].push_back(have_corners[i]);
-
-      // corners.push_back(have_corners[i]);
-      // ++ncorners;
-    }
-
-    for (size_t i = 0; i < keypoints_.size(); i++) {
-      if (keypoints_[i].pt.y < 0 || keypoints_[i].pt.y > image.rows - 1)
-        continue;
-      if (keypoints_[i].pt.x < 0 || keypoints_[i].pt.x > image.cols - 1)
-        continue;
-      if(mask.at<uchar>(keypoints_[i].pt)==0)continue;
-      int y = (int)(keypoints_[i].pt.y);
-      int x = (int)(keypoints_[i].pt.x);
-
-      bool good = true;
-
-      int x_cell = x / cell_size;
-      int y_cell = y / cell_size;
-
-      int x1 = x_cell - 1;
-      int y1 = y_cell - 1;
-      int x2 = x_cell + 1;
-      int y2 = y_cell + 1;
-
-      // boundary check
-      x1 = std::max(0, x1);
-      y1 = std::max(0, y1);
-      x2 = std::min(grid_width - 1, x2);
-      y2 = std::min(grid_height - 1, y2);
-
-      // select feature points satisfy minDistance threshold
-    for (int  yy = y1; yy <= y2; yy++) {
-        for (int xx = x1; xx <= x2; xx++) {
-          std::vector<cv::Point2f> &m = grid[yy * grid_width + xx];
-
-          if (m.size()) {
-            for (size_t j = 0; j < m.size(); j++) {
-              float dx = x - m[j].x;
-              float dy = y - m[j].y;
-
-              if (dx * dx + dy * dy < minDistance) {
-                good = false;
-                goto break_out;
-              }
-            }
-          }
-        }
-      }
-
-    break_out:
-
-      if (good) {
-        grid[y_cell * grid_width + x_cell].push_back(
-            cv::Point2f((float)x, (float)y));
-
-        corners.push_back(cv::Point2f((float)x, (float)y));
-        ++ncorners;
-
-        if (maxCorners > 0 && (int)ncorners == maxCorners) break;
-      }
-    }
-
-  } else {
-    return;
-  }
-
-  // if (have_corners.size() != 0)
-  //   corners.erase(corners.begin(), corners.end() + have_corners.size());
-}
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt) {
   const int BORDER_SIZE = 1;
@@ -238,56 +41,63 @@ double distance(cv::Point2f pt1, cv::Point2f pt2) {
   return sqrt(dx * dx + dy * dy);
 }
 
-void reduceVector(vector<cv::Point2f> &v, vector<uchar> status) {
+void reduceVector(std::vector<cv::Point2f> &v, std::vector<uchar> status) {
   int j = 0;
   for (int i = 0; i < int(v.size()); i++)
     if (status[i]) v[j++] = v[i];
   v.resize(j);
 }
 
-void reduceVector(vector<int> &v, vector<uchar> status) {
+void reduceVector(std::vector<int> &v, std::vector<uchar> status) {
   int j = 0;
   for (int i = 0; i < int(v.size()); i++)
     if (status[i]) v[j++] = v[i];
   v.resize(j);
 }
-void reduceVector(vector<cv::Point2f> &v, vector<bool> status) {
+void reduceVector(std::vector<cv::Point2f> &v, std::vector<bool> status) {
   int j = 0;
   for (int i = 0; i < int(v.size()); i++)
     if (status[i]) v[j++] = v[i];
   v.resize(j);
 }
 
-void reduceVector(vector<int> &v, vector<bool> status) {
+void reduceVector(std::vector<int> &v, std::vector<bool> status) {
   int j = 0;
   for (int i = 0; i < int(v.size()); i++)
     if (status[i]) v[j++] = v[i];
   v.resize(j);
 }
-FeatureTracker::FeatureTracker() {
-  pyramid_image_ =  std::make_unique<PyramidImage>(PyramidImageOption{5,
-    Eigen::Vector2i{640,544}});
-  stereo_cam = 0;
-  n_id = 0;
-  hasPrediction = false;
-}
-
-void FeatureTracker::setMask() {
-  if (mask_.empty()) {
-    mask_ = cv::imread(mask_file, cv::IMREAD_GRAYSCALE);
+//
+FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
+    : options_(option) {
+  for (size_t i = 0; i < option.calib_file.size(); i++) {
+    VLOG(kGlogLevel) << "reading paramerter of camera"
+                     << option.calib_file[i].c_str();
+    camera_models::CameraPtr camera =
+        camera_models::CameraFactory::instance()->generateCameraFromYamlFile(
+            option.calib_file[i]);
+    m_camera.push_back(camera);
   }
-  mask = mask_.clone();
+  if (option.calib_file.size() == 2) stereo_cam = 1;
+  pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
+  feature_detect_ =
+      std::make_unique<FeatureDetect>(option.feature_detect_option);
 
+  mask_ = cv::imread(option.mask_file, cv::IMREAD_GRAYSCALE);
+}
+//
+void FeatureTracker::setMask() {
+  mask = mask_.clone();
   // prefer to keep features that are tracked for long time
-  vector<pair<int, pair<cv::Point2f, int>>> cnt_pts_id;
+  std::vector<std::pair<int, std::pair<cv::Point2f, int>>> cnt_pts_id;
 
   for (unsigned int i = 0; i < cur_pts.size(); i++)
     cnt_pts_id.push_back(
-        make_pair(track_cnt[i], make_pair(cur_pts[i], ids[i])));
+        std::make_pair(track_cnt[i], std::make_pair(cur_pts[i], ids[i])));
 
   std::sort(cnt_pts_id.begin(), cnt_pts_id.end(),
-            [](const pair<int, pair<cv::Point2f, int>> &a,
-               const pair<int, pair<cv::Point2f, int>> &b) {
+            [](const std::pair<int, std::pair<cv::Point2f, int>> &a,
+               const std::pair<int, std::pair<cv::Point2f, int>> &b) {
               return a.first > b.first;
             });
 
@@ -314,7 +124,7 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2) {
 
 
 
-ImageFeatureTrackerResult
+ImageFeatureTrackerData
 FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
                            const cv::Mat &_img1,std::map<int,int>* track_num ,const double angle ) {
   TicToc t_r;
@@ -343,8 +153,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   LOG(WARNING)<<level;
   if (prev_pts.size() > 0) {
     TicToc t_o;
-    vector<uchar> status;
-    vector<float> err;
+    std::vector<uchar> status;
+    std::vector<float> err;
     // cur_pts = prev_pts;
     if (hasPrediction) {
       cur_pts = predict_pts;
@@ -388,9 +198,9 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     // }
 
     // reverse check
-    if (FLOW_BACK) {
-      // vector<bool> reverse_status;
-      // vector<cv::Point2f> reverse_pts = prev_pts;
+    if (options_.track_back) {
+      // std::vector<bool> reverse_status;
+      // std::vector<cv::Point2f> reverse_pts = prev_pts;
 
       // std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
       // pre_xp_kp_small.reserve(cur_pts.size());
@@ -402,8 +212,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       //     pyramid_image_->CurrPyram(), pyramid_image_->PrePyram(),
       //     &pre_xp_kp_small, &reverse_pts, &reverse_status, &err, win_size,
       //     level, start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
-      vector<uchar> reverse_status;
-      vector<cv::Point2f> reverse_pts = prev_pts;
+      std::vector<uchar> reverse_status;
+      std::vector<cv::Point2f> reverse_pts = prev_pts;
       cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(),
                                pyramid_image_->PrePyram(), cur_pts, reverse_pts,
                                reverse_status, err, win_size, level+1, criteria,
@@ -446,9 +256,10 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       if (mask.type() != CV_8UC1) cout << "mask type wrong " << endl;
       // cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
-      // vector<cv::Point2f> forw_pts;
-      efficientGoodFeaturesToTrack(cur_img, cur_pts, n_pts,
-                                    MAX_CNT - cur_pts.size() , MIN_DIST,mask,pyramid_image_->PrePyram()[1]);
+      // std::vector<cv::Point2f> forw_pts;
+      n_pts =
+          feature_detect_->Detect(cur_img, cur_pts, MAX_CNT - cur_pts.size(),
+                                  mask, pyramid_image_->PrePyram()[1]);
     } else {
       n_pts.clear();
     }
@@ -473,14 +284,14 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     cur_un_right_pts_map.clear();
     if (!cur_pts.empty()) {
       // printf("stereo image; track feature on right image\n");
-      vector<cv::Point2f> reverseLeftPts;
-      vector<uchar> status, statusRightLeft;
-      vector<float> err;
+      std::vector<cv::Point2f> reverseLeftPts;
+      std::vector<uchar> status, statusRightLeft;
+      std::vector<float> err;
       // cur left ---- cur right
       cv::calcOpticalFlowPyrLK(cur_img, rightImg, cur_pts, cur_right_pts,
                                status, err, cv::Size(21, 21), 7);
       // reverse check cur right ---- cur left
-      if (FLOW_BACK) {
+      if (options_.track_back) {
         cv::calcOpticalFlowPyrLK(rightImg, cur_img, cur_right_pts,
                                  reverseLeftPts, statusRightLeft, err,
                                  cv::Size(21, 21), 7);
@@ -511,8 +322,6 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     }
     prev_un_right_pts_map = cur_un_right_pts_map;
   }
-  if (SHOW_TRACK)
-    drawTrack(cur_img, rightImg, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
   prev_img = cur_img;
   prev_pts = cur_pts;
@@ -525,8 +334,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   for (size_t i = 0; i < cur_pts.size(); i++)
     prevLeftPtsMap[ids[i]] = cur_pts[i];
 
-  // map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-  ImageFeatureTrackerResult::Data result_data;
+  // map<int, std::vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+  ImageFeatureTrackerData::Data result_data;
   result_data.time = _cur_time;
   for (size_t i = 0; i < ids.size(); i++) {
     int feature_id = ids[i];
@@ -545,9 +354,9 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
     xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
     result_data.features[feature_id] =
-        ImageFeatureTrackerResult::FeatureTrackerResult{
+        ImageFeatureTrackerData::FeatureTrackerData{
             feature_id,
-            {ImageFeatureTrackerResult::FeatureTrackerResult::CameraFeature{
+            {ImageFeatureTrackerData::FeatureTrackerData::CameraFeature{
                 camera_id, Eigen::Vector3d{x, y, z}, Eigen::Vector2d{p_u, p_v},
                 Eigen::Vector2d{velocity_x, velocity_y}}},
         };
@@ -577,15 +386,15 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
       xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
       result_data.features[feature_id].camera_features.emplace_back(
-          ImageFeatureTrackerResult::FeatureTrackerResult::CameraFeature{
+          ImageFeatureTrackerData::FeatureTrackerData::CameraFeature{
               camera_id, Eigen::Vector3d{x, y, z}, Eigen::Vector2d{p_u, p_v},
               Eigen::Vector2d{velocity_x, velocity_y}});
       // featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
     }
     result_data.images[camera_id]= rightImg;
   }
-  return ImageFeatureTrackerResult {
-    std::make_shared<ImageFeatureTrackerResult::Data>(result_data)
+  return ImageFeatureTrackerData {
+    std::make_shared<ImageFeatureTrackerData::Data>(result_data)
   };
   // printf("feature track whole time %f\n", t_r.toc());
   // return featureFrame;
@@ -595,7 +404,7 @@ void FeatureTracker::rejectWithF() {
   if (cur_pts.size() >= 8) {
     VLOG(kGlogLevel) << "FM ransac begins";
     TicToc t_f;
-    vector<cv::Point2f> un_cur_pts(cur_pts.size()),
+    std::vector<cv::Point2f> un_cur_pts(cur_pts.size()),
         un_prev_pts(prev_pts.size());
     for (unsigned int i = 0; i < cur_pts.size(); i++) {
       Eigen::Vector3d tmp_p;
@@ -612,7 +421,7 @@ void FeatureTracker::rejectWithF() {
       un_prev_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
     }
 
-    vector<uchar> status;
+    std::vector<uchar> status;
     cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC, F_THRESHOLD,
                            0.99, status);
     int size_a = cur_pts.size();
@@ -627,20 +436,13 @@ void FeatureTracker::rejectWithF() {
   }
 }
 
-void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file) {
-  for (size_t i = 0; i < calib_file.size(); i++) {
-    VLOG(kGlogLevel) << "reading paramerter of camera" << calib_file[i].c_str();
-    camera_models::CameraPtr camera =
-        camera_models::CameraFactory::instance()->generateCameraFromYamlFile(
-            calib_file[i]);
-    m_camera.push_back(camera);
-  }
-  if (calib_file.size() == 2) stereo_cam = 1;
+void FeatureTracker::readIntrinsicParameter(const std::vector<string> &calib_file) {
+
 }
 
 void FeatureTracker::showUndistortion(const string &name) {
   cv::Mat undistortedImg(row + 600, col + 600, CV_8UC1, cv::Scalar(0));
-  vector<Eigen::Vector2d> distortedp, undistortedp;
+  std::vector<Eigen::Vector2d> distortedp, undistortedp;
   for (int i = 0; i < col; i++)
     for (int j = 0; j < row; j++) {
       Eigen::Vector2d a(i, j);
@@ -673,9 +475,9 @@ void FeatureTracker::showUndistortion(const string &name) {
   // cv::waitKey(0);
 }
 
-vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts,
+std::vector<cv::Point2f> FeatureTracker::undistortedPts(std::vector<cv::Point2f> &pts,
                                                    camera_models::CameraPtr cam) {
-  vector<cv::Point2f> un_pts;
+  std::vector<cv::Point2f> un_pts;
   for (unsigned int i = 0; i < pts.size(); i++) {
     Eigen::Vector2d a(pts[i].x, pts[i].y);
     Eigen::Vector3d b;
@@ -685,13 +487,13 @@ vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts,
   return un_pts;
 }
 
-vector<cv::Point2f> FeatureTracker::ptsVelocity(
-    vector<int> &ids, vector<cv::Point2f> &pts,
-    map<int, cv::Point2f> &cur_id_pts, map<int, cv::Point2f> &prev_id_pts) {
-  vector<cv::Point2f> pts_velocity;
+std::vector<cv::Point2f> FeatureTracker::ptsVelocity(
+    std::vector<int> &ids, std::vector<cv::Point2f> &pts,
+    std::map<int, cv::Point2f> &cur_id_pts, std::map<int, cv::Point2f> &prev_id_pts) {
+  std::vector<cv::Point2f> pts_velocity;
   cur_id_pts.clear();
   for (unsigned int i = 0; i < ids.size(); i++) {
-    cur_id_pts.insert(make_pair(ids[i], pts[i]));
+    cur_id_pts.insert(std::make_pair(ids[i], pts[i]));
   }
 
   // caculate points velocity
@@ -717,10 +519,10 @@ vector<cv::Point2f> FeatureTracker::ptsVelocity(
 }
 
 void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
-                               vector<int> &curLeftIds,
-                               vector<cv::Point2f> &curLeftPts,
-                               vector<cv::Point2f> &curRightPts,
-                               map<int, cv::Point2f> &prevLeftPtsMap) {
+                               std::vector<int> &curLeftIds,
+                               std::vector<cv::Point2f> &curLeftPts,
+                               std::vector<cv::Point2f> &curRightPts,
+                               std::map<int, cv::Point2f> &prevLeftPtsMap) {
   // int rows = imLeft.rows;
   int cols = imLeft.cols;
   if (!imRight.empty() && stereo_cam)
@@ -744,7 +546,7 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
     }
   }
 
-  map<int, cv::Point2f>::iterator mapIt;
+  std::map<int, cv::Point2f>::iterator mapIt;
   for (size_t i = 0; i < curLeftIds.size(); i++) {
     int id = curLeftIds[i];
     mapIt = prevLeftPtsMap.find(id);
@@ -767,11 +569,11 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
   // cv::resize(imCur2, imCur2Compress, cv::Size(cols, rows / 2));
 }
 
-void FeatureTracker::setPrediction(map<int, Eigen::Vector3d> &predictPts) {
+void FeatureTracker::setPrediction(std::map<int, Eigen::Vector3d> &predictPts) {
   hasPrediction = true;
   predict_pts.clear();
   predict_pts_debug.clear();
-  map<int, Eigen::Vector3d>::iterator itPredict;
+  std::map<int, Eigen::Vector3d>::iterator itPredict;
   for (size_t i = 0; i < ids.size(); i++) {
     // printf("prevLeftId size %d prevLeftPts size
     // %d\n",(int)prevLeftIds.size(), (int)prevLeftPts.size());
@@ -787,9 +589,9 @@ void FeatureTracker::setPrediction(map<int, Eigen::Vector3d> &predictPts) {
   }
 }
 
-void FeatureTracker::removeOutliers(set<int> &removePtsIds) {
+void FeatureTracker::removeOutliers(std::set<int> &removePtsIds) {
   std::set<int>::iterator itSet;
-  vector<uchar> status;
+  std::vector<uchar> status;
   for (size_t i = 0; i < ids.size(); i++) {
     itSet = removePtsIds.find(ids[i]);
     if (itSet != removePtsIds.end())

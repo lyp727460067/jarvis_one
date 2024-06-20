@@ -29,12 +29,12 @@ class ImuExtrapolator {
  public:
   ImuExtrapolator();
   ~ImuExtrapolator();
-  void AddState(const double& t, const ImuState& state);
+  void AddState(const common::Time& t, const ImuState& state);
   void AddImu(const sensor::ImuData& imu_data);
-  ImuState Exrapolate(const double& time);
+  ImuState Exrapolate(const common::Time& time);
 
  private:
-  void TrimImuData(const double &t);
+  void TrimImuData(const common::Time &t);
   class ImuIntegral;
   std::unique_ptr<ImuIntegral> imu_intergral_;
 

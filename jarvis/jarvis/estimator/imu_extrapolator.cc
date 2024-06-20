@@ -6,7 +6,7 @@ namespace estimator {
 class ImuExtrapolator::ImuIntegral {
  public:
   explicit ImuIntegral(const sensor::ImuData& imu) : last_imu_(imu) {}
-  double Time() {return  last_imu_.time; }
+   common::Time Time() {return  last_imu_.time; }
   //
 
 
@@ -14,7 +14,7 @@ class ImuExtrapolator::ImuIntegral {
   ImuState Advance(const sensor::ImuData& imu, const ImuState& state_) {
     //
     const auto& state = *state_.data;
-    const double dt = imu.time - last_imu_.time;
+    const double dt = common::ToSeconds(imu.time - last_imu_.time);
     const Eigen::Vector3d av_angular_velocity =
         0.5 * (last_imu_.angular_velocity + imu.angular_velocity) -
         state.angular_velocity_bias;
@@ -52,28 +52,27 @@ class ImuExtrapolator::ImuIntegral {
 
 ImuExtrapolator::ImuExtrapolator() {}
 
-ImuState ImuExtrapolator::Exrapolate(const double& time) {
+ImuState ImuExtrapolator::Exrapolate(const common::Time& time) {
   //
   if (imu_state_.size() != 2 || imu_intergral_ == nullptr) return ImuState{};
   //
-  LOG(INFO)<<std::to_string(time);
   CHECK_GE(time, imu_datas_.front().time);
   auto it = std::lower_bound(
       imu_datas_.begin(), imu_datas_.end(), imu_intergral_->Time(),
-      [](const sensor::ImuData& imu_data, const double& time) {
+      [](const sensor::ImuData& imu_data, const common::Time & time) {
         return imu_data.time < time;
       });
   ++it;
   //
   while (it != imu_datas_.end() && it->time < time) {
-    LOG(INFO)<<std::to_string(it->time);
+    LOG(INFO)<<it->time;
     imu_intergral_state_ = imu_intergral_->Advance(*it, imu_intergral_state_);
     ++it;
   }
   return imu_intergral_state_;
 }
 //
-void ImuExtrapolator::TrimImuData(const double& t) {
+void ImuExtrapolator::TrimImuData(const common::Time & t) {
   while (!imu_datas_.empty()&&(imu_datas_.front().time) < t) {
     imu_datas_.pop_front();
   }
@@ -84,7 +83,7 @@ void ImuExtrapolator::AddImu(const sensor::ImuData& imu_data) {
 }
 //
 //
-void ImuExtrapolator::AddState(const double& t, const ImuState& state) {
+void ImuExtrapolator::AddState(const common::Time & t, const ImuState& state) {
   //
   imu_state_.push_back(state);
   if (imu_state_.size() > 2) {
@@ -97,8 +96,8 @@ void ImuExtrapolator::AddState(const double& t, const ImuState& state) {
   }
   auto last_imu_data = imu_datas_.front();
   while (!imu_datas_.empty()&&(imu_datas_.front().time) < t) {
-    LOG(INFO)<<std::to_string(imu_datas_.front().time);
-    LOG(INFO)<<std::to_string(t);
+    LOG(INFO)<<imu_datas_.front().time;
+    LOG(INFO)<<t;
     last_imu_data = imu_datas_.front();
     imu_datas_.pop_front();
   }

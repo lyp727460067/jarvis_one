@@ -22,6 +22,15 @@ void OrderedMultiQueue::AddQueue(std::string name, ImuFuction call_back) {
                     call_back(imu_data->Data());
                   }});
 }
+void OrderedMultiQueue::AddQueue(std::string name, OdomFuction call_back) {
+  queues_.emplace(
+      name, Queue{{}, [=](std::unique_ptr<Data> data) {
+                    DispathcData<OdometryData> *imu_data =
+                        dynamic_cast<DispathcData<OdometryData> *>(data.get());
+                    CHECK(imu_data) << "Invalid  dynamic_cast to 'OdomFuction' ";
+                    call_back(imu_data->Data());
+                  }});
+}
 //
 void OrderedMultiQueue::AddData(const std::string &name,
                                 std::unique_ptr<Data> data) {
@@ -76,7 +85,7 @@ void OrderedMultiQueue::Dispathch() {
       }
       ++it;
     }
-    const double common_start_time = GetStartCommontime();
+    const common::Time common_start_time = GetStartCommontime();
     int next_queue_size = 0;
     {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -102,10 +111,10 @@ void OrderedMultiQueue::Dispathch() {
       LOG(INFO) << "Cache 2 early "
                 << "'" << next_queue_key << "' "
                 << "data to sysytem at "
-                << std::to_string(last_dispatched_time_);
+                << last_dispatched_time_;
     } else {
       std::unique_ptr<Data> next_data_owner = nullptr;
-      double next_queue_queue_front_time = 0;
+      common::Time next_queue_queue_front_time ;
       {
         std::lock_guard<std::mutex> lock(mutex_);
         next_data_owner = std::move(next_queue->queue.front());
@@ -123,15 +132,15 @@ void OrderedMultiQueue::Dispathch() {
   }
 }
 
-double OrderedMultiQueue::GetStartCommontime() {
-  if (common_start_time_ != -1.0f) return common_start_time_;
+common::Time OrderedMultiQueue::GetStartCommontime() {
+  if (common_start_time_.has_value()) return common_start_time_.value();
+
   for (auto &entry : queues_) {
-    common_start_time_ =
-        std::fmax(common_start_time_, entry.second.queue.front()->GetTime());
+    common_start_time_ = std::max(common_start_time_.value(),
+                                  entry.second.queue.front()->GetTime());
   }
-  LOG(INFO) << "All sensor start at time: "
-            << std::to_string(common_start_time_);
-  return common_start_time_;
+  LOG(INFO) << "All sensor start at time: " << common_start_time_.value();
+  return common_start_time_.value();
 };
 
 OrderedMultiQueue::~OrderedMultiQueue() {

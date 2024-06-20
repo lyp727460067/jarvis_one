@@ -1,0 +1,55 @@
+%YAML:1.0
+
+left_mask_id: mask.png
+right_mask_id: r_mask.png
+cam0_calib: "ld_cam0.yaml"
+cam1_calib: "ld_cam1.yaml"
+###slipedetect
+type:   0
+min_disparity_num : 20
+max_disparity : 1
+que_time_duration : 1
+zero_velocity_odom_delte_s_threash_hold : 0.1
+pose_odom_err_s_threash_hold : 0.1
+## simplevio
+min_track_num: 20
+min_pnp_inlier_num : 10
+min_convisible_count : 60
+
+image_width: 640
+image_height: 544
+body_T_cam0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data:  [0.008733163957597018, 0.9999616398086721, 0.0006713854660220786, 0.042523499653479235,
+          0.01670219696216574, 0.0005254488526089396, -0.9998603705118745, 0.03414749170745267,
+          -0.9998223684554819, 0.008743158162674958, -0.016696967431713505, -0.02750184757058979,
+          0.0, 0.0, 0.0, 1.0]
+
+   # data: [0.004119637854333169, 0.9999896970386508, 0.0019064103693632872, -0.01982065921660834, 
+   #        0.018578720105320412, -0.0019826356023358582, 0.9998254349211748, 0.04645290656552592, 
+   #        0.9998189134754338, -0.004083500044768096, -0.018586696430163863, -0.08745878678942877, 
+   #        0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000]
+
+
+
+body_T_cam1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [0.999871164299, -0.004243074388, 0.015480669323, 0.032420989989, 
+            -0.004206777674, -0.999988327665, -0.002376458658, -0.006701934209, 
+            0.015490572118, 0.002311028751, -0.999877343138, -0.005119084167, 
+            0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000]
+
+
+#feature traker paprameters
+max_cnt: 100            # max feature number in feature tracking
+min_dist: 30            # min distance between two features 
+
+flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
+lk_win_size : 21
+lk_pre_max_layer : 3
+
+

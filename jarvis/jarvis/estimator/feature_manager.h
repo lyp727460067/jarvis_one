@@ -22,8 +22,6 @@
 #include "parameters.h"
 namespace jarvis {
 namespace estimator {
-// using namespace std;
-// using namespace Eigen;
 class FeaturePerFrame {
  public:
   FeaturePerFrame(const Eigen::Matrix<double, 7, 1> &_point, double td) {
@@ -58,7 +56,7 @@ class FeaturePerId {
  public:
   const int feature_id;
   int start_frame;
-  vector<FeaturePerFrame> feature_per_frame;
+  std::vector<FeaturePerFrame> feature_per_frame;
   int used_num;
   double estimated_depth;
   int solve_flag;  // 0 haven't solve yet; 1 solve succ; 2 solve fail;
@@ -82,9 +80,9 @@ class FeatureManager {
   void clearState();
   int getFeatureCount();
   bool addFeatureCheckParallax(int frame_count,
-                               const ImageFeatureTrackerResult &image,
+                               const ImageFeatureTrackerData &image,
                                double td);
-  std::vector<pair<Eigen::Vector3d, Eigen::Vector3d>> getCorresponding(
+  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> getCorresponding(
       int frame_count_l, int frame_count_r);
   // void updateDepth(const VectorXd &x);
   void setDepth(const Eigen::VectorXd &x);
@@ -101,7 +99,7 @@ class FeatureManager {
                           Eigen::Matrix3d Rs[], Eigen::Vector3d tic[],
                           Eigen::Matrix3d ric[]);
   bool solvePoseByPnP(Eigen::Matrix3d &R_initial, Eigen::Vector3d &P_initial,
-                      vector<cv::Point2f> &pts2D, vector<cv::Point3f> &pts3D);
+                      std::vector<cv::Point2f> &pts2D, std::vector<cv::Point3f> &pts3D);
   void removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P,
                             Eigen::Matrix3d new_R, Eigen::Vector3d new_P);
   void removeBack();

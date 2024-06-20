@@ -24,6 +24,7 @@ namespace estimator {
 
 struct PyramidImageOption {
   int layer = 5;
+  int lk_win_size=21;
   Eigen::Vector2i image_size;
 };
 

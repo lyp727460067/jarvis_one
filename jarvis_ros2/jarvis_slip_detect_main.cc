@@ -19,6 +19,8 @@
 #include "jarvis/sensor/stereo_sync.h"
 #include "jarvis/trajectory_builder.h"
 #include "unistd.h"
+#include "slip_detection/slip_detect.h"
+#include "slip_detection/simple_vo.h"
 //
 #include <glog/logging.h>
 #include "jarvis/estimator/imu_extrapolator.h"
@@ -26,6 +28,7 @@
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
+constexpr char kOdomTopic[] = "/odom";
 
 //
 
@@ -71,8 +74,30 @@ struct ImuData {
   uint64_t time;
   Eigen::Vector3d linear_acceleration;
   Eigen::Vector3d angular_velocity;
-
+  std::unique_ptr<sensor::Data> ToPatchData() {
+    return std::make_unique<sensor::DispathcData<sensor::ImuData>>(
+        sensor::ImuData{
+            common::FromUniversal(time /100),
+            linear_acceleration,
+            angular_velocity,
+        });
+  }
+  static std::string Name() { return kImuTopic; }
   static std::map<uint64_t, ImuData> Parse(const std::string& dir_file);
+};
+struct OdomData {
+  uint64_t time;
+  Eigen::Vector3d translation;
+  Eigen::Quaterniond rotation;
+  static std::string Name() { return kOdomTopic; }
+  std::unique_ptr<sensor::Data> ToPatchData() {
+    return std::make_unique<sensor::DispathcData<sensor::OdometryData>>(
+        sensor::OdometryData{
+          common::FromUniversal(time /100), transform::Rigid3d(translation,
+                                                 rotation)
+        });
+  }
+  static std::map<uint64_t, OdomData> Parse(const std::string& dir_file);
 };
 
 //
@@ -92,6 +117,17 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
   return ifs;
 }
 //
+//
+std::istringstream& operator>>(std::istringstream& ifs, OdomData& odom_data) {
+  uint64_t time;
+  ifs >> time;
+  odom_data.time = time;
+  ifs >> odom_data.translation.x() >> odom_data.translation.y() >>
+      odom_data.translation.z() >> odom_data.rotation.w() >>
+      odom_data.rotation.x() >>odom_data.rotation.y() >>
+      odom_data.rotation.z();
+  return ifs;
+}
 
 template <typename TypeName>
 std::vector<TypeName> ReadFile(const std::string& txt) {
@@ -168,35 +204,19 @@ struct ImageData {
   }
 };
 //
-void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
+//
+template <typename Sensor>
+void WriteImuData(uint64_t time, std::map<uint64_t, Sensor>& imu_datas) {
   auto it = imu_datas.upper_bound(time);
-  const Eigen::Vector3d gry_bias(0.00846608 ,0.00315094 ,0.00699567);
-  // static Eigen::Vector3d sum(0,0,0);
-  // static int count = 0;
-
   for (auto itor = imu_datas.begin(); itor != it; ++itor) {
-  // if(count++ <1000){
-  //   sum+=itor->second.angular_velocity;
-  // }   
-  // if(count==1000){
-
-  //   LOG(INFO)<<sum/1000;
-  //   CHECK(false);
-  // } 
-  // LOG(INFO)<<itor->second.linear_acceleration.norm()
-    order_queue_->AddData(
-        kImuTopic,
-        std::make_unique<sensor::DispathcData<sensor::ImuData>>(sensor::ImuData{
-            common::FromUniversal(itor->first/100),
-            itor->second.linear_acceleration,
-            itor->second.angular_velocity-gry_bias,
-        }));
+    order_queue_->AddData(Sensor::Name(), it->second.ToPatchData());
   }
   imu_datas.erase(imu_datas.begin(), it);
 }
 
 //
-void Run(std::map<uint64_t, ImuData>& imu_datas,
+template <typename Sensor>
+void Run(std::map<uint64_t, Sensor>& imu_datas,
          std::map<uint64_t, ImageData> images_datas) {
   LOG(INFO) << "Run start..";
   LOG(INFO) << "Write init befor image time imu data lenth: "
@@ -219,7 +239,7 @@ void Run(std::map<uint64_t, ImuData>& imu_datas,
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
-            sensor::ImageData{ common::FromUniversal(image.first /100) ,
+            sensor::ImageData{common::FromUniversal(image.first /100),
                               {temp, temp}}));
   }
   if (!imu_datas.empty()) {
@@ -250,22 +270,21 @@ int main(int argc, char* argv[]) {
   LOG(INFO) << "config file : " << argv[1];
   //
   ParseOption(argv[1]);
-  std::unique_ptr<jarvis::common::FixedRatioSampler> image_sample_ =
-      std::make_unique<jarvis::common::FixedRatioSampler>(image_sample);
   std::unique_ptr<jarvis_ros::RosCompont> ros_compont =
       std::make_unique<jarvis_ros::RosCompont>(node.get());
+
+  //
+  auto slip_detect = std::make_unique<slip_detect::SlipDetect>(slip_detect::SlipDetectOption{});
+  // /
   TrackingData tracking_data_temp;
   std::mutex mutex;
   std::condition_variable cond;
 
   const std::string image_file = data_dir + "image/";
-  const std::string imu_file = data_dir + "imu.txt";
+  const std::string odom_file = data_dir + "odom.txt";
   //
-  std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_ =
-      std::make_unique<jarvis::estimator::ImuExtrapolator>();
-
-  builder_ = std::make_unique<TrajectorBuilder>(
-      std::string(argv[1]), [&](const TrackingData& data) {
+  builder_ = std::make_unique<slip_detect::SimpleVo>(
+     slip_detect::SimpleVoOption{std::string(argv[1])} , [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
         //
         tracking_data_temp = data;
@@ -276,30 +295,18 @@ int main(int argc, char* argv[]) {
 
   //
   order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
-  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu_data) {
-    builder_->AddImuData(imu_data);
-    // auto pose = jarvis::GetGlobleImuExtrapolatorPose();
-    // ros_compont->PosePub(pose.second, transform::Rigid3d::Identity());
-    // auto state = imu_extrapolator_->Exrapolate(imu_data.time);
-    // if (state.data != nullptr) {
-    //   ros_compont->PosePub(state.data->pose, transform::Rigid3d::Identity());
-    // }
+  order_queue_->AddQueue(kOdomTopic, [&](const sensor::OdometryData& odom_data) {
+    slip_detect->AddOdometry(odom_data);
   });
   //
   order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
-    if (!image_sample_->Pulse()) {
-      return ;
-    }
-    // usleep(30000);
     builder_->AddImageData(imag_data);
   });
+  
   LOG(INFO) << "Parse image dir: " << image_file;
-  LOG(INFO) << "Parse imu dir: " << imu_file;
+  LOG(INFO) << "Parse imu dir: " << odom_file;
   auto image_datas = ImageData::Parse(image_file);
-  auto imu_datas = ImuData::Parse(imu_file);
-#ifdef CHECK_DATA
-  return 0;
-#endif
+  auto odom_datas = ImuData::Parse(odom_file);
   //
   //
   LOG(INFO) << "Start run...";
@@ -324,38 +331,17 @@ int main(int argc, char* argv[]) {
       LOG(INFO)<<tracking_data.status;
       if (tracking_data.status == 2) {
         LOG(INFO) << tracking_data.data->imu_state.data->pose;
-        // imu_extrapolator_->AddState(
-        //     common::ToSeconds(tracking_data.data->time -
-        //     common::FromUniversal(0)), tracking_data.data->imu_state);
-
-        if (kRecordFlag) {
-          std::stringstream info;
-          info << std::to_string(uint64_t(
-                      jarvis::common::ToUniversal(tracking_data.data->time) *
-                      1e2))
-               << " "
-               << tracking_data.data->imu_state.data->pose.translation().x()
-               << " "
-               << tracking_data.data->imu_state.data->pose.translation().y()
-               << " "
-               << tracking_data.data->imu_state.data->pose.translation().z()
-               << " " << tracking_data.data->imu_state.data->pose.rotation().w()
-               << " " << tracking_data.data->imu_state.data->pose.rotation().x()
-               << " " << tracking_data.data->imu_state.data->pose.rotation().y()
-               << " "
-               << tracking_data.data->imu_state.data->pose.rotation().z();
-          kOPoseFile << info.str() << std::endl;
-        }
-      }
+      //
       ros_compont->OnLocalTrackingResultCallback(
           tracking_data, nullptr, transform::Rigid3d::Identity());
       ros_compont->PosePub(tracking_data.data->imu_state.data->pose,
                            transform::Rigid3d::Identity());
       rclcpp::spin_some(node);
     }
+    }
   });
   order_queue_->Start();
-  Run(imu_datas, image_datas);
+  Run(odom_datas, image_datas);
   order_queue_->Stop();
   builder_= nullptr;
   kill_thread = true;

@@ -62,12 +62,12 @@ class Estimator {
   void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
   void inputIMU(double t, const Vector3d &linearAcceleration,
                 const Vector3d &angularVelocity);
-  void inputFeature(double t, const ImageFeatureTrackerResult &featureFrame);
+  void inputFeature(double t, const ImageFeatureTrackerData &featureFrame);
   void inputImage(double t, const cv::Mat &_img,
                   const cv::Mat &_img1 = cv::Mat());
   void processIMU(double t, double dt, const Vector3d &linear_acceleration,
                   const Vector3d &angular_velocity);
-  void processImage(const ImageFeatureTrackerResult &image,
+  void processImage(const ImageFeatureTrackerData &image,
                     const double header);
   void processMeasurements();
   void changeSensorType(int use_imu, int use_stereo);
@@ -114,7 +114,7 @@ class Estimator {
   std::mutex mPropagate;
   queue<pair<double, Eigen::Vector3d>> accBuf;
   queue<pair<double, Eigen::Vector3d>> gyrBuf;
-  queue<pair<double, ImageFeatureTrackerResult>> featureBuf;
+  queue<pair<double, ImageFeatureTrackerData>> featureBuf;
   double prevTime = 0, curTime = 0;
   double prev_time_ = 0;
   bool openExEstimation = false;
@@ -122,7 +122,7 @@ class Estimator {
   std::thread trackThread;
   std::thread processThread;
 
-  FeatureTracker featureTracker;
+  std::unique_ptr<FeatureTracker> feature_tracker_;
 
   SolverFlag solver_flag;
   MarginalizationFlag marginalization_flag;
@@ -136,7 +136,7 @@ class Estimator {
   Matrix3d Rs[(WINDOW_SIZE + 1)];
   Vector3d Bas[(WINDOW_SIZE + 1)];
   Vector3d Bgs[(WINDOW_SIZE + 1)];
-  std::pair<double, ImageFeatureTrackerResult> images_[(WINDOW_SIZE + 1)];
+  std::pair<double, ImageFeatureTrackerData> images_[(WINDOW_SIZE + 1)];
   double td = 0.0;
 
   Matrix3d back_R0, last_R, last_R0;
