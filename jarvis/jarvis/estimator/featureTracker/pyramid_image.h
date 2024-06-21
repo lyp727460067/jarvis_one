@@ -37,7 +37,10 @@ class PyramidImage {
   const std::vector<cv::Mat> &CurrPyram() { return curr_img_pyramids_; }
 
  private:
+  void build_pyramids(const cv::Mat &img, std::vector<cv::Mat> *_pyramids,
+                      uchar *const pyra_buf_ptr);
   const PyramidImageOption option_;
+
   // std::shared_ptr<uchar> 
   //     prev_pyramids_buffer_=nullptr; 
   // std::shared_ptr<uchar>

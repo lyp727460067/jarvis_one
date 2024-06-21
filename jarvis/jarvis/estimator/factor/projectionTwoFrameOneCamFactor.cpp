@@ -29,16 +29,16 @@ namespace {
   using _simd_quaternion = rtm::quatd;
 #endif
 #ifdef __USE_SIMD__
-  _simd_matrix3 _simd_hat_from_eigen(const Eigen::Vector3<_Scalar> &vec) {
-    _simd_vector4 _simd_x_axis, _simd_y_axis, _simd_z_axis;
-    _Scalar x_axis[4] = {0, vec.z(), -vec.y(), 0};
-    _Scalar y_axis[4] = {-vec.z(), 0, vec.x(), 0};
-    _Scalar z_axis[4] = {vec.y(), -vec.x(), 0, 0};
-    _simd_x_axis = rtm::vector_load(x_axis);
-    _simd_y_axis = rtm::vector_load(y_axis);
-    _simd_z_axis = rtm::vector_load(z_axis);
-    return _simd_matrix3{_simd_x_axis, _simd_y_axis, _simd_z_axis};
-  }
+  // _simd_matrix3 _simd_hat_from_eigen(const Eigen::Vector3<_Scalar> &vec) {
+  //   _simd_vector4 _simd_x_axis, _simd_y_axis, _simd_z_axis;
+  //   _Scalar x_axis[4] = {0, vec.z(), -vec.y(), 0};
+  //   _Scalar y_axis[4] = {-vec.z(), 0, vec.x(), 0};
+  //   _Scalar z_axis[4] = {vec.y(), -vec.x(), 0, 0};
+  //   _simd_x_axis = rtm::vector_load(x_axis);
+  //   _simd_y_axis = rtm::vector_load(y_axis);
+  //   _simd_z_axis = rtm::vector_load(z_axis);
+  //   return _simd_matrix3{_simd_x_axis, _simd_y_axis, _simd_z_axis};
+  // }
   Eigen::Vector3d ToEigen(const rtm::vector4d &rtm_vector) {
     return Eigen::Vector3d{rtm::vector_get_x(rtm_vector),
                            rtm::vector_get_y(rtm_vector),

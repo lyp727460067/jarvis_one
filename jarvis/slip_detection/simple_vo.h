@@ -24,12 +24,13 @@ namespace slip_detect {
 struct TrackerOption {
   jarvis::transform::Rigid3d extric;
   Eigen::Vector2i image_size;
+
 };
 
 struct SimpleVoOption {
   std::string config_file;
-  int min_track_num = 20;
-  int min_pnp_inlier_num = 10;
+  int min_track_num = 10;
+  int min_pnp_inlier_num = 6;
   int min_convisible_count = 60;
   TrackerOption tracker_option;
   //
@@ -45,6 +46,7 @@ class SimpleVo : public jarvis::TrajectorBuilder {
   class TrakcerImpl;
   std::unique_ptr<TrakcerImpl> tracker_;
   std::unique_ptr<jarvis::estimator::FeatureTracker> feature_tracker_;
+  jarvis::CallBack call_back_;
 };
 std::unique_ptr<jarvis::TrajectorBuilder> FactorSimipleVo(
     const std::string& file,jarvis::CallBack call_back);

@@ -72,8 +72,7 @@ class JarvisBrige {
           jarvis::TrackingData tracking_data{
               std::make_shared<jarvis::TrackingData::Data>(
                   jarvis::TrackingData::Data{
-                      jarvis::common::Time(
-                          jarvis::common::FromSeconds(imu_data.time)),
+                      imu_data.time,
                       jarvis::estimator::ImuState(jarvis::estimator::ImuState{
                           std::make_shared<jarvis::estimator::ImuState::Data>(
                               jarvis::estimator::ImuState::Data{
@@ -97,31 +96,32 @@ class JarvisBrige {
         });
 
     LOG(INFO) << "Capture start..";
-
+    const Eigen::Vector3d gry_bias(0.00846608 ,0.00315094 ,0.00699567);
     data_capture_->Rigister([&](const ImuData& imu) {
       order_queue_->AddData(
           kImuTopic, std::make_unique<
                          jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
                          jarvis::sensor::ImuData{
-                             imu.time * 1e-6,
+                             jarvis::common::FromUniversal(imu.time*10),
                              imu.linear_acceleration,
-                             imu.angular_velocity,
+                             imu.angular_velocity-gry_bias,
                          }));
     });
     data_capture_->Rigister([&](const Frame& frame) {
       if (!image_sample_->Pulse()) return;
-       cv::Mat temp1;
-      //  cv::equalizeHist( frame.image, temp1);
-       static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8, 8));
-       clahe->apply( frame.image, temp1);
-      auto temp = std::make_shared<cv::Mat>(frame.image.clone());
+      //  cv::Mat temp1;
+      // //  cv::equalizeHist( frame.image, temp1);
+      //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8, 8));
+      //  clahe->apply( frame.image, temp1);
       // auto temp = std::make_shared<cv::Mat>(temp1.clone());
       order_queue_->AddData(
           kImagTopic0,
           std::make_unique<
               jarvis::sensor::DispathcData<jarvis::sensor::ImageData>>(
-              jarvis::sensor::ImageData{frame.time * 1e-6 + imu_cam_time_offset,
-                                        {temp, temp}}));
+              jarvis::sensor::ImageData{
+                  jarvis::common::FromUniversal(frame.time*10),
+                  {std::make_shared<cv::Mat>(frame.images[0].clone()),
+                   std::make_shared<cv::Mat>(frame.images[1].clone())}}));
     });
     if (kRecordFlag) {
       data_capture_->Rigister([&](const ImuData& imu) {
@@ -137,8 +137,11 @@ class JarvisBrige {
       });
       data_capture_->Rigister([&](const Frame& frame) {
         cv::imwrite(
-            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + ".png",
-            frame.image);
+            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + "_l_.png",
+            frame.images[0]);
+        cv::imwrite(
+            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + "_r_.png",
+            frame.images[1]);
       });
     }
     order_queue_->Start();

@@ -31,6 +31,7 @@ struct SlipDetectOption {
   float que_time_duration = 1;
   double zero_velocity_odom_delte_s_threash_hold = 0.1;
   double pose_odom_err_s_threash_hold = 0.1;
+  void* feat_tracker_option;
 };
 
 //
@@ -57,12 +58,12 @@ class SlipDetect {
   bool SimpleDetect(const jarvis::common::Time&time);
 
   bool IsZeroVelocity();
+  const SlipDetectOption options_;
   std::unique_ptr<jarvis::estimator::FeatureTracker> feature_tracker_;
   KeyPointData key_point_datas_;
   std::deque<jarvis::sensor::OdometryData> odometry_datas_;
   std::deque<TimePose> pose_datas_;
   std::unique_ptr<SimpleVo> simple_vo_;
-  const SlipDetectOption options_;
   jarvis::common::Time latest_time_;
 };
 std::unique_ptr<SlipDetect> FactorSlipDetect(

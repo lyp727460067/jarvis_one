@@ -79,11 +79,15 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
     m_camera.push_back(camera);
   }
   if (option.calib_file.size() == 2) stereo_cam = 1;
+  LOG(INFO)<<option.pyrmid_option.layer;
+  LOG(INFO)<<option.pyrmid_option.lk_win_size;
   pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
+  r_pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
   feature_detect_ =
       std::make_unique<FeatureDetect>(option.feature_detect_option);
 
   mask_ = cv::imread(option.mask_file, cv::IMREAD_GRAYSCALE);
+  CHECK(!mask_.empty());
 }
 //
 void FeatureTracker::setMask() {
@@ -110,7 +114,8 @@ void FeatureTracker::setMask() {
       cur_pts.push_back(it.second.first);
       ids.push_back(it.second.second);
       track_cnt.push_back(it.first);
-      cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
+      cv::circle(mask, it.second.first,
+                 options_.feature_detect_option.min_distance, 0, -1);
     }
   }
 }
@@ -148,9 +153,9 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   // cv::waitKey(0);
   const int level =  pyramid_image_->Layer()-1;
   const int start_level = 0;
-  cv::Size win_size(lk_win_size , lk_win_size);
+  cv::Size win_size(options_.pyrmid_option.lk_win_size,
+                    options_.pyrmid_option.lk_win_size);
   cv::TermCriteria criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
-  LOG(WARNING)<<level;
   if (prev_pts.size() > 0) {
     TicToc t_o;
     std::vector<uchar> status;
@@ -178,7 +183,6 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       for (size_t i = 0; i < status.size(); i++) {
         if (status[i]) succ_num++;
       }
-      LOG(INFO) << succ_num;
       if (succ_num < 10) {
         cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
                                  pyramid_image_->CurrPyram(), prev_pts, cur_pts,
@@ -229,7 +233,6 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       }
     }
 
-      LOG(INFO)<<"1";
     for (int i = 0; i < int(cur_pts.size()); i++)
       if (status[i] && !inBorder(cur_pts[i])) status[i] = 0;
     reduceVector(prev_pts, status);
@@ -250,15 +253,15 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     VLOG(kGlogLevel) << "set mask costs " << t_m.toc() << "ms";
     VLOG(kGlogLevel) << "detect feature begins";
     TicToc t_t;
-    int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
+    int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
     if (n_max_cnt > 0) {
       if (mask.empty()) cout << "mask is empty " << endl;
       if (mask.type() != CV_8UC1) cout << "mask type wrong " << endl;
-      // cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01,
+      // cv::goodFeaturesToTrack(cur_img, n_pts, options_.max_feat_cnt - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
       // std::vector<cv::Point2f> forw_pts;
       n_pts =
-          feature_detect_->Detect(cur_img, cur_pts, MAX_CNT - cur_pts.size(),
+          feature_detect_->Detect(cur_img, cur_pts, options_.max_feat_cnt - cur_pts.size(),
                                   mask, pyramid_image_->PrePyram()[1]);
     } else {
       n_pts.clear();
@@ -277,6 +280,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
   if (!_img1.empty() && stereo_cam) {
+    r_pyramid_image_->Build(_img1);
     ids_right.clear();
     cur_right_pts.clear();
     cur_un_right_pts.clear();
@@ -288,13 +292,15 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       std::vector<uchar> status, statusRightLeft;
       std::vector<float> err;
       // cur left ---- cur right
-      cv::calcOpticalFlowPyrLK(cur_img, rightImg, cur_pts, cur_right_pts,
-                               status, err, cv::Size(21, 21), 7);
+      cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(),
+                               r_pyramid_image_->CurrPyram(), cur_pts,
+                               cur_right_pts, status, err, win_size, level);
       // reverse check cur right ---- cur left
-      if (options_.track_back) {
-        cv::calcOpticalFlowPyrLK(rightImg, cur_img, cur_right_pts,
-                                 reverseLeftPts, statusRightLeft, err,
-                                 cv::Size(21, 21), 7);
+      if (0) {
+        cv::calcOpticalFlowPyrLK(r_pyramid_image_->CurrPyram(),
+                                 pyramid_image_->CurrPyram(), cur_right_pts,
+                                 reverseLeftPts, statusRightLeft, err, win_size,
+                                 level);
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
               distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
@@ -303,7 +309,6 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
             status[i] = 0;
         }
       }
-
       ids_right = ids;
       reduceVector(cur_right_pts, status);
       reduceVector(ids_right, status);

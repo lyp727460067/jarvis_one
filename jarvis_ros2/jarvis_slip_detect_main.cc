@@ -85,6 +85,7 @@ struct ImuData {
   static std::string Name() { return kImuTopic; }
   static std::map<uint64_t, ImuData> Parse(const std::string& dir_file);
 };
+jarvis::transform::Rigid3d kOdom = jarvis::transform::Rigid3d::Identity();
 struct OdomData {
   uint64_t time;
   Eigen::Vector3d translation;
@@ -97,12 +98,33 @@ struct OdomData {
                                                  rotation)
         });
   }
+
+  void ToOdom(int32 l, int32 r) {
+    static int32_t last_l = l;
+    static int32_t last_r = r;
+    auto delta_l = l - last_l;
+    auto delta_r = r - last_r;
+    last_l = l;
+    last_r = r;
+    auto delta_theta = (delta_r - delta_l) / kWheelDistance*0.001;
+    auto delta_translation = (delta_l + delta_r) / 2.0*0.001;
+    jarvis::transform::Rigid3d delta_pose(
+        Eigen::Vector3d(delta_translation, 0, 0),
+        Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
+    kOdom = kOdom * delta_pose;
+    translation = kOdom.translation();
+    rotation = kOdom.rotation();
+  }
+  static constexpr  double kWheelDistance =0.1;
   static std::map<uint64_t, OdomData> Parse(const std::string& dir_file);
 };
 
 //
 std::optional<std::pair<uint64_t, uint64_t>> init_imu_time;
 std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
+  std::string type ;
+  ifs >>type;
+  if(type!="imu")throw "Not imu";
   uint64_t time;
   ifs >> time;
 #ifdef CHECK_DATA
@@ -119,13 +141,16 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
 //
 //
 std::istringstream& operator>>(std::istringstream& ifs, OdomData& odom_data) {
+  std::string type;
+  ifs >> type;
+  if (type != "odom") throw "Not odom";
   uint64_t time;
   ifs >> time;
   odom_data.time = time;
-  ifs >> odom_data.translation.x() >> odom_data.translation.y() >>
-      odom_data.translation.z() >> odom_data.rotation.w() >>
-      odom_data.rotation.x() >>odom_data.rotation.y() >>
-      odom_data.rotation.z();
+  int32_t left_encoder;
+  int32_t right_encoder;
+  ifs >> left_encoder >> right_encoder;
+  odom_data.ToOdom(left_encoder, right_encoder);
   return ifs;
 }
 
@@ -139,23 +164,29 @@ std::vector<TypeName> ReadFile(const std::string& txt) {
   std::getline(file, line);
   while (std::getline(file, line)) {
     std::istringstream iss(line);
-    TypeName data;
-    iss >> data;
-    // CHECK(file.good());
-    result.push_back(data);
+    try{
+      TypeName data;
+      iss >> data;
+      // CHECK(file.good());
+      result.push_back(data);
+    }catch(...){
+
+    }
+
   }
   file.close();
   LOG(INFO) << "done";
   return result;
 }
 //
-std::map<uint64_t, ImuData> ImuData::Parse(const std::string& file) {
-  const auto imu_data = ReadFile<ImuData>(file);
+template<typename Sensor>
+std::map<uint64_t, Sensor> SesorDataParse(const std::string& file) {
+  const auto imu_data = ReadFile<Sensor>(file);
   CHECK(!imu_data.empty());
-  std::map<uint64_t, ImuData> result;
+  std::map<uint64_t, Sensor> result;
   for (const auto& imu : imu_data) {
     LOG_IF(ERROR, !result.emplace(imu.time, imu).second)
-        << "Imu time duplicate..";
+        << "Sensor time duplicate..";
 
   }
   return result;
@@ -168,12 +199,17 @@ uint64_t GetTimeFromName(const std::string& name) {
   std::string outdir = name.substr(0, it + 1);
   const std::string file_name =
       name.substr(it + 1, name.size() - outdir.size());
-  auto it1 = file_name.find_last_of('.');
+  auto it1 = file_name.find_last_of('.')-3;
 //   LOG(INFO)<<std::stol(file_name.substr(0, it1));
   return std::stol(file_name.substr(0, it1));
 }
 //
-
+std::string GetFromName(const std::string& name) {
+  CHECK(!name.empty());
+  auto it1 = name.find_last_of('.') - 3;
+  //   LOG(INFO)<<std::stol(file_name.substr(0, it1));
+  return name.substr(0, it1);
+}
 //
 struct ImageData {
   uint64_t time;
@@ -194,10 +230,11 @@ struct ImageData {
 
 #endif
     //   LOG(INFO) << "Read Image: " << file;
-      LOG_IF(ERROR, !result
-                         .emplace(GetTimeFromName(file),
-                                  ImageData{GetTimeFromName(file), file})
-                         .second)
+      LOG_IF_EVERY_N(ERROR,
+             !result
+                  .emplace(GetTimeFromName(file),
+                           ImageData{GetTimeFromName(file), GetFromName(file)})
+                  .second,100)
           << "Image time duplicate..";
     }
     return result;
@@ -234,13 +271,22 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
               << std::distance(imu_datas.begin(),
                                imu_datas.upper_bound(image.first));    
     WriteImuData( image.second.time, imu_datas);
-    auto temp = std::make_shared<cv::Mat>(
-        cv::imread(image.second.image_name, cv::IMREAD_GRAYSCALE).clone());
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
-            sensor::ImageData{common::FromUniversal(image.first /100),
-                              {temp, temp}}));
+            sensor::ImageData{
+                common::FromUniversal(image.first / 100),
+                {
+                    std::make_shared<cv::Mat>(
+                        cv::imread(image.second.image_name + "_l_.png",
+                                   cv::IMREAD_GRAYSCALE)
+                            .clone()),
+                    std::make_shared<cv::Mat>(
+                        cv::imread(image.second.image_name + "_r_.png",
+                                   cv::IMREAD_GRAYSCALE)
+                            .clone()),
+
+                }}));
   }
   if (!imu_datas.empty()) {
     WriteImuData(UINT64_MAX, imu_datas);
@@ -253,12 +299,7 @@ bool kill_thread =false;
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   //
-  //
-  //
 
-  if (kRecordFlag) {
-    kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
-  }
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("jarvis_ros2");
 
@@ -274,24 +315,28 @@ int main(int argc, char* argv[]) {
       std::make_unique<jarvis_ros::RosCompont>(node.get());
 
   //
-  auto slip_detect = std::make_unique<slip_detect::SlipDetect>(slip_detect::SlipDetectOption{});
+  auto slip_detect =  slip_detect::FactorSlipDetect(argv[1]);
   // /
   TrackingData tracking_data_temp;
   std::mutex mutex;
   std::condition_variable cond;
 
   const std::string image_file = data_dir + "image/";
-  const std::string odom_file = data_dir + "odom.txt";
+  const std::string odom_file = data_dir + "imu.txt";
   //
-  builder_ = std::make_unique<slip_detect::SimpleVo>(
-     slip_detect::SimpleVoOption{std::string(argv[1])} , [&](const TrackingData& data) {
+  builder_ = slip_detect::FactorSimipleVo(
+      std::string(argv[1]), [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
         //
         tracking_data_temp = data;
+        Eigen::Matrix3d rotaion;
+        rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+        // LOG(INFO) << rotaion;
+        auto extric = transform::Rigid3d::Rotation(Eigen::Quaterniond(rotaion));
+        tracking_data_temp.data->imu_state.data->pose =
+            extric * tracking_data_temp.data->imu_state.data->pose;
         cond.notify_one();
       });
-  //
-  //
 
   //
   order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
@@ -300,20 +345,28 @@ int main(int argc, char* argv[]) {
   });
   //
   order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
-    builder_->AddImageData(imag_data);
+    // slip_detect->AddImage(imag_data);
+    builder_->AddImageData(imag_data);  
+
+ 
+    // cv::imshow("show",*imag_data.image[0]);
+    cv::waitKey(30);
+
   });
+  //  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData&imu_data) {
+  // });
   
   LOG(INFO) << "Parse image dir: " << image_file;
   LOG(INFO) << "Parse imu dir: " << odom_file;
   auto image_datas = ImageData::Parse(image_file);
-  auto odom_datas = ImuData::Parse(odom_file);
+  auto odom_datas = SesorDataParse<OdomData>(odom_file);
   //
   //
   LOG(INFO) << "Start run...";
   std::thread pub_map_points([&]() {
     while (!kill_thread) {
       TrackingData tracking_data;
-      std::this_thread::sleep_for(std::chrono::milliseconds(30));
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
       //
       static uint8_t count = 0;
@@ -328,8 +381,12 @@ int main(int argc, char* argv[]) {
         cond.wait(lock);
         tracking_data = tracking_data_temp;
       }
-      LOG(INFO)<<tracking_data.status;
-      if (tracking_data.status == 2) {
+      slip_detect->AddPose(slip_detect::TimePose {
+        tracking_data.data->time, tracking_data.data->imu_state.data->pose
+      });
+      // auto flag = slip_detect->Detect(tracking_data.data->time);
+      // LOG(INFO) << flag;
+      if (tracking_data.status == 1) {
         LOG(INFO) << tracking_data.data->imu_state.data->pose;
       //
       ros_compont->OnLocalTrackingResultCallback(

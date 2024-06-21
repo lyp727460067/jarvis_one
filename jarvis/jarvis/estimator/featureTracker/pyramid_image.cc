@@ -4,17 +4,15 @@ namespace jarvis {
 namespace estimator {
 //
 
-namespace {
-void build_pyramids(const cv::Mat& img, int max_level,
+void PyramidImage::build_pyramids(const cv::Mat& img, 
                     std::vector<cv::Mat>* _pyramids,
                     uchar* const pyra_buf_ptr) {
   std::vector<cv::Mat> pyra;
   // _pyramids->resize(max_level + 1);
   // _pyramids->resize(pyra.size());
-  buildOpticalFlowPyramid(img, *_pyramids, cv::Size(lk_win_size, lk_win_size),
-                          max_level, true);
-
-  LOG(INFO)<<_pyramids->size()<<max_level;
+  cv::buildOpticalFlowPyramid(
+      img, *_pyramids, cv::Size(option_.lk_win_size, option_.lk_win_size),
+      option_.layer, true);
   // (*_pyramids)[0] =  img;
   // for(int i  =0;i<pyra.size();i++){
   //   (*_pyramids)[i] =  cv::cvtColor(pyra[i],cv::) ;
@@ -22,14 +20,13 @@ void build_pyramids(const cv::Mat& img, int max_level,
   return ;
   CHECK_NOTNULL(_pyramids);
   std::vector<cv::Mat>& pyramids = *_pyramids;
-  pyramids.resize(max_level + 1);
+  pyramids.resize(option_.layer + 1);
   const int size = img.rows * img.cols;
   // no fixed buffer specified, will allocate memory dynamically
   if (pyra_buf_ptr == nullptr) {
     pyramids[0] = img.clone();
-    for (int i = 1; i <= max_level; ++i) {
+    for (int i = 1; i <= option_.layer; ++i) {
       pyramids[i] = XP::fast_pyra_down(pyramids[i - 1]);
-      LOG(INFO)<<pyramids[i].size();
     }
   } else {
     // fixed buffer provided
@@ -37,10 +34,10 @@ void build_pyramids(const cv::Mat& img, int max_level,
     // level n |  level n-1 |  level 1  |  level 0
     // so we can use them in a very cache-friendly way
     // and no need to call malloc
-    for (int lvl = 0; lvl <= max_level; ++lvl) {
+    for (int lvl = 0; lvl <= option_.layer; ++lvl) {
       int offset = 0;
       // compute pyramid start address
-      for (int i = lvl + 1; i <= max_level; ++i) {
+      for (int i = lvl + 1; i <= option_.layer; ++i) {
         offset += size >> (2 * i);
       }
       if (lvl != 0) {
@@ -55,7 +52,6 @@ void build_pyramids(const cv::Mat& img, int max_level,
   }
 }
 
-}  // namespace
 
 PyramidImage::PyramidImage(const PyramidImageOption& option)
     : option_(option) {}
@@ -71,15 +67,10 @@ void PyramidImage::Build(const cv::Mat& image) {
     // curr_pyramids_buffer_.swap(prev_pyramids_buffer_);
 
   } else {
-    build_pyramids(image, lk_pre_max_layer, &prev_img_pyramids_,
-                   nullptr);
+    build_pyramids(image, &prev_img_pyramids_, nullptr);
   }
-  LOG(INFO)<< lk_pre_max_layer;
   //
-  build_pyramids(image, lk_pre_max_layer, &curr_img_pyramids_,
-                 nullptr);
-
-          
+  build_pyramids(image, &curr_img_pyramids_, nullptr);
 }
 
 //

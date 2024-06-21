@@ -34,7 +34,7 @@ void OrderedMultiQueue::AddQueue(std::string name, OdomFuction call_back) {
 //
 void OrderedMultiQueue::AddData(const std::string &name,
                                 std::unique_ptr<Data> data) {
-  CHECK(queues_.count(name));
+  CHECK(queues_.count(name))<<name;
   {
   std::lock_guard<std::mutex> lock(mutex_);
   queues_[name].queue.push(std::move(data));
@@ -134,12 +134,13 @@ void OrderedMultiQueue::Dispathch() {
 
 common::Time OrderedMultiQueue::GetStartCommontime() {
   if (common_start_time_.has_value()) return common_start_time_.value();
-
+  common_start_time_ = common::FromUniversal(0);
   for (auto &entry : queues_) {
-    common_start_time_ = std::max(common_start_time_.value(),
-                                  entry.second.queue.front()->GetTime());
+    common_start_time_  = std::max(common_start_time_.value(),
+                                      entry.second.queue.front()->GetTime());
   }
   LOG(INFO) << "All sensor start at time: " << common_start_time_.value();
+
   return common_start_time_.value();
 };
 

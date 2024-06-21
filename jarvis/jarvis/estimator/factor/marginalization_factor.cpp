@@ -253,34 +253,43 @@ void MarginalizationInfo::marginalize() {
   ROS_INFO("summing up costs %f ms", t_summing.toc());
   */
   // multi thread
-
+  int num_threads = factors.size() > NUM_THREADS ? NUM_THREADS : factors.size();
   TicToc t_thread_summing;
-  pthread_t tids[NUM_THREADS];
-  ThreadsStruct threadsstruct[NUM_THREADS];
-  std::vector<std::vector<double>> pre_amem(NUM_THREADS,
+  std::vector<std::vector<double>> pre_amem(num_threads,
                                             std::vector<double>(pos * pos,0));
-  std::vector<std::vector<double>> pre_bmem(NUM_THREADS,
+  std::vector<std::vector<double>> pre_bmem(num_threads,
                                             std::vector<double>(pos,0));
+
+  pthread_t tids[num_threads];
+  ThreadsStruct threadsstruct[num_threads];
   int i = 0;
   for (auto it : factors) {
     threadsstruct[i].sub_factors.push_back(it);
     i++;
-    i = i % NUM_THREADS;
+    i = i % num_threads;
   }
-  for (int i = 0; i < NUM_THREADS; i++) {
+  for (int i = 0; i < num_threads; i++) {
     TicToc zero_matrix;
     threadsstruct[i].A = Eigen::Map<Eigen::MatrixXd>(pre_amem[i].data(),pos,pos); 
     threadsstruct[i].b = Eigen::Map<Eigen::VectorXd>(pre_bmem[i].data(),pos); 
-
     // threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
     // threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
     threadsstruct[i].parameter_block_size = parameter_block_size;
     threadsstruct[i].parameter_block_idx = parameter_block_idx;
-    int ret = pthread_create(&tids[i], NULL, ThreadsConstructA,
+    pthread_attr_t attr;
+    struct sched_param sched_param;
+    pthread_attr_init(&attr);
+    // 设置线程为实时线程
+    pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+    // 设置线程优先级
+    sched_param.sched_priority = 90+i;
+    pthread_attr_setschedparam(&attr, &sched_param);
+    int ret = pthread_create(&tids[i], &attr, ThreadsConstructA,
                              (void *)&(threadsstruct[i]));
     CHECK(ret == 0) << "pthread_create error";
   }
-  for (int i = NUM_THREADS - 1; i >= 0; i--) {
+  for (int i = num_threads - 1; i >= 0; i--) {
     pthread_join(tids[i], NULL);
     A += threadsstruct[i].A;
     b += threadsstruct[i].b;

@@ -254,7 +254,6 @@ void Estimator::setParameter() {
   g = G;
   cout << "set g " << g.transpose() << endl;
 
-
   std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
   // if (MULTIPLE_THREAD && !initThreadFlag) {
   //   initThreadFlag = true;
@@ -722,7 +721,7 @@ bool Estimator::initialStructure() {
     var = sqrt(var / ((int)all_image_frame.size() - 1));
     VLOG(kGlogLevel) <<"IMU variation "<< var;
     LOG(INFO) <<"IMU variation "<< var;
-    if (var < 0.35) {
+    if (var < 0.25) {
       LOG(INFO) << "IMU excitation not enouth!";
       return false;
     }
@@ -958,11 +957,11 @@ void Estimator::vector2double() {
     para_Ex_Pose[i][5] = q.z();
     para_Ex_Pose[i][6] = q.w();
   }
-
+  
   VectorXd dep = f_manager->getDepthVector();
   for (int i = 0; i < f_manager->getFeatureCount(); i++)
     para_Feature[i][0] = dep(i);
-  LOG_EVERY_N(INFO, 100) << "Td : " << std::to_string(td);
+  LOG_EVERY_N(INFO, 10) << "Td : " << std::to_string(td);
   para_Td[0][0] = td;
 }
 
@@ -1219,7 +1218,7 @@ void Estimator::optimization() {
   // options.dynamic_sparsity =true;
   options.use_explicit_schur_complement = true;
   // options.minimizer_progress_to_stdout = true;
-  // options.use_nonmonotonic_steps = true;
+  options.use_nonmonotonic_steps = true;
 
   // if (marginalization_flag == MARGIN_OLD)
   //   options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
@@ -1229,9 +1228,8 @@ void Estimator::optimization() {
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  cout << summary.FullReport() << endl;
-  VLOG(kGlogLevel) << "Iterations : "
-                   << static_cast<int>(summary.iterations.size());
+  VLOG(kGlogLevel)<<"\n" <<summary.FullReport() ;
+
   //
 
   //

@@ -171,19 +171,8 @@ struct ImageData {
 void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
   auto it = imu_datas.upper_bound(time);
   const Eigen::Vector3d gry_bias(0.00846608 ,0.00315094 ,0.00699567);
-  // static Eigen::Vector3d sum(0,0,0);
-  // static int count = 0;
 
   for (auto itor = imu_datas.begin(); itor != it; ++itor) {
-  // if(count++ <1000){
-  //   sum+=itor->second.angular_velocity;
-  // }   
-  // if(count==1000){
-
-  //   LOG(INFO)<<sum/1000;
-  //   CHECK(false);
-  // } 
-  // LOG(INFO)<<itor->second.linear_acceleration.norm()
     order_queue_->AddData(
         kImuTopic,
         std::make_unique<sensor::DispathcData<sensor::ImuData>>(sensor::ImuData{
@@ -235,7 +224,6 @@ int main(int argc, char* argv[]) {
   //
   //
   //
-
   if (kRecordFlag) {
     kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
   }

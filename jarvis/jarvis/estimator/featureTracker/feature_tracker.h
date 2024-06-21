@@ -63,6 +63,7 @@ struct FeatureTrackerOption {
   std::vector<std::string> calib_file;
   std::string mask_file;
   int track_back=0;
+  int max_feat_cnt=100;
 };
 
 class FeatureTracker {
@@ -120,6 +121,7 @@ class FeatureTracker {
   bool hasPrediction = false;
   cv::Mat  mask_;
   std::unique_ptr<PyramidImage> pyramid_image_;
+  std::unique_ptr<PyramidImage> r_pyramid_image_;
   std::unique_ptr<FeatureDetect> feature_detect_;
 };
 }  // namespace estimator

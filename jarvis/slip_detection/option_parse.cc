@@ -23,7 +23,6 @@ void ParseYAMLOptionSimpleVoOption(cv::FileStorage *fs,
       T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
   fsSettings["body_T_cam1"] >> cv_T;
   cv::cv2eigen(cv_T, T);
-
   auto cam1_to_imu = jarvis::transform::Rigid3d(
       T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
   simple_vo_option->tracker_option.image_size =
@@ -63,38 +62,46 @@ void ParseYAMLOptionFetureOption(
   feature_option->pyrmid_option.image_size =
       Eigen::Vector2i(fsSettings["image_width"], fsSettings["image_height"]);
   feature_option->track_back = fsSettings["flow_back"];
-}
 
-void ParseYAMLOption(const std::string &file, void *option) {
+  std::string mask_id;
+  fsSettings["left_mask_id"] >> mask_id;
+  feature_option->mask_file = configPath + "/" + mask_id;
+  LOG(INFO) << "Mask file:  " << feature_option->mask_file;
+  LOG(INFO) << feature_option->pyrmid_option.image_size;
+}
+//
+cv::FileStorage CheckFile(const std::string &file) {
   FILE *fh = fopen(file.c_str(), "r");
   if (fh == NULL) {
     LOG(FATAL) << "config_file dosen't exist; wrong config_file path" << file;
-    return;
+    return cv::FileStorage();
   }
   fclose(fh);
   cv::FileStorage fsSettings(file, cv::FileStorage::READ);
   if (!fsSettings.isOpened()) {
     LOG(FATAL) << "ERROR: Wrong path to settings";
   }
-
-  SimpleVoOption *simple_vo_option = static_cast<SimpleVoOption *>(option);
-  if (simple_vo_option) {
-    ParseYAMLOptionSimpleVoOption(&fsSettings, simple_vo_option);
-    return;
-  }
-  SlipDetectOption *slip_detection_opiont =
-      static_cast<SlipDetectOption *>(option);
-
-  if (slip_detection_opiont) {
-    ParseYAMLOptionSlipDetectOption(&fsSettings, slip_detection_opiont);
-    return;
-  }
-  jarvis::estimator::FeatureTrackerOption *feate_opiont =
-      static_cast<jarvis::estimator::FeatureTrackerOption *>(option);
-
-  if (feate_opiont) {
-    ParseYAMLOptionFetureOption(&fsSettings, feate_opiont, file);
-    return;
-  }
+  return fsSettings;
 }
+//
+template <>
+void ParseYAMLOption(const std::string &file, SimpleVoOption *option) {
+  auto fsSettings = CheckFile(file);
+  LOG(INFO)<<"ParseYAMLOptionSimpleVoOption ";
+  ParseYAMLOptionSimpleVoOption(&fsSettings, option);
+}
+//
+template <>
+void ParseYAMLOption(const std::string &file, SlipDetectOption *option) {
+  auto fsSettings = CheckFile(file);
+  ParseYAMLOptionSlipDetectOption(&fsSettings, option);
+}
+//
+template <>
+void ParseYAMLOption(const std::string &file,
+                     jarvis::estimator::FeatureTrackerOption *option) {
+  auto fsSettings = CheckFile(file);
+  ParseYAMLOptionFetureOption(&fsSettings, option, file);
+}
+
 }  // namespace slip_detect

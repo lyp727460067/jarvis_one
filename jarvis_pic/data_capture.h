@@ -12,16 +12,15 @@ namespace jarvis_pic {
 struct DataCaptureOption {
   int use_method = 0;
   uint32_t cam_durion_imu_cout = 20;
-  uint32_t cam_durion_odom_cout = 20;
+  uint32_t cam_durion_odom_cout = 10;
   int imu_durition = 4;  // ms
   int frame_width = 640;
   int frame_hight = 544;
 };
 
 struct Frame {
-  uint64_t id;
   uint64_t time;
-  cv::Mat image;
+  std::vector<cv::Mat> images;
 };
 struct ImuData 
 {
@@ -37,7 +36,7 @@ struct EncoderData {
 class DataCapture {
  public:
   explicit DataCapture(const DataCaptureOption& option);
-  explicit DataCapture(){};
+  DataCapture(){};
   virtual ~DataCapture();
   void Rigister(std::function<void(const Frame&)> f) {
     frame_call_backs_.push_back(std::move(f));
