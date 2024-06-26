@@ -41,7 +41,7 @@ class SimpleVo : public jarvis::TrajectorBuilder {
   SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back);
   ~SimpleVo();
   void AddImageData(const jarvis::sensor::ImageData& images) override;
-
+  void AddImuData(const jarvis::sensor::ImuData &imu_data){}
  private:
   class TrakcerImpl;
   std::unique_ptr<TrakcerImpl> tracker_;
