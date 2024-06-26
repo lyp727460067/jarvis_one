@@ -321,7 +321,6 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       point1 = it_per_id.feature_per_frame[0].pointRight.head(2);
       // cout << "point0 " << point0.transpose() << endl;
       // cout << "point1 " << point1.transpose() << endl;
-
       triangulatePoint(leftPose, rightPose, point0, point1, point3d);
       Eigen::Vector3d localPoint;
       localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();

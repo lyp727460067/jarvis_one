@@ -232,8 +232,10 @@ RosCompont::RosCompont(rclcpp::Node *nh)
       nh_->create_publisher<sensor_msgs::msg::Image>(
           "local_tracking_result_image/image_raw", 20);
 
+  bool_publisher_ =
+      nh->create_publisher<std_msgs::msg::Bool>("slip_detect", 10);
 
-   pose_mark_publisher_ =
+  pose_mark_publisher_ =
       nh->create_publisher<visualization_msgs::msg::MarkerArray>("poses", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
@@ -277,7 +279,7 @@ void RosCompont::OnMapPointsCallback(
     geo_point.z = point.z();
     point_cloud.points.push_back(geo_point);
   }
-  point_cloud.header.frame_id = "map";
+  point_cloud.header.frame_id = "camere_link";
   point_cloud.header.stamp = rclcpp::Time();
   sensor_msgs::convertPointCloudToPointCloud2(point_cloud, point_cloud2);
   point_cloud_pub_->publish(point_cloud2);
@@ -468,7 +470,7 @@ void RosCompont::OnLocalTrackingResultCallback(
       mark_pose.push_back(result.global_pose_cam);
     }
     MarkPub(same_marks);
-  }
+  } 
   image_result += image_object;
   // for (int i = 0; i < image_object.rows; i++) {
   //   for (int j = 0; j < image_object.cols; j++) {
@@ -485,26 +487,7 @@ void RosCompont::OnLocalTrackingResultCallback(
   CommpressedImagePub(image_result);
   OnMapPointsCallback(tracking_data.data->tracking_map_points, local_to_global);
 
-  geometry_msgs::msg::PoseStamped pose_stamped;
-  pose_stamped.header.stamp = rclcpp::Time();
-  pose_stamped.header.frame_id = "map";
-  pose_stamped.pose.position.x =
-      tracking_data.data->imu_state.data->pose.translation().x();
-  pose_stamped.pose.position.y =
-      tracking_data.data->imu_state.data->pose.translation().y();
-  pose_stamped.pose.position.z =
-      tracking_data.data->imu_state.data->pose.translation().z();
 
-  poses_["local_imu_pose"].push_back(
-      tracking_data.data->imu_state.data->pose.translation());
-
-  path_.header.frame_id = "map";
-  if (pub_path_->get_subscription_count() != 0) {
-    path_.poses.push_back(pose_stamped);
-    pub_path_->publish(path_);
-  } else {
-    path_.poses.clear();
-  }
 
 
 }
@@ -542,9 +525,9 @@ void RosCompont::PubPoseWithMark(
 
     // mark.type = visualization_msgs::Marker::ARROW;
     // mark.lifetime = rclcpp::Duration(0);
-    mark.scale.x = 0.001;
-    mark.scale.y = 0.001;
-    mark.scale.z = 0.001;
+    mark.scale.x = 0.01;
+    mark.scale.y = 0.01;
+    mark.scale.z = 0.01;
     std::uniform_real_distribution<float> ran(0, 1);
     mark.color.r = 1;       // ran(e);//1.0;
     mark.color.a = 1;       // ran(e);
@@ -599,15 +582,46 @@ void RosCompont::PosePub(const transform::Rigid3d &pose,
   global_tf_trans.transform.rotation.w = global_pose.rotation().w();
   tf_broadcaster_->sendTransform(global_tf_trans);
   //
-  poses_["imu_pose"].push_back(global_pose.translation());
-  poses_["vins_imu_pose"]= std::move(GetGlobleImuPose());
-  PubPoseWithMark( poses_);
+  geometry_msgs::msg::PoseStamped pose_stamped;
+  pose_stamped.header.stamp = rclcpp::Time();
+  pose_stamped.header.frame_id = "map";
+  pose_stamped.pose.position.x =
+      pose.translation().x();
+  pose_stamped.pose.position.y =
+      pose.translation().y();
+  pose_stamped.pose.position.z =
+      pose.translation().z();
+
+  // poses_["local_imu_pose"].push_back(
+  //     pose.translation());
+  path_.header.frame_id = "map";
+  if (pub_path_->get_subscription_count() != 0) {
+    path_.poses.push_back(pose_stamped);
+    pub_path_->publish(path_);
+  } else {
+    path_.poses.clear();
+  }
+
   //
 
 }
 
+void RosCompont::PushMark(
+    const std::map<std::string, jarvis::transform::Rigid3d> &makes,bool emd) {
+  for (const auto &p : makes) {
+    poses_[p.first].push_back(p.second.translation());
+  }
+  if(emd){
+    PubPoseWithMark(poses_);
+  }
+}
 //
 
+void RosCompont::PubBoolMsg(bool msg1) {
+  std_msgs::msg::Bool msg;
+  msg.set__data(msg1);
+  bool_publisher_->publish(msg);
+}
 //
 //
 

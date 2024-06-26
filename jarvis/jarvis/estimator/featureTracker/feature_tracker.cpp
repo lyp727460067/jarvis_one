@@ -79,8 +79,6 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
     m_camera.push_back(camera);
   }
   if (option.calib_file.size() == 2) stereo_cam = 1;
-  LOG(INFO)<<option.pyrmid_option.layer;
-  LOG(INFO)<<option.pyrmid_option.lk_win_size;
   pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
   r_pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
   feature_detect_ =
@@ -165,8 +163,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       cur_pts = predict_pts;
       cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
                                pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                               status, err, win_size, level, criteria,
-                               cv::OPTFLOW_USE_INITIAL_FLOW);
+                               status, err, win_size, level+1, criteria
+                               );
       //
       // std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
       // pre_xp_kp_small.reserve(prev_pts.size());
@@ -233,12 +231,16 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       }
     }
 
-    for (int i = 0; i < int(cur_pts.size()); i++)
-      if (status[i] && !inBorder(cur_pts[i])) status[i] = 0;
+    for (int i = 0; i < int(cur_pts.size()); i++){
+       if (status[i] && !inBorder(cur_pts[i])) status[i] = 0; 
+    }
+    
     reduceVector(prev_pts, status);
     reduceVector(cur_pts, status);
     reduceVector(ids, status);
     reduceVector(track_cnt, status);
+
+
     VLOG(kGlogLevel) << "temporal optical flow costs:" << t_o.toc() << "ms";
     // printf("track cnt %d\n", (int)ids.size());
   }
@@ -273,6 +275,16 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       ids.push_back(n_id++);
       track_cnt.push_back(1);
     }
+
+         cv::Mat gray_img, loop_match_img;
+      cvtColor(_img, loop_match_img, cv::COLOR_GRAY2RGB);
+      for (auto &&keypoint : cur_pts) {
+        cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
+      }
+      cv::imshow("lit",loop_match_img);
+      cv::waitKey(0);
+
+
     // printf("feature cnt after add %d\n", (int)ids.size());
   }
 
@@ -296,11 +308,11 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
                                r_pyramid_image_->CurrPyram(), cur_pts,
                                cur_right_pts, status, err, win_size, level);
       // reverse check cur right ---- cur left
-      if (0) {
+      if (1) {
         cv::calcOpticalFlowPyrLK(r_pyramid_image_->CurrPyram(),
                                  pyramid_image_->CurrPyram(), cur_right_pts,
                                  reverseLeftPts, statusRightLeft, err, win_size,
-                                 level);
+                                 level+1);
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
               distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
@@ -312,6 +324,13 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       ids_right = ids;
       reduceVector(cur_right_pts, status);
       reduceVector(ids_right, status);
+      cv::Mat gray_img, loop_match_img;
+      cvtColor(_img1, loop_match_img, cv::COLOR_GRAY2RGB);
+      for (auto &&keypoint : cur_right_pts) {
+        cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
+      }
+      cv::imshow("rit",loop_match_img);
+      cv::waitKey(0);
       // only keep left-right pts
       /*
       reduceVector(cur_pts, status);

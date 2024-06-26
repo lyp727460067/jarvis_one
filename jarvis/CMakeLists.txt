@@ -3,7 +3,8 @@ project(jarvis VERSION 1.0.0)
 
 
 
-set(BUILD_TYPE Release)
+#set(BUILD_TYPE Release)
+set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -Ofast  -mpopcnt") #-Wno-unused-result
 

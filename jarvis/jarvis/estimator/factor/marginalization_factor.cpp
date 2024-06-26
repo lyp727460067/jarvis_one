@@ -283,9 +283,9 @@ void MarginalizationInfo::marginalize() {
     pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
     // 设置线程优先级
-    sched_param.sched_priority = 90+i;
+    sched_param.sched_priority = 80+i;
     pthread_attr_setschedparam(&attr, &sched_param);
-    int ret = pthread_create(&tids[i], &attr, ThreadsConstructA,
+    int ret = pthread_create(&tids[i], nullptr, ThreadsConstructA,
                              (void *)&(threadsstruct[i]));
     CHECK(ret == 0) << "pthread_create error";
   }

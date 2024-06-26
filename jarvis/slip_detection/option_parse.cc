@@ -37,11 +37,31 @@ void ParseYAMLOptionSlipDetectOption(cv::FileStorage *fs,
   slip_detection_opiont->type = fsSettings["type"];
   slip_detection_opiont->min_disparity_num = fsSettings["min_disparity_num"];
   slip_detection_opiont->max_disparity = fsSettings["max_disparity"];
+  slip_detection_opiont->que_time_duration= fsSettings["que_time_duration"];
   slip_detection_opiont->zero_velocity_odom_delte_s_threash_hold =
       fsSettings["zero_velocity_odom_delte_s_threash_hold"];
   slip_detection_opiont->pose_odom_err_s_threash_hold =
-      fsSettings["pose_odom_err_s_threash_hold "];
-}
+      fsSettings["pose_odom_err_s_threash_hold"];
+   slip_detection_opiont->pose_odom_err_theta_threash_hold =
+      fsSettings["pose_odom_err_theta_threash_hold"]; 
+  cv::Mat cv_T;
+  fsSettings["cam2RobotT"] >> cv_T;
+  Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+  cv::cv2eigen(cv_T, T);
+  slip_detection_opiont->transform_cam_to_odom = jarvis::transform::Rigid3d(
+      T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+
+  {
+  cv::Mat cv_T;
+  fsSettings["body_T_cam0"] >> cv_T;
+  Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+  cv::cv2eigen(cv_T, T);
+  auto cam_to_imu = jarvis::transform::Rigid3d(
+      T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+  LOG(INFO)<<slip_detection_opiont->transform_cam_to_odom*cam_to_imu.inverse();
+
+  }
+} 
 //
 void ParseYAMLOptionFetureOption(
     cv::FileStorage *fs,
@@ -62,6 +82,9 @@ void ParseYAMLOptionFetureOption(
   feature_option->pyrmid_option.image_size =
       Eigen::Vector2i(fsSettings["image_width"], fsSettings["image_height"]);
   feature_option->track_back = fsSettings["flow_back"];
+  feature_option->max_feat_cnt= fsSettings["max_cnt"];
+  feature_option->feature_detect_option.min_distance = fsSettings["min_dist"];
+  feature_option->feature_detect_option.fast_thresh_hold= fsSettings["fast_th"];
 
   std::string mask_id;
   fsSettings["left_mask_id"] >> mask_id;

@@ -31,6 +31,8 @@ struct SlipDetectOption {
   float que_time_duration = 1;
   double zero_velocity_odom_delte_s_threash_hold = 0.1;
   double pose_odom_err_s_threash_hold = 0.1;
+  double pose_odom_err_theta_threash_hold = 0.1;
+  jarvis::transform::Rigid3d transform_cam_to_odom;
   void* feat_tracker_option;
 };
 
@@ -44,6 +46,8 @@ class SlipDetect {
   void AddPose(const TimePose& pose);
   void AddImage(const jarvis::sensor::ImageData& image_data);
   bool Detect(const jarvis::common::Time&time);
+  jarvis::transform::Rigid3d ToPoseInOdom(
+      const jarvis::transform::Rigid3d& pose);
 
  private:
   using KeyPointData =
@@ -54,6 +58,12 @@ class SlipDetect {
 
   template <typename T>
   double ComputePosesS(std::deque<T>* deque);
+  //
+  template <typename T>
+  double ComputePosesTheta(std::deque<T>* deque);
+  //
+
+
   bool ZeroVelocityDetect(const jarvis::common::Time&time);
   bool SimpleDetect(const jarvis::common::Time&time);
 
@@ -65,6 +75,7 @@ class SlipDetect {
   std::deque<TimePose> pose_datas_;
   std::unique_ptr<SimpleVo> simple_vo_;
   jarvis::common::Time latest_time_;
+  jarvis::transform::Rigid3d transform_cam_to_odom_map_;
 };
 std::unique_ptr<SlipDetect> FactorSlipDetect(
     const std::string& file);

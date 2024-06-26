@@ -53,7 +53,14 @@ std::vector<cv::Point2f> FeatureDetect::Detect(
   std::vector<cv::Point2f> corners;
   // CHECK(!image.empty())<<"Ivalid image.";
   std::vector<cv::KeyPoint> keypoints;
-  cv::FAST(image, keypoints, options_.fast_thresh_hold, true);
+  cv::FAST(image, keypoints, 10, true);
+  // const int row_offset = 150;
+  // auto rect_image = cv::Mat(
+  //     image, cv::Rect(0, row_offset, image.cols, image.rows - row_offset));
+  // cv::FAST(rect_image, keypoints, options_.fast_thresh_hold, true);
+  // for (auto& p : keypoints) {
+  //   p.pt.y += row_offset;
+  // }
   std::vector<std::pair<int, double>> eigens;
   for (size_t i = 0; i < keypoints.size(); i++) {
     int row = floor(keypoints[i].pt.y);

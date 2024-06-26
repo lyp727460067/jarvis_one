@@ -122,7 +122,7 @@ class Estimator {
   std::thread trackThread;
   std::thread processThread;
 
-  std::unique_ptr<FeatureTracker> feature_tracker_;
+  std::unique_ptr<FeatureTracker> feature_tracker_=nullptr;
 
   SolverFlag solver_flag;
   MarginalizationFlag marginalization_flag;
@@ -154,7 +154,7 @@ class Estimator {
   int sum_of_outlier = 0, sum_of_back = 0, sum_of_front = 0, sum_of_invalid = 0;
   int inputImageCnt = 0;
 
-  std::unique_ptr<FeatureManager> f_manager;
+  std::unique_ptr<FeatureManager> f_manager=nullptr;
   MotionEstimator m_estimator;
   InitialEXRotation initial_ex_rotation;
 

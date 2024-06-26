@@ -16,6 +16,7 @@
 #include "sensor_msgs/msg/compressed_image.hpp"
 #include "sensor_msgs/msg/image.hpp"
 //
+#include "std_msgs/msg/bool.hpp"
 #include "jarvis/key_frame_data.h"
 #include "jarvis/object/object_interface.h"
 //
@@ -40,6 +41,7 @@ class RosCompont {
 
   );
   //
+  void PushMark(const std::map<std::string, jarvis::transform::Rigid3d> &makes,bool emd=false);
   void MarkPub(
       std::map<int, std::vector<jarvis::object::ObjectImageResult>> &t);
   void OnLocalTrackingResultCallback(
@@ -47,7 +49,7 @@ class RosCompont {
       std::vector<jarvis::object::ObjectImageResult> *object_result,
       const jarvis::transform::Rigid3d &local_to_globle);
   //
-
+  void PubBoolMsg(bool msg);
  private:
  void PubPoseWithMark(
                      const std::map<std::string, std::vector<Eigen::Vector3d>>& poses);
@@ -69,11 +71,14 @@ class RosCompont {
       image_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       pose_mark_publisher_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr
+      bool_publisher_;
   // ros::Publisher markpub_;
   // ros::Publisher pub_local_tracking_result_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   std::map<std::string,std::vector<Eigen::Vector3d>> poses_;
   nav_msgs::msg::Path path_;
 };
+
 }  // namespace jarvis_ros
 #endif

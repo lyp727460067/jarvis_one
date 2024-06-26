@@ -12,13 +12,39 @@ SlipDetect::SlipDetect(const SlipDetectOption& option)
     : options_(option),
       feature_tracker_(new estimator::FeatureTracker(
           *static_cast<estimator::FeatureTrackerOption*>(
-              option.feat_tracker_option))) {}
+              option.feat_tracker_option))) {
+  Eigen::Matrix3d rotaion;
+  rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+  // LOG(INFO) << rotaion;
+  transform_cam_to_odom_map_ =
+      transform::Rigid3d::Rotation(options_.transform_cam_to_odom.rotation());
+  LOG(INFO)<<transform_cam_to_odom_map_;
+ transform_cam_to_odom_map_ =  transform::Rigid3d(Eigen::Vector3d(0 ,0, 0), Eigen::Quaterniond( -0.00189292, -0.188614 ,0.00131981 ,-0.982049));
+}
 //
 void SlipDetect::AddOdometry(const jarvis::sensor::OdometryData& odom) {
   odometry_datas_.push_back(odom);
 }
-// 
-void SlipDetect::AddPose(const TimePose& pose) { pose_datas_.push_back(pose); }
+//
+jarvis::transform::Rigid3d SlipDetect::ToPoseInOdom(
+    const jarvis::transform::Rigid3d& pose1) {
+
+  auto transform_cam_to_odom_map_1 =  transform::Rigid3d(Eigen::Vector3d(0.382489 ,-0.00321091, 0.19029), Eigen::Quaterniond( -0.00189292, -0.188614 ,0.00131981 ,-0.982049));
+  const auto pose = transform_cam_to_odom_map_ * pose1 *
+                    transform_cam_to_odom_map_1.inverse();
+  return jarvis::transform::Rigid3d(
+      Eigen::Vector3d(pose.translation().x() +
+                          transform_cam_to_odom_map_1.translation().x()
+                          ,
+                      pose.translation().y() +
+                          transform_cam_to_odom_map_1.translation().y(),
+                      0),
+      pose.rotation());
+}
+
+void SlipDetect::AddPose(const TimePose& pose) {
+  pose_datas_.push_back({pose.time, ToPoseInOdom(pose.pose)});
+}
 //
 void SlipDetect::AddImage(const jarvis::sensor::ImageData& image_data) {
   if (options_.type == 0) {
@@ -37,9 +63,10 @@ void SlipDetect::AddImage(const jarvis::sensor::ImageData& image_data) {
 }
 
 bool SlipDetect::Detect(const jarvis::common::Time&time) {
+  LOG(INFO)<<time;
   if (options_.type == 0) {
     return ZeroVelocityDetect(time);
-  } else if (options_.type == 1) {
+  } else if (options_.type == 1 || options_.type == 2) {
     return SimpleDetect(time);
   } else {
     LOG(FATAL) << "Not support type.";
@@ -50,19 +77,39 @@ double SlipDetect::ComputePosesS(std::deque<T>* datas) {
   double delta_s = 0;
   if (datas->size() < 2) return 0;
   for (size_t i = 1; i < datas->size(); i++) {
-    delta_s += (datas->at(i - 1).pose.inverse() * datas->at(i).pose)
-                   .translation()
-                   .norm();
+    delta_s += abs((datas->at(i - 1).pose.inverse() * datas->at(i).pose)
+                       .translation()
+                       .norm());
   }
   return delta_s;
 }
+template <typename T>
+double SlipDetect::ComputePosesTheta(std::deque<T>* datas) {
+  double delta = 0;
+  if (datas->size() < 2) return 0;
+  for (size_t i = 1; i < datas->size(); i++) {
+    delta += abs(transform::GetAngle(
+        (datas->at(i - 1).pose.inverse() * datas->at(i).pose)));
+  }
+  return common::RadToDeg(delta);
+}
+
 bool SlipDetect::SimpleDetect(const jarvis::common::Time&time) {
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &odometry_datas_);
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &pose_datas_);
-  if (std::abs(ComputePosesS(&odometry_datas_) - ComputePosesS(&pose_datas_)) >
-      options_.pose_odom_err_s_threash_hold) {
+  const auto delta_s =
+      std::abs(ComputePosesS(&odometry_datas_) - ComputePosesS(&pose_datas_));
+  LOG(INFO)<<ComputePosesTheta(&odometry_datas_);
+  LOG(INFO)<<ComputePosesTheta(&pose_datas_);
+  const auto delta_theta =
+      std::abs(ComputePosesTheta(&odometry_datas_) - ComputePosesTheta(&pose_datas_));
+  LOG(INFO) << delta_s << " " << delta_theta;
+  if (delta_s > options_.pose_odom_err_s_threash_hold ||
+      delta_theta >  options_.pose_odom_err_theta_threash_hold) {
+    LOG(WARNING) << "Detect Slip at time " << time << " With ds: " << delta_s
+                 << " dtheta: " << delta_theta;
     return true;
   }
   return false;
