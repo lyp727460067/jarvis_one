@@ -106,14 +106,12 @@ void DataCapture::Run() {
   int32_t res = mem_ssq_->PopImuData(&imudata);
   if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
     last_imu_time_stamp_ = imudata.time_stamp;
-    LOG(INFO)<<"Recive imu.";
     ProcessImu(imudata);
   }
   ModSyncChassisPosFb odom_data;
   int ret_len = mem_ssq_->PopEncodeData(&odom_data);
   if (ret_len > 0 && last_odom_time_stamp_ != odom_data.time_stamp) {
     last_odom_time_stamp_ = odom_data.time_stamp;
-    LOG(INFO)<<"Recive odom.";
     ProcessOdom(odom_data);
   }
   CameraFrame frame;
@@ -122,12 +120,11 @@ void DataCapture::Run() {
   ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
   if (ret_len >= 0) {
     uint32_t frame_sys_count = frame.head.sys_count;
-    LOG(INFO) << frame_sys_count;
-    if (last_frame_sys_count_ == frame_sys_count) return;
-    last_frame_sys_count_ = frame_sys_count;
-    ProcessImag(frame);
+    if (last_frame_sys_count_ != frame_sys_count) {
+      last_frame_sys_count_ = frame_sys_count;
+      ProcessImag(frame);
+    }
   }
-
 
   //
   // ModRTKFB  rtk_data;
@@ -141,21 +138,27 @@ Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
   Frame result{frame.head.time_stamp, std::vector<cv::Mat>(2)};
   uint64_t camera_data_lenth =
       (option.frame_width * option.frame_hight * 3 * 2) >> 2;
-
-  if (GET_BIT(frame.head.capture_flag, 1) == 1) {
+  std::thread thread1([&](){
+    if (GET_BIT(frame.head.capture_flag, 1) == 1) {
     //
     cv::Mat grayImg = YuvBufToGrayMat(
         frame.buf + sizeof(CameraFrameHead) + camera_data_lenth,
         camera_data_lenth, option.frame_width, option.frame_hight);
     result.images[0] = grayImg;
-  }
+     }
+  });
+  
+  std::thread thread2([&](){
   if (GET_BIT(frame.head.capture_flag, 2) == 1) {
     cv::Mat grayImg = YuvBufToGrayMat(
         frame.buf + sizeof(CameraFrameHead) + camera_data_lenth * 2,
         camera_data_lenth, option.frame_width, option.frame_hight);
 
     result.images[1] = grayImg;
-  }
+  }}
+  );
+  thread1.join();
+  thread2.join();
   return result;
 }
 //

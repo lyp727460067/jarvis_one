@@ -171,8 +171,14 @@ class JarvisBrige {
     });
 
     if (kRecordFlag) {
+      
       data_capture_->Rigister([&](const ImuData& imu) {
         std::stringstream info;
+        static uint64_t last_time = imu.time * 1e3;
+        if (uint64_t(imu.time * 1e3) - last_time > 6000000) {
+          LOG(INFO) << uint64_t(imu.time * 1e3) - last_time;
+        }
+        last_time= imu.time * 1e3;
         info << "imu " << std::to_string(uint64_t(imu.time * 1e3)) << " "
              << imu.angular_velocity.x() << " " << imu.angular_velocity.y()
              << " " << imu.angular_velocity.z() << " "
