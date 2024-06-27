@@ -56,7 +56,7 @@ void OrderedMultiQueue::Stop() {
 
 //
 void OrderedMultiQueue::Dispathch() {
-  // while (true) {
+  while (true) {
     for (const auto &queue : queues_) {
     const Data *next_data = nullptr;
     Queue *next_queue = nullptr;
@@ -129,6 +129,7 @@ void OrderedMultiQueue::Dispathch() {
       }
       LOG(INFO) << "Drop early " << next_queue_key << " data...";
     }
+  }
   }
 }
 

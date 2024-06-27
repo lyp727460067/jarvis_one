@@ -5,11 +5,11 @@ right_mask_id: r_mask.png
 cam0_calib: "ld_cam0_77.yaml"
 cam1_calib: "ld_cam1_77.yaml"
 ###slipedetect
-type:   1
+type:   2
 vio_yam:   estimator_77.yaml
 min_disparity_num : 20
 max_disparity : 1
-imu_cam_time_offset : 1
+imu_cam_time_offset : -0.1
 que_time_duration : 1
 zero_velocity_odom_delte_s_threash_hold : 0.1
 pose_odom_err_s_threash_hold : 0.1

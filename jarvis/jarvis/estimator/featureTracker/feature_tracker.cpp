@@ -281,8 +281,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       for (auto &&keypoint : cur_pts) {
         cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
       }
-      cv::imshow("lit",loop_match_img);
-      cv::waitKey(0);
+      // cv::imshow("lit",loop_match_img);
+      // cv::waitKey(0);
 
 
     // printf("feature cnt after add %d\n", (int)ids.size());
@@ -329,8 +329,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       for (auto &&keypoint : cur_right_pts) {
         cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
       }
-      cv::imshow("rit",loop_match_img);
-      cv::waitKey(0);
+      // cv::imshow("rit",loop_match_img);
+      // cv::waitKey(0);
       // only keep left-right pts
       /*
       reduceVector(cur_pts, status);

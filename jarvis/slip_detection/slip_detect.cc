@@ -1,8 +1,10 @@
 #include "slip_detection/slip_detect.h"
-#include "slip_detection/simple_vo.h"
+
 #include <algorithm>
-#include "option_parse.h"
+
 #include "jarvis/estimator/featureTracker/feature_tracker.h"
+#include "option_parse.h"
+#include "slip_detection/simple_vo.h"
 using namespace jarvis;
 constexpr uint8_t kGlogLevel = 6;
 namespace slip_detect {
@@ -18,8 +20,10 @@ SlipDetect::SlipDetect(const SlipDetectOption& option)
   // LOG(INFO) << rotaion;
   transform_cam_to_odom_map_ =
       transform::Rigid3d::Rotation(options_.transform_cam_to_odom.rotation());
-  LOG(INFO)<<transform_cam_to_odom_map_;
- transform_cam_to_odom_map_ =  transform::Rigid3d(Eigen::Vector3d(0 ,0, 0), Eigen::Quaterniond( -0.00189292, -0.188614 ,0.00131981 ,-0.982049));
+  LOG(INFO) << transform_cam_to_odom_map_;
+  transform_cam_to_odom_map_ = transform::Rigid3d(
+      Eigen::Vector3d(0, 0, 0),
+      Eigen::Quaterniond(-0.00189292, -0.188614, 0.00131981, -0.982049));
 }
 //
 void SlipDetect::AddOdometry(const jarvis::sensor::OdometryData& odom) {
@@ -28,14 +32,14 @@ void SlipDetect::AddOdometry(const jarvis::sensor::OdometryData& odom) {
 //
 jarvis::transform::Rigid3d SlipDetect::ToPoseInOdom(
     const jarvis::transform::Rigid3d& pose1) {
-
-  auto transform_cam_to_odom_map_1 =  transform::Rigid3d(Eigen::Vector3d(0.382489 ,-0.00321091, 0.19029), Eigen::Quaterniond( -0.00189292, -0.188614 ,0.00131981 ,-0.982049));
+  auto transform_cam_to_odom_map_1 = transform::Rigid3d(
+      Eigen::Vector3d(0.382489, -0.00321091, 0.19029),
+      Eigen::Quaterniond(-0.00189292, -0.188614, 0.00131981, -0.982049));
   const auto pose = transform_cam_to_odom_map_ * pose1 *
                     transform_cam_to_odom_map_1.inverse();
   return jarvis::transform::Rigid3d(
       Eigen::Vector3d(pose.translation().x() +
-                          transform_cam_to_odom_map_1.translation().x()
-                          ,
+                          transform_cam_to_odom_map_1.translation().x(),
                       pose.translation().y() +
                           transform_cam_to_odom_map_1.translation().y(),
                       0),
@@ -49,21 +53,20 @@ void SlipDetect::AddPose(const TimePose& pose) {
 void SlipDetect::AddImage(const jarvis::sensor::ImageData& image_data) {
   if (options_.type == 0) {
     std::map<int, int> track_num;
-    double d_time = common::ToSeconds(image_data.time - common::FromUniversal(0));
-    auto feature_frame =
-        feature_tracker_->trackImage(d_time, *image_data.image[0],
-                                     cv::Mat(), &track_num, 0);
-    LOG(INFO)<<feature_frame.data->features.size();
+    double d_time =
+        common::ToSeconds(image_data.time - common::FromUniversal(0));
+    auto feature_frame = feature_tracker_->trackImage(
+        d_time, *image_data.image[0], cv::Mat(), &track_num, 0);
+    LOG(INFO) << feature_frame.data->features.size();
     for (auto const& point : feature_frame.data->features) {
       key_point_datas_[static_cast<uint64_t>(point.first)].emplace(
-          image_data.time,
-          point.second.camera_features[0].uv);
+          image_data.time, point.second.camera_features[0].uv);
     }
   }
 }
 
-bool SlipDetect::Detect(const jarvis::common::Time&time) {
-  LOG(INFO)<<time;
+bool SlipDetect::Detect(const jarvis::common::Time& time) {
+  LOG(INFO) << time;
   if (options_.type == 0) {
     return ZeroVelocityDetect(time);
   } else if (options_.type == 1 || options_.type == 2) {
@@ -94,20 +97,20 @@ double SlipDetect::ComputePosesTheta(std::deque<T>* datas) {
   return common::RadToDeg(delta);
 }
 
-bool SlipDetect::SimpleDetect(const jarvis::common::Time&time) {
+bool SlipDetect::SimpleDetect(const jarvis::common::Time& time) {
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &odometry_datas_);
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &pose_datas_);
   const auto delta_s =
       std::abs(ComputePosesS(&odometry_datas_) - ComputePosesS(&pose_datas_));
-  LOG(INFO)<<ComputePosesTheta(&odometry_datas_);
-  LOG(INFO)<<ComputePosesTheta(&pose_datas_);
-  const auto delta_theta =
-      std::abs(ComputePosesTheta(&odometry_datas_) - ComputePosesTheta(&pose_datas_));
+  LOG(INFO) << ComputePosesTheta(&odometry_datas_);
+  LOG(INFO) << ComputePosesTheta(&pose_datas_);
+  const auto delta_theta = std::abs(ComputePosesTheta(&odometry_datas_) -
+                                    ComputePosesTheta(&pose_datas_));
   LOG(INFO) << delta_s << " " << delta_theta;
   if (delta_s > options_.pose_odom_err_s_threash_hold ||
-      delta_theta >  options_.pose_odom_err_theta_threash_hold) {
+      delta_theta > options_.pose_odom_err_theta_threash_hold) {
     LOG(WARNING) << "Detect Slip at time " << time << " With ds: " << delta_s
                  << " dtheta: " << delta_theta;
     return true;
@@ -115,7 +118,7 @@ bool SlipDetect::SimpleDetect(const jarvis::common::Time&time) {
   return false;
 }
 //
-bool SlipDetect::ZeroVelocityDetect(const jarvis::common::Time&time) {
+bool SlipDetect::ZeroVelocityDetect(const jarvis::common::Time& time) {
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &odometry_datas_);
   DropData(time - common::FromSeconds(options_.que_time_duration),
@@ -156,7 +159,7 @@ bool SlipDetect::IsZeroVelocity() {
       ++it;
       Eigen::Vector2d sum{0, 0};
       for (; it != key_points.second.end(); it++) {
-        sum += it->second-(std::prev(it)->second);
+        sum += it->second - (std::prev(it)->second);
       }
       disparitys.push_back((sum / key_points.second.size()).squaredNorm());
     }
@@ -190,7 +193,7 @@ SlipDetect::~SlipDetect() {}
 std::unique_ptr<SlipDetect> FactorSlipDetect(const std::string& file) {
   SlipDetectOption option;
   ParseYAMLOption(file, &option);
-  LOG(INFO)<<"Start slip detect : "<<option.type;
+  LOG(INFO) << "Start slip detect : " << option.type;
   //
   jarvis::estimator::FeatureTrackerOption feat_option;
   ParseYAMLOption(file, &feat_option);

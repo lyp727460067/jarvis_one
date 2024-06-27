@@ -176,7 +176,7 @@ void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
     order_queue_->AddData(
         kImuTopic,
         std::make_unique<sensor::DispathcData<sensor::ImuData>>(sensor::ImuData{
-            common::FromUniversal(itor->first/100),
+            common::FromUniversal(itor->first/10),
             itor->second.linear_acceleration,
             itor->second.angular_velocity-gry_bias,
         }));
@@ -208,7 +208,7 @@ void Run(std::map<uint64_t, ImuData>& imu_datas,
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
-            sensor::ImageData{ common::FromUniversal(image.first /100) ,
+            sensor::ImageData{ common::FromUniversal(image.first /10) ,
                               {temp, temp}}));
   }
   if (!imu_datas.empty()) {

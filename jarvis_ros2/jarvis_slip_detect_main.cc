@@ -132,7 +132,9 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
   ifs >> time;
 
   static uint64_t last_time =  time;
-  // LOG(INFO)<<time-last_time<<"   "<<time;
+  if ((time - last_time) > 10000000) {
+    LOG(INFO)<< "   " << time- last_time;
+  }
   last_time = time;
 #ifdef CHECK_DATA
   static uint64_t last_imu_time = time;
@@ -171,7 +173,7 @@ std::istringstream& operator>>(std::istringstream& ifs, OdomData& odom_data) {
   int un_count = 0;
   // ifs>>un_count;
 
-  odom_data.time = time+1.5*1000*1000*1000;
+  odom_data.time = time;
   int32_t left_encoder;
   int32_t right_encoder;
   ifs >> left_encoder >> right_encoder;
@@ -327,7 +329,6 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,std::map<uint64_t, OdomSensor>& o
     //                 temp2,
 
     //             }}));
-
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
