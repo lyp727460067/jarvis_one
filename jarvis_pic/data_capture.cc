@@ -106,12 +106,20 @@ void DataCapture::Run() {
   int32_t res = mem_ssq_->PopImuData(&imudata);
   if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
     last_imu_time_stamp_ = imudata.time_stamp;
+    LOG(INFO)<<"Recive imu.";
     ProcessImu(imudata);
+  }
+  ModSyncChassisPosFb odom_data;
+  int ret_len = mem_ssq_->PopEncodeData(&odom_data);
+  if (ret_len > 0 && last_odom_time_stamp_ != odom_data.time_stamp) {
+    last_odom_time_stamp_ = odom_data.time_stamp;
+    LOG(INFO)<<"Recive odom.";
+    ProcessOdom(odom_data);
   }
   CameraFrame frame;
   frame.buf = read_buf.data();
   frame.max_len = FRAME_MAX_LEN;
-  int ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
+  ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
   if (ret_len >= 0) {
     uint32_t frame_sys_count = frame.head.sys_count;
     LOG(INFO) << frame_sys_count;
@@ -120,12 +128,7 @@ void DataCapture::Run() {
     ProcessImag(frame);
   }
 
-  ModSyncChassisPosFb odom_data;
-  ret_len = mem_ssq_->PopEncodeData(&odom_data);
-  if (ret_len > 0 && last_odom_time_stamp_ != odom_data.time_stamp) {
-    last_odom_time_stamp_ = odom_data.time_stamp;
-    ProcessOdom(odom_data);
-  }
+
   //
   // ModRTKFB  rtk_data;
   SysPorocess();

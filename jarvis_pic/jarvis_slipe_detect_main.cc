@@ -188,14 +188,16 @@ class JarvisBrige {
              << imu.left_encoder << " " << imu.right_encoder;
         kOImuFile << info.str() << std::endl;
       });
-
       data_capture_->Rigister([&](const Frame& frame) {
-        cv::imwrite(
-            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + "_l_.png",
-            frame.images[0]);
-        cv::imwrite(
-            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + "_r_.png",
-            frame.images[1]);
+        std::thread write_thread([=]() {
+          cv::imwrite(image_dir + std::to_string(uint64_t(frame.time * 1e3)) +
+                          "_l_.png",
+                      frame.images[0]);
+          cv::imwrite(image_dir + std::to_string(uint64_t(frame.time * 1e3)) +
+                          "_r_.png",
+                      frame.images[1]);
+        });
+        write_thread.detach();
       });
     }
     data_capture_->Start();
