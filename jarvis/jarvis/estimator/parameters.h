@@ -22,7 +22,7 @@ namespace jarvis {
 namespace estimator {
 // extern std::string mask_file;
 const double FOCAL_LENGTH = 377.0;
-const int WINDOW_SIZE = 10;
+const int WINDOW_SIZE = 6;
 const int NUM_OF_F = 1000;
 // // #define UNIT_SPHERE_ERROR
 

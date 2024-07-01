@@ -18,7 +18,7 @@ struct TrackingData {
     std::vector<cv::KeyPoint> key_points;
     std::vector<Eigen::Vector3d> tracking_map_points;
     std::shared_ptr<cv::Mat> image;
-    transform::Rigid3d transform_imu_to_cam_;
+    transform::Rigid3d transform_cam_to_imu;
   };
   std::shared_ptr<Data> data;
   int status = -1;

@@ -14,7 +14,7 @@ class ZmqComponent {
  public:
   ZmqComponent();
   // for debug
-  void PubLocalData(const jarvis::TrackingData& data);
+  void PubLocalData(const jarvis::TrackingData& data,uint8_t slip_data);
   ~ZmqComponent();
 
  private:

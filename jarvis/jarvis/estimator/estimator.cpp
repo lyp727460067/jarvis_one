@@ -88,7 +88,6 @@ std::unique_ptr<TrackingData> ExtractKeyFrameMapPoints(
 
   result.data->image =
       std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
-
   return std::make_unique<TrackingData>(result);
 }
 }  // namespace
@@ -144,6 +143,9 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   LOG(INFO) << "one frame cost : " << add_image_data_cost.toc();
   auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
   tracking_data->data->time = images.time;
+
+  tracking_data->data->transform_cam_to_imu =
+      transform::Rigid3d(tic[0], Eigen::Quaterniond(ric[0]));
   if (solver_flag == INITIAL) {
     tracking_data->status = 0;
     LOG(INFO) << Eigen::Quaterniond(Rs[frame_count]);
@@ -157,6 +159,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
                        Vs[frame_count], Bas[frame_count], Bgs[frame_count], g});
     tracking_data->data->imu_state = ImuState{imu_state_data};
     tracking_data->status = 2;
+
   }
   return tracking_data;
 }

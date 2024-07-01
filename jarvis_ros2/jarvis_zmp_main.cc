@@ -51,11 +51,15 @@ struct PoseData {
   double qx;
   double qy;
   double qz;
+  uint8_t flag =0;
 };
 nav_msgs::msg::Path path_;
 rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
 rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path_;
 std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+
+rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr
+      bool_publisher_;
 void PosePub(const transform::Rigid3d &pose,
                          const transform::Rigid3d &local_to_global) {
   ::geometry_msgs::msg::TransformStamped tf_trans;
@@ -103,6 +107,14 @@ void PosePub(const transform::Rigid3d &pose,
   } else {
     path_.poses.clear();
   }
+}
+
+void PubBoolMsg(bool msg1) {
+  std_msgs::msg::Bool msg;
+  msg.set__data(msg1);
+  bool_publisher_->publish(msg);
+
+
 }
 void CommpressedImagePub(const cv::Mat &image) {
   // if (compressed_image_pub_->get_subscription_count() == 0) return;
@@ -173,12 +185,15 @@ void ProcessData(std::vector<uint8_t>&d)
 
   PoseData p;
   memcpy((void *)(&p), (void *)pose.data(), sizeof(PoseData));
+  
 
   d.erase(d.begin(), std::next(it, data_lenth));
   //
   jarvis::transform::Rigid3d pose1{Eigen::Vector3d{p.x, p.y, p.z},
                                   Eigen::Quaterniond{p.qw, p.qx, p.qy, p.qz}};
+
   PosePub(pose1, transform::Rigid3d::Identity());
+  PubBoolMsg(p.flag);
 }
 
 std::vector<uint8_t> datas;
@@ -197,7 +212,9 @@ int main(int argc, char* argv[]) {
       nh_->create_publisher<sensor_msgs::msg::Image>(
           "local_tracking_result_image/image_raw", 20);
 
-          //
+  bool_publisher_ =
+      nh_->create_publisher<std_msgs::msg::Bool>("slip_detect", 10);
+  //
   int connect_fd = -1;
   struct sockaddr_in server;
   socklen_t saddrlen = sizeof(server);

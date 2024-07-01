@@ -31,32 +31,53 @@ constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 double image_sample = 1;
 uint8_t kRecordFlag = 0;
+uint8_t kEnableSlipDetect = 0;
 uint8_t kDataCaputureType = 0;
 std::ofstream kOImuFile;
 std::ofstream kOPoseFile;
 std::string image_dir;
+
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["image_sample"] >> image_sample;
   fsSettings["record"] >> kRecordFlag;
+  fsSettings["slip_detect"] >> kEnableSlipDetect;
+
 }
 }  // namespace
 //
 // using namespace jarvis;
+
 namespace jarvis_pic {
+struct jarvis_pic_call_back_data {
+  bool slip_flag;
+  jarvis::TrackingData data;
+};
+
 class JarvisBrige {
  public:
-  JarvisBrige(const std::string& config, jarvis::CallBack call_back)
-      : data_capture_(CreateDataCaputure({kDataCaputureType})) {
+  JarvisBrige(const std::string& config,
+              std::function<void(const jarvis_pic_call_back_data&)> call_back)
+      : data_capture_(CreateDataCaputure({kDataCaputureType})),call_back_(std::move(call_back)) {
     //
     LOG(INFO) << "Jarvis start...";
-
+    if (kEnableSlipDetect) {
+      slip_detect_ = slip_detect::FactorSlipDetect(config);
+    }
     builder_ = std::make_unique<jarvis::TrajectorBuilder>(
         std::string(config), [&](const TrackingData& data) {
+          bool slip_flag = false;
+          if (slip_detect_) {
+            slip_detect_->AddPose(slip_detect::TimePose{
+                data.data->time, data.data->imu_state.data->pose *
+                                     data.data->transform_cam_to_imu});
+            slip_flag = slip_detect_->Detect(tracking_data.data->time);
+
+          }
           mpc_.Write(data,
                      GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
                          jarvis::common::ToUniversal(data.data->time) / 10)));
-          call_back(data);
+          call_back_(jarvis_pic_call_back_data{slip_flag, data});
         });
 
     order_queue_->AddQueue(
@@ -191,6 +212,7 @@ class JarvisBrige {
   std::unique_ptr<jarvis::sensor::OrderedMultiQueue> order_queue_;
   std::unique_ptr<jarvis::TrajectorBuilder> builder_;
   std::unique_ptr<jarvis::slip_detect> slip_detect_;
+  jarvis_pic_call_back_data call_back_;
 };
 }  // namespace jarvis_pic
 std::string kDataDir  = "/mnt/UDISK/jarvis/";
@@ -243,7 +265,7 @@ int main(int argc, char* argv[]) {
   //
   //
   const std::string config_file(
-      "/oem/mowpack/vslam/configuration/simple_vo.yaml");
+      "/oem/mowpack/vslam/configuration/vslam.yaml");
   //
   ParseOption(config_file);
   //
@@ -254,18 +276,56 @@ int main(int argc, char* argv[]) {
   CreateDataDir();
   std::mutex jarvis_mutex;
   std::condition_variable con_variable;
-
+  uint8_t slip_flag = 0;
   std::unique_ptr<jarvis_pic::JarvisBrige> jarvis_slam =
       std::make_unique<jarvis_pic::JarvisBrige>(
-          std::string(config_file), [&](const jarvis::TrackingData& data) {
+          std::string(config_file),
+          [&](const jarvis::jarvis_pic_call_back_data& data) {
             {
               std::lock_guard<std::mutex> lock(jarvis_mutex);
-              tracking_data_temp = data;
+              tracking_data_temp = data.data;
+              slip_flag = data.slip_flag;
             }
-             con_variable.notify_all();
+            con_variable.notify_all();
           });
 
+  jarvis_pic::ZmqComponent zmq;
+  jarvis_pic::MpcComponent mpc;
   while (!kill_thread_) {
+    uint8_t flag  = 0;
+    jarvis::TrackingData tracking_data;
+    {
+      std::unique_lock<std::mutex> lock(jarvis_mutex);
+      con_variable.wait(lock);
+      tracking_data = tracking_data_temp;
+      kVioState= tracking_data.status;
+      flag = slip_flag;
+    }
+    LOG(INFO) << tracking_data.data->imu_state.data->pose;
+    if (kRecordFlag) {
+      std::stringstream info;
+      info << std::to_string(uint64_t(
+                  jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
+           << " " << tracking_data.data->imu_state.data->pose.translation().x()
+           << " " << tracking_data.data->imu_state.data->pose.translation().y()
+           << " " << tracking_data.data->imu_state.data->pose.translation().z()
+           << " " << tracking_data.data->imu_state.data->pose.rotation().w()
+           << " " << tracking_data.data->imu_state.data->pose.rotation().x()
+           << " " << tracking_data.data->imu_state.data->pose.rotation().y()
+           << " " << tracking_data.data->imu_state.data->pose.rotation().z()
+           << " " << flag << std::endl;
+      kOPoseFile << info.str();
+    }
+
+    //
+    // mpc.Write(
+    //     tracking_data,
+    //     jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
+    //         jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
+    //
+#ifdef __ZMQ_ENABLAE__
+    zmq.PubLocalData(tracking_data,flag);
+#endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));
   }
 

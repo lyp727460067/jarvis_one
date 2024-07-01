@@ -63,7 +63,8 @@ cv::Mat GenerateImageWithKeyPoint(
 
   return loop_match_img;
 }
-std::vector<uint8_t> ToCData(const jarvis::TrackingData &data) {
+std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
+                             uint8_t slip_data) {
   //
   //
   const auto &tracking_data = data;
@@ -97,7 +98,7 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data) {
   int lenth = datas.size();
   datas.resize(datas.size() + sizeof(PoseData));
   memcpy((void *)(datas.data() + lenth), (void *)&pose, sizeof(PoseData));
-
+  datas.push_back(slip_data);
   std::vector<uint8_t> result;
   result.push_back(0xaa);
   result.push_back(0x55);
@@ -126,10 +127,11 @@ ZmqComponent::ZmqComponent() {
 //
 //
 
-void ZmqComponent::PubLocalData(const jarvis::TrackingData &data) {
+void ZmqComponent::PubLocalData(const jarvis::TrackingData &data,
+                                uint8_t slip_data) {
   //
   for (auto &dev : device_) {
-    dev->tx(ToCData(data));
+    dev->tx(ToCData(data, slip_data));
   }
 };
 
