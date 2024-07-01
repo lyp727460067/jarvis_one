@@ -70,26 +70,19 @@ void reduceVector(std::vector<int> &v, std::vector<bool> status) {
 //
 FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
     : options_(option) {
-  for (size_t i = 0; i < option.calib_file.size(); i++) {
-    VLOG(kGlogLevel) << "reading paramerter of camera"
-                     << option.calib_file[i].c_str();
-    camera_models::CameraPtr camera =
-        camera_models::CameraFactory::instance()->generateCameraFromYamlFile(
-            option.calib_file[i]);
-    m_camera.push_back(camera);
-  }
-  if (option.calib_file.size() == 2) stereo_cam = 1;
+  m_camera = options_.cameras;
+  if (options_.cameras.size() == 2) stereo_cam = 1;
   pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
   r_pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
   feature_detect_ =
       std::make_unique<FeatureDetect>(option.feature_detect_option);
-
-  mask_ = cv::imread(option.mask_file, cv::IMREAD_GRAYSCALE);
-  CHECK(!mask_.empty());
+  LOG(INFO)<<option.pyrmid_option.image_size;
+  LOG(INFO)<<option.pyrmid_option.layer;
 }
 //
 void FeatureTracker::setMask() {
-  mask = mask_.clone();
+  //
+  mask = options_.mask.clone();
   // prefer to keep features that are tracked for long time
   std::vector<std::pair<int, std::pair<cv::Point2f, int>>> cnt_pts_id;
 
@@ -257,8 +250,13 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     TicToc t_t;
     int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
     if (n_max_cnt > 0) {
-      if (mask.empty()) cout << "mask is empty " << endl;
-      if (mask.type() != CV_8UC1) cout << "mask type wrong " << endl;
+      if (mask.empty()) {
+        LOG(INFO) << "mask is empty ";
+      }
+
+      if (mask.type() != CV_8UC1) {
+        LOG(INFO) << "mask type wrong ";
+      }
       // cv::goodFeaturesToTrack(cur_img, n_pts, options_.max_feat_cnt - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
       // std::vector<cv::Point2f> forw_pts;
@@ -276,11 +274,11 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       track_cnt.push_back(1);
     }
 
-         cv::Mat gray_img, loop_match_img;
-      cvtColor(_img, loop_match_img, cv::COLOR_GRAY2RGB);
-      for (auto &&keypoint : cur_pts) {
-        cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-      }
+      //  cv::Mat gray_img, loop_match_img;
+      // cvtColor(_img, loop_match_img, cv::COLOR_GRAY2RGB);
+      // for (auto &&keypoint : cur_pts) {
+      //   cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
+      // }
       // cv::imshow("lit",loop_match_img);
       // cv::waitKey(0);
 
@@ -324,11 +322,11 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       ids_right = ids;
       reduceVector(cur_right_pts, status);
       reduceVector(ids_right, status);
-      cv::Mat gray_img, loop_match_img;
-      cvtColor(_img1, loop_match_img, cv::COLOR_GRAY2RGB);
-      for (auto &&keypoint : cur_right_pts) {
-        cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-      }
+      // cv::Mat gray_img, loop_match_img;
+      // cvtColor(_img1, loop_match_img, cv::COLOR_GRAY2RGB);
+      // for (auto &&keypoint : cur_right_pts) {
+      //   cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
+      // }
       // cv::imshow("rit",loop_match_img);
       // cv::waitKey(0);
       // only keep left-right pts
@@ -446,8 +444,8 @@ void FeatureTracker::rejectWithF() {
     }
 
     std::vector<uchar> status;
-    cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC, F_THRESHOLD,
-                           0.99, status);
+    cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC,
+                           options_.ransac_threshold, 0.99, status);
     int size_a = cur_pts.size();
     reduceVector(prev_pts, status);
     reduceVector(cur_pts, status);
@@ -460,11 +458,10 @@ void FeatureTracker::rejectWithF() {
   }
 }
 
-void FeatureTracker::readIntrinsicParameter(const std::vector<string> &calib_file) {
+void FeatureTracker::readIntrinsicParameter(
+    const std::vector<std::string> &calib_file) {}
 
-}
-
-void FeatureTracker::showUndistortion(const string &name) {
+void FeatureTracker::showUndistortion(const std::string &name) {
   cv::Mat undistortedImg(row + 600, col + 600, CV_8UC1, cv::Scalar(0));
   std::vector<Eigen::Vector2d> distortedp, undistortedp;
   for (int i = 0; i < col; i++)

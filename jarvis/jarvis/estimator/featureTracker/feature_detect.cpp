@@ -56,7 +56,7 @@ std::vector<cv::Point2f> FeatureDetect::Detect(
   cv::FAST(image, keypoints, 10, true);
   // const int row_offset = 150;
   // auto rect_image = cv::Mat(
-  //     image, cv::Rect(0, row_offset, image.cols, image.rows - row_offset));
+      // image, cv::Rect(0, row_offset, image.cols, image.rows - row_offset));
   // cv::FAST(rect_image, keypoints, options_.fast_thresh_hold, true);
   // for (auto& p : keypoints) {
   //   p.pt.y += row_offset;

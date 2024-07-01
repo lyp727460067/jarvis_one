@@ -5,6 +5,7 @@
 #include <opencv2/core/core.hpp>
 
 #include "camera_models/camera_models/camera.h"
+#include "jarvis/option_parse.h"
 namespace jarvis {
 namespace camera_models {
 
@@ -20,6 +21,7 @@ class CameraFactory {
                            cv::Size imageSize) const;
 
   CameraPtr generateCameraFromYamlFile(const std::string& filename);
+  CameraPtr GenerateCameraFromOption(const CameraOption& options);
 
  private:
   static std::shared_ptr<CameraFactory> m_instance;

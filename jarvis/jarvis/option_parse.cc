@@ -1,0 +1,248 @@
+
+#include <jarvis/estimator/featureTracker/feature_tracker.h>
+#include "jarvis/option_parse.h"
+#include <opencv2/core/eigen.hpp>
+#include "yaml.h"
+#include "opencv2/opencv.hpp"
+#include "jarvis/estimator/estimator.h"
+namespace jarvis {
+
+constexpr int kCameraNum =2;
+
+bool CheckFileExist(const std::string &file) {
+  FILE *fh = fopen(file.c_str(), "r");
+  if (fh == NULL) {
+    return false;
+  }
+  fclose(fh);
+  return true;
+}
+//
+cv::FileStorage CheckFile(const std::string &file) {
+  if (!CheckFileExist) {
+    LOG(FATAL) << file << " not exist.";
+  }
+  cv::FileStorage fsSettings(file, cv::FileStorage::READ);
+  if (!fsSettings.isOpened()) {
+    LOG(FATAL) << file << "PERROR: Wrong path to settings";
+  }
+  return fsSettings;
+}
+CameraOption ParseYAMLOptionCameraOption(const CheckNode &paras, int i) {
+  const CheckNode cam_node = paras["cam" + std::to_string(i)];
+  CameraOption camera_option;
+  camera_option.name = "cam" + std::to_string(i);
+  camera_option.distortions =
+      cam_node["distortion_coeffs"].as<std::vector<double>>();
+  camera_option.intrinsics = cam_node["intrinsics"].as<std::vector<double>>();
+  camera_option.camera_model = cam_node["camera_model"].as<std::string>();
+  camera_option.distortion_model =
+      cam_node["distortion_model"].as<std::string>();
+  camera_option.resolution = {cam_node["resolution"].as<std::vector<int>>()[0],
+                              cam_node["resolution"].as<std::vector<int>>()[1]};
+  return camera_option;
+}
+template<>
+void ParseYAMLOption(const std::string &file_path,
+                     CalibrateOption *calibrate_options) {
+  const std::string cam_chain_file = file_path + "/camchain-imucam.yaml";
+  const std::string config_file = file_path + "/config.yml";
+  CHECK(CheckFileExist(cam_chain_file)) << cam_chain_file << " not exist.";
+  CHECK(CheckFileExist(config_file)) << config_file << " not exist.";
+  {
+    LOG(INFO) << "Start parse " << cam_chain_file;
+    CheckNode paras = YAML::LoadFile(cam_chain_file);
+
+    for (int i = 0; i < kCameraNum; i++) {
+      calibrate_options->camera_options.push_back(
+          ParseYAMLOptionCameraOption(paras, i));
+      //
+      const CheckNode cam_node = paras["cam" + std::to_string(i)];
+      const std::vector<std::vector<double>> camera_to_imu_vector =
+          cam_node["T_imu_cam"].as<std::vector<std::vector<double>>>();
+      //
+
+      Eigen::Matrix4d camera_to_imu;
+      for (int i = 0; i < 4; i++) {
+        camera_to_imu.row(i) = Eigen::Vector4d(camera_to_imu_vector[i].data());
+      }
+      calibrate_options->extric_camera_to_imu.push_back(transform::Rigid3d(
+          camera_to_imu.block<3, 1>(0, 3),
+          Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0))));
+      LOG(INFO) << calibrate_options->camera_options.back().DebugInfo();
+      LOG(INFO) << "imu_to_cam:"
+                << calibrate_options->extric_camera_to_imu.back();
+    }
+  }
+  {
+    LOG(INFO) << "Start parse " << cam_chain_file;
+    cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
+    if (!fsSettings.isOpened()) {
+      LOG(FATAL) << "ERROR: Wrong path to settings";
+    }
+    cv::Mat cv_T;
+    fsSettings["cam2RobotT"] >> cv_T;
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    cv::cv2eigen(cv_T, T);
+    calibrate_options->extric_camera_to_robot = jarvis::transform::Rigid3d(
+        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+  }
+}
+
+void ParseYAMLOptionImuOption(cv::FileStorage *fs, jarvis::ImuOption *option,
+                              const CalibrateOption &camera_option) {
+  //
+  auto &fsSettings = *fs;
+  option->imu_noise.na = fsSettings["acc_n"];
+  option->imu_noise.ng = fsSettings["gyr_n"];
+  option->imu_noise.nba = fsSettings["acc_w"];
+  option->imu_noise.nbg = fsSettings["gyr_w"];
+  option->imu_noise.na2 = option->imu_noise.na * option->imu_noise.na;
+  option->imu_noise.ng2 = option->imu_noise.ng * option->imu_noise.ng;
+  option->imu_noise.nba2 = option->imu_noise.nba * option->imu_noise.nba;
+  option->imu_noise.nbg2 = option->imu_noise.nbg * option->imu_noise.nbg;
+
+  LOG(INFO) << option->DebugInfo();
+}
+//
+
+
+
+//
+void ParseYAMLOptionFetureOption(
+    cv::FileStorage *fs,
+    jarvis::estimator::FeatureTrackerOption *feature_option,
+    const CalibrateOption &camera_option, const std::string &file) {
+  //
+  auto &fsSettings = *fs;
+  //
+  for (int i = 0; i < camera_option.camera_options.size(); i++) {
+    camera_models::CameraPtr camera =
+        camera_models::CameraFactory::instance()->GenerateCameraFromOption(
+            camera_option.camera_options[i]);
+    feature_option->cameras.push_back(camera);
+  }
+  //
+  feature_option->pyrmid_option.image_size =
+      camera_option.camera_options[0].resolution;
+
+  //
+  feature_option->pyrmid_option.layer = fsSettings["lk_pre_max_layer"];
+  feature_option->pyrmid_option.lk_win_size = fsSettings["lk_win_size"];
+
+  feature_option->track_back = fsSettings["flow_back"];
+  feature_option->max_feat_cnt = fsSettings["max_cnt"];
+  feature_option->feature_detect_option.min_distance = fsSettings["min_dist"];
+  feature_option->feature_detect_option.fast_thresh_hold =
+      fsSettings["fast_th"];
+
+  std::string mask_id;
+  fsSettings["mask_id"] >> mask_id;
+  int pn = file.find_last_of('/');
+  std::string configPath = file.substr(0, pn);
+  auto mask_file = configPath + "/" + mask_id;
+
+  LOG(INFO) << "Mask file:  " << mask_file;
+  LOG(INFO) << feature_option->pyrmid_option.image_size;
+  LOG(INFO) << feature_option->pyrmid_option.layer;
+  feature_option->mask = cv::imread(mask_file, cv::IMREAD_GRAYSCALE);
+}
+//
+
+
+//
+
+template <>
+void ParseYAMLOption(const std::string &file,
+                     estimator::EstimatorOption *option) {
+  auto opencv_file = CheckFile(file);
+  std::string cali_path = opencv_file["calibrate_path"];
+  //
+  CalibrateOption calib_option;
+  ParseYAMLOption(cali_path, &calib_option);
+  //
+  int pn = file.find_last_of('/');
+  std::string configPath = file.substr(0, pn);
+  std::string estimator_name = opencv_file["estimator"];
+  const std::string estimator_file = configPath + "/" + estimator_name;
+  //
+  {
+    // esitmator yaml
+    auto fsSettings = CheckFile(estimator_file);
+    ParseYAMLOptionFetureOption(&fsSettings, &option->feature_track_option,
+                                calib_option, estimator_file);
+
+    ParseYAMLOptionImuOption(&fsSettings, &option->imu_option, calib_option);
+    //
+    option->feature_manager_option.extric_camera_to_imu =
+        calib_option.extric_camera_to_imu;
+    //
+    option->calibrate_option = calib_option;
+
+    option->use_cam_num = fsSettings["num_of_cam"];
+    option->use_imu =fsSettings["imu"];
+    option->estimate_td = fsSettings["estimate_td"];
+    option->estimate_extrinsic = fsSettings["estimate_extrinsic"];
+    option->init_td = fsSettings["td"];
+  }
+}
+
+// void ParseYAMLOptionSimpleVoOption(cv::FileStorage *fs,
+//                                    SimpleVoOption *simple_vo_option) {
+//   auto &fsSettings = *fs;
+//   simple_vo_option->min_track_num = fsSettings["min_track_num"];
+//   simple_vo_option->min_pnp_inlier_num = fsSettings["min_pnp_inlier_num"];
+//   simple_vo_option->min_track_num = fsSettings["min_track_num"];
+//   cv::Mat cv_T;
+//   fsSettings["body_T_cam0"] >> cv_T;
+//   Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+//   cv::cv2eigen(cv_T, T);
+//   auto cam_to_imu = jarvis::transform::Rigid3d(
+//       T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+//   fsSettings["body_T_cam1"] >> cv_T;
+//   cv::cv2eigen(cv_T, T);
+//   auto cam1_to_imu = jarvis::transform::Rigid3d(
+//       T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+//   simple_vo_option->tracker_option.image_size =
+//       Eigen::Vector2i(fsSettings["image_width"], fsSettings["image_height"]);
+//   simple_vo_option->tracker_option.extric = cam_to_imu.inverse() * cam1_to_imu;
+//   //
+// }
+// //
+// void ParseYAMLOptionSlipDetectOption(cv::FileStorage *fs,
+//                                      SlipDetectOption *slip_detection_opiont) {
+//   auto &fsSettings = *fs;
+//   slip_detection_opiont->type = fsSettings["type"];
+//   slip_detection_opiont->min_disparity_num = fsSettings["min_disparity_num"];
+//   slip_detection_opiont->max_disparity = fsSettings["max_disparity"];
+//   slip_detection_opiont->que_time_duration= fsSettings["que_time_duration"];
+//   slip_detection_opiont->zero_velocity_odom_delte_s_threash_hold =
+//       fsSettings["zero_velocity_odom_delte_s_threash_hold"];
+//   slip_detection_opiont->pose_odom_err_s_threash_hold =
+//       fsSettings["pose_odom_err_s_threash_hold"];
+//    slip_detection_opiont->pose_odom_err_theta_threash_hold =
+//       fsSettings["pose_odom_err_theta_threash_hold"]; 
+//   cv::Mat cv_T;
+//   fsSettings["cam2RobotT"] >> cv_T;
+//   Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+//   cv::cv2eigen(cv_T, T);
+//   slip_detection_opiont->transform_cam_to_odom = jarvis::transform::Rigid3d(
+//       T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+
+//   {
+//   cv::Mat cv_T;
+//   fsSettings["body_T_cam0"] >> cv_T;
+//   Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+//   cv::cv2eigen(cv_T, T);
+//   auto cam_to_imu = jarvis::transform::Rigid3d(
+//       T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+//   LOG(INFO)<<slip_detection_opiont->transform_cam_to_odom*cam_to_imu.inverse();
+
+//   }
+// } 
+//
+
+//
+
+//
+}  // namespace jarvis

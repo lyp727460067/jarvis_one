@@ -49,8 +49,105 @@ class JarvisBrige {
   JarvisBrige(const std::string& config, jarvis::CallBack call_back)
       : data_capture_(CreateDataCaputure({kDataCaputureType})) {
     //
-
     LOG(INFO) << "Jarvis start...";
+
+    builder_ = std::make_unique<jarvis::TrajectorBuilder>(
+        std::string(config), [&](const TrackingData& data) {
+          mpc_.Write(data,
+                     GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
+                         jarvis::common::ToUniversal(data.data->time) / 10)));
+          call_back(data);
+        });
+
+    order_queue_->AddQueue(
+        kImuTopic, [&](const jarvis::sensor::ImuData& imu_data) {
+          builder_->AddImuData(imu_data);
+          // auto pose = jarvis::GetGlobleImuExtrapolatorPose();
+          // jarvis::TrackingData tracking_data{
+          //     std::make_shared<jarvis::TrackingData::Data>(
+          //         jarvis::TrackingData::Data{
+          //             imu_data.time,
+          //             jarvis::estimator::ImuState(jarvis::estimator::ImuState{
+          //                 std::make_shared<jarvis::estimator::ImuState::Data>(
+          //                     jarvis::estimator::ImuState::Data{
+          //                         pose.second})})}),
+          //     kVioState};
+              
+          // mpc_.Write(
+          //     tracking_data,
+          //     GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
+          //         jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
+        });
+    //
+    order_queue_->AddQueue(
+        kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
+          // LOG(INFO) << std::to_string(imag_data.time);
+          auto start = std::chrono::high_resolution_clock::now();
+          builder_->AddImageData(imag_data);
+          LOG(INFO) << "One frame cost: "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::high_resolution_clock::now() - start)
+                           .count();
+
+
+        });
+    order_queue_->AddQueue(kOdomTopic,
+                           [&](const sensor::OdometryData& odom_data) {
+                             slip_detect_->AddOdometry(odom_data);
+                           });
+    LOG(INFO) << "Capture start..";
+
+    data_capture_->Rigister([&](const ImuData& imu) {
+      order_queue_->AddData(
+          kImuTopic, std::make_unique<
+                         jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
+                         jarvis::sensor::ImuData{
+                             jarvis::common::FromUniversal(imu.time * 10),
+                             imu.linear_acceleration,
+                             imu.angular_velocity ,
+                         }));
+    });
+    data_capture_->Rigister([&](const Frame& frame) {
+      if (!image_sample_->Pulse()) return;
+      //  cv::Mat temp1;
+      // //  cv::equalizeHist( frame.image, temp1);
+      //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8,
+      //  8)); clahe->apply( frame.image, temp1);
+      // auto temp = std::make_shared<cv::Mat>(temp1.clone());
+      order_queue_->AddData(
+          kImagTopic0,
+          std::make_unique<
+              jarvis::sensor::DispathcData<jarvis::sensor::ImageData>>(
+              jarvis::sensor::ImageData{
+                  jarvis::common::FromUniversal(frame.time * 10),
+                  {std::make_shared<cv::Mat>(frame.images[0].clone()),
+                   std::make_shared<cv::Mat>(frame.images[1].clone())}}));
+    });
+    data_capture_->Rigister([&](const EncoderData& encode) {
+      if (!last_encoder_data_.has_value()) {
+        last_encoder_data_ =
+            Eigen::Vector2i(encode.left_encoder, encode.right_encoder);
+      }
+      const Eigen::Vector2i cur_encode{encode.left_encoder,
+                                       encode.right_encoder};
+      const Eigen::Vector2d delta_encode =
+          (cur_encode - last_encoder_data_.value()) * 0.001;
+      last_encoder_data_ = cur_encode;
+      auto delta_theta = (delta_encode.y() - delta_encode.x()) / kWheelDistance;
+      auto delta_translation = (delta_encode.y() - delta_encode.x()) / 2.0;
+      jarvis::transform::Rigid3d delta_pose(
+          Eigen::Vector3d(delta_translation, 0, 0),
+          Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
+      global_odom_ = global_odom_ * delta_pose;
+      order_queue_->AddData(
+          kOdomTopic,
+          std::make_unique<
+              jarvis::sensor::DispathcData<sensor::OdometryData>>(
+              sensor::OdometryData{
+                  jarvis::common::FromUniversal(encode.time * 10),global_odom_
+                  }));
+
+    });
 
     if (kRecordFlag) {
       data_capture_->Rigister([&](const ImuData& imu) {
@@ -61,7 +158,6 @@ class JarvisBrige {
              << imu.linear_acceleration.x() << " "
              << imu.linear_acceleration.y() << " "
              << imu.linear_acceleration.z();
-
         kOImuFile << info.str() << std::endl;
       });
 
@@ -86,10 +182,15 @@ class JarvisBrige {
   DataCapture* GetDataCapture() { return data_capture_.get(); }
 
  private:
+  static constexpr double kWheelDistance = 0.37;
+  jarvis::transform::Rigid3d global_odom_ =
+      jarvis::transform::Rigid3d::Identity();
+  std::optional<Eigen::Vector2i > last_encoder_data_;
   jarvis_pic::MpcComponent mpc_;
   std::unique_ptr<DataCapture> data_capture_;
   std::unique_ptr<jarvis::sensor::OrderedMultiQueue> order_queue_;
   std::unique_ptr<jarvis::TrajectorBuilder> builder_;
+  std::unique_ptr<jarvis::slip_detect> slip_detect_;
 };
 }  // namespace jarvis_pic
 std::string kDataDir  = "/mnt/UDISK/jarvis/";

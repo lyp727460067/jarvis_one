@@ -22,16 +22,18 @@ int FeaturePerId::endFrame() {
   return start_frame + feature_per_frame.size() - 1;
 }
 
-FeatureManager::FeatureManager(Eigen::Matrix3d _Rs[]) : Rs(_Rs) {
-  for (int i = 0; i < NUM_OF_CAM; i++) ric[i].setIdentity();
-}
+// FeatureManager::FeatureManager(Eigen::Matrix3d _Rs[]) : Rs(_Rs) {
+//   for (int i = 0; i < NUM_OF_CAM; i++) ric[i].setIdentity();
+// }
 
-void FeatureManager::setRic(Eigen::Matrix3d _ric[]) {
-  for (int i = 0; i < NUM_OF_CAM; i++) {
-    ric[i] = _ric[i];
-  }
-}
-
+// void FeatureManager::setRic(Eigen::Matrix3d _ric[]) {
+//   for (int i = 0; i < NUM_OF_CAM; i++) {
+//     ric[i] = _ric[i];
+//   }
+// }
+FeatureManager::FeatureManager(const FeatureManagerOption &options)
+    : options_(options) {}
+//
 void FeatureManager::clearState() { feature.clear(); }
 
 int FeatureManager::getFeatureCount() {
@@ -123,7 +125,7 @@ bool FeatureManager::addFeatureCheckParallax(
                      << parallax_sum / parallax_num * FOCAL_LENGTH;
     // LOG(INFO)<< parallax_sum / parallax_num<<" " <<  MIN_PARALLAX;
     last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
-    return parallax_sum / parallax_num >=  MIN_PARALLAX;
+    return parallax_sum / parallax_num >=  options_.min_parallax;
   }
 }
 
@@ -281,15 +283,15 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
     RCam = Rs[frameCnt - 1] * ric[0];
     PCam = Rs[frameCnt - 1] * tic[0] + Ps[frameCnt - 1];
 
+
     if (solvePoseByPnP(RCam, PCam, pts2D, pts3D)) {
       // trans to w_T_imu
       Rs[frameCnt] = RCam * ric[0].transpose();
       Ps[frameCnt] = -RCam * ric[0].transpose() * tic[0] + PCam;
 
       Eigen::Quaterniond Q(Rs[frameCnt]);
-      // cout << "frameCnt: " << frameCnt <<  " pnp Q " << Q.w() << " " <<
-      // Q.vec().transpose() << endl; cout << "frameCnt: " << frameCnt << " pnp
-      // P " << Ps[frameCnt].transpose() << endl;
+      LOG(INFO) << "frameCnt: " << frameCnt <<  " pnp Q " << Q.w() << " " <<Q.vec().transpose();
+      LOG(INFO)<< "frameCnt: " << frameCnt << " pnp P " << Ps[frameCnt].transpose() ;
     }
   }
 }
@@ -299,7 +301,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
   for (auto &it_per_id : feature) {
     if (it_per_id.estimated_depth > 0) continue;
 
-    if (STEREO && it_per_id.feature_per_frame[0].is_stereo) {
+    if (options_.use_stereo && it_per_id.feature_per_frame[0].is_stereo) {
       int imu_i = it_per_id.start_frame;
       Eigen::Matrix<double, 3, 4> leftPose;
       Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
@@ -325,10 +327,11 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       Eigen::Vector3d localPoint;
       localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
       double depth = localPoint.z();
+      LOG(INFO)<<depth;
       if (depth > 0)
         it_per_id.estimated_depth = depth;
       else
-        it_per_id.estimated_depth = INIT_DEPTH;
+        it_per_id.estimated_depth = options_.init_depth;
       /*
       Vector3d ptsGt = pts_gt[it_per_id.feature_id];
       printf("stereo %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id,
@@ -361,7 +364,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       if (depth > 0)
         it_per_id.estimated_depth = depth;
       else
-        it_per_id.estimated_depth = INIT_DEPTH;
+        it_per_id.estimated_depth = options_.init_depth;
       /*
       Vector3d ptsGt = pts_gt[it_per_id.feature_id];
       printf("motion  %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id,
@@ -411,12 +414,12 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
     // it_per_id->estimated_depth = INIT_DEPTH;
 
     if (it_per_id.estimated_depth < 0.1) {
-      it_per_id.estimated_depth = INIT_DEPTH;
+      it_per_id.estimated_depth = options_.init_depth;
     }
   }
 }
 
-void FeatureManager::removeOutlier(set<int> &outlierIndex) {
+void FeatureManager::removeOutlier(std::set<int> &outlierIndex) {
   std::set<int>::iterator itSet;
   for (auto it = feature.begin(), it_next = feature.begin();
        it != feature.end(); it = it_next) {
@@ -454,7 +457,7 @@ void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R,
         if (dep_j > 0)
           it->estimated_depth = dep_j;
         else
-          it->estimated_depth = INIT_DEPTH;
+          it->estimated_depth = options_.init_depth;
       }
     }
     // remove tracking-lost feature after marginalize

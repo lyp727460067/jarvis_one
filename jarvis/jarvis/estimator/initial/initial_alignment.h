@@ -25,22 +25,39 @@ namespace estimator {
 class ImageFrame {
  public:
   ImageFrame(){};
-  ImageFrame(
-      const std::map<int, std::vector<pair<int, Eigen::Matrix<double, 7, 1>>>>
-          &_points,
-      double _t)
-      : points(_points) , t{_t}, is_key_frame{false} {};
-  std::map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> points;
+  ImageFrame(const std::map<
+                 int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>>
+                 &_points,
+             double _t)
+      : points(_points), t{_t}, is_key_frame{false} {};
+  std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> points;
   double t = 0.0;
   Eigen::Matrix3d R;
   Eigen::Vector3d T;
   IntegrationBase *pre_integration = nullptr;
   bool is_key_frame = false;
 };
-void solveGyroscopeBias(std::map<double, ImageFrame> &all_image_frame,
-                        Eigen::Vector3d *Bgs);
-bool VisualIMUAlignment(std::map<double, ImageFrame> &all_image_frame,
-                        Eigen::Vector3d *Bgs, Eigen::Vector3d &g,
-                        Eigen::VectorXd &x);
+struct AlignmentOption {
+  transform::Rigid3d cam_to_imu;
+  Eigen::Vector3d gravity;
+};
+
+class Alignment {
+ public:
+   explicit Alignment(const AlignmentOption &option) : options_(option) {}
+  void solveGyroscopeBias(std::map<double, ImageFrame> &all_image_frame,
+                          Eigen::Vector3d *Bgs);
+  bool VisualIMUAlignment(std::map<double, ImageFrame> &all_image_frame,
+                          Eigen::Vector3d *Bgs, Eigen::Vector3d &g,
+                          Eigen::VectorXd &x);
+
+ private:
+  AlignmentOption options_;
+  void RefineGravity(std::map<double, ImageFrame> &all_image_frame,
+                     Eigen::Vector3d &g, Eigen::VectorXd &x);
+                     bool LinearAlignment(std::map<double, ImageFrame> &all_image_frame,
+                     Eigen::Vector3d &g, Eigen::VectorXd &x);
+};
+
 }  // namespace estimator
 }  // namespace jarvis

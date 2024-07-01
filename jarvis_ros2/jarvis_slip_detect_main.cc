@@ -39,6 +39,7 @@ uint8_t kRecordFlag = 1;
 uint8_t kDataCaputureType = 0;
 std::ofstream kOImuFile;
 std::ofstream kOPoseFile;
+std::ofstream kSlipFile;
 std::string image_dir;
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
@@ -133,7 +134,7 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
 
   static uint64_t last_time =  time;
   if ((time - last_time) > 10000000) {
-    LOG(INFO)<< "   " << time- last_time;
+    // LOG(INFO)<< "   " << time- last_time;
   }
   last_time = time;
 #ifdef CHECK_DATA
@@ -261,7 +262,7 @@ struct ImageData {
              !result
                   .emplace(GetTimeFromName(file),
                            ImageData{GetTimeFromName(file), GetFromName(file)})
-                  .second,100)
+                  .second,1000)
           << "Image time duplicate..";
     }
     return result;
@@ -370,7 +371,10 @@ int main(int argc, char* argv[]) {
 
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("jarvis_ros2");
-
+  if (kRecordFlag) {
+    kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
+    kSlipFile.open("/tmp/slep_vio_pose.txt", std::ios::out);
+  }
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
   const std::string data_dir(argv[2]);
@@ -383,7 +387,6 @@ int main(int argc, char* argv[]) {
       std::make_unique<jarvis_ros::RosCompont>(node.get());
 
   //
-  auto slip_detect =  slip_detect::FactorSlipDetect(argv[1]);
   // /
   TrackingData tracking_data_temp;
   std::mutex mutex;
@@ -392,62 +395,63 @@ int main(int argc, char* argv[]) {
   const std::string image_file = data_dir + "image/";
   const std::string odom_file = data_dir + "imu.txt";
   //
+  const std::string vslam_yaml_file(argv[1]);
+
+  auto slip_detect = slip_detect::FactorSlipDetect(vslam_yaml_file);
+  //
   std::vector<bool> slip_states;
-  builder_ = slip_detect::FactorSimipleVo(
+  builder_ = std::make_unique<TrajectorBuilder>(
       std::string(argv[1]), [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
         //
-        tracking_data_temp = data;
+        auto tracking_data = data;
         Eigen::Matrix3d rotaion;
         rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
         // LOG(INFO) << rotaion;
         // auto extric = transform::Rigid3d::Rotation(Eigen::Quaterniond(rotaion));
         // tracking_data_temp.data->imu_state.data->pose =
         //     extric * tracking_data_temp.data->imu_state.data->pose;
-        TrackingData& tracking_data = tracking_data_temp;
-
         // {
         //   std::unique_lock<std::mutex> lock(mutex);
         //   cond.wait(lock);
         //   tracking_data = tracking_data_temp;
         // }
         auto start = std::chrono::high_resolution_clock::now();
-        slip_detect->AddPose(
-            slip_detect::TimePose{tracking_data.data->time,
-                                  tracking_data.data->imu_state.data->pose});
-        auto flag = slip_detect->Detect(tracking_data.data->time);
-        slip_states.push_back(flag);
-        // LOG(INFO) << "One frame cost: "
-        //           << std::chrono::duration_cast<std::chrono::milliseconds>(
-        //                  std::chrono::high_resolution_clock::now() - start)
-        //                  .count();
-        // LOG(INFO) << flag;
-        // if (tracking_data.status == 1) {
-        LOG(INFO) << tracking_data.data->imu_state.data->pose;
-        //
+        auto slipe_alignment_pose = tracking_data.data->imu_state.data->pose;
+        if (slip_detect) {
+          slip_detect->AddPose(
+              slip_detect::TimePose{tracking_data.data->time,
+                                    tracking_data.data->imu_state.data->pose});
+          auto flag = slip_detect->Detect(tracking_data.data->time);
+          kSlipFile << std::to_string(uint64_t(jarvis::common::ToUniversal(
+                                                   tracking_data.data->time) *
+                                               1e2))
+                    << " " << int(flag) << std::endl;
 
-        if (slip_states.size() > 10) {
-          slip_states.erase(slip_states.begin());
+          ros_compont->PubBoolMsg(flag);
+          slipe_alignment_pose = slip_detect->ToPoseInOdom(
+              (tracking_data.data->imu_state.data->pose));
         }
-        auto slipe_flag =
-            std::count(slip_states.begin(), slip_states.end(),true) == 10;
-        ros_compont->PubBoolMsg(flag);
+        LOG(INFO) << tracking_data.data->imu_state.data->pose;
+        if (kRecordFlag) {
+          const auto& pose = tracking_data.data->imu_state.data->pose;
+          std::stringstream info;
+          info << std::to_string(uint64_t(
+                      jarvis::common::ToUniversal(tracking_data.data->time) *
+                      1e2))
+               << " " << pose.translation().x() << " " << pose.translation().y()
+               << " " << pose.translation().z() << " " << pose.rotation().w()
+               << " " << pose.rotation().x() << " " << pose.rotation().y()
+               << " " << pose.rotation().z();
+          kOPoseFile << info.str() << std::endl;
+        }
 
-
-        ros_compont->PushMark(
-            {{"vo", slip_detect->ToPoseInOdom(
-                        (tracking_data.data->imu_state.data->pose))}},
-            true);
-
-        auto extric = transform::Rigid3d::Rotation(Eigen::Quaterniond(rotaion));
-        tracking_data_temp.data->imu_state.data->pose =
-            extric * tracking_data_temp.data->imu_state.data->pose;
+        ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
         ros_compont->OnLocalTrackingResultCallback(
             tracking_data, nullptr, transform::Rigid3d::Identity());
         ros_compont->PosePub(tracking_data.data->imu_state.data->pose,
                              transform::Rigid3d::Identity());
         rclcpp::spin_some(node);
-
         cond.notify_one();
       });
 
@@ -464,8 +468,12 @@ int main(int argc, char* argv[]) {
     // slip_detect->AddImage(imag_data);
     // auto flag = slip_detect->Detect(imag_data.time);
     // ros_compont->PubBoolMsg(flag);
+    auto start = std::chrono::high_resolution_clock::now();
     builder_->AddImageData(imag_data);
-
+        LOG(INFO) << "One frame cost: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::high_resolution_clock::now() - start)
+                         .count();
     // cv::imshow("show",*imag_data.image[0]);
     // cv::imshow("show1",*imag_data.image[1]);
     // cv::waitKey(0);

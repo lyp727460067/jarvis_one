@@ -34,6 +34,7 @@
 #include "jarvis/estimator/initial/initial_sfm.h"
 #include "jarvis/estimator/initial/solve_5pts.h"
 #include "jarvis/key_frame_data.h"
+#include "jarvis/option_parse.h"
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/utility/tic_toc.h"
 #include "jarvis/utility/utility.h"
@@ -47,36 +48,51 @@ namespace estimator {
 class ImuExtrapolator;
 
 
+
+struct EstimatorOption {
+  // SlideWindowOption slide_windows_option;
+  FeatureManagerOption feature_manager_option;
+  FeatureTrackerOption feature_track_option;
+  CalibrateOption calibrate_option;
+  ImuOption imu_option;
+  int  use_imu = 1;
+  int use_cam_num = 1;
+  int estimate_td = 1;
+  int estimate_extrinsic =1;
+  double init_td = 0;
+  
+};
+
 class Estimator {
  public:
-  Estimator(const std::string &config_file);
-  std::unique_ptr<TrackingData> AddImageData(
-      const sensor::ImageData &images);
+  Estimator(const EstimatorOption &options);
+//   Estimator(const std::string &config_file);
+  std::unique_ptr<TrackingData> AddImageData(const sensor::ImageData &images);
   //
   void AddImuData(const sensor::ImuData &imu_data);
   ~Estimator();
-
+  bool IsStereo();
   void setParameter();
 
   // interface
   void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
-  void inputIMU(double t, const Vector3d &linearAcceleration,
-                const Vector3d &angularVelocity);
+  void inputIMU(double t, const Eigen::Vector3d &linearAcceleration,
+                const Eigen::Vector3d &angularVelocity);
   void inputFeature(double t, const ImageFeatureTrackerData &featureFrame);
   void inputImage(double t, const cv::Mat &_img,
                   const cv::Mat &_img1 = cv::Mat());
-  void processIMU(double t, double dt, const Vector3d &linear_acceleration,
-                  const Vector3d &angular_velocity);
-  void processImage(const ImageFeatureTrackerData &image,
-                    const double header);
+  void processIMU(double t, double dt,
+                  const Eigen::Vector3d &linear_acceleration,
+                  const Eigen::Vector3d &angular_velocity);
+  void processImage(const ImageFeatureTrackerData &image, const double header);
   void processMeasurements();
-  void changeSensorType(int use_imu, int use_stereo);
 
   // internal
   void clearState();
   bool initialStructure();
   bool visualInitialAlign();
-  bool relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l);
+  bool relativePose(Eigen::Matrix3d &relative_R, Eigen::Vector3d &relative_T,
+                    int &l);
   void slideWindow();
   void slideWindowNew();
   void slideWindowOld();
@@ -84,27 +100,32 @@ class Estimator {
   void vector2double();
   void double2vector();
   bool failureDetection();
-  
-  bool getIMUInterval(double t0, double t1,
-                      vector<pair<double, Eigen::Vector3d>> &accVector,
-                      vector<pair<double, Eigen::Vector3d>> &gyrVector);
+
+  bool getIMUInterval(
+      double t0, double t1,
+      std::vector<std::pair<double, Eigen::Vector3d>> &accVector,
+      std::vector<std::pair<double, Eigen::Vector3d>> &gyrVector);
   bool GetImuInterval(
-    double t0, double t1, vector<pair<double, Eigen::Vector3d>> &accVector,
-    vector<pair<double, Eigen::Vector3d>> &gyrVector);
+      double t0, double t1,
+      std::vector<std::pair<double, Eigen::Vector3d>> &accVector,
+      std::vector<std::pair<double, Eigen::Vector3d>> &gyrVector);
 
   void getPoseInWorldFrame(Eigen::Matrix4d &T);
   void getPoseInWorldFrame(int index, Eigen::Matrix4d &T);
   void predictPtsInNextFrame();
-  void outliersRejection(set<int> &removeIndex);
-  double reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici,
-                           Vector3d &tici, Matrix3d &Rj, Vector3d &Pj,
-                           Matrix3d &ricj, Vector3d &ticj, double depth,
-                           Vector3d &uvi, Vector3d &uvj);
+  void outliersRejection(std::set<int> &removeIndex);
+  double reprojectionError(Eigen::Matrix3d &Ri, Eigen::Vector3d &Pi,
+                           Eigen::Matrix3d &rici, Eigen::Vector3d &tici,
+                           Eigen::Matrix3d &Rj, Eigen::Vector3d &Pj,
+                           Eigen::Matrix3d &ricj, Eigen::Vector3d &ticj,
+                           double depth, Eigen::Vector3d &uvi,
+                           Eigen::Vector3d &uvj);
   void updateLatestStates();
   void fastPredictIMU(double t, Eigen::Vector3d linear_acceleration,
                       Eigen::Vector3d angular_velocity);
   bool IMUAvailable(double t);
-  void initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector);
+  void initFirstIMUPose(
+      std::vector<std::pair<double, Eigen::Vector3d>> &accVector);
 
   enum SolverFlag { INITIAL = 0, NON_LINEAR };
 
@@ -112,49 +133,49 @@ class Estimator {
   std::mutex mProcess;
   std::mutex mBuf;
   std::mutex mPropagate;
-  queue<pair<double, Eigen::Vector3d>> accBuf;
-  queue<pair<double, Eigen::Vector3d>> gyrBuf;
-  queue<pair<double, ImageFeatureTrackerData>> featureBuf;
+  std::queue<std::pair<double, Eigen::Vector3d>> accBuf;
+  std::queue<std::pair<double, Eigen::Vector3d>> gyrBuf;
+  std::queue<std::pair<double, ImageFeatureTrackerData>> featureBuf;
   double prevTime = 0, curTime = 0;
   double prev_time_ = 0;
   bool openExEstimation = false;
 
-  std::thread trackThread;
-  std::thread processThread;
+  // std::thread trackThread;
+  // std::thread processThread;
 
-  std::unique_ptr<FeatureTracker> feature_tracker_=nullptr;
+  std::unique_ptr<FeatureTracker> feature_tracker_ = nullptr;
 
   SolverFlag solver_flag;
   MarginalizationFlag marginalization_flag;
-  Vector3d g;
+  Eigen::Vector3d g;
 
-  Matrix3d ric[2];
-  Vector3d tic[2];
+  Eigen::Matrix3d ric[2];
+  Eigen::Vector3d tic[2];
 
-  Vector3d Ps[(WINDOW_SIZE + 1)];
-  Vector3d Vs[(WINDOW_SIZE + 1)];
-  Matrix3d Rs[(WINDOW_SIZE + 1)];
-  Vector3d Bas[(WINDOW_SIZE + 1)];
-  Vector3d Bgs[(WINDOW_SIZE + 1)];
+  Eigen::Vector3d Ps[(WINDOW_SIZE + 1)];
+  Eigen::Vector3d Vs[(WINDOW_SIZE + 1)];
+  Eigen::Matrix3d Rs[(WINDOW_SIZE + 1)];
+  Eigen::Vector3d Bas[(WINDOW_SIZE + 1)];
+  Eigen::Vector3d Bgs[(WINDOW_SIZE + 1)];
   std::pair<double, ImageFeatureTrackerData> images_[(WINDOW_SIZE + 1)];
   double td = 0.0;
 
-  Matrix3d back_R0, last_R, last_R0;
-  Vector3d back_P0, last_P, last_P0;
+  Eigen::Matrix3d back_R0, last_R, last_R0;
+  Eigen::Vector3d back_P0, last_P, last_P0;
   double Headers[(WINDOW_SIZE + 1)];
 
   IntegrationBase *pre_integrations[(WINDOW_SIZE + 1)];
-  Vector3d acc_0, gyr_0;
+  Eigen::Vector3d acc_0, gyr_0;
 
-  vector<double> dt_buf[(WINDOW_SIZE + 1)];
-  vector<Vector3d> linear_acceleration_buf[(WINDOW_SIZE + 1)];
-  vector<Vector3d> angular_velocity_buf[(WINDOW_SIZE + 1)];
+  std::vector<double> dt_buf[(WINDOW_SIZE + 1)];
+  std::vector<Eigen::Vector3d> linear_acceleration_buf[(WINDOW_SIZE + 1)];
+  std::vector<Eigen::Vector3d> angular_velocity_buf[(WINDOW_SIZE + 1)];
 
   int frame_count = 0;
   int sum_of_outlier = 0, sum_of_back = 0, sum_of_front = 0, sum_of_invalid = 0;
   int inputImageCnt = 0;
 
-  std::unique_ptr<FeatureManager> f_manager=nullptr;
+  std::unique_ptr<FeatureManager> f_manager = nullptr;
   MotionEstimator m_estimator;
   InitialEXRotation initial_ex_rotation;
 
@@ -162,9 +183,9 @@ class Estimator {
   bool is_valid = false, is_key = false;
   bool failure_occur = false;
 
-  vector<Vector3d> point_cloud;
-  vector<Vector3d> margin_cloud;
-  vector<Vector3d> key_poses;
+  std::vector<Eigen::Vector3d> point_cloud;
+  std::vector<Eigen::Vector3d> margin_cloud;
+  std::vector<Eigen::Vector3d> key_poses;
   double initial_timestamp = 0.0;
 
   double para_Pose[WINDOW_SIZE + 1][SIZE_POSE];
@@ -178,9 +199,9 @@ class Estimator {
   int loop_window_index = 0;
   std::unique_ptr<ImuExtrapolator> imu_extrapolator_;
   MarginalizationInfo *last_marginalization_info = nullptr;
-  vector<double *> last_marginalization_parameter_blocks;
+  std::vector<double *> last_marginalization_parameter_blocks;
 
-  map<double, ImageFrame> all_image_frame;
+  std::map<double, ImageFrame> all_image_frame;
   IntegrationBase *tmp_pre_integration = nullptr;
 
   Eigen::Vector3d initP;
@@ -193,11 +214,13 @@ class Estimator {
 
   bool initFirstPoseFlag = false;
   bool initThreadFlag = false;
+  const EstimatorOption options_;
+  int estimate_extrinsic_ = 2;
+  Alignment alignment_;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 
 }  // namespace estimator
 }  // namespace jarvis
-
 
 #endif

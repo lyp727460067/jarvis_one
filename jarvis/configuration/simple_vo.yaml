@@ -1,12 +1,7 @@
 %YAML:1.0
 
-left_mask_id: mask.png
-right_mask_id: r_mask.png
-cam0_calib: "ld_cam0_77.yaml"
-cam1_calib: "ld_cam1_77.yaml"
 ###slipedetect
 type:   2
-vio_yam:   estimator_77.yaml
 min_disparity_num : 20
 max_disparity : 1
 imu_cam_time_offset : -0.1
@@ -15,56 +10,17 @@ zero_velocity_odom_delte_s_threash_hold : 0.1
 pose_odom_err_s_threash_hold : 0.1
 pose_odom_err_theta_threash_hold : 10  #deg
 ## simplevio
-min_track_num: 20
+###
+min_track_num: 6
 min_pnp_inlier_num : 15
 min_convisible_count : 100
-
-image_width: 640
-image_height: 544
-body_T_cam0: !!opencv-matrix
-   rows: 4
-   cols: 4
-   dt: d
-   data:  [0.004278094939249882, -0.008781514712983385, -0.9999522903134112, -0.03265168587124466,
-          0.9999883505210795, 0.002272838395565302, 0.00425828929951011, -0.03861822650981798,
-          0.0022353357290220144, -0.9999588587561857, 0.00879113583135066, 0.04237282279723379,
-          0.0, 0.0, 0.0, 1.0]
-
-   # data: [0.004119637854333169, 0.9999896970386508, 0.0019064103693632872, -0.01982065921660834, 
-   #        0.018578720105320412, -0.0019826356023358582, 0.9998254349211748, 0.04645290656552592, 
-   #        0.9998189134754338, -0.004083500044768096, -0.018586696430163863, -0.08745878678942877, 
-   #        0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000]
-
-
-
-body_T_cam1: !!opencv-matrix
-   rows: 4
-   cols: 4
-   dt: d
-   data: [0.00805418108864972, -0.012976385246538658, -0.9998833649946003, -0.03426593099017232, 
-          0.9998453634446182, -0.01552732376971716, 0.008255387020022986, 0.041688009792324746, 
-          -0.015632637822556528, -0.9997952368572698, 0.01284931874555939, 0.04227918368552841, 
-           0.000000000000, 0.000000000000, 0.000000000000, 1.000000000000]
-
-
-
-cam2RobotT: !!opencv-matrix
-   rows: 4
-   cols: 4
-   dt: f
-   data: [ -7.36131100e-03, -3.62288266e-01, 9.32037055e-01, 4.28676665e-01,
-            -9.99971330e-01, 1.00509240e-03, -7.50717660e-03,3.51616740e-02,
-            1.78297842e-03, -9.32065606e-01, -3.62285256e-01,2.17624307e-01,
-            0., 0., 0., 1. ]
-
-
 #feature traker paprameters
-max_cnt: 80            # max feature number in feature tracking
+max_cnt: 100            # max feature number in feature tracking
 min_dist: 30            # min distance between two features 
 fast_th: 10            # min distance between two features 
 
 flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
 lk_win_size : 21
-lk_pre_max_layer : 5
+lk_pre_max_layer : 4
 
 

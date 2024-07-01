@@ -1,0 +1,52 @@
+%YAML:1.0
+---
+SideLeftModelPath: /oem/bin/sys_data/calibrate_file/side_left/272X320/model
+SideLeftModelPath2: /oem/bin/sys_data/calibrate_file/side_left/544X640/model
+SideRightModelPath: /oem/bin/sys_data/calibrate_file/side_right/272X320/model
+SideRightModelPath2: /oem/bin/sys_data/calibrate_file/side_right/544X640/model
+ZMQ_PC_IP: "tcp://192.168.78.56:5555"
+calibrateCam2RobotImagePath: "/mnt/UDISK/cam_calib/left_1.jpg"
+calibrateCam2RobotImagePath_side_left: "/mnt/UDISK/cam_calib/side_left_1.jpg"
+calibrateCam2RobotImagePath_side_right: "/mnt/UDISK/cam_calib/side_right_1.jpg"
+calibrateImagesPathSideLeft: /mnt/UDISK/cam_calib/left/
+calibrateImagesPathSideRight: /mnt/UDISK/cam_calib/right/
+calibrateImagesPathStereo: /mnt/UDISK/cam_calib/stereo/
+calibrateOutPutPath: /oem/bin/sys_data/calibrate_file/stereo/
+calibrateOutPutPath_side_left: /oem/bin/sys_data/calibrate_file/side_left/
+calibrateOutPutPath_side_right: /oem/bin/sys_data/calibrate_file/side_right/
+cam2RobotT: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [ -7.36131100e-03, -3.62288266e-01, 9.32037055e-01,
+       4.28676665e-01, -9.99971330e-01, 1.00509240e-03, -7.50717660e-03,
+       3.51616740e-02, 1.78297842e-03, -9.32065606e-01, -3.62285256e-01,
+       2.17624307e-01, 0., 0., 0., 1. ]
+cam2RobotT_side_left: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [ 9.99890327e-01, -4.16146498e-03, -1.42117981e-02,
+       3.33457142e-01, 1.10881636e-02, -4.25727725e-01, 9.04783309e-01,
+       1.89459831e-01, -9.81558114e-03, -9.04841721e-01, -4.25634891e-01,
+       1.60229102e-01, 0., 0., 0., 1. ]
+cam2RobotT_side_right: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [ -9.99864340e-01, -1.24346660e-02, -1.08016748e-02,
+       3.28482658e-01, 6.72838837e-03, 2.90235907e-01, -9.56931531e-01,
+       -2.00846240e-01, 1.50341569e-02, -9.56874371e-01, -2.90112913e-01,
+       1.59431845e-01, 0., 0., 0., 1. ]
+enablePointCloud: 1
+hasCam2RobotT: 1
+hasCam2RobotT_side_left: 1
+hasCam2RobotT_side_right: 1
+hasCamModel_side_left: 1
+hasCamModel_side_right: 1
+hasStereoModel: 1
+left_right_camera_invert: 0
+saveDataPath: /mnt/UDISK/data/out/
+showInZMQscript: 0
+stereoModelPath: /oem/bin/sys_data/calibrate_file/stereo/320X272/model
+stereoModelPath2: /oem/bin/sys_data/calibrate_file/stereo/640X544/model

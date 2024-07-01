@@ -15,7 +15,6 @@ namespace jarvis {
 namespace estimator {
 class FeatureTracker;
 }
-}  // namespace jarvis
 
 namespace slip_detect {
 class SimpleVo;
@@ -80,5 +79,5 @@ class SlipDetect {
 std::unique_ptr<SlipDetect> FactorSlipDetect(
     const std::string& file);
 }  // namespace jarvis_pic
-
+}
 #endif

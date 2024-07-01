@@ -5,13 +5,13 @@
 
 #include "glog/logging.h"
 #include "jarvis/estimator/featureTracker/feature_tracker.h"
-#include "opencv2/opencv.hpp"
-#include "transform/transform.h"
 #include "jarvis/estimator/parameters.h"
+#include "opencv2/opencv.hpp"
 #include "option_parse.h"
+#include "transform/transform.h"
 //
 //
-using namespace jarvis;
+namespace jarvis {
 namespace slip_detect {
 
 namespace {
@@ -23,7 +23,6 @@ transform::Rigid3d ToRigid3d(const cv::Mat& pose) {
   cv::cv2eigen(pose.rowRange(0, 3).col(3), t);
   return transform::Rigid3d(t, Eigen::Quaterniond(r));
 }
-
 
 template <typename T>
 inline T NormalizeAngle(const T& angle_radians) {
@@ -88,8 +87,8 @@ struct RReProjectionErr {
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> t1(t1_);
     Eigen::Map<const Eigen::Quaternion<T>> q1(q1_);
     Eigen::Matrix<T, 3, 1> project_p =
-     extric_.rotation().cast<T>() *  q1   * map_point_.template cast<T>() +
-        extric_.rotation().cast<T>() * (t1)  + extric_.translation().cast<T>();
+        extric_.rotation().cast<T>() * q1 * map_point_.template cast<T>() +
+        extric_.rotation().cast<T>() * (t1) + extric_.translation().cast<T>();
     T x_normal = project_p[0] / project_p[2];
     T y_normal = project_p[1] / project_p[2];
     residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));
@@ -101,7 +100,7 @@ struct RReProjectionErr {
                                     const transform::Rigid3d& extric,
                                     double factor) {
     return new ceres::AutoDiffCostFunction<RReProjectionErr, 2, 3, 4>(
-        new RReProjectionErr(nor_poit, map_point, extric,factor));
+        new RReProjectionErr(nor_poit, map_point, extric, factor));
   }
 
  private:
@@ -143,14 +142,14 @@ class TranslationCostFunctor {
 
 class RotationDeltaCostFunctor {
  public:
-  static ceres::CostFunction *Create(const Eigen::Quaterniond &rotation,
+  static ceres::CostFunction* Create(const Eigen::Quaterniond& rotation,
                                      const double factor) {
     return new ceres::AutoDiffCostFunction<RotationDeltaCostFunctor, 3, 4>(
         new RotationDeltaCostFunctor(rotation, factor));
   }
 
   template <typename T>
-  bool operator()(const T *const q1_, T *residual) const {
+  bool operator()(const T* const q1_, T* residual) const {
     Eigen::Map<const Eigen::Quaternion<T>> q1(q1_);
     Eigen::Matrix<T, 3, 1> delta =
         T(2.0) * (q1.inverse() * rotaion_.template cast<T>()).vec();
@@ -161,14 +160,13 @@ class RotationDeltaCostFunctor {
   }
 
  private:
-  explicit RotationDeltaCostFunctor(const Eigen::Quaterniond &rotation,
-                                    const double &factor)
+  explicit RotationDeltaCostFunctor(const Eigen::Quaterniond& rotation,
+                                    const double& factor)
       : factor_(factor), rotaion_(rotation) {}
 
   const double factor_;
   const Eigen::Quaterniond rotaion_;
 };
-
 
 transform::Rigid3d OptimizationPose(
     const std::vector<Eigen::Vector3d>& map_points,
@@ -196,7 +194,7 @@ transform::Rigid3d OptimizationPose(
     // LOG(INFO)<<normal_2d[i].transpose()<<" "<<map_points[i].transpose();
     problem.AddResidualBlock(
         ReProjectionErr::Creat(normal_2d[i], map_points[i], weight[0]),
-     new ceres::HuberLoss(0.5), traslation.data(), rotation.coeffs().data());
+        new ceres::HuberLoss(0.5), traslation.data(), rotation.coeffs().data());
 
     problem.SetParameterization(rotation.coeffs().data(), quaternion_local);
   }
@@ -210,8 +208,8 @@ transform::Rigid3d OptimizationPose(
 
   ceres::Solver::Options options;
   options.minimizer_progress_to_stdout = false;
-  options.max_num_iterations = 2;
-  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  options.max_num_iterations = 6;
+  options.linear_solver_type = ceres::SPARSE_SCHUR;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   // std::cout << summary.FullReport() << '\n';
@@ -223,13 +221,11 @@ transform::Rigid3d OptimizationPose(
   //     rotation[2]});
 }
 
-
 transform::Rigid3d StereoOptimizationPose(
     const std::vector<Eigen::Vector3d>& map_points,
     const std::vector<Eigen::Vector2d>& normal_2d,
-    const std::map<int,Eigen::Vector2d>& rnormal_2d,
-    const transform::Rigid3d& init_pose, 
-    const transform::Rigid3d& extric, 
+    const std::map<int, Eigen::Vector2d>& rnormal_2d,
+    const transform::Rigid3d& init_pose, const transform::Rigid3d& extric,
     const std::array<double, 2>& weight) {
   ceres::Problem problem;
   // ceres::LocalParameterization* quaternion_manifold = new
@@ -348,7 +344,7 @@ std::pair<transform::Rigid3d, std::vector<bool>> ComputePoseWithPnp(
   auto map_temp = EigenVectorToCvVector(map_points);
   auto normal_temp = EigenVectorToCvVector2f(normal_2d);
   solvePnPRansac(map_temp, normal_temp, K, D, rvec, t, true, 200, 2.0 / 377.0,
-                 0.99, inliers,1);
+                 0.99, inliers, 1);
   std::vector<bool> status(map_points.size(), false);
   for (int i = 0; i < inliers.rows; i++) {
     int n = inliers.at<int>(i);
@@ -371,10 +367,9 @@ cv::KeyPoint EigenToCv(const Eigen::Vector2d& p) {
 
 class SimpleVo::TrakcerImpl {
  public:
-  explicit TrakcerImpl(const SimpleVoOption&option ):options_(option),
-  cam0_cam1_extrix_(option.tracker_option.extric)
-  {
-    LOG(INFO)<<cam0_cam1_extrix_;
+  explicit TrakcerImpl(const SimpleVoOption& option)
+      : options_(option), cam0_cam1_extrix_(option.tracker_option.extric) {
+    LOG(INFO) << cam0_cam1_extrix_;
   }
   struct Frame {
     jarvis::common::Time time;
@@ -394,11 +389,10 @@ class SimpleVo::TrakcerImpl {
   const jarvis::transform::Rigid3d cam0_cam1_extrix_;
   jarvis::transform::Rigid3d velocity_;
   jarvis::transform::Rigid3d last_pose_;
-  uint8_t tracking_state_=0;
+  uint8_t tracking_state_ = 0;
   std::unique_ptr<Frame> reference_frame_;
   SimpleVoOption options_;
 };
-
 
 //
 TrackingData ExtractKeyFrameMapPoints(
@@ -421,7 +415,7 @@ TrackingData ExtractKeyFrameMapPoints(
   result.data->image =
       std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
 
-  LOG(INFO)<<"1";
+  LOG(INFO) << "1";
   return result;
 }
 //
@@ -432,14 +426,14 @@ TrackingData SimpleVo::TrakcerImpl::AddImageData(
     return ComputePose(frame);
   }
   //
-  LOG(INFO)<<"Initlize depth...";
+  LOG(INFO) << "Initlize depth...";
   std::map<uint64_t, double> new_depths;
   for (const auto& p : frame.data->features) {
     if (p.second.camera_features.size() != 2) continue;
-    auto const points =
-        TriangulatePoint({transform::Rigid3d::Identity(), cam0_cam1_extrix_.inverse()},
-                         {p.second.camera_features[0].normal_points,
-                          p.second.camera_features[1].normal_points});
+    auto const points = TriangulatePoint(
+        {transform::Rigid3d::Identity(), cam0_cam1_extrix_.inverse()},
+        {p.second.camera_features[0].normal_points,
+         p.second.camera_features[1].normal_points});
     auto const points_in_r = cam0_cam1_extrix_.inverse() * points;
     if (points.z() > 0 && points_in_r.z() > 0) {
       new_depths.emplace(p.first, points.z());
@@ -473,23 +467,24 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
   for (const auto& p : frame.data->features) {
     if (p.second.camera_features.size() != 2) continue;
     // if (reference_frame_->depths.count(p.first) == 0) {
-    auto const points =
-        TriangulatePoint({transform::Rigid3d::Identity(), cam0_cam1_extrix_.inverse()},
-                         {p.second.camera_features[0].normal_points,
-                          p.second.camera_features[1].normal_points});
+    auto const points = TriangulatePoint(
+        {transform::Rigid3d::Identity(), cam0_cam1_extrix_.inverse()},
+        {p.second.camera_features[0].normal_points,
+         p.second.camera_features[1].normal_points});
     auto const points_in_r = cam0_cam1_extrix_.inverse() * points;
-    const auto points_normal = points/points.z(); 
-    auto const err =  points_normal-p.second.camera_features[0].normal_points;
-    auto const err1 =  points_in_r/points_in_r.z()  -p.second.camera_features[1].normal_points;
+    const auto points_normal = points / points.z();
+    auto const err = points_normal - p.second.camera_features[0].normal_points;
+    auto const err1 = points_in_r / points_in_r.z() -
+                      p.second.camera_features[1].normal_points;
 
-    if(err.squaredNorm()>3.991/377)continue;
-    if(err1.squaredNorm()>3.991/377)continue;
+    if (err.squaredNorm() > 3.991 / 377) continue;
+    if (err1.squaredNorm() > 3.991 / 377) continue;
     if (points.z() > 0 && points_in_r.z() > 0
         // && points.z()<10&& points_in_r.z()<10
     ) {
       // LOG(INFO) << points.transpose();
-    // LOG(INFO)<<(points/points.z()).head<2>().transpose();  
-    // LOG(INFO)<<p.second.camera_features[0].normal_points.transpose();
+      // LOG(INFO)<<(points/points.z()).head<2>().transpose();
+      // LOG(INFO)<<p.second.camera_features[0].normal_points.transpose();
       new_depths.emplace(p.first, points.z());
       map_depths.emplace(p.first, points);
     }
@@ -523,7 +518,7 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
     }
   }
   //
-  if (map_points.size() < (size_t)( options_.min_track_num)) {
+  if (map_points.size() < (size_t)(options_.min_track_num)) {
     LOG(WARNING) << "map_points.size:  " << map_points.size()
                  << " < options_.min_track_num " << options_.min_track_num;
     reference_frame_ = std::make_unique<Frame>(
@@ -532,23 +527,25 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
     result.data->imu_state.data->pose = reference_frame_->pose;
     return result;
   }
-  const auto init_pose = reference_frame_->pose.inverse()* last_pose_ *velocity_;
+  const auto init_pose =
+      reference_frame_->pose.inverse() * last_pose_ * velocity_;
   // auto relative_pose =
   //     ComputePoseWithPnp(map_points, normal_2d);
-  LOG(INFO)<<cam0_cam1_extrix_;
+  LOG(INFO) << cam0_cam1_extrix_;
   auto relative_pose = StereoOptimizationPose(map_points, normal_2d, rnormal_2d,
                                               transform::Rigid3d::Identity(),
-                                              cam0_cam1_extrix_, {10, 10});
+                                              cam0_cam1_extrix_, {377, 377});
   int inli_coutn = 100;
   // auto inli_coutn =
-  //     std::count(relative_pose.second.begin(), relative_pose.second.end(), 1);
+  //     std::count(relative_pose.second.begin(), relative_pose.second.end(),
+  //     1);
   // // if (relative_pose.first.translation().norm() > 4.5) {
   // //   velocity_ = transform::Rigid3d::Identity();
   // //   relative_pose.first = transform::Rigid3d::Identity();
   // // }
   // if(relative_pose.first.translation().norm()>2){
-  //   relative_pose.first = transform::Rigid3d::Identity(); 
-  // } 
+  //   relative_pose.first = transform::Rigid3d::Identity();
+  // }
   // auto new_pose = reference_frame_->pose * relative_pose.first.inverse();
   // velocity_ = last_pose_.inverse() * relative_pose.first.inverse();
   // last_pose_ = new_pose;
@@ -556,12 +553,12 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
   //
   result.data->imu_state.data->pose = new_pose;
   if (IsKeyFrame(frame) || inli_coutn < options_.min_pnp_inlier_num) {
-    if(inli_coutn < options_.min_pnp_inlier_num){
-        LOG(WARNING) << "Pnp Ilie " << inli_coutn
-                 << " < options_.min_pnp_inlier_num "
-                 << options_.min_pnp_inlier_num;
+    if (inli_coutn < options_.min_pnp_inlier_num) {
+      LOG(WARNING) << "Pnp Ilie " << inli_coutn
+                   << " < options_.min_pnp_inlier_num "
+                   << options_.min_pnp_inlier_num;
     }
-    LOG(INFO)<<"New Key frame.";
+    LOG(INFO) << "New Key frame.";
     reference_frame_ = std::make_unique<Frame>(
         Frame{common::Time(common::FromSeconds(frame.data->time)), new_pose,
               frame, std::move(new_depths)});
@@ -574,7 +571,7 @@ SimpleVo::SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back) {
   ParseYAMLOption(option.config_file, &feat_option);
   feature_tracker_ =
       std::make_unique<jarvis::estimator::FeatureTracker>(feat_option);
-  tracker_=  std::make_unique<TrakcerImpl>(option);
+  tracker_ = std::make_unique<TrakcerImpl>(option);
   call_back_ = std::move(call_back);
 }
 
@@ -598,16 +595,17 @@ std::unique_ptr<jarvis::TrajectorBuilder> FactorSimipleVo(
   fsSettings["type"] >> type;
   fsSettings["vio_yam"] >> vio_yam;
 
-  if(type==2){
-      int pn = file.find_last_of('/');
-      std::string config_path = file.substr(0, pn);
-      auto const vio_yaml_file = config_path + "/" + vio_yam;
-      LOG(INFO)<<vio_yaml_file ;
-      return  std::make_unique<TrajectorBuilder>(
-      vio_yaml_file, std::move(call_back));
+  if (type == 2) {
+    int pn = file.find_last_of('/');
+    std::string config_path = file.substr(0, pn);
+    auto const vio_yaml_file = config_path + "/" + vio_yam;
+    LOG(INFO) << vio_yaml_file;
+    return std::make_unique<TrajectorBuilder>(vio_yaml_file,
+                                              std::move(call_back));
   }
   SimpleVoOption simple_vo_option{file};
   ParseYAMLOption(file, &simple_vo_option);
   return std::make_unique<SimpleVo>(simple_vo_option, std::move(call_back));
 }
 }  // namespace slip_detect
+}  // namespace jarvis

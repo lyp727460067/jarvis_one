@@ -70,13 +70,21 @@ class FeaturePerId {
 
   int endFrame();
 };
+struct FeatureManagerOption {
+  std::vector<transform::Rigid3d> extric_camera_to_imu;
+  bool use_stereo =true;
+  double init_depth = 5.0;
+  double min_parallax = 1 / 377;
+
+};
 
 class FeatureManager {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  FeatureManager(Eigen::Matrix3d _Rs[]);
+  // FeatureManager(Eigen::Matrix3d _Rs[]);
+  FeatureManager(const FeatureManagerOption &options);
 
-  void setRic(Eigen::Matrix3d _ric[]);
+  // void setRic(Eigen::Matrix3d _ric[]);
   void clearState();
   int getFeatureCount();
   bool addFeatureCheckParallax(int frame_count,
@@ -104,8 +112,8 @@ class FeatureManager {
                             Eigen::Matrix3d new_R, Eigen::Vector3d new_P);
   void removeBack();
   void removeFront(int frame_count);
-  void removeOutlier(set<int> &outlierIndex);
-  list<FeaturePerId> feature;
+  void removeOutlier(std::set<int> &outlierIndex);
+  std::list<FeaturePerId> feature;
   int last_track_num = 0;
   double last_average_parallax = 0.0;
   int new_feature_num = 0;
@@ -113,8 +121,9 @@ class FeatureManager {
 
  private:
   double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
-  const Eigen::Matrix3d *Rs = nullptr;
-  Eigen::Matrix3d ric[2];
+  // const Eigen::Matrix3d *Rs = nullptr;
+  // Eigen::Matrix3d ric[2];
+  FeatureManagerOption options_;
 };
 }  // namespace estimator
 }  // namespace jarvis

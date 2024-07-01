@@ -40,7 +40,7 @@ int NUM_OF_CAM;
 int STEREO;
 int USE_IMU;
 int MULTIPLE_THREAD;
-map<int, Eigen::Vector3d> pts_gt;
+std::map<int, Eigen::Vector3d> pts_gt;
 std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
 std::string FISHEYE_MASK;
 std::vector<std::string> CAM_NAMES;
@@ -101,8 +101,8 @@ void readParameters(std::string config_file) {
 
   SOLVER_TIME = fsSettings["max_solver_time"];
   NUM_ITERATIONS = fsSettings["max_num_iterations"];
-  MIN_PARALLAX = 1;//fsSettings[""];
-  MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
+  // MIN_PARALLAX = 1;//fsSettings[""];
+  // MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
 
   fsSettings["output_path"] >> OUTPUT_FOLDER;
   VINS_RESULT_PATH = OUTPUT_FOLDER + "/vio.csv";
@@ -172,7 +172,7 @@ void readParameters(std::string config_file) {
     TIC.push_back(T.block<3, 1>(0, 3));
   }
 
-  INIT_DEPTH = 5.0;
+  // INIT_DEPTH = 5.0;
   BIAS_ACC_THRESHOLD = 0.1;
   BIAS_GYR_THRESHOLD = 0.1;
 

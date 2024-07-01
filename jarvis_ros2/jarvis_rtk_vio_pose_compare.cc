@@ -88,6 +88,60 @@ struct FusionData {
   uint64_t time;
   Eigen::Vector3d p;
 };
+jarvis::transform::Rigid3d kOdom = jarvis::transform::Rigid3d::Identity();
+struct OdomData {
+  uint64_t time;
+  Eigen::Vector3d translation;
+  Eigen::Quaterniond rotation;
+  static std::string Name() { return "Odom"; }
+  std::unique_ptr<sensor::Data> ToPatchData() {
+    return std::make_unique<sensor::DispathcData<sensor::OdometryData>>(
+        sensor::OdometryData{
+          common::FromUniversal(time /100), transform::Rigid3d(translation,
+                                                 rotation)
+        });
+  }
+
+  void ToOdom(int32 l, int32 r) {
+    static int32_t last_l = l;
+    static int32_t last_r = r;
+    double delta_l = (l - last_l)*0.001;
+    double delta_r = (r - last_r)*0.001;
+    last_l = l;
+    last_r = r;
+    auto delta_theta = (delta_r - delta_l) / kWheelDistance;
+    // LOG(INFO)<<common::RadToDeg(delta_theta);
+    auto delta_translation = (delta_l + delta_r) / 2.0;
+    jarvis::transform::Rigid3d delta_pose(
+        Eigen::Vector3d(delta_translation, 0, 0),
+        Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
+    kOdom = kOdom * delta_pose;
+    translation = kOdom.translation();
+    rotation = kOdom.rotation();
+  }
+  static constexpr  double kWheelDistance =0.37;
+  static std::map<uint64_t, OdomData> Parse(const std::string& dir_file);
+};
+
+std::istringstream& operator>>(std::istringstream& ifs, OdomData& odom_data) {
+  std::string type;
+  ifs >> type;
+  if (type != "odom") throw "Not odom";
+  uint64_t time;
+  ifs >> time;
+  uint64_t un_time;
+  // ifs >> un_time;
+  //
+  int un_count = 0;
+  // ifs>>un_count;
+
+  odom_data.time = time;
+  int32_t left_encoder;
+  int32_t right_encoder;
+  ifs >> left_encoder >> right_encoder;
+  odom_data.ToOdom(left_encoder, right_encoder);
+  return ifs;
+}
 //
 double Minute2Degree(double minute){
     return minute / static_cast<double>(60.0);
@@ -140,9 +194,9 @@ std::istringstream& operator>>(std::istringstream& ifs, Pose& pose) {
 
   ifs >> pose.p.x() >> pose.p.y() >> pose.p.z() >> pose.q.w() >> pose.q.x() >>
       pose.q.y() >> pose.q.z();
-   pose.p.z()  = 0;
-   pose.p.x() *=1.06;
-   pose.p.y() *=1.01;
+  //  pose.p.z()  = 0;
+  //  pose.p.x() *=1.06;
+  //  pose.p.y() *=1.01;
   // LOG(INFO)<<pose.time;
   Eigen::Quaterniond ex_r(0.983681, -0.029403, -0.174547 ,-0.0322581);
   auto extirc =  transform::Rigid3d(Eigen::Vector3d(0.451,0,0),ex_r.inverse());
@@ -199,6 +253,16 @@ std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
   return result;
 }
 //
+std::vector<Pose> OdomToPose(const std::vector<OdomData>& datas) {
+  std::vector<Pose> result;
+  for (const auto& d : datas) {
+    result.push_back(Pose{d.time, 0, d.translation, d.rotation});
+    // LOG(INFO)<<d.time;
+  }
+  return result;
+}
+
+//
 std::vector<Pose> FusionToPose(const std::vector<FusionData>& datas) {
   std::vector<Pose> result;
   for (const auto& d : datas) {
@@ -227,7 +291,7 @@ std::unique_ptr < jarvis_pic::PoseOptimization >
   for (int i = 0; pose_alignment.PoseSize() < lenth&&i<vio_data.size(); i++) {
     if(vio_data[i].time>(rt_data.back().time-1000))break;
     l++;
-    if(l>=1000)break;
+    if(l>=50000)break;
     pose_alignment.AddPose(jarvis_pic::PoseData{
         common::FromUniversal(static_cast<int64_t>(vio_data[i].time / 100)),
         transform::Rigid3d(vio_data[i].p, vio_data[i].q)
@@ -300,6 +364,7 @@ void PubPoseWithMark(rclcpp::Node* nh,
 }
 std::ofstream ate_err_file("/tmp/ate.txt");
 std::ofstream rpe_err_file("/tmp/rpe.txt");
+constexpr int win_size = 500;
 void ComputeErro(const std::vector<Pose>& base_data,
                  const std::vector<Pose>& target_data) {
   //
@@ -314,7 +379,7 @@ void ComputeErro(const std::vector<Pose>& base_data,
     std::array<double, 2> max_min{0, 0};
     double sum_erro = 0;
     int val_lenth = 0;
-    for (int i = 0; i < target_data.size(); i++) {
+    for (int i =  0; i < target_data.size(); i++) {
       common::Time target_data_time_point =
           common::FromUniversal(target_data[i].time / 100);
       if (!base_inter_polateion.Has(target_data_time_point)) continue;
@@ -353,28 +418,31 @@ void ComputeErro(const std::vector<Pose>& base_data,
     std::array<double, 2> max_min{0, 0};
     double sum_erro = 0;
     int val_lenth = 0;
-    for (int i = 1; i < target_data.size(); i++) {
+    for (int i = win_size+1; i < target_data.size(); i++) {
       //
-      common::Time target_data_time_point =
-          common::FromUniversal(target_data[i].time / 100);
-      common::Time target_pre_data_time_point =
-          common::FromUniversal(target_data[i - 1].time / 100);
-      //
-      if (!base_inter_polateion.Has(target_data_time_point)) continue;
-      if (!base_inter_polateion.Has(target_pre_data_time_point)) continue;
-      const auto base_pose =
-          base_inter_polateion.Lookup(target_data_time_point);
-      //
-      const auto pre_base_pose =
-          base_inter_polateion.Lookup(target_pre_data_time_point);
-      const auto re_pose =
-          transform::Rigid3d(target_data[i - 1].p, target_data[i - 1].q)
-              .inverse() *
-          transform::Rigid3d(target_data[i].p, target_data[i].q);
-      const auto re_base_pose = pre_base_pose.inverse() * base_pose;
+      double distance = 0.0;
+      for (int j = win_size ; j != 0; j--) {
+        common::Time target_data_time_point =
+            common::FromUniversal(target_data[i - j].time / 100);
+        common::Time target_pre_data_time_point =
+            common::FromUniversal(target_data[i - 1 - j].time / 100);
+        //
+        if (!base_inter_polateion.Has(target_data_time_point)) continue;
+        if (!base_inter_polateion.Has(target_pre_data_time_point)) continue;
+        const auto base_pose =
+            base_inter_polateion.Lookup(target_data_time_point);
+        //
+        const auto pre_base_pose =
+            base_inter_polateion.Lookup(target_pre_data_time_point);
+        const auto re_pose =
+            transform::Rigid3d(target_data[i - 1].p, target_data[i - 1 - j].q)
+                .inverse() *
+            transform::Rigid3d(target_data[i].p, target_data[i].q);
+        const auto re_base_pose = pre_base_pose.inverse() * base_pose;
 
-      const double distance =
-          (re_pose.inverse() * re_base_pose).translation().head<2>().norm();
+        distance +=
+            (re_pose.inverse() * re_base_pose).translation().head<2>().norm();
+      }
 
       //
       if (i > 50) {
@@ -427,7 +495,8 @@ int main(int argc, char* argv[]) {
   //
   std::string vio_pose_file(argv[1]);
   std::string rtk_pose_file(argv[2]);
-  auto vio_data = ReadFile<Pose>(vio_pose_file);
+  auto vio_data = OdomToPose( ReadFile<OdomData>(vio_pose_file));
+  // auto vio_data = ReadFile<Pose>(vio_pose_file);
   // auto rtk_data =  FusionToPose(ReadFile<FusionData>(rtk_pose_file));
 
   auto rtk_data = RtkToPose(ReadFile<RtkData>(rtk_pose_file));
@@ -442,8 +511,8 @@ int main(int argc, char* argv[]) {
   for (auto& p : rtk_data) {
     auto correct_pose =
         (*local_to_rtk_transform) * transform::Rigid3d(p.p, p.q);
-    p.p = correct_pose.translation();
-    p.q = correct_pose.rotation();
+    // p.p = correct_pose.translation();
+    // p.q = correct_pose.rotation();
 
     correct_vio_pose_file << p.time << " " << p.p.x() << " " << p.p.y()
                           << " " << p.p.z() << std::endl;
@@ -454,7 +523,7 @@ int main(int argc, char* argv[]) {
   }
   correct_rtk_pose_file.close();
   correct_vio_pose_file.close();
-  ComputeErro(rtk_data, vio_data);
+  // ComputeErro(rtk_data, vio_data);
   
   
   std::map<std::string, std::vector<Pose>> poses{
