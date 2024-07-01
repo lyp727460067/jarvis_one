@@ -2,7 +2,7 @@
 #include <jarvis/estimator/featureTracker/feature_tracker.h>
 #include "jarvis/option_parse.h"
 #include <opencv2/core/eigen.hpp>
-#include "yaml.h"
+#include "yaml-cpp/yaml.h"
 #include "opencv2/opencv.hpp"
 #include "jarvis/estimator/estimator.h"
 namespace jarvis {
@@ -11,7 +11,7 @@ constexpr int kCameraNum =2;
 
 bool CheckFileExist(const std::string &file) {
   FILE *fh = fopen(file.c_str(), "r");
-  if (fh == NULL) {
+  if (fh == nullptr){
     return false;
   }
   fclose(fh);
@@ -19,7 +19,7 @@ bool CheckFileExist(const std::string &file) {
 }
 //
 cv::FileStorage CheckFile(const std::string &file) {
-  if (!CheckFileExist) {
+  if (!CheckFileExist(file)) {
     LOG(FATAL) << file << " not exist.";
   }
   cv::FileStorage fsSettings(file, cv::FileStorage::READ);
@@ -116,7 +116,7 @@ void ParseYAMLOptionFetureOption(
   //
   auto &fsSettings = *fs;
   //
-  for (int i = 0; i < camera_option.camera_options.size(); i++) {
+  for (size_t i = 0; i < camera_option.camera_options.size(); i++) {
     camera_models::CameraPtr camera =
         camera_models::CameraFactory::instance()->GenerateCameraFromOption(
             camera_option.camera_options[i]);

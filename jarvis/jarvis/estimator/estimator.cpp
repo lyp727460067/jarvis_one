@@ -758,6 +758,7 @@ bool Estimator::initialStructure() {
     return false;
   }
   GlobalSFM sfm;
+  LOG(INFO)<<"1";
   if (!sfm.construct(frame_count + 1, Q, T, l, relative_R, relative_T, sfm_f,
                      sfm_tracked_points)) {
     VLOG(kGlogLevel) << "global SFM failed!";
@@ -765,6 +766,7 @@ bool Estimator::initialStructure() {
     return false;
   }
 
+  LOG(INFO)<<"1";
   // solve pnp for all frame
   std::map<double, ImageFrame>::iterator frame_it;
   std::map<int, Eigen::Vector3d>::iterator it;
@@ -829,6 +831,7 @@ bool Estimator::initialStructure() {
         R_pnp * options_.calibrate_option.extric_camera_to_imu[0].rotation().conjugate();
     frame_it->second.T = T_pnp;
   }
+  LOG(INFO)<<"1";
   if (visualInitialAlign()) {
     return true;
 
@@ -1280,7 +1283,7 @@ void Estimator::optimization() {
   ceres::Solver::Options options;
   options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 3;
+  options.num_threads = 8;
   options.trust_region_strategy_type = ceres::DOGLEG;
   options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
   // options.dynamic_sparsity =true;

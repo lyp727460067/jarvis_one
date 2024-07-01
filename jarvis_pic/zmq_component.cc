@@ -140,7 +140,7 @@ ZmqComponent::~ZmqComponent() {}
 MpcComponent::MpcComponent() : shm_mod_(new ShmMod()) {}
 //
 void MpcComponent::Write(const jarvis::TrackingData &data,
-                         const uint64_t &imu_base) {
+                         const uint64_t &imu_base,bool slip) {
   // /
   ModLocPoseFb mpc_data{
       static_cast<uint64_t>(jarvis::common::ToUniversal(data.data->time) * 1e2),
@@ -152,7 +152,7 @@ void MpcComponent::Write(const jarvis::TrackingData &data,
       data.data->imu_state.data->pose.rotation().y(),
       data.data->imu_state.data->pose.rotation().z(),
       data.data->imu_state.data->pose.rotation().w(),
-      0,
+      slip?uint8_t(10):uint8_t(0),
       static_cast<uint8_t>(data.status)};
 
   shm_mod_->SetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));

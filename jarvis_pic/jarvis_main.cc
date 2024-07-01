@@ -121,7 +121,7 @@ class JarvisBrige {
               jarvis::sensor::ImageData{
                   jarvis::common::FromUniversal(
                       frame.time *
-                      10)+ common::FromSeconds(imu_cam_time_offset),
+                      10)+ jarvis::common::FromSeconds(imu_cam_time_offset),
                   {std::make_shared<cv::Mat>(frame.images[0].clone()),
                    std::make_shared<cv::Mat>(frame.images[1].clone())}}));
     });
@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
     //         jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
     //
 #ifdef __ZMQ_ENABLAE__
-    zmq.PubLocalData(tracking_data);
+    zmq.PubLocalData(tracking_data,false);
 #endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));
   }

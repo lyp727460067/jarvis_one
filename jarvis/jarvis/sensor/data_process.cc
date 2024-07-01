@@ -38,6 +38,7 @@ void OrderedMultiQueue::AddData(const std::string &name,
   {
   std::lock_guard<std::mutex> lock(mutex_);
   queues_[name].queue.push(std::move(data));
+  }
 }
 void OrderedMultiQueue::Start() {
   dispath_thead_ = std::thread([this]() {
@@ -127,7 +128,7 @@ void OrderedMultiQueue::Dispathch() {
       }
       LOG(INFO) << "Drop early " << next_queue_key << " data...";
     }
-  }
+  // }
   }
 }
 

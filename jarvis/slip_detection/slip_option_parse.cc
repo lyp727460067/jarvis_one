@@ -6,7 +6,7 @@
 #include <slip_detection/simple_vo.h>
 #include "jarvis/option_parse.h"
 #include "opencv2/opencv.hpp"
-#include "yaml.h"
+#include "yaml-cpp/yaml.h"
 #include "jarvis/option_parse.h"
 namespace jarvis {
 

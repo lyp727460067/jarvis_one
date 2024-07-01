@@ -128,6 +128,7 @@ bool FeatureManager::addFeatureCheckParallax(
                      << parallax_sum / parallax_num * FOCAL_LENGTH;
     LOG(INFO)<< parallax_sum / parallax_num<<" " << options_.min_parallax;
     last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
+    LOG(INFO)<<options_.min_parallax;
     return parallax_sum / parallax_num >=  options_.min_parallax;
   }
 }

@@ -67,9 +67,9 @@ struct ReProjectionErr {
   }
 
  private:
-  const double factor_;
   const Eigen::Vector2d nor_point_;
   const Eigen::Vector3d map_point_;
+  const double factor_;
 };
 
 struct RReProjectionErr {
@@ -104,10 +104,10 @@ struct RReProjectionErr {
   }
 
  private:
-  const double factor_;
   const Eigen::Vector2d nor_point_;
-  const transform::Rigid3d extric_;
   const Eigen::Vector3d map_point_;
+  const transform::Rigid3d extric_;
+  const double factor_;
 };
 
 class TranslationCostFunctor {
@@ -187,7 +187,7 @@ transform::Rigid3d OptimizationPose(
   //                         init_pose.translation().z()};
   // //
 
-  for (int i = 0; i < normal_2d.size(); i++) {
+  for (size_t i = 0; i < normal_2d.size(); i++) {
     CHECK(!isnan(normal_2d[i].norm()) && !isnan(map_points[i].norm()))
         << normal_2d[i].transpose()
         << " map_point:" << map_points[i].transpose();
@@ -235,7 +235,7 @@ transform::Rigid3d StereoOptimizationPose(
   Eigen::Quaterniond rotation = init_pose.rotation();
   Eigen::Vector3d traslation = init_pose.translation();
   //
-  for (int i = 0; i < normal_2d.size(); i++) {
+  for (size_t i = 0; i < normal_2d.size(); i++) {
     CHECK(!isnan(normal_2d[i].norm()) && !isnan(map_points[i].norm()))
         << normal_2d[i].transpose()
         << " map_point:" << map_points[i].transpose();
@@ -385,13 +385,13 @@ class SimpleVo::TrakcerImpl {
   bool IsKeyFrame(const jarvis::estimator::ImageFeatureTrackerData&);
 
  private:
-  std::unique_ptr<jarvis::estimator::FeatureTracker> feature_tracker_;
+  SimpleVoOption options_;
   const jarvis::transform::Rigid3d cam0_cam1_extrix_;
+  std::unique_ptr<jarvis::estimator::FeatureTracker> feature_tracker_;
   jarvis::transform::Rigid3d velocity_;
   jarvis::transform::Rigid3d last_pose_;
   uint8_t tracking_state_ = 0;
   std::unique_ptr<Frame> reference_frame_;
-  SimpleVoOption options_;
 };
 
 //

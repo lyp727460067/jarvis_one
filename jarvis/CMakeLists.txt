@@ -7,7 +7,7 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Ofast -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 
 
 
@@ -29,11 +29,13 @@ else()
 add_definitions(-D__SSE2__)
 endif()
 add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
-# set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
+set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
 set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
 set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
+set(yaml_lib_dir ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include/)
+set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
 # find_package(Eigen3 3.4.0 EXACT) #version 3.4.0
 # lie group and lie algebra
 # find_package(OpenCV REQUIRED) #version 4.6.0
@@ -92,6 +94,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
   ${PROJECT_SOURCE_DIR}/third_part/rtm/includes/
+  ${yaml_lib_dir}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
   ${GLOG_INCLUDE_DIRS}
@@ -118,6 +121,7 @@ target_link_libraries(
   ${CERES_LIBRARIES}
   ${Boost_LIBRARIES}
   ${SUTI_LIBS}
+  ${yaml_lib}
   )
 
 #
