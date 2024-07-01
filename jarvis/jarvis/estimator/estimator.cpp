@@ -811,9 +811,7 @@ bool Estimator::initialStructure() {
     cv::cv2eigen(t, T_pnp);
     T_pnp = R_pnp * (-T_pnp);
     frame_it->second.R =
-        R_pnp * options_.calibrate_option.extric_camera_to_imu[0]
-                    .translation()
-                    .transpose();
+        R_pnp * options_.calibrate_option.extric_camera_to_imu[0].rotation().conjugate();
     frame_it->second.T = T_pnp;
   }
   if (visualInitialAlign()) {
