@@ -66,12 +66,13 @@ std::vector<std::pair<int, double>> FeatureDetect::ComputeEigens(
     Eigen::Vector2d eig = eig_.real();
     double eg1 = eig(0);
     double eg2 = eig(1);
-    if (eg1 >= eg2)
+    if (eg1 >= eg2) {
       eigens.push_back(std::make_pair(i, eg1));
-    else
+    } else {
       eigens.push_back(std::make_pair(i, eg2));
+    }
   }
-  return std::move(eigens);
+  return eigens;
 }
 
 std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
