@@ -163,7 +163,7 @@ class JarvisBrige {
           0.001*(cur_encode - last_encoder_data_.value()).cast<double>() ;
       last_encoder_data_ = cur_encode;
       auto delta_theta = (delta_encode.y() - delta_encode.x()) / kWheelDistance;
-      auto delta_translation = (delta_encode.y() - delta_encode.x()) / 2.0;
+      auto delta_translation = (delta_encode.y() + delta_encode.x()) / 2.0;
       jarvis::transform::Rigid3d delta_pose(
           Eigen::Vector3d(delta_translation, 0, 0),
           Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));

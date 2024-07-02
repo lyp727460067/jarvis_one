@@ -105,6 +105,7 @@ void DataCapture::Run() {
   ModSyncImuFb imudata;
   int32_t res = mem_ssq_->PopImuData(&imudata);
   if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
+    // LOG(INFO)<<imudata.time_stamp - last_imu_time_stamp_ ;
     last_imu_time_stamp_ = imudata.time_stamp;
     ProcessImu(imudata);
   }
@@ -121,6 +122,9 @@ void DataCapture::Run() {
   if (ret_len >= 0) {
     uint32_t frame_sys_count = frame.head.sys_count;
     if (last_frame_sys_count_ != frame_sys_count) {
+      // static  uint64_t  last_time =  frame.head.time_stamp;
+      // LOG(INFO)<<frame.head.time_stamp-last_time;
+      // last_time =  frame.head.time_stamp;
       last_frame_sys_count_ = frame_sys_count;
       ProcessImag(frame);
     }

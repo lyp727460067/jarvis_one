@@ -34,6 +34,7 @@ struct PoseData {
   double qx;
   double qy;
   double qz;
+  uint8_t flag;
 };
 // namespace
 cv::Mat GenerateImageWithKeyPoint(
@@ -94,11 +95,11 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
                 data.data->imu_state.data->pose.rotation().w(),
                 data.data->imu_state.data->pose.rotation().x(),
                 data.data->imu_state.data->pose.rotation().y(),
-                data.data->imu_state.data->pose.rotation().z()};
+                data.data->imu_state.data->pose.rotation().z(),
+                slip_data};
   int lenth = datas.size();
   datas.resize(datas.size() + sizeof(PoseData));
   memcpy((void *)(datas.data() + lenth), (void *)&pose, sizeof(PoseData));
-  datas.push_back(slip_data);
   std::vector<uint8_t> result;
   result.push_back(0xaa);
   result.push_back(0x55);
@@ -152,19 +153,19 @@ void MpcComponent::Write(const jarvis::TrackingData &data,
       data.data->imu_state.data->pose.rotation().y(),
       data.data->imu_state.data->pose.rotation().z(),
       data.data->imu_state.data->pose.rotation().w(),
-      slip?uint8_t(10):uint8_t(0),
+      slip?uint8_t(9):uint8_t(0),
       static_cast<uint8_t>(data.status)};
 
   shm_mod_->SetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
   //
   //
-  // memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
-  // int lenth = shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
+  memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
+  int lenth = shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
 
-  // jarvis::transform::Rigid3d read_pose(
-  //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
-  //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  // LOG(INFO) << "Read pose: " << mpc_data.timestamp << " " << read_pose << " "
-  //           << lenth;
+  jarvis::transform::Rigid3d read_pose(
+      Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
+      Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
+  LOG(INFO) << "Read pose: " << mpc_data.timestamp << " " << read_pose << " "
+            << lenth;
 }
 }  // namespace jarvis_pic
