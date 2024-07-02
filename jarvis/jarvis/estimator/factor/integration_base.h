@@ -78,7 +78,8 @@ class IntegrationBase {
     if (sum_dt > 10.0) return false;
     LOG(INFO)<<acc_buf.size();
     LOG(INFO) << common::RadToDeg(transform::GetYaw(delta_q));
-    if (acc_buf.size() <= 15 || acc_buf.size() >= 30) return false;
+    // if (acc_buf.size() <= 15 || acc_buf.size() >= 30) return false;
+    // if (acc_buf.size() <= 15 ) return false;
     return true;
   }
   void midPointIntegration(
@@ -111,8 +112,7 @@ class IntegrationBase {
           a_0_x(0), 0;
       R_a_1_x << 0, -a_1_x(2), a_1_x(1), a_1_x(2), 0, -a_1_x(0), -a_1_x(1),
           a_1_x(0), 0;
-
-      Eigen::MatrixXd F = Eigen::MatrixXd::Zero(15, 15);
+      Eigen::Matrix<double, 15, 15> F = Eigen::Matrix<double, 15, 15>::Zero();
       F.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
       F.block<3, 3>(0, 3) =
           -0.25 * delta_q.toRotationMatrix() * R_a_0_x * _dt * _dt +
@@ -140,8 +140,7 @@ class IntegrationBase {
       F.block<3, 3>(9, 9) = Eigen::Matrix3d::Identity();
       F.block<3, 3>(12, 12) = Eigen::Matrix3d::Identity();
       // cout<<"A"<<endl<<A<<endl;
-
-      Eigen::MatrixXd V = Eigen::MatrixXd::Zero(15, 18);
+      Eigen::Matrix<double, 15, 18> V = Eigen::Matrix<double, 15, 18>::Zero();
       V.block<3, 3>(0, 0) = 0.25 * delta_q.toRotationMatrix() * _dt * _dt;
       V.block<3, 3>(0, 3) = 0.25 * -result_delta_q.toRotationMatrix() *
                             R_a_1_x * _dt * _dt * 0.5 * _dt;

@@ -135,6 +135,11 @@ void ParseYAMLOptionFetureOption(
   feature_option->feature_detect_option.min_distance = fsSettings["min_dist"];
   feature_option->feature_detect_option.fast_thresh_hold =
       fsSettings["fast_th"];
+  feature_option->feature_detect_option.imag_size =
+      camera_option.camera_options[0].resolution;
+  // feature_option->feature_detect_option.grid_size=
+  //     camera_option.camera_options[0].resolution;
+
 
   std::string mask_id;
   fsSettings["mask_id"] >> mask_id;

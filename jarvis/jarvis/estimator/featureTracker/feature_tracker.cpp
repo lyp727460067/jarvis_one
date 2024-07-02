@@ -101,7 +101,7 @@ void FeatureTracker::setMask() {
   track_cnt.clear();
 
   for (auto &it : cnt_pts_id) {
-    if (mask.at<uchar>(it.second.first) == 255) {
+    if (mask.at<uchar>(it.second.first) >= 128) {
       cur_pts.push_back(it.second.first);
       ids.push_back(it.second.second);
       track_cnt.push_back(it.first);
@@ -260,9 +260,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       // cv::goodFeaturesToTrack(cur_img, n_pts, options_.max_feat_cnt - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
       // std::vector<cv::Point2f> forw_pts;
-      n_pts =
-          feature_detect_->Detect(cur_img, cur_pts, options_.max_feat_cnt - cur_pts.size(),
-                                  mask, pyramid_image_->PrePyram()[1]);
+      n_pts = feature_detect_->Detect(cur_img, n_max_cnt, mask,
+                                      pyramid_image_->PrePyram()[1]);
     } else {
       n_pts.clear();
     }
