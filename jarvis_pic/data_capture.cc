@@ -122,9 +122,9 @@ void DataCapture::Run() {
   if (ret_len >= 0) {
     uint32_t frame_sys_count = frame.head.sys_count;
     if (last_frame_sys_count_ != frame_sys_count) {
-      // static  uint64_t  last_time =  frame.head.time_stamp;
+      static  uint64_t  last_time =  frame.head.time_stamp;
       // LOG(INFO)<<frame.head.time_stamp-last_time;
-      // last_time =  frame.head.time_stamp;
+      last_time =  frame.head.time_stamp;
       last_frame_sys_count_ = frame_sys_count;
       ProcessImag(frame);
     }

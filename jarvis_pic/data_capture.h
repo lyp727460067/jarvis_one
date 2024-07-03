@@ -11,8 +11,8 @@
 namespace jarvis_pic {
 struct DataCaptureOption {
   int use_method = 0;
-  uint32_t cam_durion_imu_cout = 7;
-  uint32_t cam_durion_odom_cout = 3;
+  uint32_t cam_durion_imu_cout = 20;
+  uint32_t cam_durion_odom_cout = 10;
   int imu_durition = 4;  // ms
   int frame_width = 640;
   int frame_hight = 544;

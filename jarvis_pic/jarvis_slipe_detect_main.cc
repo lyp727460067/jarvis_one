@@ -33,7 +33,7 @@ constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 double image_sample = 1;
 uint8_t kVioState=0;
-uint8_t kRecordFlag = 0;
+uint8_t kecordFlag = 0;
 uint8_t kEnableSlipDetect = 0;
 uint8_t kDataCaputureType = 0;
 std::ofstream kOImuFile;
@@ -47,6 +47,7 @@ void ParseOption(const std::string& config) {
   fsSettings["slip_detect"] >> kEnableSlipDetect;
   fsSettings["imu_cam_time_offset"] >> imu_cam_time_offset;
   LOG(INFO)<<imu_cam_time_offset;
+  
 
 }
 }  // namespace
@@ -127,6 +128,8 @@ class JarvisBrige {
     LOG(INFO) << "Capture start..";
 
     data_capture_->Rigister([&](const ImuData& imu) {
+      // LOG(INFO)<<jarvis::common::FromUniversal(imu.time * 10);
+      // LOG(INFO)<<imu.linear_acceleration.transpose()<<" "<<imu.angular_velocity.transpose();
       order_queue_->AddData(
           kImuTopic, std::make_unique<
                          jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
@@ -143,12 +146,14 @@ class JarvisBrige {
       //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8,
       //  8)); clahe->apply( frame.image, temp1);
       // auto temp = std::make_shared<cv::Mat>(temp1.clone());
+      LOG(INFO)<<jarvis::common::FromUniversal(frame.time * 10) ;
       order_queue_->AddData(
           kImagTopic0,
           std::make_unique<
               jarvis::sensor::DispathcData<jarvis::sensor::ImageData>>(
               jarvis::sensor::ImageData{
-                  jarvis::common::FromUniversal(frame.time * 10)+ jarvis::common::FromSeconds(imu_cam_time_offset),
+                  jarvis::common::FromUniversal(frame.time * 10) +
+                      jarvis::common::FromSeconds(imu_cam_time_offset),
                   {std::make_shared<cv::Mat>(frame.images[0].clone()),
                    std::make_shared<cv::Mat>(frame.images[1].clone())}}));
     });

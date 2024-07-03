@@ -758,7 +758,6 @@ bool Estimator::initialStructure() {
     return false;
   }
   GlobalSFM sfm;
-  LOG(INFO)<<"1";
   if (!sfm.construct(frame_count + 1, Q, T, l, relative_R, relative_T, sfm_f,
                      sfm_tracked_points)) {
     VLOG(kGlogLevel) << "global SFM failed!";
@@ -766,7 +765,6 @@ bool Estimator::initialStructure() {
     return false;
   }
 
-  LOG(INFO)<<"1";
   // solve pnp for all frame
   std::map<double, ImageFrame>::iterator frame_it;
   std::map<int, Eigen::Vector3d>::iterator it;
@@ -1072,6 +1070,8 @@ void Estimator::double2vector() {
 }
 
 bool Estimator::failureDetection() {
+
+    return false;
   if(restart){
     restart =false;
     return true;
@@ -1084,7 +1084,7 @@ bool Estimator::failureDetection() {
     failuer_track_lost_.push_back(false);
   }
   if (failuer_track_lost_.size() >
-      options_.fail_detect_option.track_feat_lost_win_size) {
+      size_t(options_.fail_detect_option.track_feat_lost_win_size)) {
     failuer_track_lost_.erase(failuer_track_lost_.begin());
   }
   if (std::count(failuer_track_lost_.begin(),
