@@ -33,6 +33,7 @@ class TrajectorBuilder {
   virtual ~TrajectorBuilder();
 
  private:
+  std::string  config_file_;
   // std::unique_ptr<tracking::TrackingInterface> tracker_;
   std::unique_ptr<estimator::Estimator> tracker_;
   // std::unique_ptr<MapBuilderInterface> map_builder_;

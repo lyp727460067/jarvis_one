@@ -82,7 +82,6 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
   point_collection.reserve(grid_size);
   //
   std::vector<std::vector<std::function<void()>>> tasks(options_.num_thread_);
-
   std::mutex mutex;
   for (int i = 0; i < grid_size; i++) {
     int index = i % options_.num_thread_;
@@ -92,18 +91,24 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       cv::Rect img_roi =
           cv::Rect(x, y, options_.grid_size.x(), options_.grid_size.y());
       std::vector<cv::KeyPoint> pts_new;
-      cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
+      cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold*2, false);
+      if( pts_new.empty()){
+        cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold/2, false);
+      }
+      // cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
       //
-
       for (size_t i = 0; i < pts_new.size(); i++) {
         cv::KeyPoint pt_cor = pts_new.at(i);
         pt_cor.pt.x += (float)x;
         pt_cor.pt.y += (float)y;
         if ((int)pt_cor.pt.x < 0 || (int)pt_cor.pt.x > img.cols ||
-            (int)pt_cor.pt.y < 0 || (int)pt_cor.pt.y > img.rows)
+            (int)pt_cor.pt.y < 0 || (int)pt_cor.pt.y > img.rows) {
           continue;
-        if (mask.at<uint8_t>((int)pt_cor.pt.y, (int)pt_cor.pt.x) > 127)
+        }
+  
+        if (mask.at<uint8_t>((int)pt_cor.pt.y, (int)pt_cor.pt.x) < 127) {
           continue;
+        }
         std::lock_guard<std::mutex> lock(mutex);
         point_collection.push_back(pt_cor);
       }
@@ -135,13 +140,14 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
   for (int i = 0; i < options_.num_thread_; i++) {
     threads_[i].join();
   }
+  LOG(INFO)<<point_collection.size();
   return point_collection;
 }
 //
 //
 bool FeatureDetect::CheckGridValid(
     const std::vector<std::vector<cv::Point2f>>& grid,
-    const cv::Point2i& point) {
+    const cv::Point2f& point) {
   int x_cell = point.x / options_.grid_size.x();
   int y_cell = point.y / options_.grid_size.y();
   int x1 = x_cell - 1;
@@ -162,7 +168,7 @@ bool FeatureDetect::CheckGridValid(
           float dx = point.x - m[j].x;
           float dy = point.y - m[j].y;
           if (dx * dx + dy * dy <
-              options_.min_distance * options_.min_distance) {
+              options_.min_distance * options_.min_distance*4) {
             return false;
           }
         }
@@ -177,10 +183,7 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
                                                const cv::Mat& mask) {
   //
   CHECK(options_.min_distance >= 1);
-  LOG(INFO)<<"!";
   auto keypoints = ExtractFastWithGrid(image, mask);
-
-  LOG(INFO)<<"!";
   auto eigens = ComputeEigens(cv::Point2i(0, 0), keypoints, derive);
   //
   std::sort(
@@ -201,10 +204,9 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
   for (size_t i = 0; i < keypoints_.size(); i++) {
     int y = (int)(keypoints_[i].pt.y);
     int x = (int)(keypoints_[i].pt.x);
-    bool good = true;
     int x_cell = x / options_.grid_size.x();
     int y_cell = y / options_.grid_size.y();
-    if (!CheckGridValid(grid, cv::Point2i(x, y))) continue;
+    if (!CheckGridValid(grid, keypoints_[i].pt)) continue;
 
     grid[y_cell * grid_width_ + x_cell].push_back(
         cv::Point2f((float)x, (float)y));

@@ -260,8 +260,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       // cv::goodFeaturesToTrack(cur_img, n_pts, options_.max_feat_cnt - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
       // std::vector<cv::Point2f> forw_pts;
-      n_pts = feature_detect_->Detect(cur_img, n_max_cnt, mask,
-                                      pyramid_image_->PrePyram()[1]);
+      n_pts = feature_detect_->Detect(cur_img, n_max_cnt,
+                                      pyramid_image_->PrePyram()[1], mask);
     } else {
       n_pts.clear();
     }

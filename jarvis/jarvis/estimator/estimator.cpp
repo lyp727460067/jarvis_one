@@ -18,6 +18,7 @@
 
 namespace jarvis {
 using namespace std;
+bool restart =false;
 std::vector<Eigen::Vector3d> kGlobleImuPose;
 std::pair<double, transform::Rigid3d> kGlobleImuExtrapolatorPose;
 
@@ -139,7 +140,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   //
   featureBuf.push(make_pair(d_time, featureFrame));
   TicToc processTime;
-  processMeasurements();
+  auto state  = processMeasurements();
   LOG(INFO) << "one frame cost : " << add_image_data_cost.toc();
   auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
   tracking_data->data->time = images.time;
@@ -147,7 +148,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   tracking_data->data->transform_cam_to_imu =
       transform::Rigid3d(tic[0], Eigen::Quaterniond(ric[0]));
   if (solver_flag == INITIAL) {
-    tracking_data->status = 0;
+    tracking_data->status = TrackState::INIT;
     LOG(INFO) << Eigen::Quaterniond(Rs[frame_count]);
     auto imu_state_data = std::make_shared<ImuState::Data>(ImuState::Data{
         transform::Rigid3d({0, 0, 0}, Eigen::Quaterniond(Rs[frame_count]))});
@@ -158,8 +159,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
                                           Eigen::Quaterniond(Rs[frame_count])),
                        Vs[frame_count], Bas[frame_count], Bgs[frame_count], g});
     tracking_data->data->imu_state = ImuState{imu_state_data};
-    tracking_data->status = 2;
-
+    tracking_data->status = TrackState(state);
   }
   return tracking_data;
 }
@@ -177,9 +177,9 @@ bool Estimator::IsStereo(){
 //
 void Estimator::clearState() {
   mProcess.lock();
-  while (!accBuf.empty()) accBuf.pop();
-  while (!gyrBuf.empty()) gyrBuf.pop();
-  while (!featureBuf.empty()) featureBuf.pop();
+  // while (!accBuf.empty()) accBuf.pop();
+  // while (!gyrBuf.empty()) gyrBuf.pop();
+  // while (!featureBuf.empty()) featureBuf.pop();
 
   prevTime = -1;
   curTime = 0;
@@ -189,7 +189,6 @@ void Estimator::clearState() {
   inputImageCnt = 0;
   initFirstPoseFlag = false;
 
-  LOG(INFO) << "1";
   for (int i = 0; i < WINDOW_SIZE + 1; i++) {
     Rs[i].setIdentity();
     Ps[i].setZero();
@@ -212,7 +211,6 @@ void Estimator::clearState() {
     }
     pre_integrations[i] = nullptr;
   }
-  LOG(INFO) << "!";
   for (int i = 0; i < NUM_OF_F; i++) {
     for (int j = 0; j < SIZE_FEATURE; j++) {
       para_Feature[i][j] = 0.0;
@@ -247,7 +245,7 @@ void Estimator::clearState() {
   last_marginalization_info = nullptr;
   last_marginalization_parameter_blocks.clear();
   f_manager->clearState();
-
+  failuer_track_lost_.clear();
   failure_occur = 0;
 
   mProcess.unlock();
@@ -268,7 +266,7 @@ void Estimator::setParameter() {
       FOCAL_LENGTH / 1.5 * Eigen::Matrix2d::Identity();
   ProjectionOneFrameTwoCamFactor::sqrt_info =
       FOCAL_LENGTH / 1.5 * Eigen::Matrix2d::Identity();
-  td = options_.init_td;
+  // td = options_.init_td;
   g = Eigen::Vector3d{0, 0, options_.imu_option.gravity_normal};
   LOG(INFO)<<"set g "<<g;
   mProcess.unlock();
@@ -377,7 +375,7 @@ bool Estimator::IMUAvailable(double t) {
     return false;
 }
 
-void Estimator::processMeasurements() {
+int Estimator::processMeasurements() {
   // printf("process measurments\n");
   std::pair<double, ImageFeatureTrackerData> feature;
   std::vector<std::pair<double, Eigen::Vector3d>> accVector, gyrVector;
@@ -389,8 +387,8 @@ void Estimator::processMeasurements() {
       if ((!options_.use_imu || IMUAvailable(feature.first + td)))
         break;
       else {
-        printf("wait for imu ... \n");
-        return;
+        LOG(WARNING)<<"wait for imu ... \n";
+        return 0;
       }
     }
     if (options_.use_imu) {
@@ -413,9 +411,12 @@ void Estimator::processMeasurements() {
                    gyrVector[i].second);
       }
     }
-    processImage(feature.second, feature.first);
+    if(processImage(feature.second, feature.first)!=TrackState::TRACKING){
+        return TrackState::LOST;
+    }
     prevTime = curTime;
   }
+  return TrackState::TRACKING;
 }
 
 void Estimator::initFirstIMUPose(
@@ -499,7 +500,7 @@ std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> ToStruct
   }
   return result;
 }
-void Estimator::processImage(const ImageFeatureTrackerData &image,
+int Estimator::processImage(const ImageFeatureTrackerData &image,
                              const double header) {
   VLOG(kGlogLevel)
       << "new image coming ------------------------------------------";
@@ -572,6 +573,7 @@ void Estimator::processImage(const ImageFeatureTrackerData &image,
       LOG(INFO)<<Ps[i];
       }
       f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
+      optimization();
       if (frame_count == WINDOW_SIZE) {
         std::map<double, ImageFrame>::iterator frame_it;
         int i = 0;
@@ -592,8 +594,8 @@ void Estimator::processImage(const ImageFeatureTrackerData &image,
         for (int i = 0; i <= WINDOW_SIZE; i++) {
           pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
         }
+   
         optimization();
-
         updateLatestStates();
         solver_flag = NON_LINEAR;
         slideWindow();
@@ -640,7 +642,7 @@ void Estimator::processImage(const ImageFeatureTrackerData &image,
     if(!imageframe.pre_integration->IsValid()){
       LOG(WARNING)<<"IMU Avalibal.use pnp init..";
       f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
-      sleep(4);
+      // sleep(4);
     }
     f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
     optimization();
@@ -654,12 +656,13 @@ void Estimator::processImage(const ImageFeatureTrackerData &image,
     VLOG(kGlogLevel) << "solver costs: " << t_solve.toc() << " ms";
 
     if (failureDetection()) {
-      LOG(WARNING) << "failure detection!";
-      failure_occur = 1;
-      clearState();
-      setParameter();
-      LOG(WARNING) << "system reboot!";
-      return;
+      // LOG(ERROR) << "failure detection!";
+      // failure_occur = 1;
+      // clearState();
+      // setParameter();
+      // CHECK(false);
+      LOG(ERROR) << "system reboot!";
+      return TrackState::LOST; 
     }
     // static int  frame = 0;
     // if (marginalization_flag == MARGIN_OLD) {
@@ -684,6 +687,8 @@ void Estimator::processImage(const ImageFeatureTrackerData &image,
     last_P0 = Ps[0];
     updateLatestStates();
   }
+
+  return TrackState::TRACKING; 
 }
 
 bool Estimator::initialStructure() {
@@ -1052,43 +1057,54 @@ void Estimator::double2vector() {
 }
 
 bool Estimator::failureDetection() {
-  return false;
-  if (f_manager->last_track_num < 2) {
-    LOG(INFO) << " little feature " << f_manager->last_track_num;
-    // return true;
-  }
-  if (Bas[WINDOW_SIZE].norm() > 2.5) {
-    LOG(INFO) << " big IMU acc bias estimation " << Bas[WINDOW_SIZE].norm();
+  if(restart){
+    restart =false;
     return true;
   }
-  if (Bgs[WINDOW_SIZE].norm() > 1.0) {
-    LOG(INFO) << " big IMU gyr bias estimation " << Bgs[WINDOW_SIZE].norm();
+  if (f_manager->last_track_num <
+      options_.fail_detect_option.track_feat_lost_min_num) {
+    failuer_track_lost_.push_back(true);
+    LOG(WARNING) << " little feature " << f_manager->last_track_num;
+  } else {
+    failuer_track_lost_.push_back(false);
+  }
+  if (failuer_track_lost_.size() >
+      options_.fail_detect_option.track_feat_lost_win_size) {
+    failuer_track_lost_.erase(failuer_track_lost_.begin());
+  }
+  if (std::count(failuer_track_lost_.begin(),
+                 failuer_track_lost_.end(), true) ==
+      options_.fail_detect_option.track_feat_lost_win_size) {
+    LOG(ERROR) << " Feat lost. " ;
     return true;
   }
-  /*
-  if (tic(0) > 1)
-  {
-      ROS_INFO(" big extri param estimation %d", tic(0) > 1);
-      return true;
+  if (Bas[WINDOW_SIZE].norm() > options_.fail_detect_option.bas_norm_max) {
+    LOG(ERROR) << " big IMU acc bias estimation " << Bas[WINDOW_SIZE].norm();
+    return true;
   }
-  */
+  if (Bgs[WINDOW_SIZE].norm() > options_.fail_detect_option.bgs_norm_max) {
+    LOG(ERROR) << " big IMU gyr bias estimation " << Bgs[WINDOW_SIZE].norm();
+    return true;
+  }
+
   Eigen::Vector3d tmp_P = Ps[WINDOW_SIZE];
-  if ((tmp_P - last_P).norm() > 5) {
-    // ROS_INFO(" big translation");
-    // return true;
+  if ((tmp_P - last_P).norm() >
+      options_.fail_detect_option.translation_norm_max) {
+    LOG(ERROR) << " big translation"<<(tmp_P - last_P).norm();
+    return true;
   }
-  if (abs(tmp_P.z() - last_P.z()) > 1) {
-    // ROS_INFO(" big z translation");
-    // return true;
+  if (abs(tmp_P.z() - last_P.z()) >
+      options_.fail_detect_option.translation_z_max) {
+    LOG(ERROR)<<" big z translation"<<abs(tmp_P.z() - last_P.z());
+    return true;
   }
   Eigen::Matrix3d tmp_R = Rs[WINDOW_SIZE];
   Eigen::Matrix3d delta_R = tmp_R.transpose() * last_R;
-  Eigen::Quaterniond delta_Q(delta_R);
-  double delta_angle;
-  delta_angle = acos(delta_Q.w()) * 2.0 / 3.14 * 180.0;
-  if (delta_angle > 50) {
-    LOG(INFO) << " big delta_angle ";
-    // return true;
+  double delta_angle =
+      common::RadToDeg(transform::GetYaw(Eigen::Quaterniond(delta_R)));
+  if (delta_angle > options_.fail_detect_option.ratation_max) {
+    LOG(ERROR) << " big delta_angle "<<delta_angle ;
+    return true;
   }
   return false;
 }
@@ -1763,15 +1779,14 @@ void Estimator::updateLatestStates() {
   latest_acc_0 = acc_0;
   latest_gyr_0 = gyr_0;
   mBuf.lock();
-
-  queue<pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
+  std::queue<pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
   // imu_extrapolator_->AddState(
   //     latest_time,
   //     ImuState{transform::Rigid3d(Ps[frame_count], Eigen::Quaterniond(
   //     Rs[frame_count])),
   //              Vs[frame_count], Bas[frame_count], Bgs[frame_count]});
   // //
-  queue<pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
+  std::queue<pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
   mBuf.unlock();
   while (!tmp_accBuf.empty()) {
     double t = tmp_accBuf.front().first;

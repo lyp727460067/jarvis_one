@@ -44,7 +44,7 @@ class FeatureDetect {
       const cv::Point2i& offset, const std::vector<cv::KeyPoint>&,
       const cv::Mat& derive);
   bool CheckGridValid(const std::vector<std::vector<cv::Point2f>>& grid,
-    const cv::Point2i& point);
+    const cv::Point2f& point);
   void Convolution(const cv::Mat& image, const std::vector<cv::KeyPoint>& pts,
                    const cv::Mat& derive, std::vector<short>& x_c,
                    std::vector<short>& y_c);

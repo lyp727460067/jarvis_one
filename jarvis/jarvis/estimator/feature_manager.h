@@ -74,7 +74,7 @@ struct FeatureManagerOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   bool use_stereo =true;
   double init_depth = 5.0;
-  double min_parallax = 1 / 377;
+  double min_parallax = 1. / 377;
 
 };
 

@@ -44,7 +44,7 @@ namespace jarvis {
 
 TrajectorBuilder::TrajectorBuilder(const std::string &config,
                                    CallBack call_back)
-    : tracker_(estimator::TrackerFactory(config)),
+    :config_file_(config), tracker_(estimator::TrackerFactory(config)),
       call_back_(call_back) {
   //  cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   //  int pn = config.find_last_of('/');
@@ -76,6 +76,12 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   if (call_back_) {
     call_back_(*tracking_data);
   }
+
+  if (tracking_data->status == 2) {
+    LOG(ERROR)<<"Lost ....restart ..";
+    tracker_ = estimator::TrackerFactory(config_file_);
+  }
+
 }
 //
 void TrajectorBuilder::AddImuData(const   sensor::ImuData &imu_data) {

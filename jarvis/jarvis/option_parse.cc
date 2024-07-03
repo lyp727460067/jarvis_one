@@ -137,6 +137,7 @@ void ParseYAMLOptionFetureOption(
       fsSettings["fast_th"];
   feature_option->feature_detect_option.imag_size =
       camera_option.camera_options[0].resolution;
+  LOG(INFO)<<camera_option.camera_options[0].resolution;
   // feature_option->feature_detect_option.grid_size=
   //     camera_option.camera_options[0].resolution;
 
@@ -189,6 +190,18 @@ void ParseYAMLOption(const std::string &file,
     option->estimate_td = fsSettings["estimate_td"];
     option->estimate_extrinsic = fsSettings["estimate_extrinsic"];
     option->init_td = fsSettings["td"];
+
+    option->fail_detect_option.track_feat_lost_min_num =
+        fsSettings["track_feat_lost_min_num"];
+    option->fail_detect_option.track_feat_lost_win_size =
+        fsSettings["track_feat_lost_win_size"];
+    option->fail_detect_option.bas_norm_max = fsSettings["bas_norm_max"];
+    option->fail_detect_option.bgs_norm_max = fsSettings["bgs_norm_max"];
+    option->fail_detect_option.translation_norm_max =
+        fsSettings["translation_norm_max"];
+    option->fail_detect_option.translation_z_max =
+        fsSettings["translation_z_max"];
+    option->fail_detect_option.ratation_max = fsSettings["ratation_max"];
   }
 }
 

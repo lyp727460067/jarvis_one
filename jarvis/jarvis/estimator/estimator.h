@@ -47,7 +47,17 @@ namespace estimator {
 //
 class ImuExtrapolator;
 
+struct FailureDetectOptoin
+{
+  int track_feat_lost_min_num =2;
+  int track_feat_lost_win_size =  10;
+  double bas_norm_max =0.5;
+  double bgs_norm_max =0.5;
+  double translation_norm_max =0.2;
+  double translation_z_max =0.2;
+  double ratation_max =20;
 
+};
 
 struct EstimatorOption {
   // SlideWindowOption slide_windows_option;
@@ -55,6 +65,7 @@ struct EstimatorOption {
   FeatureTrackerOption feature_track_option;
   CalibrateOption calibrate_option;
   ImuOption imu_option;
+  FailureDetectOptoin fail_detect_option;
   int  use_imu = 1;
   int use_cam_num = 1;
   int estimate_td = 1;
@@ -65,6 +76,7 @@ struct EstimatorOption {
 
 class Estimator {
  public:
+  enum TrackState { INIT = 0, TRACKING = 1, LOST = 2 };
   Estimator(const EstimatorOption &options);
 //   Estimator(const std::string &config_file);
   std::unique_ptr<TrackingData> AddImageData(const sensor::ImageData &images);
@@ -84,8 +96,8 @@ class Estimator {
   void processIMU(double t, double dt,
                   const Eigen::Vector3d &linear_acceleration,
                   const Eigen::Vector3d &angular_velocity);
-  void processImage(const ImageFeatureTrackerData &image, const double header);
-  void processMeasurements();
+  int processImage(const ImageFeatureTrackerData &image, const double header);
+  int processMeasurements();
 
   // internal
   void clearState();
@@ -217,6 +229,7 @@ class Estimator {
   const EstimatorOption options_;
   int estimate_extrinsic_ = 2;
   Alignment alignment_;
+  std::vector<bool> failuer_track_lost_;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

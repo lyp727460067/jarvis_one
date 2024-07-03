@@ -32,7 +32,10 @@ int FeaturePerId::endFrame() {
 //   }
 // }
 FeatureManager::FeatureManager(const FeatureManagerOption &options)
-    : options_(options) {}
+    : options_(options) {
+      LOG(INFO)<< options_.min_parallax;
+      LOG(INFO)<< options_.init_depth;
+    }
 //
 void FeatureManager::clearState() { feature.clear(); }
 
@@ -123,7 +126,7 @@ bool FeatureManager::addFeatureCheckParallax(
                      << "parallax_num: " << parallax_num;
     VLOG(kGlogLevel) << "current parallax: "
                      << parallax_sum / parallax_num * FOCAL_LENGTH;
-    // LOG(INFO)<< parallax_sum / parallax_num<<" " <<  MIN_PARALLAX;
+    LOG(INFO)<< parallax_sum / parallax_num<<" " << options_.min_parallax;
     last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
     return parallax_sum / parallax_num >=  options_.min_parallax;
   }
@@ -232,8 +235,8 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   cv::Mat K = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);
   bool pnp_succ;
   pnp_succ = cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1);
-  // pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 8.0 /
-  // focalLength, 0.99, inliers);
+  // cv::Mat inliers;
+  // pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 8.0 /377, 0.99, inliers);
 
   if (!pnp_succ) {
     LOG(ERROR) << "pnp failed ! ";

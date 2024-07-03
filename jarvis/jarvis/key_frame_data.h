@@ -25,6 +25,7 @@ struct TrackingData {
 };
 std::vector<Eigen::Vector3d> GetGlobleImuPose();
 std::pair<double, jarvis::transform::Rigid3d> GetGlobleImuExtrapolatorPose();
+extern bool restart ;
 //
 }  // namespace jarvis
 

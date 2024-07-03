@@ -430,7 +430,8 @@ int main(int argc, char* argv[]) {
 
           ros_compont->PubBoolMsg(flag);
           slipe_alignment_pose = slip_detect->ToPoseInOdom(
-              (tracking_data.data->imu_state.data->pose));
+              (tracking_data.data->imu_state.data->pose *
+               tracking_data.data->transform_cam_to_imu));
         }
         LOG(INFO) << tracking_data.data->imu_state.data->pose;
         if (kRecordFlag) {
@@ -474,9 +475,11 @@ int main(int argc, char* argv[]) {
                   << std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::high_resolution_clock::now() - start)
                          .count();
-    // cv::imshow("show",*imag_data.image[0]);
-    // cv::imshow("show1",*imag_data.image[1]);
-    // cv::waitKey(0);
+    cv::imshow("show",*imag_data.image[0]);
+    cv::waitKey(0);
+    if(cv::waitKey()=='c'){
+      jarvis::restart =true;
+    }
   });
    order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData&imu_data) {
      builder_->AddImuData(imu_data);
