@@ -43,7 +43,9 @@ Estimator::Estimator(const EstimatorOption &options):options_(options),
   //
   f_manager = std::make_unique<FeatureManager>(
       FeatureManagerOption{options.calibrate_option.extric_camera_to_imu});
-
+  //
+  update_zero_velocity_ =
+      std::make_unique<UpdataZeroVelocity>(UpdataZeroVelocityOption{});
   // imu_extrapolator_ = std::make_unique<ImuExtrapolator>();
   LOG(INFO) << "init begins";
   initThreadFlag = false;
@@ -136,7 +138,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     featureFrame = feature_tracker_->trackImage(d_time, *images.image[0],
                                                 cv::Mat(), &track_num, angle_);
   }
-
+  update_zero_velocity_->AddImageKeyPoints(images.time, featureFrame);
   //
   featureBuf.push(make_pair(d_time, featureFrame));
   TicToc processTime;
@@ -166,6 +168,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
   double d_time = common::ToSeconds(imu_data.time - common::FromUniversal(0));
+  update_zero_velocity_->AddImu(imu_data);
   inputIMU(d_time, imu_data.linear_acceleration, imu_data.angular_velocity);
 }
 
@@ -1256,7 +1259,12 @@ void Estimator::optimization() {
       f_m_cnt++;
     }
   }
-
+  if (update_zero_velocity_->IsZeroVelocity()) {
+    update_zero_velocity_->AddToProblem(
+        &problem, std::array<double *, 3>{para_Pose[frame_count - 1],
+                                          para_Pose[frame_count],
+                                          para_SpeedBias[frame_count]});
+  }
   VLOG(kGlogLevel) << "visual measurement count: " << f_m_cnt;
   // printf("prepare for ceres: %f \n", t_prepare.toc());
 

@@ -40,6 +40,7 @@
 #include "jarvis/utility/utility.h"
 #include "sensor/image_data.h"
 #include "sensor/imu_data.h"
+#include "jarvis/estimator/updater_zero_velocity.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
 namespace jarvis {
@@ -230,6 +231,7 @@ class Estimator {
   int estimate_extrinsic_ = 2;
   Alignment alignment_;
   std::vector<bool> failuer_track_lost_;
+  std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 
