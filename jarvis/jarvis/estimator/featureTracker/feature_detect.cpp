@@ -86,9 +86,10 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
   std::mutex mutex;
   for (int i = 0; i < grid_size; i++) {
     int index = i % options_.num_thread_;
-    tasks[index].emplace_back([&, i]() {
-      int x = i % grid_width_ * options_.grid_size.x();
-      int y = i / grid_width_ * options_.grid_size.y();
+    tasks[index].emplace_back([this, i, img, mask, &point_collection,
+                               &mutex]() {
+      int x = (i % grid_width_) * options_.grid_size.x();
+      int y = (i / grid_width_) * options_.grid_size.y();
       cv::Rect img_roi =
           cv::Rect(x, y, options_.grid_size.x(), options_.grid_size.y());
       std::vector<cv::KeyPoint> pts_new;
@@ -115,7 +116,7 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       }
       // const auto eigens = ComputeEigens(cv::Point2i(x, y), pts_new,derive);
       // std::sort(eigens.begin(), eigens.end(), cmp_by_value);
-      // std::vector<cv::KeyPoint> keypoints;
+      // std::vector<cv::KeyPoint> keypoints
       // for (size_t i = 0; i < eigens.size(); i++) {
       //   cv::KeyPoint pt_cor = pts_new.at(i);
       //   pt_cor.pt.x += (float)x;
@@ -130,16 +131,17 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       // }
     });
   }
-  threads_.resize(options_.num_thread_);
+  std::vector<std::thread> threads;
+  // threads_.resize(options_.num_thread_);
   for (int i = 0; i < options_.num_thread_; i++) {
-    threads_[i] = std::thread([&tasks, i]() {
-      for (auto f : tasks[i]) {
+    threads.emplace_back([&tasks, i]() {
+      for (auto& f : tasks[i]) {
         f();
       }
     });
   }
   for (int i = 0; i < options_.num_thread_; i++) {
-    threads_[i].join();
+    threads[i].join();
   }
   LOG(INFO)<<point_collection.size();
   return point_collection;

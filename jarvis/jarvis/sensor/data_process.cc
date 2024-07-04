@@ -45,6 +45,9 @@ void OrderedMultiQueue::Start() {
     while (!kill_thread) {
       Dispathch();
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      if(sensor_cout++>=1000){
+        LOG_EVERY_N(ERROR,100)<<"No data recive!!!!!!!!!!!!!!";
+      }
     }
   });
 }
@@ -98,7 +101,9 @@ void OrderedMultiQueue::Dispathch() {
         data = std::move(next_queue->queue.front());
         next_queue->queue.pop();
       }
+      sensor_cout = 0;
       next_queue->callback(std::move(data));
+
     } else if (next_queue_size < 2) {
       // CHECK(!next_queue->queue.empty());
       last_dispatched_time_ = next_data->GetTime();

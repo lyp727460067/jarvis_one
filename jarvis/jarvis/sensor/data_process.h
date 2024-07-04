@@ -65,6 +65,7 @@ class OrderedMultiQueue {
   std::optional<common::Time>common_start_time_ ;
   common::Time last_dispatched_time_ ;
   std::unordered_map<std::string, Queue> queues_;
+  int sensor_cout = 0;
   bool circle_done = false;
 };
 }  // namespace sensor
