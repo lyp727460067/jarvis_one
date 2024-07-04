@@ -78,8 +78,8 @@ class JarvisBrige {
           bool slip_flag = false;
           if (slip_detect_) {
             slip_detect_->AddPose(slip_detect::TimePose{
-                data.data->time, data.data->imu_state.data->pose *
-                                     data.data->transform_cam_to_imu});
+                data.data->time, data.data->imu_state.data->pose 
+                                    });
             slip_flag = slip_detect_->Detect(data.data->time);
 
           }
