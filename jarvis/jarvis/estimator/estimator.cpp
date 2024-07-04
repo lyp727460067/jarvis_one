@@ -568,12 +568,11 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
       LOG(INFO)<<"Init with Stereo...";
       f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
 
-      for(int i  =0;i<frame_count ;i++){
-
-      LOG(INFO)<<Ps[i];
+      for (int i = 0; i < frame_count; i++) {
+        LOG(INFO) << Ps[i];
       }
       f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
-      optimization();
+      // optimization();
       if (frame_count == WINDOW_SIZE) {
         std::map<double, ImageFrame>::iterator frame_it;
         int i = 0;

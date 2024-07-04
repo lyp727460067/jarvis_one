@@ -20,7 +20,6 @@ SlipDetect::SlipDetect(const SlipDetectOption& option)
   // LOG(INFO) << rotaion;
   transform_cam_to_odom_map_ =
       transform::Rigid3d::Rotation(options_.transform_cam_to_odom.rotation());
-  LOG(INFO) << transform_cam_to_odom_map_;
   // transform_cam_to_odom_map_ = transform::Rigid3d(
   //     Eigen::Vector3d(0, 0, 0),
   //     Eigen::Quaterniond(-0.00189292, -0.188614, 0.00131981, -0.982049));
@@ -36,13 +35,12 @@ jarvis::transform::Rigid3d SlipDetect::ToPoseInOdom(
   //     Eigen::Vector3d(0.382489, -0.00321091, 0.19029),
   //     Eigen::Quaterniond(-0.00189292, -0.188614, 0.00131981, -0.982049));
   auto transform_cam_to_odom_map_1 = options_.transform_cam_to_odom;
-  const auto pose = transform_cam_to_odom_map_ * pose1 *
+  const auto pose = transform_cam_to_odom_map_1 * pose1 *
                     transform_cam_to_odom_map_1.inverse();
   return jarvis::transform::Rigid3d(
-      Eigen::Vector3d(pose.translation().x() +
-                          transform_cam_to_odom_map_1.translation().x(),
-                      pose.translation().y() +
-                          transform_cam_to_odom_map_1.translation().y(),
+      Eigen::Vector3d(pose.translation().x() ,
+                      pose.translation().y() ,
+                         
                       0),
       pose.rotation());
 }

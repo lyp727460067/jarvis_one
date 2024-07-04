@@ -64,7 +64,8 @@ void ParseYAMLOptionSlipDetectOption(const std::string &file,
   slip_detection_opiont->pose_odom_err_theta_threash_hold =
       fsSettings["pose_odom_err_theta_threash_hold"];
   slip_detection_opiont->transform_cam_to_odom =
-      calibrate_options.extric_camera_to_robot;
+      calibrate_options.extric_camera_to_robot *
+      calibrate_options.extric_camera_to_imu[0].inverse();
 }
 
 }  // namespace slip_detect

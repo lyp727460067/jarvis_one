@@ -32,6 +32,7 @@ struct SlipDetectOption {
   double pose_odom_err_s_threash_hold = 0.1;
   double pose_odom_err_theta_threash_hold = 0.1;
   jarvis::transform::Rigid3d transform_cam_to_odom;
+  // jarvis::transform::Rigid3d transform_imu_to_odom;
   void* feat_tracker_option;
 };
 

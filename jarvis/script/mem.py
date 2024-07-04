@@ -20,7 +20,7 @@ parser.add_option("--proc_memlog", dest="proc_memlog",
                   default="", help="proc_memlog")
 (options, args) = parser.parse_args()
 # ParseFromLog()
-options.proc_memlog="/home/lyp/data/0613/1/proc_memlog.txt"
+options.proc_memlog="/home/lyp/data/0704/data/proc_memlog.txt"
 # Read the original and optimized poses files.
 def ParseFromLog(file):
   time_start = 0.0
@@ -43,7 +43,7 @@ def ParseFromLog(file):
       # time = time_string_index_string[time_index:]
       # print(line_strip[1])
 
-    time_strng_index1 = line.find("jarvis_pic_main")
+    time_strng_index1 = line.find("jarvis_pic_slip_detect_main")
     if time_strng_index1!= -1:
       line_strip = line_strip.split()
       pesent =  line_strip[6] 

@@ -134,7 +134,7 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
 
   static uint64_t last_time =  time;
   if ((time - last_time) > 10000000) {
-    // LOG(INFO)<< "   " << time- last_time;
+    LOG(INFO)<< "   " << time- last_time;
   }
   last_time = time;
 #ifdef CHECK_DATA
@@ -419,9 +419,9 @@ int main(int argc, char* argv[]) {
         auto start = std::chrono::high_resolution_clock::now();
         auto slipe_alignment_pose = tracking_data.data->imu_state.data->pose;
         if (slip_detect) {
-          slip_detect->AddPose(
-              slip_detect::TimePose{tracking_data.data->time,
-                                    tracking_data.data->imu_state.data->pose});
+          slip_detect->AddPose(slip_detect::TimePose{
+              tracking_data.data->time,
+              tracking_data.data->imu_state.data->pose });
           auto flag = slip_detect->Detect(tracking_data.data->time);
           kSlipFile << std::to_string(uint64_t(jarvis::common::ToUniversal(
                                                    tracking_data.data->time) *
@@ -430,8 +430,7 @@ int main(int argc, char* argv[]) {
 
           ros_compont->PubBoolMsg(flag);
           slipe_alignment_pose = slip_detect->ToPoseInOdom(
-              (tracking_data.data->imu_state.data->pose *
-               tracking_data.data->transform_cam_to_imu));
+              (tracking_data.data->imu_state.data->pose));
         }
         LOG(INFO) << tracking_data.data->imu_state.data->pose;
         if (kRecordFlag) {
