@@ -468,17 +468,21 @@ int main(int argc, char* argv[]) {
     // slip_detect->AddImage(imag_data);
     // auto flag = slip_detect->Detect(imag_data.time);
     // ros_compont->PubBoolMsg(flag);
+    if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
+      LOG(WARNING) << "Input Image empty..";
+      return;
+    }
     auto start = std::chrono::high_resolution_clock::now();
     builder_->AddImageData(imag_data);
         LOG(INFO) << "One frame cost: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::high_resolution_clock::now() - start)
                          .count();
-    cv::imshow("show",*imag_data.image[0]);
-    cv::waitKey(0);
-    if(cv::waitKey()=='c'){
-      jarvis::restart =true;
-    }
+    // cv::imshow("show",*imag_data.image[0]);
+    // cv::waitKey(0);
+    // if(cv::waitKey()=='c'){
+    //   jarvis::restart =true;
+    // }
   });
    order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData&imu_data) {
      builder_->AddImuData(imu_data);

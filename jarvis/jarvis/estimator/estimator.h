@@ -67,6 +67,8 @@ struct EstimatorOption {
   CalibrateOption calibrate_option;
   ImuOption imu_option;
   FailureDetectOptoin fail_detect_option;
+  UpdataZeroVelocityOption updata_zerovelocity_option;
+  bool enable_zero_velocity =0;;
   int  use_imu = 1;
   int use_cam_num = 1;
   int estimate_td = 1;

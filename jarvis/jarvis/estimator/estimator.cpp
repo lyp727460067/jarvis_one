@@ -44,8 +44,11 @@ Estimator::Estimator(const EstimatorOption &options):options_(options),
   f_manager = std::make_unique<FeatureManager>(
       FeatureManagerOption{options.calibrate_option.extric_camera_to_imu});
   //
-  update_zero_velocity_ =
-      std::make_unique<UpdataZeroVelocity>(UpdataZeroVelocityOption{});
+  if (options_.enable_zero_velocity) {
+    update_zero_velocity_ = std::make_unique<UpdataZeroVelocity>(
+        options_.updata_zerovelocity_option);
+  }
+
   // imu_extrapolator_ = std::make_unique<ImuExtrapolator>();
   LOG(INFO) << "init begins";
   initThreadFlag = false;
@@ -138,7 +141,9 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     featureFrame = feature_tracker_->trackImage(d_time, *images.image[0],
                                                 cv::Mat(), &track_num, angle_);
   }
-  update_zero_velocity_->AddImageKeyPoints(images.time, featureFrame);
+  if (update_zero_velocity_) {
+    update_zero_velocity_->AddImageKeyPoints(images.time, featureFrame);
+  }
   //
   featureBuf.push(make_pair(d_time, featureFrame));
   TicToc processTime;
@@ -168,7 +173,10 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
   double d_time = common::ToSeconds(imu_data.time - common::FromUniversal(0));
-  update_zero_velocity_->AddImu(imu_data);
+
+  if (update_zero_velocity_) {
+    update_zero_velocity_->AddImu(imu_data);
+  }
   inputIMU(d_time, imu_data.linear_acceleration, imu_data.angular_velocity);
 }
 
@@ -1259,7 +1267,8 @@ void Estimator::optimization() {
       f_m_cnt++;
     }
   }
-  if (update_zero_velocity_->IsZeroVelocity()) {
+  if (update_zero_velocity_ &&
+      update_zero_velocity_->AtState({})->IsZeroVelocity()) {
     update_zero_velocity_->AddToProblem(
         &problem, std::array<double *, 3>{para_Pose[frame_count - 1],
                                           para_Pose[frame_count],
@@ -1287,7 +1296,7 @@ void Estimator::optimization() {
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  VLOG(kGlogLevel) << "\n" << summary.FullReport();
+  // VLOG(kGlogLevel) << "\n" << summary.FullReport();
 
   //
 

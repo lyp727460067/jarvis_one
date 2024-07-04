@@ -202,6 +202,38 @@ void ParseYAMLOption(const std::string &file,
     option->fail_detect_option.translation_z_max =
         fsSettings["translation_z_max"];
     option->fail_detect_option.ratation_max = fsSettings["ratation_max"];
+    int t = fsSettings["UpdataZeroVelocityOption"]["enable"];
+    option->enable_zero_velocity = bool(t);
+    option->updata_zerovelocity_option.optimize_weight =
+        fsSettings["UpdataZeroVelocityOption"]["optimize_weight"];
+    LOG(INFO) << option->updata_zerovelocity_option.optimize_weight;
+    option->updata_zerovelocity_option.optimize_bias_weight =
+        fsSettings["UpdataZeroVelocityOption"]["optimize_bias_weight"];
+    option->updata_zerovelocity_option.outlier_max_disparity =
+        fsSettings["UpdataZeroVelocityOption"]["outlier_max_disparity"];
+    option->updata_zerovelocity_option.zupt_max_velocity =
+        fsSettings["UpdataZeroVelocityOption"]["zupt_max_velocity"];
+    option->updata_zerovelocity_option.zupt_delay_frames =
+        fsSettings["UpdataZeroVelocityOption"]["zupt_delay_frames"];
+    option->updata_zerovelocity_option.que_time_duration =
+        fsSettings["UpdataZeroVelocityOption"]["que_time_duration"];
+    option->updata_zerovelocity_option.imu_velocity_option
+        .integrated_accel_constraint =
+        fsSettings["UpdataZeroVelocityOption"]["imu_velocity_option"]
+                  ["integrated_accel_constraint"];
+    option->updata_zerovelocity_option.imu_velocity_option
+        .zupt_noise_multiplier =
+        fsSettings["UpdataZeroVelocityOption"]["imu_velocity_option"]
+                  ["zupt_noise_multiplier"];
+    option->updata_zerovelocity_option.imu_velocity_option.zupt_chi2_multipler =
+        fsSettings["UpdataZeroVelocityOption"]["imu_velocity_option"]
+                  ["zupt_chi2_multipler"];
+    option->updata_zerovelocity_option.imag_disparity_option.min_disparity_num =
+        fsSettings["UpdataZeroVelocityOption"]["imag_disparity_option"]
+                  ["min_disparity_num"];
+    option->updata_zerovelocity_option.imag_disparity_option.max_disparity =
+        fsSettings["UpdataZeroVelocityOption"]["imag_disparity_option"]
+                  ["max_disparity"];
   }
 }
 

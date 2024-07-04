@@ -45,7 +45,7 @@ struct StateType {
 };
 struct OpenVinsZeroVelocityDetectOption {
   ImuZeroVelocityDetectOption base_option;
-  bool integrated_accel_constraint;
+  int integrated_accel_constraint;
   //
 
   double angular_velocity_wnc;
@@ -103,7 +103,7 @@ struct UpdataZeroVelocityOption {
   float que_time_duration = 1;
   float outlier_max_disparity = 0.5;
   float zupt_max_velocity = 0.1;
-  unsigned int zupt_delay_frames = 0;
+  int zupt_delay_frames = 0;
 };
 //
 class UpdataZeroVelocity {

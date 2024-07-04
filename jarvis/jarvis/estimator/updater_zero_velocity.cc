@@ -61,7 +61,7 @@ class AutoZeroVelocityCostFuction {
     Eigen::Matrix<T, 3, 1> gry_bias_err =
         average_gry_.template cast<T>() - gry_bias;
     //-0.0799841  -0.178106 -0.0305463
-    Eigen::Map<Eigen::Matrix<T, 9, 1>, Eigen::RowMajor> residual(residuals);
+    Eigen::Map<Eigen::Matrix<T, 15, 1>, Eigen::RowMajor> residual(residuals);
     residual << -T(weight_[0]) * T(2.0) * delta_q.vec(),
         -T(weight_[0]) * delta_t, -T(weight_[0]) * v_a,
         -T(weight_[1]) * acc_bias_err, -T(weight_[1]) * gry_bias_err;
@@ -71,8 +71,8 @@ class AutoZeroVelocityCostFuction {
   static ceres::CostFunction* Create(std::array<double, 2> weight,
                                      const Eigen::Vector3d& average_acc,
                                      const Eigen::Vector3d& average_gry) {
-    return new ceres::AutoDiffCostFunction<AutoZeroVelocityCostFuction, 15, 6,
-                                           6, 9>(
+    return new ceres::AutoDiffCostFunction<AutoZeroVelocityCostFuction, 15, 7,
+                                           7, 9>(
         new AutoZeroVelocityCostFuction(weight, average_acc, average_gry));
   }
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -361,7 +361,6 @@ bool ImageZeroVelocityDetect::IsZeroVelocity() {
 void UpdataZeroVelocity::AddImageKeyPoints(
     const common::Time& time, const ImageFeatureTrackerData& feature_frame) {
   //
-  LOG(INFO)<<":";
   lates_time_ = time;
   for (auto const& point : feature_frame.data->features) {
     key_point_datas_[static_cast<uint64_t>(point.first)].emplace(
@@ -375,9 +374,6 @@ void UpdataZeroVelocity::AddImu(const sensor::ImuData& imu_data) {
 //
 UpdataZeroVelocity::UpdataZeroVelocity(const UpdataZeroVelocityOption& option)
     : options_(option) {
-  std::vector<std::unique_ptr<ZeroVelocityDetect>> detect;
-  detect.emplace_back(std::make_unique<ImageZeroVelocityDetect>(
-      options_.imag_disparity_option, key_point_datas_));
 
 
   //   for (int i = 1; i < 100; ++i) {
