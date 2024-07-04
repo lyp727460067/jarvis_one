@@ -157,7 +157,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       cur_pts = predict_pts;
       cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
                                pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                               status, err, win_size, level+1, criteria,cv::OPTFLOW_USE_INITIAL_FLOW
+                               status, err, win_size, level+1, criteria
                                );
       //
       // std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;

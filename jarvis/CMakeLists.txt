@@ -7,7 +7,7 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -Ofast -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 
 
 

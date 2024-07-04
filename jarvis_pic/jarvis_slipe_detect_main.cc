@@ -33,7 +33,7 @@ constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 double image_sample = 1;
 uint8_t kVioState=0;
-uint8_t kecordFlag = 0;
+uint8_t kRecordFlag = 0;
 uint8_t kEnableSlipDetect = 0;
 uint8_t kDataCaputureType = 0;
 std::ofstream kOImuFile;
@@ -154,8 +154,8 @@ class JarvisBrige {
               jarvis::sensor::ImageData{
                   jarvis::common::FromUniversal(frame.time * 10) +
                       jarvis::common::FromSeconds(imu_cam_time_offset),
-                  {std::make_shared<cv::Mat>(frame.images[0].clone()),
-                   std::make_shared<cv::Mat>(frame.images[1].clone())}}));
+                  {std::make_shared<cv::Mat>(frame.images[0]),
+                   std::make_shared<cv::Mat>(frame.images[1])}}));
     });
     data_capture_->Rigister([&](const EncoderData& encode) {
       if (!last_encoder_data_.has_value()) {

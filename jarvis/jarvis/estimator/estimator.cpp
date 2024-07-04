@@ -1071,7 +1071,6 @@ void Estimator::double2vector() {
 
 bool Estimator::failureDetection() {
 
-    return false;
   if(restart){
     restart =false;
     return true;

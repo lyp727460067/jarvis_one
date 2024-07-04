@@ -21,7 +21,7 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
   cv::Mat yuvMat(height + height / 2, width, CV_8UC1, (unsigned char*)buf);
   cv::Mat grayMat;
   cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
-  return grayMat;
+  return grayMat.clone();
 }
 
 }  // namespace
