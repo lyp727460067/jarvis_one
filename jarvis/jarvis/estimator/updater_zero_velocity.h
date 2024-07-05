@@ -116,7 +116,8 @@ class UpdataZeroVelocity {
   UpdataZeroVelocity* AtState(const StateType&);
   ceres::CostFunction* CostFunction() const;
   // order is T0,T1,V0
-  void AddToProblem(ceres::Problem* problem, std::array<double*, 3> pqv) const;
+  void AddToProblem(ceres::Problem* problem, ceres::LossFunction* loss_function,
+                    std::array<double*, 3> pqv) const;
   //
   void AddImu(const sensor::ImuData& imu_data);
   void AddImageKeyPoints(const common::Time& time,

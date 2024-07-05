@@ -61,17 +61,17 @@ class AutoZeroVelocityCostFuction {
     Eigen::Matrix<T, 3, 1> gry_bias_err =
         average_gry_.template cast<T>() - gry_bias;
     //-0.0799841  -0.178106 -0.0305463
-    Eigen::Map<Eigen::Matrix<T, 15, 1>, Eigen::RowMajor> residual(residuals);
-    residual << -T(weight_[0]) * T(2.0) * delta_q.vec(),
-        -T(weight_[0]) * delta_t, -T(weight_[0]) * v_a,
-        -T(weight_[1]) * acc_bias_err, -T(weight_[1]) * gry_bias_err;
+    Eigen::Map<Eigen::Matrix<T, 9, 1>> residual(residuals);
+    residual << T(weight_[0]) * delta_t,T(weight_[0]) * T(2.0) * delta_q.vec(),
+         T(weight_[0]) * v_a;
+        // -T(weight_[1]) * acc_bias_err, -T(weight_[1]) * gry_bias_err;
     return true;
   }
 
   static ceres::CostFunction* Create(std::array<double, 2> weight,
                                      const Eigen::Vector3d& average_acc,
                                      const Eigen::Vector3d& average_gry) {
-    return new ceres::AutoDiffCostFunction<AutoZeroVelocityCostFuction, 15, 7,
+    return new ceres::AutoDiffCostFunction<AutoZeroVelocityCostFuction, 9, 7,
                                            7, 9>(
         new AutoZeroVelocityCostFuction(weight, average_acc, average_gry));
   }
@@ -84,9 +84,9 @@ class AutoZeroVelocityCostFuction {
 };
 
 // p0 p1 v_bais_bias  (bias ignore)
-constexpr uint32_t residuals_block_size = 15;
+constexpr uint32_t residuals_block_size = 9;
 class ZeroVelocityCostFuction
-    : public ceres::SizedCostFunction<residuals_block_size, 6, 6, 9> {
+    : public ceres::SizedCostFunction<residuals_block_size, 7, 7, 9> {
  public:
   ZeroVelocityCostFuction(const std::array<double, 2>& weight,
                           const Eigen::Vector3d& average_acc,
@@ -97,16 +97,12 @@ class ZeroVelocityCostFuction
     //
 
     const Eigen::Map<const Eigen::Vector3d> p_a(parameters[0]);
-    const Eigen::Map<const Eigen::Vector3d> q_a_angle(parameters[0] + 3);
-    const Eigen::Quaterniond q_a =
-        transform::AngleAxisVectorToRotationQuaternion(
-            Eigen::Vector3d(q_a_angle));
+    Eigen::Quaterniond q_a(parameters[0][6], parameters[0][3], parameters[0][4],
+                          parameters[0][5]);
 
     const Eigen::Map<const Eigen::Vector3d> p_b(parameters[1]);
-    const Eigen::Map<const Eigen::Vector3d> q_b_angle(parameters[1] + 3);
-    const Eigen::Quaterniond q_b =
-        transform::AngleAxisVectorToRotationQuaternion(
-            Eigen::Vector3d(q_b_angle));
+  Eigen::Quaterniond q_b(parameters[1][6], parameters[1][3], parameters[1][4],
+                          parameters[1][5]);
     //
     const Eigen::Map<const Eigen::Vector3d> v_a(parameters[2]);
     //
@@ -114,7 +110,7 @@ class ZeroVelocityCostFuction
     // LOG(INFO)<<-LogSo3(q_a.toRotationMatrix()*q_b.conjugate().toRotationMatrix());
     Eigen::Vector3d delta_t = p_b - p_a;
     //
-
+    LOG(INFO)<<delta_t.transpose();
     Eigen::Map<const Eigen::Vector3d> acc_bias(parameters[2] + 3);
     Eigen::Map<const Eigen::Vector3d> gry_bias(parameters[2] + 6);
     const Eigen::Vector3d gravity = Eigen::Vector3d::UnitZ() * 9.81;
@@ -122,28 +118,29 @@ class ZeroVelocityCostFuction
         average_acc_ - q_a.conjugate() * gravity - acc_bias;
     Eigen::Vector3d gry_bias_err = average_gry_ - gry_bias;
     //
-    Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals);
+    Eigen::Map<Eigen::Matrix<double, residuals_block_size, 1>> residual(residuals);
     residual << (weight_[0]) * delta_t, (weight_[0]) * 2 * delta_q.vec(),
-        (weight_[0]) * v_a, (weight_[1]) * acc_bias_err,
-        (weight_[1]) * gry_bias_err;
+        (weight_[0]) * v_a;
+    //  (weight_[1]) * acc_bias_err,
+    // (weight_[1]) * gry_bias_err;
     //
     // order is  t0,t1,v0
     if (jacobians) {
       if (jacobians[0]) {
         Eigen::Map<
-            Eigen::Matrix<double, residuals_block_size, 6, Eigen::RowMajor>>
+            Eigen::Matrix<double, residuals_block_size, 7, Eigen::RowMajor>>
             jacobians_(jacobians[0]);
         jacobians_.setZero();
         jacobians_.block<3, 3>(0, 0) =
             -weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_.block<3, 3>(3, 3) =
             -weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
-        jacobians_.block<3, 3>(9, 3) =
-            -weight_[1] * Skew(q_a.conjugate() * gravity);
+        // jacobians_.block<3, 3>(9, 3) =
+        //     -weight_[1] * Skew(q_a.conjugate() * gravity);
       }
       if (jacobians[1]) {
         Eigen::Map<
-            Eigen::Matrix<double, residuals_block_size, 6, Eigen::RowMajor>>
+            Eigen::Matrix<double, residuals_block_size, 7, Eigen::RowMajor>>
             jacobians_(jacobians[1]);
         jacobians_.setZero();
         //
@@ -161,8 +158,8 @@ class ZeroVelocityCostFuction
             weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_.block<3, 3>(9, 0) =
             -weight_[1] * Eigen::Matrix<double, 3, 3>::Identity();
-        jacobians_.block<3, 3>(12, 0) =
-            -weight_[1] * Eigen::Matrix<double, 3, 3>::Identity();
+        // jacobians_.block<3, 3>(12, 0) =
+        //     -weight_[1] * Eigen::Matrix<double, 3, 3>::Identity();
       }
     }
     return true;
@@ -500,10 +497,12 @@ ceres::CostFunction* UpdataZeroVelocity::CostFunction() const {
 //
 
 void UpdataZeroVelocity::AddToProblem(ceres::Problem* problem,
+                                      ceres::LossFunction* loss_function,
                                       std::array<double*, 3> pqv) const {
   LOG(INFO) << "Add ZeroVelocity factor.";
   gravity_ = options_.imu_velocity_option.const_gravity;
-  problem->AddResidualBlock(CostFunction(), nullptr, pqv[0], pqv[1], pqv[2]);
+  problem->AddResidualBlock(CostFunction(), loss_function, pqv[0], pqv[1],
+                            pqv[2]);
 }
 //
 }  // namespace estimator

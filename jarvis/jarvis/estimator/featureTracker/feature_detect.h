@@ -11,7 +11,7 @@ struct FeatureDetectOption {
   int min_distance = 30;
   Eigen::Vector2i imag_size;
   Eigen::Vector2i grid_size{20, 16};
-  int num_thread_ = 4;
+  int num_thread_ = 2;
 };
 
 struct GridOption {

@@ -285,7 +285,7 @@ void MarginalizationInfo::marginalize() {
     // 设置线程优先级
     sched_param.sched_priority = 90+i;
     pthread_attr_setschedparam(&attr, &sched_param);
-    int ret = pthread_create(&tids[i], &attr, ThreadsConstructA,
+    int ret = pthread_create(&tids[i], nullptr, ThreadsConstructA,
                              (void *)&(threadsstruct[i]));
     CHECK(ret == 0) << "pthread_create error";
   }

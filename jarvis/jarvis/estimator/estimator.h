@@ -74,6 +74,7 @@ struct EstimatorOption {
   int estimate_td = 1;
   int estimate_extrinsic =1;
   double init_td = 0;
+  double optimazation_outliers_rejection_th=3;
   
 };
 

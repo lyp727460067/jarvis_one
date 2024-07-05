@@ -140,6 +140,7 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       }
     });
   }
+  LOG(INFO)<<"!";
   for (int i = 0; i < options_.num_thread_; i++) {
     threads[i].join();
   }

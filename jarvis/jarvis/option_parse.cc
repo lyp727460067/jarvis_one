@@ -204,6 +204,7 @@ void ParseYAMLOption(const std::string &file,
     option->fail_detect_option.ratation_max = fsSettings["ratation_max"];
     int t = fsSettings["UpdataZeroVelocityOption"]["enable"];
     option->enable_zero_velocity = bool(t);
+    LOG(INFO)<<t;
     option->updata_zerovelocity_option.optimize_weight =
         fsSettings["UpdataZeroVelocityOption"]["optimize_weight"];
     LOG(INFO) << option->updata_zerovelocity_option.optimize_weight;

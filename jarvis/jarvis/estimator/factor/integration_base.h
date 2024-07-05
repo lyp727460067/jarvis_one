@@ -76,8 +76,8 @@ class IntegrationBase {
   }
   bool IsValid() {
     if (sum_dt > 5.0) return false;
-    LOG(INFO)<<acc_buf.size();
-    LOG(INFO) << common::RadToDeg(transform::GetYaw(delta_q));
+    // LOG(INFO)<<acc_buf.size();
+    // LOG(INFO) << common::RadToDeg(transform::GetYaw(delta_q));
     // if (acc_buf.size() <= 15 || acc_buf.size() >= 30) return false;
     if (acc_buf.size() <= 3 ) return false;
     return true;

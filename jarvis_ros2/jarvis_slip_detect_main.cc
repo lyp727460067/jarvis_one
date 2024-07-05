@@ -35,6 +35,7 @@ constexpr char kOdomTopic[] = "/odom";
 namespace {
 double imu_cam_time_offset = 0;
 double image_sample = 1;
+int  KStartImageTime  = 0;
 uint8_t kRecordFlag = 1;
 uint8_t kDataCaputureType = 0;
 std::ofstream kOImuFile;
@@ -46,6 +47,7 @@ void ParseOption(const std::string& config) {
   fsSettings["imu_cam_time_offset"] >> imu_cam_time_offset;
   LOG(INFO)<< imu_cam_time_offset;
   fsSettings["image_sample"] >> image_sample;
+  fsSettings["start_image_time"] >> KStartImageTime;
   // fsSettings["record"] >> kRecordFlag;
   // fsSettings["data_capture"] >> kDataCaputureType;
 }
@@ -330,6 +332,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,std::map<uint64_t, OdomSensor>& o
     //                 temp2,
 
     //             }}));
+    if(time>1064339798000)
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
@@ -538,6 +541,7 @@ int main(int argc, char* argv[]) {
   });
   order_queue_->Start();
   Run(imu_datas,odom_datas, image_datas);
+
   order_queue_->Stop();
   builder_= nullptr;
   kill_thread = true;

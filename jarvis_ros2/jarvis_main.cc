@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
   builder_ = std::make_unique<TrajectorBuilder>(
       std::string(argv[1]), [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
-        LOG(INFO) << data.data->pose;
+        LOG(INFO) << data.data->imu_state.data->pose;
         //
         tracking_data_temp = data;
         cond.notify_one();

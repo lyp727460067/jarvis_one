@@ -399,7 +399,10 @@ int Estimator::processMeasurements() {
         break;
       else {
         LOG(WARNING)<<"wait for imu ... \n";
-        return 0;
+        if(!initFirstPoseFlag){
+           return 0;
+        }
+        break;
       }
     }
     if (options_.use_imu) {
@@ -656,7 +659,7 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
     }
     f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
     optimization();
-
+    LOG(INFO)<< Ps[frame_count];
     set<int> removeIndex;
     outliersRejection(removeIndex);
     f_manager->removeOutlier(removeIndex);
@@ -1194,7 +1197,10 @@ void Estimator::optimization() {
       // if (abs(Headers[i] - Headers[j]) > 4.0) {
       // }
       if (!pre_integrations[j]->IsValid()) {
-        problem.SetParameterBlockConstant(para_SpeedBias[0]);
+        // problem.SetParameterBlockConstant(para_SpeedBias[0]);
+        problem.SetParameterBlockConstant(para_Ex_Pose[0]);
+        problem.SetParameterBlockConstant(para_Ex_Pose[1]);
+
         LOG(WARNING) << "Imu avalid..";
         continue;
       }
@@ -1274,10 +1280,11 @@ void Estimator::optimization() {
   if (update_zero_velocity_ &&
       update_zero_velocity_->AtState({})->IsZeroVelocity()) {
     update_zero_velocity_->AddToProblem(
-        &problem, std::array<double *, 3>{para_Pose[frame_count - 1],
+        &problem, nullptr,std::array<double *, 3>{para_Pose[frame_count - 1],
                                           para_Pose[frame_count],
                                           para_SpeedBias[frame_count]});
-  }
+    // problem.SetParameterBlockConstant(para_Pose[frame_count - 1]);
+  } 
   VLOG(kGlogLevel) << "visual measurement count: " << f_m_cnt;
   // printf("prepare for ceres: %f \n", t_prepare.toc());
 
@@ -1300,7 +1307,7 @@ void Estimator::optimization() {
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  // VLOG(kGlogLevel) << "\n" << summary.FullReport();
+  VLOG(kGlogLevel) << "\n" << summary.FullReport();
 
   //
 
@@ -1336,9 +1343,11 @@ void Estimator::optimization() {
   //
   // printf("solver costs: %f \n", t_solver.toc());
 
+  LOG(INFO)<<Ps[frame_count-1];
+  LOG(INFO)<<Ps[frame_count];
   double2vector();
   // printf("frame_count: %d \n", frame_count);
-
+  LOG(INFO)<<Ps[frame_count];
   if (frame_count < WINDOW_SIZE) return;
 
   TicToc t_whole_marginalization;
@@ -1769,8 +1778,10 @@ void Estimator::outliersRejection(std::set<int> &removeIndex) {
       }
     }
     double ave_err = err / errCnt;
-    if (ave_err * FOCAL_LENGTH > 3) removeIndex.insert(it_per_id.feature_id);
+    if (ave_err * FOCAL_LENGTH > options_.optimazation_outliers_rejection_th) removeIndex.insert(it_per_id.feature_id);
   }
+  // LOG(INFO)<<removeIndex.size();
+
 }
 
 void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration,
