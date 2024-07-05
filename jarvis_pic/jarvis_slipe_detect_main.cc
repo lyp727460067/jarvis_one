@@ -112,6 +112,10 @@ class JarvisBrige {
     order_queue_->AddQueue(
         kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
           // LOG(INFO) << std::to_string(imag_data.time);
+          if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
+            LOG(WARNING) << "Input Image empty..";
+            return;
+          }
           auto start = std::chrono::high_resolution_clock::now();
           builder_->AddImageData(imag_data);
           LOG(INFO) << "One frame cost: "

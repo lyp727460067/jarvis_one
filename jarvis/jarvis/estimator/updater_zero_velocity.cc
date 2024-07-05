@@ -326,14 +326,14 @@ bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
 bool ImageZeroVelocityDetect::IsZeroVelocity() {
   double disparity = 0;
   std::vector<float> disparitys;
-  for (auto const key_points : data_base_) {
+  for (auto const& key_points : data_base_) {
     if (key_points.second.size() >= 2) {
       disparitys.push_back((key_points.second.begin()->second -
                             key_points.second.rbegin()->second)
                                .norm());
     }
   }
-  if (disparitys.size() < options_.min_disparity_num) {
+  if (disparitys.size() <size_t(options_.min_disparity_num)) {
     VLOG(kGlogLevel)
         << "zupt failed - Disparity-based Detection (disparitys.size() "
         << disparitys.size() << " < min_disparity_num "
@@ -426,7 +426,7 @@ std::vector<uint64_t> UpdataZeroVelocity::GetOutlierPointClassId() {
     return outlier_key_points_temp_.value();
   }
   std::vector<uint64_t> result;
-  for (auto const key_points : key_point_datas_) {
+  for (auto const &key_points : key_point_datas_) {
     // LOG(INFO)<<key_points.first;
     if (key_points.second.size() >= 2) {
       auto norm = (key_points.second.begin()->second -
