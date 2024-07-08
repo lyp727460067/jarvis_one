@@ -80,7 +80,9 @@ class JarvisBrige {
                 data.data->time, data.data->imu_state.data->pose});
             slip_flag = slip_detect_->Detect(data.data->time);
           }
-          mpc_.Write(data,
+          transform::Rigid3d  slipe_alignment_pose =
+              slip_detect_->ToPoseInOdom((data.data->imu_state.data->pose));
+          mpc_.Write(slipe_alignment_pose,data,
                      GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
                          jarvis::common::ToUniversal(data.data->time) / 10)),
                      slip_flag);

@@ -834,7 +834,6 @@ bool Estimator::initialStructure() {
                     .conjugate();
     frame_it->second.T = T_pnp;
   }
-  LOG(INFO)<<"1";
   if (visualInitialAlign()) {
     return true;
 
