@@ -42,6 +42,7 @@ std::ofstream kOImuFile;
 std::ofstream kOPoseFile;
 std::ofstream kSlipFile;
 std::string image_dir;
+std::unique_ptr<jarvis::estimator::ImuExtrapolator> KImuExtrapolator;
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["imu_cam_time_offset"] >> imu_cam_time_offset;
@@ -79,6 +80,16 @@ struct ImuData {
   Eigen::Vector3d linear_acceleration;
   Eigen::Vector3d angular_velocity;
   std::unique_ptr<sensor::Data> ToPatchData() {
+    KImuExtrapolator->AddImu(sensor::ImuData{
+        common::FromUniversal(time / 100),
+        linear_acceleration,
+        angular_velocity,
+    });
+    auto state = KImuExtrapolator->Exrapolate(common::FromUniversal(time / 100));
+    if (state.data) {
+      LOG(INFO) << state.data->pose;
+    }
+
     return std::make_unique<sensor::DispathcData<sensor::ImuData>>(
         sensor::ImuData{
             common::FromUniversal(time /100),
@@ -332,7 +343,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,std::map<uint64_t, OdomSensor>& o
     //                 temp2,
 
     //             }}));
-    if(time>1064339798000)
+    // if(time>1064339798000)
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
@@ -378,6 +389,8 @@ int main(int argc, char* argv[]) {
     kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
     kSlipFile.open("/tmp/slep_vio_pose.txt", std::ios::out);
   }
+  KImuExtrapolator =
+      std::make_unique<jarvis::estimator::ImuExtrapolator>();
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
   const std::string data_dir(argv[2]);
@@ -419,6 +432,8 @@ int main(int argc, char* argv[]) {
         //   cond.wait(lock);
         //   tracking_data = tracking_data_temp;
         // }
+        KImuExtrapolator->AddState(data.data->time, data.data->imu_state);
+
         auto start = std::chrono::high_resolution_clock::now();
         auto slipe_alignment_pose = tracking_data.data->imu_state.data->pose;
         if (slip_detect) {
@@ -481,8 +496,8 @@ int main(int argc, char* argv[]) {
                   << std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::high_resolution_clock::now() - start)
                          .count();
-    // cv::imshow("show",*imag_data.image[0]);
-    // cv::waitKey(0);
+    cv::imshow("show",*imag_data.image[0]);
+    cv::waitKey(0);
     // if(cv::waitKey()=='c'){
     //   jarvis::restart =true;
     // }

@@ -36,7 +36,6 @@ class ImuZeroVelocityDetect : public ZeroVelocityDetect {
 };
 //
 struct StateType {
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   common::Time time;
   transform::Rigid3d pose;
   Eigen::Vector3d linear_velocity;

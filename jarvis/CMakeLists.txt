@@ -89,7 +89,7 @@ if(${build_test})
     get_filename_component(FIL_WE ${REL_FIL} NAME_WE)
     string(REPLACE "/" "." TARGET_NAME "${DIR}/${FIL_WE}")
     add_executable(${TARGET_NAME} ${ABS_FIL} )
-    message()
+    # message(${ABS_FIL})
     target_link_libraries(${TARGET_NAME}
       -lgtest_main
       -lgtest

@@ -331,7 +331,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       Eigen::Vector3d localPoint;
       localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
       double depth = localPoint.z();
-      LOG(INFO)<<depth;
+      // LOG(INFO)<<depth;
       if (depth > 0)
         it_per_id.estimated_depth = depth;
       else

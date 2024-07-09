@@ -1199,9 +1199,9 @@ void Estimator::optimization() {
   if (options_.use_imu) {
     for (int i = 0; i < frame_count; i++) {
       int j = i + 1;
-        LOG(INFO)<<para_SpeedBias[j][0];
-        LOG(INFO)<<para_SpeedBias[j][1];
-        LOG(INFO)<<para_SpeedBias[j][2];
+        // LOG(INFO)<<para_SpeedBias[j][0];
+        // LOG(INFO)<<para_SpeedBias[j][1];
+        // LOG(INFO)<<para_SpeedBias[j][2];
       // if (abs(Headers[i] - Headers[j]) > 4.0) {
       // }
         if (update_zero_velocity_) {

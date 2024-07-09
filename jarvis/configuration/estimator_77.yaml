@@ -92,7 +92,7 @@ g_norm: 9.81007     # gravity magnitude
 ##
 UpdataZeroVelocityOption:
   enable: 1
-  optimize_weight: 1e8
+  optimize_weight: 1e2
   optimize_bias_weight: 1e1
   outlier_max_disparity: 1
   zupt_max_velocity: 1.0

@@ -111,7 +111,7 @@ class ZeroVelocityCostFuction
     // LOG(INFO)<<-LogSo3(q_a.toRotationMatrix()*q_b.conjugate().toRotationMatrix());
     Eigen::Vector3d delta_t = p_b - p_a;
     //
-    LOG(INFO)<<delta_t.transpose();
+    // LOG(INFO)<<delta_t.transpose();
     Eigen::Map<const Eigen::Vector3d> acc_bias(parameters[2] + 3);
     Eigen::Map<const Eigen::Vector3d> gry_bias(parameters[2] + 6);
     const Eigen::Vector3d gravity = Eigen::Vector3d::UnitZ() * 9.81;
@@ -126,7 +126,7 @@ class ZeroVelocityCostFuction
     Eigen::Map<Eigen::Matrix<double, residuals_block_size, 1>> residual(
         residuals);
     residual << delta_t, 2 * delta_q.vec(), -v_a;
-    LOG(INFO)<<v_a;
+    // LOG(INFO)<<v_a;
 
     residual = sqrt_info * residual;
     //
@@ -490,8 +490,8 @@ bool UpdataZeroVelocity::IsZeroVelocity(const common::Time& time) {
 //
 ceres::CostFunction* UpdataZeroVelocity::CostFunction() const {
   // return AutoZeroVelocityCostFuction::Create(
-  //     {options_.optimize_weight, options_.optimize_bias_weight},
-  //     last_average_acc_, last_average_gry_);
+      // {options_.optimize_weight, options_.optimize_bias_weight},
+      // last_average_acc_, last_average_gry_);
   return new ZeroVelocityCostFuction(
       {options_.optimize_weight, options_.optimize_bias_weight},
       last_average_acc_, last_average_gry_);
