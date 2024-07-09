@@ -143,7 +143,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   // cv::imshow("pre1",pyramid_image_->CurrPyram().back());
   // cv::waitKey(0);
   const int level =  pyramid_image_->Layer()-1;
-  LOG(INFO)<<level ;
+  // LOG(INFO)<<level ;
   const int start_level = 0;
   cv::Size win_size(options_.pyrmid_option.lk_win_size,
                     options_.pyrmid_option.lk_win_size);
@@ -175,7 +175,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       for (size_t i = 0; i < status.size(); i++) {
         if (status[i]) succ_num++;
       }
-      LOG(INFO)<<succ_num ;
+      // LOG(INFO)<<succ_num ;
       if (succ_num < 30) {
         {
           cv::Mat gray_img, loop_match_img;

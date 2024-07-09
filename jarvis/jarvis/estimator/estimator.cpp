@@ -962,8 +962,8 @@ void Estimator::vector2double() {
       para_SpeedBias[i][8] = Bgs[i].z();
     }
   }
-  LOG(INFO) << Vs[WINDOW_SIZE].transpose();
-  LOG(INFO) << Bgs[WINDOW_SIZE].transpose();
+  // LOG(INFO) << Vs[WINDOW_SIZE].transpose();
+  // LOG(INFO) << Bgs[WINDOW_SIZE].transpose();
 
   for (int i = 0; i < options_.use_cam_num; i++) {
     para_Ex_Pose[i][0] = tic[i].x();
@@ -1359,11 +1359,11 @@ void Estimator::optimization() {
   //
   // printf("solver costs: %f \n", t_solver.toc());
 
-  LOG(INFO)<<Ps[frame_count-1].transpose();
-  LOG(INFO)<<Ps[frame_count].transpose();
+  // LOG(INFO)<<Ps[frame_count-1].transpose();
+  // LOG(INFO)<<Ps[frame_count].transpose();
   double2vector();
   // printf("frame_count: %d \n", frame_count);
-  LOG(INFO)<<Ps[frame_count].transpose();
+  // LOG(INFO)<<Ps[frame_count].transpose();
   if (frame_count < WINDOW_SIZE) return;
 
   TicToc t_whole_marginalization;
