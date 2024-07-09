@@ -32,7 +32,8 @@ constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 double image_sample = 1;
-uint8_t kVioState = 0;
+int kVioState=0;
+bool kSlipeState=0;
 uint8_t kRecordFlag = 0;
 uint8_t kEnableSlipDetect = 0;
 uint8_t kDataCaputureType = 0;
@@ -72,6 +73,8 @@ class JarvisBrige {
       slip_detect_ = jarvis::slip_detect::FactorSlipDetect(config);
     }
     order_queue_ = std::make_unique<jarvis::sensor::OrderedMultiQueue>();
+    imu_extrapolator_ = std::make_unique<jarvis::estimator::ImuExtrapolator>();
+
     builder_ = std::make_unique<jarvis::TrajectorBuilder>(
         std::string(config), [&](const jarvis::TrackingData& data) {
           bool slip_flag = false;
@@ -80,36 +83,21 @@ class JarvisBrige {
                 data.data->time, data.data->imu_state.data->pose});
             slip_flag = slip_detect_->Detect(data.data->time);
           }
-          transform::Rigid3d  slipe_alignment_pose =
-              slip_detect_->ToPoseInOdom((data.data->imu_state.data->pose));
-          mpc_.Write(slipe_alignment_pose,data,
-                     GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
-                         jarvis::common::ToUniversal(data.data->time) / 10)),
-                     slip_flag);
+          kSlipeState  = slip_flag ;
+          kVioState= data.status;
+          imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
+          // transform::Rigid3d  slipe_alignment_pose =
+          //     slip_detect_->ToPoseInOdom((data.data->imu_state.data->pose));
+          // mpc_.Write(slipe_alignment_pose,data,
+          //            GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
+          //                jarvis::common::ToUniversal(data.data->time) / 10)),slip_flag);
           call_back_(jarvis_pic_call_back_data{slip_flag, data});
         });
 
-    order_queue_->AddQueue(kImuTopic,
-                           [&](const jarvis::sensor::ImuData& imu_data) {
-                             builder_->AddImuData(imu_data);
-                             // auto pose =
-                             // jarvis::GetGlobleImuExtrapolatorPose();
-                             // jarvis::TrackingData tracking_data{
-                             //     std::make_shared<jarvis::TrackingData::Data>(
-                             //         jarvis::TrackingData::Data{
-                             //             imu_data.time,
-                             //             jarvis::estimator::ImuState(jarvis::estimator::ImuState{
-                             //                 std::make_shared<jarvis::estimator::ImuState::Data>(
-                             //                     jarvis::estimator::ImuState::Data{
-                             //                         pose.second})})}),
-                             //     kVioState};
-
-                             // mpc_.Write(
-                             //     tracking_data,
-                             //     GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
-                             //         jarvis::common::ToUniversal(tracking_data.data->time)
-                             //         / 10)));
-                           });
+    order_queue_->AddQueue(
+        kImuTopic, [&](const jarvis::sensor::ImuData& imu_data) {
+          builder_->AddImuData(imu_data);
+        });
     //
     order_queue_->AddQueue(
         kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
@@ -133,8 +121,26 @@ class JarvisBrige {
 
     data_capture_->Rigister([&](const ImuData& imu) {
       // LOG(INFO)<<jarvis::common::FromUniversal(imu.time * 10);
-      // LOG(INFO)<<imu.linear_acceleration.transpose()<<"
-      // "<<imu.angular_velocity.transpose();
+      // LOG(INFO)<<imu.linear_acceleration.transpose()<<" "<<imu.angular_velocity.transpose();
+      imu_extrapolator_->AddImu(jarvis::sensor::ImuData{
+          jarvis::common::FromUniversal(imu.time * 10),
+          imu.linear_acceleration,
+          imu.angular_velocity,
+      });
+      auto state = imu_extrapolator_->Exrapolate(
+          jarvis::common::FromUniversal(imu.time * 10));
+      // auto pose = jarvis::GetGlobleImuExtrapolatorPose();
+
+      if(state.data){
+      jarvis::TrackingData data{
+          std::make_shared<jarvis::TrackingData::Data>(
+              jarvis::TrackingData::Data{ jarvis::common::FromUniversal(imu.time * 10), state}),
+          kVioState};
+      transform::Rigid3d slipe_alignment_pose =
+          slip_detect_->ToPoseInOdom(state.data->pose);
+      mpc_.Write(slipe_alignment_pose, data,
+                 GetDataCapture()->GetOrigImuTime(imu.time), kSlipeState);
+      }
       order_queue_->AddData(
           kImuTopic, std::make_unique<
                          jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
@@ -143,10 +149,6 @@ class JarvisBrige {
                              imu.linear_acceleration,
                              imu.angular_velocity,
                          }));
-    });
-    data_capture_->Rigister([&](const Frame& frame) {
-      if (!image_sample_->Pulse()) return;
-      //  cv::Mat temp1;
       // //  cv::equalizeHist( frame.image, temp1);
       //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8,
       //  8)); clahe->apply( frame.image, temp1);
@@ -167,7 +169,6 @@ class JarvisBrige {
         last_encoder_data_ =
             Eigen::Vector2i(encode.left_encoder, encode.right_encoder);
       }
-      const Eigen::Vector2i cur_encode{encode.left_encoder,
                                        encode.right_encoder};
       const Eigen::Vector2d delta_encode =
           0.001 * (cur_encode - last_encoder_data_.value()).cast<double>();
@@ -238,6 +239,7 @@ class JarvisBrige {
   std::unique_ptr<jarvis::slip_detect::SlipDetect> slip_detect_;
   std::function<void(const jarvis_pic_call_back_data&)> call_back_;
   std::unique_ptr<jarvis::common::FixedRatioSampler> image_sample_;
+  std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_;  //=
 };
 }  // namespace jarvis_pic
 std::string kDataDir = "/mnt/UDISK/jarvis/";
@@ -323,7 +325,6 @@ int main(int argc, char* argv[]) {
       std::unique_lock<std::mutex> lock(jarvis_mutex);
       con_variable.wait(lock);
       tracking_data = tracking_data_temp;
-      kVioState = tracking_data.status;
       flag = slip_flag;
     }
     LOG(INFO) << tracking_data.data->imu_state.data->pose;
