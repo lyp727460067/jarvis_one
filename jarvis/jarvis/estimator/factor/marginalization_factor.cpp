@@ -14,6 +14,10 @@
 #include <fstream>
 namespace jarvis {
 namespace estimator {
+namespace {
+constexpr uint8_t kGlogLevel = 10;
+}
+
 void ResidualBlockInfo::Evaluate() {
   residuals.resize(cost_function->num_residuals());
 
@@ -123,9 +127,7 @@ void MarginalizationInfo::addResidualBlockInfo(
 }
 
 void MarginalizationInfo::preMarginalize() {
-  LOG(INFO)<< factors.size();
-
-  
+  VLOG(kGlogLevel) << "marginalize fator size: " << factors.size();
 
   for (auto it : factors) {
     it->Evaluate();
@@ -202,11 +204,14 @@ void MarginalizationInfo::marginalize() {
   }
 
   n = pos - m;
-  // ROS_INFO("marginalization, pos: %d, m: %d, n: %d, size: %d", pos, m, n,
-  // (int)parameter_block_idx.size());
+  std::stringstream info;
+  //
+  VLOG(kGlogLevel) << "marginalization pos: " << pos << " m: " << m
+                   << " n: " << n
+                   << " size: " << (int)parameter_block_idx.size();
   if (m == 0) {
     valid = false;
-    printf("unstable tracking...\n");
+    LOG(ERROR) << "unstable tracking...m =0 ";
     return;
   }
 

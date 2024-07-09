@@ -58,7 +58,8 @@ file(GLOB_RECURSE OJBECT_LIBRARY_SRCS "jarvis/object*.cc")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${OJBECT_LIBRARY_SRCS})
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
 ##
-
+file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 ##
 #file(GLOB_RECURSE VINS_LIBRARY_SRCS "src/mapping/tracking/*test_ros.cc" "src/mapping/tracking/*test_ros.cpp"
 # "src/mapping/tracking/*test_ros.h")
@@ -88,6 +89,7 @@ if(${build_test})
     get_filename_component(FIL_WE ${REL_FIL} NAME_WE)
     string(REPLACE "/" "." TARGET_NAME "${DIR}/${FIL_WE}")
     add_executable(${TARGET_NAME} ${ABS_FIL} )
+    message()
     target_link_libraries(${TARGET_NAME}
       -lgtest_main
       -lgtest

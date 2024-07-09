@@ -77,7 +77,7 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
     call_back_(*tracking_data);
   }
 
-  if (tracking_data->status == 2) {
+  if (tracking_data->status == 0) {
     LOG(ERROR)<<"Lost ....restart ..";
     tracker_ = estimator::TrackerFactory(config_file_);
   }

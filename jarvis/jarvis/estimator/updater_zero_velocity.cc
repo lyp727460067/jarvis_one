@@ -96,15 +96,16 @@ class ZeroVelocityCostFuction
                 double** jacobians) const {
     //
 
-    const Eigen::Map<const Eigen::Vector3d> p_a(parameters[0]);
+    Eigen::Vector3d p_a(parameters[0][0], parameters[0][1], parameters[0][2]);
     Eigen::Quaterniond q_a(parameters[0][6], parameters[0][3], parameters[0][4],
                           parameters[0][5]);
 
-    const Eigen::Map<const Eigen::Vector3d> p_b(parameters[1]);
-  Eigen::Quaterniond q_b(parameters[1][6], parameters[1][3], parameters[1][4],
+    Eigen::Vector3d p_b(parameters[1][0], parameters[1][1], parameters[1][2]);
+    Eigen::Quaterniond q_b(parameters[1][6], parameters[1][3], parameters[1][4],
                           parameters[1][5]);
     //
-    const Eigen::Map<const Eigen::Vector3d> v_a(parameters[2]);
+    
+    Eigen::Vector3d v_a(parameters[2][0], parameters[2][1], parameters[2][2]);
     //
     Eigen::Quaterniond delta_q = q_a.conjugate() * q_b;
     // LOG(INFO)<<-LogSo3(q_a.toRotationMatrix()*q_b.conjugate().toRotationMatrix());
@@ -118,11 +119,16 @@ class ZeroVelocityCostFuction
         average_acc_ - q_a.conjugate() * gravity - acc_bias;
     Eigen::Vector3d gry_bias_err = average_gry_ - gry_bias;
     //
-    Eigen::Map<Eigen::Matrix<double, residuals_block_size, 1>> residual(residuals);
-    residual << (weight_[0]) * delta_t, (weight_[0]) * 2 * delta_q.vec(),
-        (weight_[0]) * v_a;
+    Eigen::Matrix<double, 9, 9> sqrt_info =
+        weight_[0] * Eigen::Matrix<double, 9, 9>::Identity();
     //  (weight_[1]) * acc_bias_err,
     // (weight_[1]) * gry_bias_err;
+    Eigen::Map<Eigen::Matrix<double, residuals_block_size, 1>> residual(
+        residuals);
+    residual << delta_t, 2 * delta_q.vec(), -v_a;
+    LOG(INFO)<<v_a;
+
+    residual = sqrt_info * residual;
     //
     // order is  t0,t1,v0
     if (jacobians) {
@@ -131,10 +137,9 @@ class ZeroVelocityCostFuction
             Eigen::Matrix<double, residuals_block_size, 7, Eigen::RowMajor>>
             jacobians_(jacobians[0]);
         jacobians_.setZero();
-        jacobians_.block<3, 3>(0, 0) =
-            -weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
-        jacobians_.block<3, 3>(3, 3) =
-            -weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(0, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(3, 3) = -Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_ = sqrt_info *jacobians_;
         // jacobians_.block<3, 3>(9, 3) =
         //     -weight_[1] * Skew(q_a.conjugate() * gravity);
       }
@@ -143,21 +148,18 @@ class ZeroVelocityCostFuction
             Eigen::Matrix<double, residuals_block_size, 7, Eigen::RowMajor>>
             jacobians_(jacobians[1]);
         jacobians_.setZero();
-        //
-        jacobians_.block<3, 3>(0, 0) =
-            weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_.block<3, 3>(3, 3) =
-            weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
+            Utility::Qleft(q_a.conjugate() * q_b).bottomRightCorner<3, 3>();
+        jacobians_ = sqrt_info *jacobians_;
       }
       if (jacobians[2]) {
         Eigen::Map<
             Eigen::Matrix<double, residuals_block_size, 9, Eigen::RowMajor>>
             jacobians_(jacobians[2]);
         jacobians_.setZero();
-        jacobians_.block<3, 3>(6, 0) =
-            weight_[0] * Eigen::Matrix<double, 3, 3>::Identity();
-        jacobians_.block<3, 3>(9, 0) =
-            -weight_[1] * Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(6, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_ = sqrt_info * jacobians_;
         // jacobians_.block<3, 3>(12, 0) =
         //     -weight_[1] * Eigen::Matrix<double, 3, 3>::Identity();
       }
@@ -487,12 +489,12 @@ bool UpdataZeroVelocity::IsZeroVelocity(const common::Time& time) {
 }
 //
 ceres::CostFunction* UpdataZeroVelocity::CostFunction() const {
-  return AutoZeroVelocityCostFuction::Create(
-      {options_.optimize_weight, options_.optimize_bias_weight},
-      last_average_acc_, last_average_gry_);
-  // return new ZeroVelocityCostFuction(
+  // return AutoZeroVelocityCostFuction::Create(
   //     {options_.optimize_weight, options_.optimize_bias_weight},
   //     last_average_acc_, last_average_gry_);
+  return new ZeroVelocityCostFuction(
+      {options_.optimize_weight, options_.optimize_bias_weight},
+      last_average_acc_, last_average_gry_);
 };
 //
 

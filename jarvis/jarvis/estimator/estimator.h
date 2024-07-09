@@ -80,7 +80,7 @@ struct EstimatorOption {
 
 class Estimator {
  public:
-  enum TrackState { INIT = 0, TRACKING = 1, LOST = 2 };
+  enum TrackState {LOST = 0, INIT = 1,TRACKING = 2 };
   Estimator(const EstimatorOption &options);
 //   Estimator(const std::string &config_file);
   std::unique_ptr<TrackingData> AddImageData(const sensor::ImageData &images);
@@ -181,6 +181,7 @@ class Estimator {
   double Headers[(WINDOW_SIZE + 1)];
 
   IntegrationBase *pre_integrations[(WINDOW_SIZE + 1)];
+  bool is_velocity_updates_[(WINDOW_SIZE + 1)];
   Eigen::Vector3d acc_0, gyr_0;
 
   std::vector<double> dt_buf[(WINDOW_SIZE + 1)];
