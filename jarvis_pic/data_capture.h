@@ -4,7 +4,7 @@
 #include <memory>
 #include <opencv2/opencv.hpp>
 #include <optional>
-
+#include "shm_mod.h"
 #include "Eigen/Core"
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
@@ -64,6 +64,8 @@ class DataCapture {
   std::vector<std::function<void(const EncoderData&)>> encoder_call_backs_;
   DataCaptureOption option_;
   std::unique_ptr<ShmSensorQueue> mem_ssq_;
+
+  std::unique_ptr<ShmMod> shm_mod_;
   std::vector<ModSyncImuFb> imu_catch_;
   std::vector<std::pair<uint64_t,EncoderData>> odom_catch_;
   std::vector<std::pair<uint8_t,Frame>> image_catch_;

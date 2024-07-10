@@ -27,7 +27,7 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
 }  // namespace
 
 DataCapture::DataCapture(const DataCaptureOption& option)
-    : mem_ssq_(new ShmSensorQueue) {}
+    : mem_ssq_(new ShmSensorQueue),shm_mod_(new ShmMod()) {}
 //
 void DataCapture::Start() {
   thread_ = std::thread([this]() {
@@ -47,7 +47,7 @@ DataCapture::~DataCapture() { Stop(); }
 //
 ImuData ToImuData(const ModSyncImuFb& imu,
                   const std::pair<uint64_t, uint64_t>& base_time) {
-  return ImuData{base_time.first +( imu.time_stamp - base_time.second),
+  return ImuData{base_time.first +int64_t(imu.time_stamp - base_time.second),
                  Eigen::Vector3d{
                      imu.imu_data.accel_x * kAccUnit,
                      imu.imu_data.accel_y * kAccUnit,
@@ -108,6 +108,23 @@ void DataCapture::Run() {
     // LOG(INFO)<<imudata.time_stamp - last_imu_time_stamp_ ;
     last_imu_time_stamp_ = imudata.time_stamp;
     ProcessImu(imudata);
+  //     ModLocPoseFb mpc_data{
+  //     imudata.time_stamp,
+  //     imudata.time_stamp,
+  //     0,
+  //     0,
+  //     0,
+  //     0,
+  //     0,
+  //     0,
+  //     0,
+  //     9,2};
+  //     shm_mod_->SetModByID(MOD_ID_LOCAL_POSE_FB, reinterpret_cast<void *>(&mpc_data));
+  // memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
+  // shm_mod_->GetModByID(MOD_ID_LOCAL_POSE_FB, reinterpret_cast<void *>(&mpc_data));
+  // LOG(INFO)<<mpc_data.imu_timestamp;
+
+    // LOG(INFO)<<imudata.time_stamp;
   }
   ModSyncChassisPosFb odom_data;
   int ret_len = mem_ssq_->PopEncodeData(&odom_data);
@@ -168,7 +185,7 @@ Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
 //
 uint64_t DataCapture::GetOrigImuTime(const uint64_t& time) {
   if (sys_time_base_.has_value()) {
-    return time - sys_time_base_.value().first + sys_time_base_.value().second;
+    return int64(time - sys_time_base_.value().first) + sys_time_base_.value().second;
   }
   return 0;
 }

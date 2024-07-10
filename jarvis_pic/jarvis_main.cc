@@ -73,15 +73,13 @@ class JarvisBrige {
               std::make_shared<jarvis::TrackingData::Data>(
                   jarvis::TrackingData::Data{
                       imu_data.time,
-                      jarvis::estimator::ImuState(jarvis::estimator::ImuState{
-                          std::make_shared<jarvis::estimator::ImuState::Data>(
-                              jarvis::estimator::ImuState::Data{
-                                  pose.second})})}),
+                      jarvis::estimator::ImuState{
+                                  pose.second}}),
               kVioState};
-          mpc_.Write(
+          mpc_.Write(tracking_data.data->imu_state.pose,
               tracking_data,
               GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
-                  jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
+                  jarvis::common::ToUniversal(tracking_data.data->time) / 10)),false);
         });
     //
     order_queue_->AddQueue(
@@ -241,18 +239,18 @@ int main(int argc, char* argv[]) {
       kVioState= tracking_data.status;
     }
 
-    LOG(INFO) << tracking_data.data->imu_state.data->pose;
+    LOG(INFO) << tracking_data.data->imu_state.pose;
     if (kRecordFlag) {
       std::stringstream info;
       info << std::to_string(uint64_t(
                   jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
-           << " " << tracking_data.data->imu_state.data->pose.translation().x() << " "
-           << tracking_data.data->imu_state.data->pose.translation().y() << " "
-           << tracking_data.data->imu_state.data->pose.translation().z() << " "
-           << tracking_data.data->imu_state.data->pose.rotation().w() << " "
-           << tracking_data.data->imu_state.data->pose.rotation().x() << " "
-           << tracking_data.data->imu_state.data->pose.rotation().y() << " "
-           << tracking_data.data->imu_state.data->pose.rotation().z() << std::endl;
+           << " " << tracking_data.data->imu_state.pose.translation().x() << " "
+           << tracking_data.data->imu_state.pose.translation().y() << " "
+           << tracking_data.data->imu_state.pose.translation().z() << " "
+           << tracking_data.data->imu_state.pose.rotation().w() << " "
+           << tracking_data.data->imu_state.pose.rotation().x() << " "
+           << tracking_data.data->imu_state.pose.rotation().y() << " "
+           << tracking_data.data->imu_state.pose.rotation().z() << std::endl;
       kOPoseFile << info.str();
     }
 
