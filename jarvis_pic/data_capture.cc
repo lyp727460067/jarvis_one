@@ -7,7 +7,7 @@
 #include "SensorDataCapturer/DataCapturer.h"
 #include "glog/logging.h"
 //
-#define NEED_SYNC
+// #define NEED_SYNC
 namespace jarvis_pic {
 namespace {
 // #define FRAME_MAX_LEN (640 * 544 * 100)

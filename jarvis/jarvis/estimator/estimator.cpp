@@ -360,23 +360,22 @@ bool Estimator::getIMUInterval(
   // printf("get imu from %f %f\n", t0, t1);
   // printf("imu fornt time %f   imu end time %f\n", accBuf.front().first,
   // accBuf.back().first);
-  if (t1 <= accBuf.back().first) {
-    while (accBuf.front().first <= t0) {
+    while (!accBuf.empty()&& accBuf.front().first <= t0) {
       accBuf.pop();
       gyrBuf.pop();
     }
-    while (accBuf.front().first < t1) {
+    while (!accBuf.empty()&&accBuf.front().first < t1) {
       accVector.push_back(accBuf.front());
       accBuf.pop();
       gyrVector.push_back(gyrBuf.front());
       gyrBuf.pop();
     }
-    accVector.push_back(accBuf.front());
-    gyrVector.push_back(gyrBuf.front());
-  } else {
-    printf("wait for imu\n");
-    return false;
-  }
+    // accVector.push_back(accBuf.front());
+    // gyrVector.push_back(gyrBuf.front());
+  // } else {
+  //   printf("wait for imu\n");
+  //   return false;
+  // }
   return true;
 }
 
@@ -395,18 +394,19 @@ int Estimator::processMeasurements() {
   if (!featureBuf.empty()) {
     feature = featureBuf.front();
     curTime = feature.first + td;
-    while (1) {
-      if ((!options_.use_imu || IMUAvailable(feature.first + td)))
-        break;
-      else {
-        LOG(WARNING)<<"wait for imu ... \n";
-        if(!initFirstPoseFlag){
-           featureBuf.pop();
-           return TrackState::INIT;
-        }
-        break;
-      }
-    }
+    
+    // while (1) {
+    //   if ((!options_.use_imu || IMUAvailable(feature.first + td)))
+    //     break;
+    //   else {
+    //     LOG(WARNING)<<"wait for imu ... \n";
+    //     if(!initFirstPoseFlag){
+    //        featureBuf.pop();
+    //        return TrackState::INIT;
+    //     }
+    //     break;
+    //   }
+    // }
     if (options_.use_imu) {
       getIMUInterval(prevTime, curTime, accVector, gyrVector);
     }
@@ -427,16 +427,17 @@ int Estimator::processMeasurements() {
                    gyrVector[i].second);
       }
     }
+    prevTime = curTime;
     if(processImage(feature.second, feature.first)!=TrackState::TRACKING){
         return TrackState::LOST;
     }
-    prevTime = curTime;
   }
   return TrackState::TRACKING;
 }
 
 void Estimator::initFirstIMUPose(
     std::vector<std::pair<double, Eigen::Vector3d>> &accVector) {
+  if(accVector.empty())return ;
   LOG(INFO) << "Init first impu pose.";
   initFirstPoseFlag = true;
   // return;
