@@ -87,8 +87,8 @@ struct ImuData {
         angular_velocity,
     });
     LOG(INFO)<<common::FromUniversal(time / 100);
-    auto state =
-        KImuExtrapolator->Exrapolate(common::FromUniversal(time / 100)+common::FromSeconds(0.001));
+    auto state = KImuExtrapolator->Exrapolate(
+        common::FromUniversal(time / 100) + common::FromSeconds(0.001));
     LOG(INFO) << state.pose;
     ros_compont->PushMark({{"imu_pose", state.pose}}, false);
     // ros_compont->PosePub(state.pose, transform::Rigid3d::Identity());

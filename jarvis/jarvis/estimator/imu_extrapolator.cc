@@ -96,6 +96,10 @@ ImuState ImuExtrapolator::Exrapolate(const common::Time& time) {
         return imu_data.time < time;
       });
   //
+  if(it != imu_datas_.end()){
+    imu_intergral_->AddLastImuObservation(*it);
+    ++it;
+  }
   LOG(INFO)<<time;
   while (it != imu_datas_.end() &&
          (it->time < time)) {

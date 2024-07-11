@@ -116,7 +116,7 @@ translation_z_max : 0.5
 ratation_max : 20
 
 #unsynchronization parameters
-estimate_td: 1                      # online estimate time offset between camera and imu
+estimate_td: 0                      # online estimate time offset between camera and imu
 td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
 #optimization parameters
