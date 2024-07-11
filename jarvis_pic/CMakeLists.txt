@@ -5,7 +5,7 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 
 set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -Ofast -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)

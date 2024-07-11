@@ -157,6 +157,10 @@ class JarvisBrige {
                              imu.linear_acceleration,
                              imu.angular_velocity,
                          }));
+    });
+    data_capture_->Rigister([&](const Frame& frame) {
+      if (!image_sample_->Pulse()) return;
+      //  cv::Mat temp1;
       // //  cv::equalizeHist( frame.image, temp1);
       //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8,
       //  8)); clahe->apply( frame.image, temp1);
@@ -177,6 +181,7 @@ class JarvisBrige {
         last_encoder_data_ =
             Eigen::Vector2i(encode.left_encoder, encode.right_encoder);
       }
+      const Eigen::Vector2i cur_encode{encode.left_encoder,
                                        encode.right_encoder};
       const Eigen::Vector2d delta_encode =
           0.001 * (cur_encode - last_encoder_data_.value()).cast<double>();

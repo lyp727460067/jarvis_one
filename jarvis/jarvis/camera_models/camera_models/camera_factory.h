@@ -11,7 +11,6 @@ namespace camera_models {
 
 class CameraFactory {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   CameraFactory();
 
   static std::shared_ptr<CameraFactory> instance(void);

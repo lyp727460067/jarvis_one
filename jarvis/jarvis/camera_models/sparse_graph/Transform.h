@@ -10,7 +10,6 @@ namespace camera_models {
 
 class Transform {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   Transform();
   Transform(const Eigen::Matrix4d& H);

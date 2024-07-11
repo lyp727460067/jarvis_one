@@ -7,7 +7,7 @@ add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fPIC -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
 
 
 
@@ -18,7 +18,7 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                    -Wreturn-type # warn no return 
                    -Wuninitialized # uninitlialized varibales
                   # -Wshadow # shadow local variable
-                  #  -Werror=unused-but-set-variable
+                   -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
 
 option(arm_neon " arm_neon" ON)
@@ -49,19 +49,19 @@ set(OpenCV_LIBS
 )
 set(sut_lib_dir  ${TOP_CMAKE_DIR}/third_party/SuiteSparse/lib)
 set(SUTI_LIBS
-#  ${TOP_CMAKE_DIR}/third_party/lapack/lib/liblapack.a
 #  ${sut_lib_dir}/libamd.a  
-#  ${sut_lib_dir}/libccolamd.a 
-#  ${sut_lib_dir}/libcxsparse.a 
-#  ${sut_lib_dir}/librbio.a              
-#  ${sut_lib_dir}/libumfpack.a
 #  ${sut_lib_dir}/libbtf.a 
-#  ${sut_lib_dir}/libcholmod.a
-#  ${sut_lib_dir}/libklu.a      
-#  ${sut_lib_dir}/libspqr.a
 #  ${sut_lib_dir}/libcamd.a
+#  ${sut_lib_dir}/libccolamd.a 
+#  ${sut_lib_dir}/libcholmod.a
 #  ${sut_lib_dir}/libcolamd.a  
+#  ${sut_lib_dir}/libcxsparse.a 
+#  ${sut_lib_dir}/libklu.a      
 #  ${sut_lib_dir}/libldl.a
+#  ${sut_lib_dir}/librbio.a              
+#  ${sut_lib_dir}/libspqr.a
+#  ${sut_lib_dir}/libumfpack.a
+#  ${TOP_CMAKE_DIR}/third_party/lapack/lib/liblapack.a
 #  ${sut_lib_dir}/libsuitesparseconfig.so
 
 )
@@ -90,7 +90,7 @@ set_target_properties(
 # find_package(Protobuf  REQUIRED)
 # configure_file(src/mapping/test_constant.h.in ${PROJECT_BINARY_DIR}/mapping/test_constant.h)
 include_directories(
-  ${EIGEN3_INCLUDE_DIR}
+  # ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
   ${PROJECT_SOURCE_DIR}/third_part/rtm/includes/
@@ -115,6 +115,7 @@ list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
 add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
 target_link_libraries( ${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
+target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
   glog

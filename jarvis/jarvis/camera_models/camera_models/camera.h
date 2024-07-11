@@ -9,12 +9,10 @@ namespace camera_models {
 
 class Camera {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   enum ModelType { KANNALA_BRANDT, MEI, PINHOLE, PINHOLE_FULL, SCARAMUZZA };
 
   class Parameters {
    public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Parameters(ModelType modelType);
 
     Parameters(ModelType modelType, const std::string& cameraName, int w,

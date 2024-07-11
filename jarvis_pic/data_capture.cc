@@ -7,7 +7,7 @@
 #include "SensorDataCapturer/DataCapturer.h"
 #include "glog/logging.h"
 //
-// #define NEED_SYNC
+#define NEED_SYNC
 namespace jarvis_pic {
 namespace {
 // #define FRAME_MAX_LEN (640 * 544 * 100)
@@ -35,7 +35,7 @@ void DataCapture::Start() {
     while (!stop_) {
       Run();
       std::this_thread::sleep_for(
-          std::chrono::milliseconds(option_.imu_durition));
+          std::chrono::milliseconds(4));
     }
   });
 }
@@ -136,21 +136,28 @@ void DataCapture::ProcessOdom(const ModSyncChassisPosFb& odom) {
 void DataCapture::Run() {
   ModSyncImuFb imudata;
   int32_t res = mem_ssq_->PopImuData(&imudata);
-  if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
-    last_imu_time_stamp_ = imudata.time_stamp;
-    ProcessImu(imudata);
+  while (res > 0) {
+    if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
+      last_imu_time_stamp_ = imudata.time_stamp;
+      ProcessImu(imudata);
+    }
+    res = mem_ssq_->PopImuData(&imudata);
   }
   ModSyncChassisPosFb odom_data;
   int ret_len = mem_ssq_->PopEncodeData(&odom_data);
-  if (ret_len > 0 && last_odom_time_stamp_ != odom_data.time_stamp) {
-    last_odom_time_stamp_ = odom_data.time_stamp;
-    ProcessOdom(odom_data);
+  while (ret_len > 0) {
+    if (last_odom_time_stamp_ != odom_data.time_stamp) {
+      last_odom_time_stamp_ = odom_data.time_stamp;
+      ProcessOdom(odom_data);
+    }
+    ret_len = mem_ssq_->PopEncodeData(&odom_data);
   }
   CameraFrame frame;
   frame.buf = read_buf.data();
   frame.max_len = FRAME_MAX_LEN;
+
   ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
-  if (ret_len >= 0) {
+  while (ret_len >= 0) {
     uint32_t frame_sys_count = frame.head.sys_count;
     if (last_frame_sys_count_ != frame_sys_count) {
       static uint64_t last_time = frame.head.time_stamp;
@@ -159,6 +166,7 @@ void DataCapture::Run() {
       last_frame_sys_count_ = frame_sys_count;
       ProcessImag(frame);
     }
+    ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
   }
 
   //

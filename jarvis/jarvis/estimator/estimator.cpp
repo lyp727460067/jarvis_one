@@ -81,7 +81,7 @@ namespace {
 std::map<int, int> track_num;
 std::unique_ptr<TrackingData> ExtractKeyFrameMapPoints(
     const Estimator &estimator, const ImageFeatureTrackerData &feature_result) {
-  TrackingData result;
+  TrackingData result{};
   result.data = std::make_shared<TrackingData::Data>();
   for (const auto &p : feature_result.data->features) {
     result.data->key_points.push_back(
@@ -391,7 +391,7 @@ int Estimator::processMeasurements() {
   // printf("process measurments\n");
   std::pair<double, ImageFeatureTrackerData> feature;
   std::vector<std::pair<double, Eigen::Vector3d>> accVector, gyrVector;
-
+  LOG(INFO)<<"featureBuf size: "<<featureBuf.size();
   if (!featureBuf.empty()) {
     feature = featureBuf.front();
     curTime = feature.first + td;
@@ -401,6 +401,7 @@ int Estimator::processMeasurements() {
       else {
         LOG(WARNING)<<"wait for imu ... \n";
         if(!initFirstPoseFlag){
+           featureBuf.pop();
            return TrackState::INIT;
         }
         break;
@@ -501,7 +502,7 @@ void Estimator::processIMU(double t, double dt,
 }
 std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> ToStruct(
     const ImageFeatureTrackerData &image) {
-  std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> result;
+  std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> result{};
   for (const auto &feature : image.data->features) {
     for (const auto &image_feature : feature.second.camera_features) {
       Eigen::Matrix<double, 7, 1> f;
@@ -1089,8 +1090,8 @@ bool Estimator::failureDetection() {
     failuer_track_lost_.erase(failuer_track_lost_.begin());
   }
   if (std::count(failuer_track_lost_.begin(),
-                 failuer_track_lost_.end(), true) ==
-      options_.fail_detect_option.track_feat_lost_win_size) {
+                 failuer_track_lost_.end(), true) >=
+      options_.fail_detect_option.track_feat_lost_win_size/2) {
     LOG(ERROR) << " Feat lost. " ;
     return true;
   }

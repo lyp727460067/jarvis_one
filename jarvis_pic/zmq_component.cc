@@ -160,13 +160,13 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
   shm_mod_->SetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
   //
   // //
-  memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
-  shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
+  // memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
+  // shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
 
-  jarvis::transform::Rigid3d read_pose(
-      Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
-      Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  LOG(INFO) << "Read pose: " << mpc_data.imu_timestamp << " " << read_pose << " "
-            << "state "<<int(mpc_data.state);
+  // jarvis::transform::Rigid3d read_pose(
+  //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
+  //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
+  // LOG(INFO) << "Read pose: " << mpc_data.imu_timestamp << " " << read_pose << " "
+  //           << "state "<<int(mpc_data.state);
 }
 }  // namespace jarvis_pic

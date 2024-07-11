@@ -45,7 +45,6 @@ class AngleLocalParameterization {
 };
 class GpsCostFunction {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   GpsCostFunction(const Eigen::Vector2d p_local, const Eigen::Vector2d p_gps,
                   const std::array<double, 2>& weitht)
       : p_local_(p_local), p_gps_(p_gps), weigth_(weitht) {}
