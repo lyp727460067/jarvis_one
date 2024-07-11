@@ -22,7 +22,6 @@ struct Pose3d {
   transform::Rigid3d Pose() const{
     return transform::Rigid3d(p, q);
   }
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 struct EulerPose3d {
   Eigen::Vector3d p;
@@ -35,7 +34,6 @@ struct EulerPose3d {
   }
 
   static transform::Rigid3d imu_to_cam_extric_;
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 }  // namespace common

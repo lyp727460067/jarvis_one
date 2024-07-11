@@ -9,7 +9,6 @@ namespace jarvis {
 namespace estimator {
 //
 struct ImuState {
-  struct Data {
     transform::Rigid3d pose;
     Eigen::Vector3d velocity{0, 0, 0};
     Eigen::Vector3d linear_acceleration_bias{0, 0, 0};
@@ -17,8 +16,6 @@ struct ImuState {
     Eigen::Vector3d gravity{0, 0, 9.8};
     std::optional<Eigen::Matrix<double, 15, 15>> jacobian;
     std::optional<Eigen::Matrix<double, 15, 15>> covariance;
-  };
-  std::shared_ptr<Data> data;
 };
 //
 struct ImuExtrapolatorOption {
@@ -34,10 +31,11 @@ class ImuExtrapolator {
   ImuState Exrapolate(const common::Time& time);
 
  private:
+  constexpr static double kImuDuration = 0.005;
   void TrimImuData(const common::Time &t);
   class ImuIntegral;
   std::unique_ptr<ImuIntegral> imu_intergral_;
-
+  
   std::deque<sensor::ImuData> imu_datas_;
   std::deque<ImuState> imu_state_;
   ImuState imu_intergral_state_;

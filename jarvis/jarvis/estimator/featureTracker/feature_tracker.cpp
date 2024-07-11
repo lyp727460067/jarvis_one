@@ -177,29 +177,31 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       }
       // LOG(INFO)<<succ_num ;
       if (succ_num < 30) {
-        {
-          cv::Mat gray_img, loop_match_img;
-          cvtColor(pyramid_image_->PrePyram()[0], loop_match_img, cv::COLOR_GRAY2RGB);
-          for (auto &&keypoint : prev_pts) {
-            cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-          }
-          cv::imshow("lit", loop_match_img);
-          // cv::waitKey(0);
-        }
-        {
-{
-          cv::Mat gray_img, loop_match_img;
-          cvtColor(pyramid_image_->CurrPyram()[0], loop_match_img, cv::COLOR_GRAY2RGB);
-          for (auto &&keypoint : cur_pts) {
-            cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-          }
-          cv::imshow("lit1", loop_match_img);
-          cv::waitKey(0);
-        }
-        }
+        // {
+        //   cv::Mat gray_img, loop_match_img;
+        //   cvtColor(pyramid_image_->PrePyram()[0], loop_match_img,
+        //            cv::COLOR_GRAY2RGB);
+        //   for (auto &&keypoint : prev_pts) {
+        //     cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
+        //   }
+        //   cv::imshow("lit", loop_match_img);
+        //   // cv::waitKey(0);
+        // }
+        // {
+        //   {
+        //     cv::Mat gray_img, loop_match_img;
+        //     cvtColor(pyramid_image_->CurrPyram()[0], loop_match_img,
+        //              cv::COLOR_GRAY2RGB);
+        //     for (auto &&keypoint : cur_pts) {
+        //       cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
+        //     }
+        //     cv::imshow("lit1", loop_match_img);
+        //     cv::waitKey(0);
+        //   }
+        // }
         cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
                                  pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                                 status, err, win_size, level+1, criteria);
+                                 status, err, win_size, level + 1, criteria);
       }
     } else {
       cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),

@@ -13,7 +13,7 @@
 #include <ceres/tiny_solver.h>
 #include <ceres/tiny_solver_autodiff_function.h>
 #include "jarvis/option_parse.h"
-#include "common/time.h"
+#include "jarvis/common/time.h"
 #include "imu_extrapolator.h"
 
 namespace jarvis {
@@ -156,14 +156,15 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   if (solver_flag == INITIAL) {
     tracking_data->status = TrackState::INIT;
     LOG(INFO) << Eigen::Quaterniond(Rs[frame_count]);
-    auto imu_state_data = std::make_shared<ImuState::Data>(ImuState::Data{
-        transform::Rigid3d({0, 0, 0}, Eigen::Quaterniond(Rs[frame_count]))});
+   ImuState imu_state_data = ImuState{
+        transform::Rigid3d({0, 0, 0}, Eigen::Quaterniond(Rs[frame_count]))};
+    //
     tracking_data->data->imu_state = ImuState{imu_state_data};
   } else {
-    auto imu_state_data = std::make_shared<ImuState::Data>(
-        ImuState::Data{transform::Rigid3d(Ps[frame_count],
+    auto imu_state_data = 
+        ImuState{transform::Rigid3d(Ps[frame_count],
                                           Eigen::Quaterniond(Rs[frame_count])),
-                       Vs[frame_count], Bas[frame_count], Bgs[frame_count], g});
+                       Vs[frame_count], Bas[frame_count], Bgs[frame_count], g};
     tracking_data->data->imu_state = ImuState{imu_state_data};
     tracking_data->status = TrackState(state);
   }

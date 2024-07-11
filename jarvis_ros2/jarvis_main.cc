@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
   builder_ = std::make_unique<TrajectorBuilder>(
       std::string(argv[1]), [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
-        LOG(INFO) << data.data->imu_state.data->pose;
+        LOG(INFO) << data.data->imu_state.pose;
         //
         tracking_data_temp = data;
         cond.notify_one();
@@ -312,7 +312,7 @@ int main(int argc, char* argv[]) {
       }
       LOG(INFO)<<tracking_data.status;
       if (tracking_data.status == 2) {
-        LOG(INFO) << tracking_data.data->imu_state.data->pose;
+        LOG(INFO) << tracking_data.data->imu_state.pose;
         // imu_extrapolator_->AddState(
         //     common::ToSeconds(tracking_data.data->time -
         //     common::FromUniversal(0)), tracking_data.data->imu_state);
@@ -323,22 +323,22 @@ int main(int argc, char* argv[]) {
                       jarvis::common::ToUniversal(tracking_data.data->time) *
                       1e2))
                << " "
-               << tracking_data.data->imu_state.data->pose.translation().x()
+               << tracking_data.data->imu_state.pose.translation().x()
                << " "
-               << tracking_data.data->imu_state.data->pose.translation().y()
+               << tracking_data.data->imu_state.pose.translation().y()
                << " "
-               << tracking_data.data->imu_state.data->pose.translation().z()
-               << " " << tracking_data.data->imu_state.data->pose.rotation().w()
-               << " " << tracking_data.data->imu_state.data->pose.rotation().x()
-               << " " << tracking_data.data->imu_state.data->pose.rotation().y()
+               << tracking_data.data->imu_state.pose.translation().z()
+               << " " << tracking_data.data->imu_state.pose.rotation().w()
+               << " " << tracking_data.data->imu_state.pose.rotation().x()
+               << " " << tracking_data.data->imu_state.pose.rotation().y()
                << " "
-               << tracking_data.data->imu_state.data->pose.rotation().z();
+               << tracking_data.data->imu_state.pose.rotation().z();
           kOPoseFile << info.str() << std::endl;
         }
       }
       ros_compont->OnLocalTrackingResultCallback(
           tracking_data, nullptr, transform::Rigid3d::Identity());
-      ros_compont->PosePub(tracking_data.data->imu_state.data->pose,
+      ros_compont->PosePub(tracking_data.data->imu_state.pose,
                            transform::Rigid3d::Identity());
       rclcpp::spin_some(node);
     }

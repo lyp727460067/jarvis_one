@@ -20,7 +20,7 @@
 #include <thread>
 #include <unordered_map>
 
-#include "feature_manager.h"
+#include "jarvis/estimator/feature_manager.h"
 #include "jarvis/common/time.h"
 #include "jarvis/estimator/factor/imu_factor.h"
 #include "jarvis/estimator/factor/marginalization_factor.h"
@@ -38,8 +38,8 @@
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/utility/tic_toc.h"
 #include "jarvis/utility/utility.h"
-#include "sensor/image_data.h"
-#include "sensor/imu_data.h"
+#include "jarvis/sensor/image_data.h"
+#include "jarvis/sensor/imu_data.h"
 #include "jarvis/estimator/updater_zero_velocity.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"

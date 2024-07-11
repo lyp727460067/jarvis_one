@@ -249,6 +249,7 @@ int main(int argc, char* argv[]) {
   //   }
   // });
   while (rclcpp::ok()) {
+    usleep(100);
     int ret = recv(connect_fd, buff, recv_Buf_Size, 0);
     if (ret > 0) {
       // std::lock_guard<std::mutex>lock(mutex);

@@ -409,8 +409,8 @@ TrackingData ExtractKeyFrameMapPoints(
         feature_result.data->tracker_features_num[p.first];
   }
   result.status = 0;
-  auto imu_state_data = std::make_shared<estimator::ImuState::Data>(
-      estimator::ImuState::Data{transform::Rigid3d::Identity()});
+  auto imu_state_data = 
+      estimator::ImuState{transform::Rigid3d::Identity()};
   result.data->imu_state = estimator::ImuState{imu_state_data};
   result.data->image =
       std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
@@ -524,7 +524,7 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
     reference_frame_ = std::make_unique<Frame>(
         Frame{common::Time(common::FromSeconds(frame.data->time)),
               reference_frame_->pose, frame, std::move(new_depths)});
-    result.data->imu_state.data->pose = reference_frame_->pose;
+    result.data->imu_state.pose = reference_frame_->pose;
     return result;
   }
   const auto init_pose =
@@ -551,7 +551,7 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
   // last_pose_ = new_pose;
   const auto new_pose = reference_frame_->pose * relative_pose.inverse();
   //
-  result.data->imu_state.data->pose = new_pose;
+  result.data->imu_state.pose = new_pose;
   if (IsKeyFrame(frame) || inli_coutn < options_.min_pnp_inlier_num) {
     if (inli_coutn < options_.min_pnp_inlier_num) {
       LOG(WARNING) << "Pnp Ilie " << inli_coutn
