@@ -39,28 +39,28 @@ void OrderedMultiQueue::AddData(const std::string &name,
   std::lock_guard<std::mutex> lock(mutex_);
   queues_[name].queue.push(std::move(data));
   }
-  Dispathch();
+  // Dispathch();
 }
 void OrderedMultiQueue::Start() {
-  // dispath_thead_ = std::thread([this]() {
-  //   while (!kill_thread) {
-  //     Dispathch();
-  //     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-  //     if(sensor_cout++>=1000){
-  //       LOG_EVERY_N(ERROR,100)<<"No data recive!!!!!!!!!!!!!!";
-  //     }
-  //   }
-  // });
+  dispath_thead_ = std::thread([this]() {
+    while (!kill_thread) {
+      Dispathch();
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      if(sensor_cout++>=1000){
+        LOG_EVERY_N(ERROR,100)<<"No data recive!!!!!!!!!!!!!!";
+      }
+    }
+  });
 }
 void OrderedMultiQueue::Stop() {
   kill_thread = true;
-  // dispath_thead_.join();
+  dispath_thead_.join();
 }
 
 //
 void OrderedMultiQueue::Dispathch() {
   while (true) {
-    // for (const auto &queue : queues_) {
+  // for (const auto &queue : queues_) {
     const Data *next_data = nullptr;
     Queue *next_queue = nullptr;
     std::string next_queue_key;

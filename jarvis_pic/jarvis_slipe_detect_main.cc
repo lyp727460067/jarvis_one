@@ -32,8 +32,8 @@ constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 double image_sample = 1;
-int kVioState=0;
-bool kSlipeState=0;
+int kVioState = 0;
+bool kSlipeState = 0;
 uint8_t kRecordFlag = 0;
 uint8_t kEnableSlipDetect = 0;
 uint8_t kDataCaputureType = 0;
@@ -83,7 +83,7 @@ class JarvisBrige {
                 data.data->time, data.data->imu_state.pose});
             slip_flag = slip_detect_->Detect(data.data->time);
           }
-          kSlipeState  = slip_flag ;
+          kSlipeState = slip_flag;
           kVioState = data.status;
           {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -93,14 +93,15 @@ class JarvisBrige {
           //     slip_detect_->ToPoseInOdom((data.data->imu_state.data->pose));
           // mpc_.Write(slipe_alignment_pose,data,
           //            GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
-          //                jarvis::common::ToUniversal(data.data->time) / 10)),slip_flag);
+          //                jarvis::common::ToUniversal(data.data->time) /
+          //                10)),slip_flag);
           call_back_(jarvis_pic_call_back_data{slip_flag, data});
         });
 
-    order_queue_->AddQueue(
-        kImuTopic, [&](const jarvis::sensor::ImuData& imu_data) {
-          builder_->AddImuData(imu_data);
-        });
+    order_queue_->AddQueue(kImuTopic,
+                           [&](const jarvis::sensor::ImuData& imu_data) {
+                             builder_->AddImuData(imu_data);
+                           });
     //
     order_queue_->AddQueue(
         kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
@@ -124,28 +125,30 @@ class JarvisBrige {
 
     data_capture_->Rigister([&](const ImuData& imu) {
       // LOG(INFO)<<jarvis::common::FromUniversal(imu.time * 10);
-      // LOG(INFO)<<imu.linear_acceleration.transpose()<<" "<<imu.angular_velocity.transpose();
+      // LOG(INFO)<<imu.linear_acceleration.transpose()<<"
+      // "<<imu.angular_velocity.transpose();
       jarvis::estimator::ImuState state;
       {
         std::lock_guard<std::mutex> lock(mutex_);
         imu_extrapolator_->AddImu(jarvis::sensor::ImuData{
-            jarvis::common::FromUniversal(imu.time * 10),
+            jarvis::common::FromUniversal(imu.time * 10) ,
             imu.linear_acceleration,
             imu.angular_velocity,
         });
         state = imu_extrapolator_->Exrapolate(
-            jarvis::common::FromUniversal(imu.time * 10));
+            jarvis::common::FromUniversal(imu.time * 10) +
+            common::FromSeconds(0.001));
       }
       // auto pose = jarvis::GetGlobleImuExtrapolatorPose();
-        jarvis::TrackingData data{
-            std::make_shared<jarvis::TrackingData::Data>(
-                jarvis::TrackingData::Data{
-                    jarvis::common::FromUniversal(imu.time * 10), state}),
-            kVioState};
-        transform::Rigid3d slipe_alignment_pose =
-            slip_detect_->ToPoseInOdom(state.pose);
-        mpc_.Write(slipe_alignment_pose, data,
-                   GetDataCapture()->GetOrigImuTime(imu.time), kSlipeState);
+      jarvis::TrackingData data{
+          std::make_shared<jarvis::TrackingData::Data>(
+              jarvis::TrackingData::Data{
+                  jarvis::common::FromUniversal(imu.time * 10), state}),
+          kVioState};
+      transform::Rigid3d slipe_alignment_pose =
+          slip_detect_->ToPoseInOdom(state.pose);
+      mpc_.Write(slipe_alignment_pose, data,
+                 GetDataCapture()->GetOrigImuTime(imu.time), kSlipeState);
       order_queue_->AddData(
           kImuTopic, std::make_unique<
                          jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
@@ -338,14 +341,14 @@ int main(int argc, char* argv[]) {
       std::stringstream info;
       info << std::to_string(uint64_t(
                   jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
-           << " " << tracking_data.data->imu_state.pose.translation().x()
-           << " " << tracking_data.data->imu_state.pose.translation().y()
-           << " " << tracking_data.data->imu_state.pose.translation().z()
-           << " " << tracking_data.data->imu_state.pose.rotation().w()
-           << " " << tracking_data.data->imu_state.pose.rotation().x()
-           << " " << tracking_data.data->imu_state.pose.rotation().y()
-           << " " << tracking_data.data->imu_state.pose.rotation().z()
-           << " " << flag << std::endl;
+           << " " << tracking_data.data->imu_state.pose.translation().x() << " "
+           << tracking_data.data->imu_state.pose.translation().y() << " "
+           << tracking_data.data->imu_state.pose.translation().z() << " "
+           << tracking_data.data->imu_state.pose.rotation().w() << " "
+           << tracking_data.data->imu_state.pose.rotation().x() << " "
+           << tracking_data.data->imu_state.pose.rotation().y() << " "
+           << tracking_data.data->imu_state.pose.rotation().z() << " " << flag
+           << std::endl;
       kOPoseFile << info.str();
     }
 
