@@ -22,6 +22,7 @@
 #include "unistd.h"
 #include "zmq_component.h"
 
+#include "jarvis/common/time.h"
 //
 namespace {
 
@@ -100,7 +101,11 @@ class JarvisBrige {
 
     order_queue_->AddQueue(kImuTopic,
                            [&](const jarvis::sensor::ImuData& imu_data) {
-                             builder_->AddImuData(imu_data);
+                             builder_->AddImuData(jarvis::sensor::ImuData{
+                                 imu_data.time + common::FromSeconds(0.005),
+                                 imu_data.linear_acceleration,
+                                 imu_data.angular_velocity,
+                             } );
                            });
     //
     order_queue_->AddQueue(
@@ -153,7 +158,8 @@ class JarvisBrige {
           kImuTopic, std::make_unique<
                          jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
                          jarvis::sensor::ImuData{
-                             jarvis::common::FromUniversal(imu.time * 10),
+                             jarvis::common::FromUniversal(imu.time * 10) -
+                                 common::FromSeconds(0.005),
                              imu.linear_acceleration,
                              imu.angular_velocity,
                          }));

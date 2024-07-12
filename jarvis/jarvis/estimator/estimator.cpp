@@ -15,7 +15,7 @@
 #include "jarvis/option_parse.h"
 #include "jarvis/common/time.h"
 #include "imu_extrapolator.h"
-
+#include "glog/logging.h"
 namespace jarvis {
 bool restart =false;
 std::vector<Eigen::Vector3d> kGlobleImuPose;
@@ -43,6 +43,8 @@ Estimator::Estimator(const EstimatorOption &options):options_(options),
   f_manager = std::make_unique<FeatureManager>(
       FeatureManagerOption{options.calibrate_option.extric_camera_to_imu});
   //
+  stereo_sample_ = std::make_unique<common::FixedRatioSampler>(
+      options_.use_stereo_sample_ration);
   if (options_.enable_zero_velocity) {
     update_zero_velocity_ = std::make_unique<UpdataZeroVelocity>(
         options_.updata_zerovelocity_option);
@@ -132,7 +134,8 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   }
 
   prev_time_ = d_time;
-  if (solver_flag == INITIAL) {
+
+  if (solver_flag == INITIAL || stereo_sample_->Pulse()) {
     featureFrame = feature_tracker_->trackImage(
         d_time, *images.image[0], *images.image[1], &track_num, angle_);
 
@@ -364,11 +367,15 @@ bool Estimator::getIMUInterval(
       accBuf.pop();
       gyrBuf.pop();
     }
-    while (!accBuf.empty()&&accBuf.front().first < t1) {
+    while (!accBuf.empty() && accBuf.front().first < t1) {
       accVector.push_back(accBuf.front());
       accBuf.pop();
       gyrVector.push_back(gyrBuf.front());
       gyrBuf.pop();
+    }
+    if(!accBuf.empty()){
+      accVector.push_back(accBuf.front());
+      gyrVector.push_back(gyrBuf.front());
     }
     // accVector.push_back(accBuf.front());
     // gyrVector.push_back(gyrBuf.front());
