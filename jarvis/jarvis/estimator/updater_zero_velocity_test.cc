@@ -10,6 +10,36 @@ namespace {
 
 //
 }  // namespace
+void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
+                      Eigen::Matrix<double, 3, 4> &Pose1,
+                      Eigen::Vector2d &point0, Eigen::Vector2d &point1,
+                      Eigen::Vector3d &point_3d) {
+  Eigen::Matrix4d design_matrix = Eigen::Matrix4d::Zero();
+  design_matrix.row(0) = point0[0] * Pose0.row(2) - Pose0.row(0);
+  design_matrix.row(1) = point0[1] * Pose0.row(2) - Pose0.row(1);
+  design_matrix.row(2) = point1[0] * Pose1.row(2) - Pose1.row(0);
+  design_matrix.row(3) = point1[1] * Pose1.row(2) - Pose1.row(1);
+  Eigen::Vector4d triangulated_point;
+  triangulated_point =
+      design_matrix.jacobiSvd(Eigen::ComputeFullV).matrixV().rightCols<1>();
+  point_3d(0) = triangulated_point(0) / triangulated_point(3);
+  point_3d(1) = triangulated_point(1) / triangulated_point(3);
+  point_3d(2) = triangulated_point(2) / triangulated_point(3);
+}
+TEST(ZeroVelocityDetectTestOptimazation1, ZeroVelocityDetectTestOptimazation3) {
+  Eigen::Matrix<double, 3, 4> pose0;
+  Eigen::Matrix<double, 3, 4> pose1;
+  pose0.leftCols<3>() = Eigen::Matrix3d::Identity();
+  //
+  pose1.leftCols<3>() = Eigen::Matrix3d::Identity();
+  pose1.rightCols<1>() = Eigen::Vector3d(-2, 0, 0);
+  //
+  Eigen::Vector2d point0(0.5, 0.5);
+  Eigen::Vector2d point1(-0.5, 0.5);
+  Eigen::Vector3d point3d;
+  triangulatePoint(pose0, pose1, point0, point1, point3d);
+  LOG(INFO) << point3d.transpose();
+}
 
 TEST(ZeroVelocityDetectTestOptimazation, ZeroVelocityDetectTestOptimazation1) {
   UpdataZeroVelocity updata_zero_velocity({{}, {}, 10});
