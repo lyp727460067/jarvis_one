@@ -92,7 +92,14 @@ set_target_properties(
 ##add proto
 # find_package(Protobuf  REQUIRED)
 # configure_file(src/mapping/test_constant.h.in ${PROJECT_BINARY_DIR}/mapping/test_constant.h)
-include_directories(
+
+get_directory_property(out_var INCLUDE_DIRECTORIES)
+string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
+set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
+get_directory_property(out_var INCLUDE_DIRECTORIES)
+# message(******************8***${out_var})
+##
+INCLUDE_DIRECTORIES(
   # ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
@@ -102,6 +109,7 @@ include_directories(
   ${CERES_INCLUDE_DIRS}
   ${GLOG_INCLUDE_DIRS}
 )
+
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/third_part/rtm")
 ##

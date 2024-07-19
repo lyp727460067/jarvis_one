@@ -21,7 +21,7 @@ set(OpenCV_LIBS
 )
 
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
-
+set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
 set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
 # set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
@@ -36,22 +36,29 @@ set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
 #         PROPERTIES IMPORTED_LOCATION
 #         ${glog_binary_dir}
 # )
+get_directory_property(out_var INCLUDE_DIRECTORIES)
+# message(****${out_var})
+string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
+set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
+get_directory_property(out_var1 INCLUDE_DIRECTORIES)
+# message(********${out_var1})
 
-include_directories(
+INCLUDE_DIRECTORIES(
   ${CERES_INCLUDE_DIRS}
   # ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
   ${GLOG_INCLUDE_DIRS}
-  ${TOP_CMAKE_DIR}/libs/libmpc/include
-  
+  ${TOP_CMAKE_DIR}/libs/libmpc/include/
+  ${TOP_CMAKE_DIR}/libs/mpsdk/
 )
+
 option(view_debug " view_debug" ON)
 if(${view_debug})
 add_definitions(-D__ZMQ_ENABLAE__)
 endif()
 add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc)
-add_executable(${PROJECT_NAME}_slip_detect_main  jarvis_slipe_detect_main.cc  
+add_executable(mpslam  jarvis_slipe_detect_main.cc  
  data_capture.cc zmq_component.cc dev_socket.cc socket_wrapper.cc jarvis_brige.cc)
 # add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
 # socket_wrapper.cc 
@@ -67,7 +74,7 @@ target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
 
 
 target_include_directories( ${PROJECT_NAME}_pic_main  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME}_slip_detect_main PUBLIC
+target_link_libraries(mpslam PUBLIC
   glog
   jarvis
   ${OpenCV_LIBS}
@@ -75,7 +82,7 @@ target_link_libraries(${PROJECT_NAME}_slip_detect_main PUBLIC
    mpc
 )
 
-target_include_directories( ${PROJECT_NAME}_slip_detect_main  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_include_directories(mpslam  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 # target_link_libraries(${PROJECT_NAME}_main PUBLIC
 #   glog
 #   jarvis

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <vector>
 
-#include "Eigen/Core"
+#include <Eigen/Core>
 #include "jarvis/common/port.h"
 #include "ceres/ceres.h"
 namespace jarvis {

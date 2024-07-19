@@ -1,7 +1,7 @@
 #ifndef _JARVIS_VIO__EIGEN_QUATERNIOND_FROM_TWO_VECTORS_H_
 #define _JARVIS_VIO__EIGEN_QUATERNIOND_FROM_TWO_VECTORS_H_
 
-#include "Eigen/Geometry"
+#include <Eigen/Geometry>
 
 // Calls Eigen::Quaterniond::FromTwoVectors(). This is in its own compilation
 // unit since it can take more than 10 s to build while using more than 1 GB of
