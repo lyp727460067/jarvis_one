@@ -46,8 +46,8 @@ set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_imgproc.so
     ${Opencv_lib_dir}/libopencv_features2d.so
     ${Opencv_lib_dir}/libopencv_calib3d.so
-    /home/lyp/project/mowerpack/mowerpack_all/ld_third_part/lib/libopencv_video.a
-    # ${Opencv_lib_dir}/libopencv_video.so
+    # /home/lyp/project/mowerpack/mowerpack_all/ld_third_part/lib/libopencv_video.a
+    ${Opencv_lib_dir}/libopencv_video.so
 )
 set(SUTE_LIB_DIR "/home/lyp/project/mowerpack/mowerpack_all/third_party/clangarm64/lib")
 set(SUTI_LIBS
