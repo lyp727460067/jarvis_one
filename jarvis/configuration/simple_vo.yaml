@@ -7,8 +7,8 @@ max_disparity : 1
 imu_cam_time_offset : -0.1
 que_time_duration : 2
 zero_velocity_odom_delte_s_threash_hold : 0.1
-pose_odom_err_s_threash_hold : 0.250
-pose_odom_err_theta_threash_hold : 30  #deg
+pose_odom_err_s_threash_hold : 0.30
+pose_odom_err_theta_threash_hold : 50  #deg
 ## simplevio
 ###
 min_track_num: 6

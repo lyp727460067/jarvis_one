@@ -3,8 +3,8 @@
 #include <array>
 #include <chrono>
 #include <vector>
-
-#include "SensorDataCapturer/DataCapturer.h"
+#define FRAME_MAX_LEN (4116580)
+// #include "SensorDataCapturer/DataCapturer.h"
 #include "glog/logging.h"
 //
 #define NEED_SYNC
@@ -87,14 +87,14 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
   while (!imu_catch_.empty()) {
     const auto imu_data = ToImuData(imu_catch_.front(), sys_time_base_.value());
     for (const auto& f : imu_call_backs_) {
-      f(imu_data);
+      f.second(imu_data);
     }
     imu_catch_.erase(imu_catch_.begin());
   }
 #else
   const auto imu_data = ToImuData(imu, {});
   for (const auto& f : imu_call_backs_) {
-    f(imu_data);
+    f.second(imu_data);
   }
 #endif
 }
@@ -119,7 +119,7 @@ void DataCapture::ProcessOdom(const ModSyncChassisPosFb& odom) {
                      odom_catch_.front().second.time -
                      sys_odom_time_base_.value().second;
     for (const auto& f : encoder_call_backs_) {
-      f(odom_data);
+      f.second(odom_data);
     }
     odom_catch_.erase(odom_catch_.begin());
   }
@@ -128,12 +128,19 @@ void DataCapture::ProcessOdom(const ModSyncChassisPosFb& odom) {
       EncoderData{odom.time_stamp, odom.chassis_pos.left_encoder_pos,
                   odom.chassis_pos.right_encoder_pos};
   for (const auto& f : encoder_call_backs_) {
-    f(odom_data);
+    f.second(odom_data);
   }
 #endif
 }
 //
 void DataCapture::Run() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  ModUIBoardStatusFb mower_status;
+  int s = shm_mod_->GetModByID(MOD_ID_UI_BOARD_STATUS_FB, &mower_status);
+  if (s == sizeof(ModUIBoardStatusFb)) {
+    system_info_call_backs_({mower_status.MowerStatus});
+  }
+
   ModSyncImuFb imudata;
   int32_t res = mem_ssq_->PopImuData(&imudata);
   while (res > 0) {
@@ -233,11 +240,11 @@ void DataCapture::ProcessImag(const CameraFrame& frame) {
   image_catch_.erase(image_catch_.begin());
   // if (sys_time_base_.has_value()) {
   for (auto& f : frame_call_backs_) {
-    f(image_catch_.front().second);
+    f.second(image_catch_.front().second);
   }
 #else
   for (auto& f : frame_call_backs_) {
-    f(frame_data);
+    f.second(frame_data);
   }
 #endif
 
@@ -301,16 +308,22 @@ void DataCapture::SysPorocessOdom() {
   }
 }
 //
+void DataCapture::RemoveCallBack(const std::string& id) {
+  // std::lock_guard<std::mutex> lock(mutex_);
+  imu_call_backs_.erase(id);
+  frame_call_backs_.erase(id);
+  encoder_call_backs_.erase(id);
+}
+
 std::unique_ptr<DataCapture> CreateDataCaputure(
     const DataCaptureOption& option) {
-  if (option.use_method == 0) {
+  // if (option.use_method == 0) {
     return std::make_unique<DataCapture>(DataCaptureOption{});
-  } else if (option.use_method == 1) {
-    return std::make_unique<VSLAM::DataCapturer>(10, 200);
-  } else {
-    LOG(FATAL) << "Unsupport capture type...";
-  }
-  return nullptr;
+  // } else if (option.use_method == 1) {
+  //   return std::make_unique<VSLAM::DataCapturer>(10, 200);
+  // } else {
+  //   LOG(FATAL) << "Unsupport capture type...";
+  // }
 }
 //
 }  // namespace jarvis_pic

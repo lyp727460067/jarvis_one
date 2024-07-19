@@ -20,7 +20,7 @@ parser.add_option("--proc_memlog", dest="proc_memlog",
                   default="", help="proc_memlog")
 (options, args) = parser.parse_args()
 # ParseFromLog()
-options.proc_memlog="/home/lyp/data/0705/proc_memlog.txt"
+options.proc_memlog="/home/lyp/data/0719/proc_memlog.txt"
 # Read the original and optimized poses files.
 def ParseFromLog(file):
   time_start = 0.0
@@ -49,7 +49,7 @@ def ParseFromLog(file):
       pesent =  line_strip[6] 
       pesent =pesent.rstrip('%'); 
       
-      cpu_cost.append(int(pesent))
+      cpu_cost.append(int(pesent)-1)
       # time = time_string_index_string[time_index:]
 
   # print(cpu_cost)
@@ -82,7 +82,7 @@ if options.proc_memlog != '':
 
   plot.plot(index, mem_cost, '-', label="mem_cost",
             alpha=1, color="green")
-  MyPlot(plot,mem_cost,"mem_cost", x_offset=200)
+  MyPlot(plot,mem_cost,"mem_cost", x_offset=400)
   plot.plot(cpu_index, cpu_cost, '.', label="cpu_cost",
             alpha=1, color="red")
 

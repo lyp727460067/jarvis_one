@@ -134,7 +134,7 @@ void ImuExtrapolator::AddState(const common::Time& time,
   //
   //
   TrimImuData(time);
-  LOG(INFO)<<"imu date behind .. "<<imu_datas_.size();
+  LOG_EVERY_N(WARNING, 60) <<"imu date behind .. "<<imu_datas_.size();
 }
 
 ImuExtrapolator::~ImuExtrapolator() {}

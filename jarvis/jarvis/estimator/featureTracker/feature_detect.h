@@ -10,8 +10,8 @@ struct FeatureDetectOption {
   int fast_thresh_hold = 10;
   int min_distance = 30;
   Eigen::Vector2i imag_size;
-  Eigen::Vector2i grid_size{20, 16};
-  int num_thread_ = 2;
+  Eigen::Vector2i grid_size{64, 68};
+  int num_thread_ = 4;
 };
 
 struct GridOption {
@@ -35,6 +35,9 @@ class FeatureDetect {
   std::vector<cv::Point2f> Detect(const cv::Mat& image, int max_corners,
                                   const cv::Mat& derive, const cv::Mat& mask);
 
+  void FastNeon(const cv::Mat& mage, std::vector<cv::KeyPoint>& out,
+                int thresh_hodl,const cv::Mat&mask ,bool score = false);
+
  private:
   //
   std::vector<cv::KeyPoint> ExtractFastWithGrid(
@@ -42,9 +45,9 @@ class FeatureDetect {
 
   std::vector<std::pair<int, double>> ComputeEigens(
       const cv::Point2i& offset, const std::vector<cv::KeyPoint>&,
-      const cv::Mat& derive);
+      const cv::Mat& derive, const cv::Mat& mask);
   bool CheckGridValid(const std::vector<std::vector<cv::Point2f>>& grid,
-    const cv::Point2f& point);
+                      const cv::Point2f& point, const cv::Mat& mask);
   void Convolution(const cv::Mat& image, const std::vector<cv::KeyPoint>& pts,
                    const cv::Mat& derive, std::vector<short>& x_c,
                    std::vector<short>& y_c);
@@ -57,9 +60,10 @@ class FeatureDetect {
   const cv::Mat kernal_y =
       (cv::Mat_<double>(3, 3) << -1, -2, -1, 0, 0, 0, 1, 2, 1);
 
- 
+
   const int grid_width_;
   const int grid_height_;
+  const int min_distance_=20; 
 };
 
 

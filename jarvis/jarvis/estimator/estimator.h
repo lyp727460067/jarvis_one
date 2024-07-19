@@ -238,6 +238,7 @@ class Estimator {
   std::vector<bool> failuer_track_lost_;
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
+  int convin_used_num = 4;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

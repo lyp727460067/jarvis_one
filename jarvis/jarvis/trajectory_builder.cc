@@ -88,7 +88,8 @@ void TrajectorBuilder::AddImuData(const   sensor::ImuData &imu_data) {
   tracker_->AddImuData(imu_data);
 }
 
-TrajectorBuilder::~TrajectorBuilder() {}
+TrajectorBuilder::~TrajectorBuilder() {
+}
 
 std::vector<Eigen::Vector3d> TrajectorBuilder::GetMapPoints() {
   //  const auto all_map_points = map_builder_->GetAllMapPoints();
