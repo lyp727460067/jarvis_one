@@ -33,23 +33,31 @@ struct EncoderData {
   int32_t left_encoder;
   int32_t right_encoder;
 };
+struct SystmeInfo {
+  uint8_t state;
+};
 class DataCapture {
  public:
   explicit DataCapture(const DataCaptureOption& option);
   DataCapture(){};
   virtual ~DataCapture();
-  void Rigister(std::function<void(const Frame&)> f) {
-    frame_call_backs_.push_back(std::move(f));
+  void Rigister(const std::string& id, std::function<void(const Frame&)> f) {
+    frame_call_backs_.emplace(id, std::move(f));
   }
-  void Rigister(std::function<void(const ImuData&) >f) {
-    imu_call_backs_.push_back(std::move(f));
+  void Rigister(const std::string& id, std::function<void(const ImuData&)> f) {
+    imu_call_backs_.emplace(id, std::move(f));
   }
-  void Rigister(std::function<void(const EncoderData&) >f) {
-    encoder_call_backs_.push_back(std::move(f));
+  void Rigister(const std::string& id,
+                std::function<void(const EncoderData&)> f) {
+    encoder_call_backs_.emplace(id, std::move(f));
+  }
+  void Rigister(std::function<void(const SystmeInfo&)> f) {
+    system_info_call_backs_ = std::move(f);
   }
   virtual uint64_t GetOrigImuTime(const uint64_t& time);
   virtual void Start();
   virtual void Stop();
+  void RemoveCallBack(const std::string& id);
 
  protected:
   void Run();
@@ -58,10 +66,14 @@ class DataCapture {
   void ProcessImu(const ModSyncImuFb& imu);
   void ProcessImag(const CameraFrame& frame);
   void ProcessOdom(const ModSyncChassisPosFb& frame);
-  
-  std::vector<std::function<void(const ImuData&)>> imu_call_backs_;
-  std::vector<std::function<void(const Frame&)>> frame_call_backs_;
-  std::vector<std::function<void(const EncoderData&)>> encoder_call_backs_;
+  std::function<void(const SystmeInfo&)> system_info_call_backs_;
+  //
+  std::mutex mutex_;
+  std::map<std::string, std::function<void(const ImuData&)>> imu_call_backs_;
+  std::map<std::string, std::function<void(const Frame&)>> frame_call_backs_;
+  std::map<std::string, std::function<void(const EncoderData&)>>
+      encoder_call_backs_;
+  //
   DataCaptureOption option_;
   std::unique_ptr<ShmSensorQueue> mem_ssq_;
 

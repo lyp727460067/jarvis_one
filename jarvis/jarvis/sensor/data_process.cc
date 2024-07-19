@@ -54,7 +54,9 @@ void OrderedMultiQueue::Start() {
 }
 void OrderedMultiQueue::Stop() {
   kill_thread = true;
-  dispath_thead_.join();
+  if (dispath_thead_.joinable()) {
+    dispath_thead_.join();
+  }
 }
 
 //
@@ -151,7 +153,6 @@ common::Time OrderedMultiQueue::GetStartCommontime() {
 };
 
 OrderedMultiQueue::~OrderedMultiQueue() {
-  std::lock_guard<std::mutex> lock(mutex_);
   Stop();
 }
 }  // namespace sensor

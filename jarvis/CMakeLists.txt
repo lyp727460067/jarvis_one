@@ -25,6 +25,7 @@ option(arm_neon " arm_neon" ON)
 option(build_test "build test" OFF)
 if(${arm_neon})
 add_definitions(-D__ARM_NEON__)
+
 else()
 add_definitions(-D__SSE2__)
 endif()
@@ -45,24 +46,26 @@ set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_imgproc.so
     ${Opencv_lib_dir}/libopencv_features2d.so
     ${Opencv_lib_dir}/libopencv_calib3d.so
-    ${Opencv_lib_dir}/libopencv_video.so
+    /home/lyp/project/mowerpack/mowerpack_all/ld_third_part/lib/libopencv_video.a
+    # ${Opencv_lib_dir}/libopencv_video.so
 )
-set(sut_lib_dir  ${TOP_CMAKE_DIR}/third_party/SuiteSparse/lib)
+set(SUTE_LIB_DIR "/home/lyp/project/mowerpack/mowerpack_all/third_party/clangarm64/lib")
 set(SUTI_LIBS
-#  ${sut_lib_dir}/libamd.a  
-#  ${sut_lib_dir}/libbtf.a 
-#  ${sut_lib_dir}/libcamd.a
-#  ${sut_lib_dir}/libccolamd.a 
-#  ${sut_lib_dir}/libcholmod.a
-#  ${sut_lib_dir}/libcolamd.a  
-#  ${sut_lib_dir}/libcxsparse.a 
-#  ${sut_lib_dir}/libklu.a      
-#  ${sut_lib_dir}/libldl.a
-#  ${sut_lib_dir}/librbio.a              
-#  ${sut_lib_dir}/libspqr.a
-#  ${sut_lib_dir}/libumfpack.a
+ ${SUTE_LIB_DIR}/libamd.a  
+ ${SUTE_LIB_DIR}/libcxsparse.a
+#  ${SUTE_LIB_DIR}/libbtf.a 
+#  ${SUTE_LIB_DIR}/libcamd.a
+ ${SUTE_LIB_DIR}/libccolamd.a 
+#  ${SUTE_LIB_DIR}/libcholmod.a
+ ${SUTE_LIB_DIR}/libcolamd.a  
+#  ${SUTE_LIB_DIR}/libcxsparse.a 
+#  ${SUTE_LIB_DIR}/libklu.a      
+#  ${SUTE_LIB_DIR}/libldl.a
+#  ${SUTE_LIB_DIR}/librbio.a              
+#  ${SUTE_LIB_DIR}/libspqr.a
+#  ${SUTE_LIB_DIR}/libumfpack.a
 #  ${TOP_CMAKE_DIR}/third_party/lapack/lib/liblapack.a
-#  ${sut_lib_dir}/libsuitesparseconfig.so
+#  ${SUTE_LIB_DIR}/libsuitesparseconfig.so
 
 )
 set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)

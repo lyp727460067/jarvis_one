@@ -138,7 +138,9 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   }
   */
   cur_pts.clear();
+  TicToc t_t1;
   pyramid_image_->Build(_img);
+  VLOG(kGlogLevel) << "pyramid_image_->Build " << t_t1.toc() << "ms";
   // cv::imshow("pre",pyramid_image_->PrePyram().back());
   // cv::imshow("pre1",pyramid_image_->CurrPyram().back());
   // cv::waitKey(0);
@@ -308,11 +310,13 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
 
     // printf("feature cnt after add %d\n", (int)ids.size());
   }
-
+  TicToc t_t;
   cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
   pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
-
+  VLOG(kGlogLevel) << "  undistortedPts " << t_t.toc() << " ms";
   if (!_img1.empty() && stereo_cam) {
+
+    TicToc t_t;
     r_pyramid_image_->Build(_img1);
     ids_right.clear();
     cur_right_pts.clear();
@@ -327,13 +331,13 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       // cur left ---- cur right
       cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(),
                                r_pyramid_image_->CurrPyram(), cur_pts,
-                               cur_right_pts, status, err, win_size, level);
+                               cur_right_pts, status, err, win_size, 2);
       // reverse check cur right ---- cur left
-      if (1) {
+      if (0) {
         cv::calcOpticalFlowPyrLK(r_pyramid_image_->CurrPyram(),
                                  pyramid_image_->CurrPyram(), cur_right_pts,
-                                 reverseLeftPts, statusRightLeft, err, win_size,
-                                 level+1);
+                                 reverseLeftPts, statusRightLeft, err, win_size,3
+                                 );
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
               distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
@@ -366,6 +370,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
                       prev_un_right_pts_map);
     }
     prev_un_right_pts_map = cur_un_right_pts_map;
+    VLOG(kGlogLevel) << "  stereo_cam " << t_t.toc() << " ms";
   }
 
   prev_img = cur_img;
@@ -438,10 +443,10 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     }
     result_data.images[camera_id]= rightImg;
   }
+  VLOG(kGlogLevel) <<"feature track whole time "<< t_r.toc();
   return ImageFeatureTrackerData {
     std::make_shared<ImageFeatureTrackerData::Data>(result_data)
   };
-  // printf("feature track whole time %f\n", t_r.toc());
   // return featureFrame;
 }
 
