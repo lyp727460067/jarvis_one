@@ -133,8 +133,8 @@ target_link_libraries(
   # -lgfortran
   ${OpenCV_LIBS}
   ${CERES_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${SUTI_LIBS}
+  # ${Boost_LIBRARIES}
+  # ${SUTI_LIBS}
   ${yaml_lib}
   )
 
