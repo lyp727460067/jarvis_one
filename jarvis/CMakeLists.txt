@@ -103,7 +103,7 @@ INCLUDE_DIRECTORIES(
   # ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
-  ${PROJECT_SOURCE_DIR}/third_part/rtm/includes/
+  ${PROJECT_SOURCE_DIR}/rtm/includes/
   ${yaml_lib_dir}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
@@ -111,7 +111,7 @@ INCLUDE_DIRECTORIES(
 )
 
 
-add_subdirectory("${PROJECT_SOURCE_DIR}/third_part/rtm")
+add_subdirectory("${PROJECT_SOURCE_DIR}/rtm")
 ##
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
