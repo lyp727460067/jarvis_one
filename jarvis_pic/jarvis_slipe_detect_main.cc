@@ -295,7 +295,7 @@ int main(int argc, char* argv[]) {
   }
   //
   //
-  const std::string config_file("/userdata/vslam/configuration/vslam.yaml");
+  const std::string config_file("/oem/mowpack/ai_model/vslam.yaml");
   //
   //
   //
