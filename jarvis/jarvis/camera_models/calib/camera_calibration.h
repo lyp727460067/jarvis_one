@@ -9,7 +9,6 @@ namespace camera_models {
 
 class CameraCalibration {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   CameraCalibration();
 
   CameraCalibration(Camera::ModelType modelType, const std::string& cameraName,

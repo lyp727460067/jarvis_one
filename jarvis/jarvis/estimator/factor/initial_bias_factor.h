@@ -12,7 +12,6 @@ namespace jarvis {
 namespace estimator {
 class InitialBiasFactor : public ceres::SizedCostFunction<6, 9> {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   InitialBiasFactor(const Eigen::Vector3d &_Ba, const Eigen::Vector3d &_Bg) {
     init_Ba = _Ba;
     init_Bg = _Bg;

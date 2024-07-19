@@ -29,6 +29,7 @@ bool kill_thread_ = false;
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
+uint8_t kVioState= 0;
 double imu_cam_time_offset = 0;
 double image_sample = 1;
 uint8_t kRecordFlag = 0;
@@ -60,14 +61,26 @@ class JarvisBrige {
     //
     LOG(INFO) << "Orlder queue start..";
     order_queue_ = std::make_unique<jarvis::sensor::OrderedMultiQueue>();
-    order_queue_->AddQueue(kImuTopic,
-                           [&](const jarvis::sensor::ImuData& imu_data) {
-                             // LOG(INFO) << std::to_string(imu_data.time);
-                             // LOG(INFO)<<
-                             //      imu_data.linear_acceleration.transpose()
-                             //     << imu_data.angular_velocity.transpose();
-                             builder_->AddImuData(imu_data);
-                           });
+    order_queue_->AddQueue(
+        kImuTopic, [&](const jarvis::sensor::ImuData& imu_data) {
+          // LOG(INFO) << std::to_string(imu_data.time);
+          // LOG(INFO)<<
+          //      imu_data.linear_acceleration.transpose()
+          //     << imu_data.angular_velocity.transpose();
+          builder_->AddImuData(imu_data);
+          auto pose = jarvis::GetGlobleImuExtrapolatorPose();
+          jarvis::TrackingData tracking_data{
+              std::make_shared<jarvis::TrackingData::Data>(
+                  jarvis::TrackingData::Data{
+                      imu_data.time,
+                      jarvis::estimator::ImuState{
+                                  pose.second}}),
+              kVioState};
+          mpc_.Write(tracking_data.data->imu_state.pose,
+              tracking_data,
+              GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
+                  jarvis::common::ToUniversal(tracking_data.data->time) / 10)),false);
+        });
     //
     order_queue_->AddQueue(
         kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
@@ -81,26 +94,34 @@ class JarvisBrige {
         });
 
     LOG(INFO) << "Capture start..";
-
+    const Eigen::Vector3d gry_bias(0.00846608 ,0.00315094 ,0.00699567);
     data_capture_->Rigister([&](const ImuData& imu) {
       order_queue_->AddData(
           kImuTopic, std::make_unique<
                          jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
                          jarvis::sensor::ImuData{
-                             imu.time * 1e-6,
+                             jarvis::common::FromUniversal(imu.time*10),
                              imu.linear_acceleration,
-                             imu.angular_velocity,
+                             imu.angular_velocity-gry_bias,
                          }));
     });
     data_capture_->Rigister([&](const Frame& frame) {
       if (!image_sample_->Pulse()) return;
-      auto temp = std::make_shared<cv::Mat>(frame.image.clone());
+      //  cv::Mat temp1;
+      // //  cv::equalizeHist( frame.image, temp1);
+      //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8, 8));
+      //  clahe->apply( frame.image, temp1);
+      // auto temp = std::make_shared<cv::Mat>(temp1.clone());
       order_queue_->AddData(
           kImagTopic0,
           std::make_unique<
               jarvis::sensor::DispathcData<jarvis::sensor::ImageData>>(
-              jarvis::sensor::ImageData{frame.time * 1e-6 + imu_cam_time_offset,
-                                        {temp, temp}}));
+              jarvis::sensor::ImageData{
+                  jarvis::common::FromUniversal(
+                      frame.time *
+                      10)+ jarvis::common::FromSeconds(imu_cam_time_offset),
+                  {std::make_shared<cv::Mat>(frame.images[0].clone()),
+                   std::make_shared<cv::Mat>(frame.images[1].clone())}}));
     });
     if (kRecordFlag) {
       data_capture_->Rigister([&](const ImuData& imu) {
@@ -116,8 +137,11 @@ class JarvisBrige {
       });
       data_capture_->Rigister([&](const Frame& frame) {
         cv::imwrite(
-            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + ".png",
-            frame.image);
+            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + "_l_.png",
+            frame.images[0]);
+        cv::imwrite(
+            image_dir + std::to_string(uint64_t(frame.time * 1e3)) + "_r_.png",
+            frame.images[1]);
       });
     }
     order_queue_->Start();
@@ -126,6 +150,7 @@ class JarvisBrige {
   DataCapture* GetDataCapture() { return data_capture_.get(); }
 
  private:
+  jarvis_pic::MpcComponent mpc_;
   std::unique_ptr<DataCapture> data_capture_;
   std::unique_ptr<jarvis::sensor::OrderedMultiQueue> order_queue_;
   std::unique_ptr<jarvis::TrajectorBuilder> builder_;
@@ -182,7 +207,7 @@ int main(int argc, char* argv[]) {
   //
   //
   const std::string config_file(
-      "/oem/mowpack_2/vslam/configuration/estimator.yaml");
+      "/oem/mowpack/vslam/configuration/estimator.yaml");
   //
   ParseOption(config_file);
   //
@@ -211,31 +236,32 @@ int main(int argc, char* argv[]) {
       std::unique_lock<std::mutex> lock(jarvis_mutex);
       con_variable.wait(lock);
       tracking_data = tracking_data_temp;
+      kVioState= tracking_data.status;
     }
 
-    LOG(INFO) << tracking_data.data->pose;
+    LOG(INFO) << tracking_data.data->imu_state.pose;
     if (kRecordFlag) {
       std::stringstream info;
       info << std::to_string(uint64_t(
                   jarvis::common::ToUniversal(tracking_data.data->time) * 1e2))
-           << " " << tracking_data.data->pose.translation().x() << " "
-           << tracking_data.data->pose.translation().y() << " "
-           << tracking_data.data->pose.translation().z() << " "
-           << tracking_data.data->pose.rotation().w() << " "
-           << tracking_data.data->pose.rotation().x() << " "
-           << tracking_data.data->pose.rotation().y() << " "
-           << tracking_data.data->pose.rotation().z() << std::endl;
+           << " " << tracking_data.data->imu_state.pose.translation().x() << " "
+           << tracking_data.data->imu_state.pose.translation().y() << " "
+           << tracking_data.data->imu_state.pose.translation().z() << " "
+           << tracking_data.data->imu_state.pose.rotation().w() << " "
+           << tracking_data.data->imu_state.pose.rotation().x() << " "
+           << tracking_data.data->imu_state.pose.rotation().y() << " "
+           << tracking_data.data->imu_state.pose.rotation().z() << std::endl;
       kOPoseFile << info.str();
     }
 
     //
-    mpc.Write(
-        tracking_data,
-        jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
-            jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
+    // mpc.Write(
+    //     tracking_data,
+    //     jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
+    //         jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
     //
 #ifdef __ZMQ_ENABLAE__
-    zmq.PubLocalData(tracking_data);
+    zmq.PubLocalData(tracking_data,false);
 #endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));
   }

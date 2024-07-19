@@ -21,18 +21,20 @@
 #include <opencv2/opencv.hpp>
 #include <queue>
 
-#include "camera_models/camera_models/CataCamera.h"
-#include "camera_models/camera_models/PinholeCamera.h"
-#include "camera_models/camera_models/camera_factory.h"
+#include "jarvis/camera_models/camera_models/CataCamera.h"
+#include "jarvis/camera_models/camera_models/PinholeCamera.h"
+#include "jarvis/camera_models/camera_models/camera_factory.h"
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/tic_toc.h"
+#include "jarvis/estimator/featureTracker/pyramid_image.h"
+#include "jarvis/estimator/featureTracker/feature_detect.h"
 namespace jarvis {
 namespace estimator {
 
 //
 
-struct ImageFeatureTrackerResult {
-  struct FeatureTrackerResult {
+struct ImageFeatureTrackerData {
+  struct FeatureTrackerData {
     int id;
     struct CameraFeature {
       int id;
@@ -40,11 +42,11 @@ struct ImageFeatureTrackerResult {
       Eigen::Vector2d uv;
       Eigen::Vector2d uv_velocity;
     };
-    std::vector<CameraFeature> camera_features;
+    std::vector<CameraFeature> camera_features;//多个相机的ID
   };
   struct Data {
     double time;
-    std::map<int, FeatureTrackerResult> features;
+    std::map<uint64_t, FeatureTrackerData> features;//feature_id
     std::map<int, int> tracker_features_num;
     std::map<int, cv::Mat> images;  // camera_id,image
   };
@@ -55,15 +57,25 @@ bool inBorder(const cv::Point2f &pt);
 void reduceVector(std::vector<cv::Point2f> &v, std::vector<uchar> status);
 void reduceVector(std::vector<int> &v, std::vector<uchar> status);
 
+struct FeatureTrackerOption {
+  PyramidImageOption pyrmid_option;
+  FeatureDetectOption feature_detect_option;
+  std::vector<camera_models::CameraPtr> cameras;
+  cv::Mat mask;
+  int track_back=0;
+  int max_feat_cnt=100;
+  double ransac_threshold =1.0;
+};
+
 class FeatureTracker {
  public:
-  FeatureTracker();
-  ImageFeatureTrackerResult trackImage(double _cur_time, const cv::Mat &_img,
+  explicit FeatureTracker(const FeatureTrackerOption&option);
+  ImageFeatureTrackerData trackImage(double _cur_time, const cv::Mat &_img,
                                        const cv::Mat &_img1 = cv::Mat(),
-                                       std::map<int, int> *track_cnt = nullptr);
+                                       std::map<int, int> *track_cnt = nullptr,const double angle=0);
   void setMask();
-  void readIntrinsicParameter(const std::vector<string> &calib_file);
-  void showUndistortion(const string &name);
+  void readIntrinsicParameter(const std::vector<std::string> &calib_file);
+  void showUndistortion(const std::string &name);
   void rejectWithF();
   void undistortedPoints();
   std::vector<cv::Point2f> undistortedPts(std::vector<cv::Point2f> &pts,
@@ -79,13 +91,13 @@ class FeatureTracker {
                  std::vector<int> &curLeftIds,
                  std::vector<cv::Point2f> &curLeftPts,
                  std::vector<cv::Point2f> &curRightPts,
-                 map<int, cv::Point2f> &prevLeftPtsMap);
-  void setPrediction(map<int, Eigen::Vector3d> &predictPts);
+                 std::map<int, cv::Point2f> &prevLeftPtsMap);
+  void setPrediction(std::map<int, Eigen::Vector3d> &predictPts);
   double distance(cv::Point2f &pt1, cv::Point2f &pt2);
-  void removeOutliers(set<int> &removePtsIds);
+  void removeOutliers(std::set<int> &removePtsIds);
   cv::Mat getTrackImage();
   bool inBorder(const cv::Point2f &pt);
-
+  const FeatureTrackerOption options_; 
   int row = 0, col = 0;
   cv::Mat imTrack;
   cv::Mat mask;
@@ -109,6 +121,9 @@ class FeatureTracker {
   int n_id = 0;
   bool hasPrediction = false;
   cv::Mat  mask_;
+  std::unique_ptr<PyramidImage> pyramid_image_;
+  std::unique_ptr<PyramidImage> r_pyramid_image_;
+  std::unique_ptr<FeatureDetect> feature_detect_;
 };
 }  // namespace estimator
 }  // namespace jarvis

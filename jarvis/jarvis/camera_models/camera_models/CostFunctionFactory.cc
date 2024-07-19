@@ -57,7 +57,6 @@ void worldToCameraTransform(const T* const q_cam_odo, const T* const t_cam_odo,
 template <class CameraT>
 class ReprojectionError1 {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   ReprojectionError1(const Eigen::Vector3d& observed_P,
                      const Eigen::Vector2d& observed_p)
@@ -139,7 +138,6 @@ class ReprojectionError1 {
 template <class CameraT>
 class ReprojectionError2 {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   ReprojectionError2(const std::vector<double>& intrinsic_params,
                      const Eigen::Vector2d& observed_p)
@@ -177,7 +175,6 @@ class ReprojectionError2 {
 template <class CameraT>
 class ReprojectionError3 {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   ReprojectionError3(const Eigen::Vector2d& observed_p)
       : m_observed_p(observed_p),
@@ -357,7 +354,6 @@ class ReprojectionError3 {
 template <class CameraT>
 class StereoReprojectionError {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   StereoReprojectionError(const Eigen::Vector3d& observed_P,
                           const Eigen::Vector2d& observed_p_l,
@@ -416,7 +412,6 @@ class StereoReprojectionError {
 template <class CameraT>
 class ComprehensionError {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   ComprehensionError(const Eigen::Vector3d& observed_P,
                      const Eigen::Vector2d& observed_p)

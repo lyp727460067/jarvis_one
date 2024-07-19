@@ -13,10 +13,11 @@ namespace jarvis {
 namespace estimator {
 class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9> {
  public:
-EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   IMUFactor() = delete;
   IMUFactor(IntegrationBase *_pre_integration)
-      : pre_integration(_pre_integration) {}
+      : pre_integration(_pre_integration),G(0,0,9.8) {
+        
+      }
   virtual bool Evaluate(double const *const *parameters, double *residuals,
                         double **jacobians) const {
     Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
@@ -87,7 +88,8 @@ EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
       if (pre_integration->jacobian.maxCoeff() > 1e8 ||
           pre_integration->jacobian.minCoeff() < -1e8) {
-        LOG(WARNING) << "numerical unstable in preintegration";
+        LOG(ERROR) << "numerical unstable in preintegration";
+        // CHECK(false)<< "numerical unstable in preintegration";
         // std::cout << pre_integration->jacobian << std::endl;
         ///                ROS_BREAK();
       }
@@ -121,7 +123,8 @@ EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
         if (jacobian_pose_i.maxCoeff() > 1e8 ||
             jacobian_pose_i.minCoeff() < -1e8) {
-          LOG(WARNING) << "numerical unstable in preintegration";
+        //   CHECK(false)<< "numerical unstable in preintegration";
+          LOG(ERROR) << "numerical unstable in preintegration";
           // std::cout << sqrt_info << std::endl;
           // ROS_BREAK();
         }
@@ -219,6 +222,7 @@ EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // void checkTransition();
   // void checkJacobian(double **parameters);
   IntegrationBase *pre_integration=nullptr;
+  Eigen::Vector3d G;
 };
 
 }  // namespace tracking

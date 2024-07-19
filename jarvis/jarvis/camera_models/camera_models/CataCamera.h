@@ -4,7 +4,7 @@
 #include <opencv2/core/core.hpp>
 #include <string>
 
-#include "camera_models/camera_models/camera.h"
+#include "jarvis/camera_models/camera_models/camera.h"
 #include "ceres/rotation.h"
 //
 namespace jarvis {

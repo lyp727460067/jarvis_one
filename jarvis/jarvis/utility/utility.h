@@ -14,23 +14,36 @@
 #include <cmath>
 #include <cstring>
 #include <Eigen/Dense>
+#include "transform/transform.h"
 namespace jarvis {
 namespace estimator {
 class Utility {
  public:
   template <typename Derived>
   static Eigen::Quaternion<typename Derived::Scalar> deltaQ(
-      const Eigen::MatrixBase<Derived> &theta) {
-    typedef typename Derived::Scalar Scalar_t;
+      const Eigen::MatrixBase<Derived> &angle_axis) {
+    typedef typename Derived::Scalar T;
+    T scale = T(0.5);
+    T w = T(1.);
+    constexpr double kCutoffAngle = 1e-8;  // We linearize below this angle.
+    if (angle_axis.squaredNorm() > kCutoffAngle) {
+      const T norm = angle_axis.norm();
+      scale = sin(norm / 2.) / norm;
+      w = cos(norm / 2.);
+    }
+    const Eigen::Matrix<T, 3, 1> quaternion_xyz = scale * angle_axis;
+    return Eigen::Quaternion<T>(w, quaternion_xyz.x(), quaternion_xyz.y(),
+                                quaternion_xyz.z());
 
-    Eigen::Quaternion<Scalar_t> dq;
-    Eigen::Matrix<Scalar_t, 3, 1> half_theta = theta;
-    half_theta /= static_cast<Scalar_t>(2.0);
-    dq.w() = static_cast<Scalar_t>(1.0);
-    dq.x() = half_theta.x();
-    dq.y() = half_theta.y();
-    dq.z() = half_theta.z();
-    return dq;
+    // Eigen::Quaternion<Scalar_t> dq;
+    // Eigen::Matrix<Scalar_t, 3, 1> half_theta = theta;
+    // half_theta /= static_cast<Scalar_t>(2.0);
+    // dq.w() = static_cast<Scalar_t>(1.0);
+    // dq.x() = half_theta.x();
+    // dq.y() = half_theta.y();
+    // dq.z() = half_theta.z();
+    // return dq;
+    // return transform::AngleAxisVectorToRotationQuaternion(theta);
   }
 
   template <typename Derived>

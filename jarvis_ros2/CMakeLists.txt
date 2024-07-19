@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.5)
 project(jarvis_ros2)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+#if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#  add_compile_options(-Wall -Wextra -Wpedantic)
+#endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -23,7 +23,7 @@ ament_package()
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
+## is used, also find other catkin packages 
 ## System dependencies are found with CMake's conventions
 set(BOOST_COMPONENTS iostreams filesystem)
 
@@ -59,7 +59,9 @@ ${OpenCV_INCLUDE_DIRS}
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_main  jarvis_main.cc ros_component.cc
 )
-add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc 
+add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc)
+add_executable(ld_${PROJECT_NAME}_slip_main   jarvis_slip_detect_main.cc ros_component.cc)
+add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare.cc pose_optimization.cc
 )
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -78,6 +80,34 @@ target_link_libraries(${PROJECT_NAME}_main
   glog::glog
   yaml-cpp
   jarvis
+)
+target_link_libraries(ld_${PROJECT_NAME}_slip_main
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+  glog::glog
+  yaml-cpp
+  jarvis
+)
+
+target_link_libraries(ld_${PROJECT_NAME}_pose_compare_main
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+  glog::glog
+  yaml-cpp
+  jarvis
+)
+
+ament_target_dependencies(ld_${PROJECT_NAME}_pose_compare_main rclcpp std_msgs nav_msgs sensor_msgs
+visualization_msgs
+tf2_ros
+cv_bridge
+image_transport
+)
+ament_target_dependencies(ld_${PROJECT_NAME}_slip_main rclcpp std_msgs nav_msgs sensor_msgs
+visualization_msgs
+tf2_ros
+cv_bridge
+image_transport
 )
 ament_target_dependencies(${PROJECT_NAME}_main rclcpp std_msgs nav_msgs sensor_msgs
 visualization_msgs

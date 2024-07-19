@@ -40,7 +40,7 @@ int NUM_OF_CAM;
 int STEREO;
 int USE_IMU;
 int MULTIPLE_THREAD;
-map<int, Eigen::Vector3d> pts_gt;
+std::map<int, Eigen::Vector3d> pts_gt;
 std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
 std::string FISHEYE_MASK;
 std::vector<std::string> CAM_NAMES;
@@ -49,11 +49,13 @@ int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
-
+int lk_win_size;
+int lk_pre_max_layer;
 void readParameters(std::string config_file) {
   FILE *fh = fopen(config_file.c_str(), "r");
   if (fh == NULL) {
-    LOG(FATAL) << "config_file dosen't exist; wrong config_file path";
+    LOG(FATAL) << "config_file dosen't exist; wrong config_file path"
+               << config_file;
     return;
   }
   fclose(fh);
@@ -81,7 +83,8 @@ void readParameters(std::string config_file) {
   F_THRESHOLD = fsSettings["F_threshold"];
   SHOW_TRACK = fsSettings["show_track"];
   FLOW_BACK = fsSettings["flow_back"];
-
+  lk_win_size = fsSettings["lk_win_size"];
+  lk_pre_max_layer = fsSettings["lk_pre_max_layer"];
   MULTIPLE_THREAD = fsSettings["multiple_thread"];
 
   USE_IMU = fsSettings["imu"];
@@ -98,8 +101,8 @@ void readParameters(std::string config_file) {
 
   SOLVER_TIME = fsSettings["max_solver_time"];
   NUM_ITERATIONS = fsSettings["max_num_iterations"];
-  MIN_PARALLAX = 1;//fsSettings[""];
-  MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
+  // MIN_PARALLAX = 1;//fsSettings[""];
+  // MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
 
   fsSettings["output_path"] >> OUTPUT_FOLDER;
   VINS_RESULT_PATH = OUTPUT_FOLDER + "/vio.csv";
@@ -126,11 +129,11 @@ void readParameters(std::string config_file) {
     fsSettings["body_T_cam0"] >> cv_T;
     Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
     Eigen::Matrix4d T1;
-    cv::cv2eigen(cv_T, T1);
-    std::cout<<T1<<std::endl;
-    T.block<3, 3>(0, 0) = T1.block<3, 3>(0, 0).transpose();
-    T.block<3, 1>(0, 3) =
-        -(T1.block<3, 3>(0, 0).transpose() * T1.block<3, 1>(0, 3));
+    cv::cv2eigen(cv_T, T);
+    // std::cout<<T1<<std::endl;
+    // T.block<3, 3>(0, 0) = T1.block<3, 3>(0, 0).transpose();
+    // T.block<3, 1>(0, 3) =
+    //     -(T1.block<3, 3>(0, 0).transpose() * T1.block<3, 1>(0, 3));
 
     std::cout<<T<<std::endl;
     RIC.push_back(T.block<3, 3>(0, 0));
@@ -169,7 +172,7 @@ void readParameters(std::string config_file) {
     TIC.push_back(T.block<3, 1>(0, 3));
   }
 
-  INIT_DEPTH = 5.0;
+  // INIT_DEPTH = 5.0;
   BIAS_ACC_THRESHOLD = 0.1;
   BIAS_GYR_THRESHOLD = 0.1;
 

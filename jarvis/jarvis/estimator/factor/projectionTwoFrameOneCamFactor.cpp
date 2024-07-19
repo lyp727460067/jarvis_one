@@ -11,16 +11,57 @@
  *******************************************************/
 
 #include "projectionTwoFrameOneCamFactor.h"
+#include "rtm/impl/matrix_affine_common.h"
+// #include "rtm/matrix3x3d.h"
+#include "rtm/matrix3x3f.h"
 namespace jarvis {
 namespace estimator {
-Eigen::Matrix2d ProjectionTwoFrameOneCamFactor::sqrt_info =
-    Eigen::Matrix2d::Identity();
+// Eigen::Matrix2d ProjectionTwoFrameOneCamFactor::sqrt_info =
+//     Eigen::Matrix2d::Identity();
 double ProjectionTwoFrameOneCamFactor::sum_t = 0.0;
+#define __USE_SIMD__
+namespace {
+
+
+#define RTM_VECTOR4  rtm::vector4f
+#define RTM_VECTOR3  rtm::vector3f
+#define RTM_QUAT  rtm::quatf
+#define RTM_MATRIX3X3  rtm::matrix3x3f
+#define RTM_VECTOR_CAST rtm::vector_cast
+#define RTM_QUAT_CAST rtm::quat_cast
+
+
+  // _simd_matrix3 _simd_hat_from_eigen(const Eigen::Vector3<_Scalar> &vec) {
+  //   _simd_vector4 _simd_x_axis, _simd_y_axis, _simd_z_axis;
+  //   _Scalar x_axis[4] = {0, vec.z(), -vec.y(), 0};
+  //   _Scalar y_axis[4] = {-vec.z(), 0, vec.x(), 0};
+  //   _Scalar z_axis[4] = {vec.y(), -vec.x(), 0, 0};
+  //   _simd_x_axis = rtm::vector_load(x_axis);
+  //   _simd_y_axis = rtm::vector_load(y_axis);
+  //   _simd_z_axis = rtm::vector_load(z_axis);
+  //   return _simd_matrix3{_simd_x_axis, _simd_y_axis, _simd_z_axis};
+  // }
+  Eigen::Vector3d ToEigen(const RTM_VECTOR4 &rtm_vector) {
+    return Eigen::Vector3d{rtm::vector_get_x(rtm_vector),
+                           rtm::vector_get_y(rtm_vector),
+                           rtm::vector_get_z(rtm_vector)};
+  }
+
+  Eigen::Matrix3d ToEigen(const RTM_MATRIX3X3 &rtm_matrix) {
+    Eigen::Matrix3d result;
+    result << ToEigen(rtm_matrix.x_axis), ToEigen(rtm_matrix.y_axis),
+        ToEigen(rtm_matrix.z_axis);
+    return result;
+  }
+
+
+}
+
 
 ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
     const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
     const Eigen::Vector2d &_velocity_i, const Eigen::Vector2d &_velocity_j,
-    const double _td_i, const double _td_j)
+    const double _td_i, const double _td_j,double weight)
     : pts_i(_pts_i), pts_j(_pts_j), td_i(_td_i), td_j(_td_j) {
   velocity_i.x() = _velocity_i.x();
   velocity_i.y() = _velocity_i.y();
@@ -28,6 +69,7 @@ ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
   velocity_j.x() = _velocity_j.x();
   velocity_j.y() = _velocity_j.y();
   velocity_j.z() = 0;
+  sqrt_info = weight * Eigen::Matrix2d::Identity();
 
 #ifdef UNIT_SPHERE_ERROR
   Eigen::Vector3d b1, b2;
@@ -40,8 +82,12 @@ ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
   tangent_base.block<1, 3>(1, 0) = b2.transpose();
 #endif
 };
-
 bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
+                                              double *residuals,
+                                              double **jacobians) const {
+  return EvaluateSIMD(parameters, residuals, jacobians);
+}
+bool ProjectionTwoFrameOneCamFactor::EvaluateNormal(double const *const *parameters,
                                               double *residuals,
                                               double **jacobians) const {
   TicToc tic_toc;
@@ -57,27 +103,19 @@ bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
   Eigen::Quaterniond qic(parameters[2][6], parameters[2][3], parameters[2][4],
                          parameters[2][5]);
 
-  double inv_dep_i = parameters[3][0];
+  const double &inv_dep_i = parameters[3][0];
 
-  double td = parameters[4][0];
-
-  Eigen::Vector3d pts_i_td, pts_j_td;
-  pts_i_td = pts_i - (td - td_i) * velocity_i;
-  pts_j_td = pts_j - (td - td_j) * velocity_j;
+  const double &td = parameters[4][0];
+  Eigen::Vector3d pts_i_td = pts_i - (td - td_i) * velocity_i; 
+  Eigen::Vector3d pts_j_td = pts_j - (td - td_j) * velocity_j;
   Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
   Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
   Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
   Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
   Eigen::Vector3d pts_camera_j = qic.inverse() * (pts_imu_j - tic);
   Eigen::Map<Eigen::Vector2d> residual(residuals);
-
-#ifdef UNIT_SPHERE_ERROR
-  residual = tangent_base * (pts_camera_j.normalized() - pts_j_td.normalized());
-#else
   double dep_j = pts_camera_j.z();
   residual = (pts_camera_j / dep_j).head<2>() - pts_j_td.head<2>();
-#endif
-
   residual = sqrt_info * residual;
 
   if (jacobians) {
@@ -161,6 +199,221 @@ bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
   return true;
 }
 
+bool ProjectionTwoFrameOneCamFactor::EvaluateSIMD(double const *const *parameters,
+                                              double *residuals,
+                                              double **jacobians) const {
+  //
+
+
+
+
+  // Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
+  // Eigen::Quaterniond Qi(parameters[0][6], parameters[0][3], parameters[0][4],
+  //                       parameters[0][5]);
+
+  // Eigen::Vector3d Pj(parameters[1][0], parameters[1][1], parameters[1][2]);
+  // Eigen::Quaterniond Qj(parameters[1][6], parameters[1][3], parameters[1][4],
+  //                       parameters[1][5]);
+
+  // Eigen::Vector3d tic(parameters[2][0], parameters[2][1], parameters[2][2]);
+  // Eigen::Quaterniond qic(parameters[2][6], parameters[2][3], parameters[2][4],
+  //                        parameters[2][5]);
+  // Eigen::Vector3d pts_i_td = pts_i - (td - td_i) * velocity_i; 
+  // Eigen::Vector3d pts_j_td = pts_j - (td - td_j) * velocity_j;
+  // Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
+
+
+
+  TicToc tic_toc;
+  RTM_VECTOR4 rtm_Pi = RTM_VECTOR_CAST(rtm::vector_set(
+      parameters[0][0], parameters[0][1], parameters[0][2], 0));
+  //
+  RTM_QUAT rtm_Qi =RTM_QUAT_CAST( rtm::quat_set(parameters[0][3], parameters[0][4],
+                                  parameters[0][5], parameters[0][6]));
+  //
+  //
+  // Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
+  // Eigen::Quaterniond Qi(parameters[0][6], parameters[0][3], parameters[0][4],
+  //                       parameters[0][5]);
+
+  //
+  RTM_VECTOR4 rtm_Pj =
+      RTM_VECTOR_CAST(rtm::vector_set(parameters[1][0], parameters[1][1], parameters[1][2], 0));
+  RTM_QUAT rtm_Qj = RTM_QUAT_CAST(rtm::quat_set(parameters[1][3], parameters[1][4],
+                                        parameters[1][5], parameters[1][6]));
+  //
+  RTM_QUAT rtm_Qj_inv = RTM_QUAT_CAST(rtm::quat_set(-parameters[1][3], -parameters[1][4],
+                                        -parameters[1][5], parameters[1][6]));
+
+  // Eigen::Vector3d Pj(parameters[1][0], parameters[1][1], parameters[1][2]);
+  // Eigen::Quaterniond Qj(parameters[1][6], parameters[1][3], parameters[1][4],
+  //                       parameters[1][5]);
+
+  //
+  RTM_VECTOR4 rtm_tic = RTM_VECTOR_CAST(
+      rtm::vector_set(parameters[2][0], parameters[2][1], parameters[2][2], 0));
+  RTM_QUAT rtm_qic = RTM_QUAT_CAST(rtm::quat_set(
+      parameters[2][3], parameters[2][4], parameters[2][5], parameters[2][6]));
+  RTM_QUAT rtm_qic_inv =
+      RTM_QUAT_CAST(rtm::quat_set(-parameters[2][3], -parameters[2][4],
+                                  -parameters[2][5], parameters[2][6]));
+
+  // Eigen::Vector3d tic(parameters[2][0], parameters[2][1], parameters[2][2]);
+  // Eigen::Quaterniond qic(parameters[2][6], parameters[2][3], parameters[2][4],
+  //                        parameters[2][5]);
+
+  const double &inv_dep_i = parameters[3][0];
+  const double &td = parameters[4][0];
+  Eigen::Vector3d pts_i_td = pts_i - (td - td_i) * velocity_i;
+  Eigen::Vector3d pts_j_td = pts_j - (td - td_j) * velocity_j;
+  //
+  //
+  //
+  Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
+  //
+  //////////
+  // Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
+  // Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
+  // Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
+  ///////////
+  RTM_VECTOR4 rtm_pts_camera_i = RTM_VECTOR_CAST(rtm::vector_set(pts_camera_i.x(),
+       pts_camera_i.y(),pts_camera_i.z(),0));
+  RTM_VECTOR4 rtm_pts_imu_i = rtm::vector_add(
+      rtm::quat_mul_vector3(rtm_pts_camera_i, rtm_qic), rtm_tic);
+  //
+  // Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
+
+    RTM_VECTOR4 rtm_pts_w = rtm::vector_add(
+      rtm::quat_mul_vector3(rtm_pts_imu_i, rtm_Qi), rtm_Pi);
+  // Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
+    RTM_VECTOR4 rtm_pts_imu_j =
+        rtm::quat_mul_vector3(rtm::vector_sub(rtm_pts_w, rtm_Pj), rtm_Qj_inv);
+
+
+    // Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
+    RTM_VECTOR4 rtm_pts_camera_j = rtm::quat_mul_vector3(
+        rtm::vector_sub(rtm_pts_imu_j, rtm_tic), rtm_qic_inv);
+    // Eigen::Vector3d pts_camera_j = qic.inverse() * (pts_imu_j - tic);
+    //
+
+    Eigen::Map<Eigen::Vector2d> residual(residuals);
+    const double dep_j_inv = 1.0/rtm::vector_get_z(rtm_pts_camera_j);
+     // double dep_j = pts_camera_j.z();
+    Eigen::Vector3d pts_camera_j{rtm::vector_get_x(rtm_pts_camera_j),
+                                 rtm::vector_get_y(rtm_pts_camera_j),
+                                 rtm::vector_get_z(rtm_pts_camera_j)};
+    residual = (pts_camera_j *dep_j_inv).head<2>() - pts_j_td.head<2>();
+    // residual = (pts_camera_j / dep_j).head<2>() - pts_j_td.head<2>();
+    residual = sqrt_info * residual;
+
+    if (jacobians) {
+      // Eigen::Matrix3d Ri = Qi.toRotationMatrix();
+      // Eigen::Matrix3d Rj = Qj.toRotationMatrix();
+      // Eigen::Matrix3d ric = qic.toRotationMatrix();
+      Eigen::Matrix<double, 2, 3> reduce(2, 3);
+      reduce << dep_j_inv, 0, -pts_camera_j(0) * dep_j_inv * dep_j_inv,0,
+          dep_j_inv, -pts_camera_j(1) * dep_j_inv * dep_j_inv;
+      reduce = sqrt_info * reduce;
+      RTM_MATRIX3X3 rtm_m_ric_inv = rtm::matrix_from_quat(rtm_qic_inv);
+      RTM_MATRIX3X3 rtm_m_ric = rtm::matrix_from_quat(rtm_qic);
+      RTM_MATRIX3X3 rtm_m_Rj_inv = rtm::matrix_from_quat(rtm_Qj_inv);
+      RTM_MATRIX3X3 rtm_m_Ri = rtm::matrix_from_quat(rtm_Qi);
+      RTM_MATRIX3X3 ric_t_mul_rj_inv_mul_ri_ric = rtm::matrix_mul(rtm_m_ric,
+        rtm::matrix_mul(rtm_m_Ri,rtm::matrix_mul(rtm_m_Rj_inv,rtm_m_ric_inv)));
+
+      if (jacobians[0]) {
+        Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>>
+            jacobian_pose_i(jacobians[0]);
+
+        Eigen::Matrix<double, 3, 6> jaco_i;
+        RTM_MATRIX3X3 tmp =  rtm::matrix_mul(rtm_m_Rj_inv,rtm_m_ric_inv);
+        jaco_i.leftCols<3>() = ToEigen(tmp);
+        // LOG(INFO) << "\n" << ric.transpose() * Rj.transpose();
+        // LOG(INFO) << "\n" << ToEigen(tmp);
+
+        jaco_i.rightCols<3>() = ToEigen(
+                         rtm::matrix_mul(rtm_m_Ri, tmp))* -Utility::skewSymmetric(ToEigen(rtm_pts_imu_i));
+
+        // jaco_i.rightCols<3>() = ric.transpose() * Rj.transpose() * Ri *
+        //                         -Utility::skewSymmetric(pts_imu_i);
+
+        jacobian_pose_i.leftCols<6>() = reduce * jaco_i;
+        jacobian_pose_i.rightCols<1>().setZero();
+    }
+
+    if (jacobians[1]) {
+      Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> jacobian_pose_j(
+          jacobians[1]);
+      Eigen::Matrix<double, 3, 6> jaco_j;
+      RTM_MATRIX3X3 tmp =  rtm::matrix_mul(rtm_m_Rj_inv,rtm_m_ric_inv);
+      jaco_j.leftCols<3>() = -ToEigen(tmp);
+      // jaco_j.leftCols<3>() = ric.transpose() * -Rj.transpose();
+      jaco_j.rightCols<3>() = ToEigen(
+          rtm_m_ric_inv)* Utility::skewSymmetric(ToEigen(rtm_pts_imu_j));
+      // jaco_j.rightCols<3>() =
+      //     ric.transpose() * Utility::skewSymmetric(pts_imu_j);
+      jacobian_pose_j.leftCols<6>() = reduce * jaco_j;
+      jacobian_pose_j.rightCols<1>().setZero();
+    }
+    if (jacobians[2]) {
+      Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> jacobian_ex_pose(
+          jacobians[2]);
+      Eigen::Matrix<double, 3, 6> jaco_ex;
+
+      RTM_MATRIX3X3 rj_inve_ri = rtm::matrix_mul(rtm_m_Ri,rtm_m_Rj_inv);
+      RTM_MATRIX3X3 rtm_tmp_r = rtm::matrix_mul(rj_inve_ri,rtm_m_ric_inv);
+      jaco_ex.leftCols<3>() = ToEigen(rtm_tmp_r) - ToEigen(rtm_m_ric_inv);
+
+       Eigen::Matrix3d tmp_r =   ToEigen(rtm_tmp_r);
+       //
+       RTM_VECTOR4 r_mul_tmp = rtm::matrix_mul_vector3(
+           rtm::vector_sub(
+               rtm::matrix_mul_vector3(
+                   rtm::vector_sub(
+                       rtm::vector_add(
+                           rtm::matrix_mul_vector3(rtm_tic, rtm_m_Ri), rtm_Pi),
+                       rtm_Pj),
+                   rtm_m_Rj_inv),
+               rtm_tic),
+           rtm_m_ric_inv);
+       //
+       jaco_ex.rightCols<3>() = -tmp_r * Utility::skewSymmetric(pts_camera_i) +
+                                Utility::skewSymmetric(tmp_r * pts_camera_i) +
+                                Utility::skewSymmetric(ToEigen(r_mul_tmp));
+       // jaco_ex.rightCols<3>() =
+       //     -tmp_r * Utility::skewSymmetric(pts_camera_i) +
+       //     Utility::skewSymmetric(tmp_r * pts_camera_i) +
+       //     Utility::skewSymmetric(ric.transpose() *
+       //                            (Rj.transpose() * (Ri * tic + Pi - Pj) -
+       //                            tic));
+       jacobian_ex_pose.leftCols<6>() = reduce * jaco_ex;
+       jacobian_ex_pose.rightCols<1>().setZero();
+    }
+    if (jacobians[3]) {
+      Eigen::Map<Eigen::Vector2d> jacobian_feature(jacobians[3]);
+
+
+      jacobian_feature =
+          reduce * ToEigen(ric_t_mul_rj_inv_mul_ri_ric) * pts_i_td * -1.0 / (inv_dep_i * inv_dep_i);
+
+      // jacobian_feature = reduce * ric.transpose() * Rj.transpose() * Ri * ric *
+      //                    pts_i_td * -1.0 / (inv_dep_i * inv_dep_i);
+    }
+    if (jacobians[4]) {
+      Eigen::Map<Eigen::Vector2d> jacobian_td(jacobians[4]);
+      jacobian_td = reduce * ToEigen(ric_t_mul_rj_inv_mul_ri_ric) * velocity_i /
+                        inv_dep_i * -1.0 +
+                    sqrt_info * velocity_j.head(2);
+
+      // jacobian_td = reduce * ric.transpose() * Rj.transpose() * Ri * ric *
+      //                   velocity_i / inv_dep_i * -1.0 +
+      //               sqrt_info * velocity_j.head(2);
+    }
+  }
+  sum_t += tic_toc.toc();
+
+  return true;
+}
 void ProjectionTwoFrameOneCamFactor::check(double **parameters) {
   double *res = new double[2];
   double **jaco = new double *[5];
@@ -288,6 +541,9 @@ void ProjectionTwoFrameOneCamFactor::check(double **parameters) {
   std::cout << num_jacobian.block<2, 1>(0, 18) << std::endl;
   std::cout << num_jacobian.block<2, 1>(0, 19) << std::endl;
 }
+
+
+
 }  // namespace estimator
 }  // namespace jarvis
    // namespace jarvis

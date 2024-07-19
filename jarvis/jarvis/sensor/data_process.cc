@@ -22,26 +22,47 @@ void OrderedMultiQueue::AddQueue(std::string name, ImuFuction call_back) {
                     call_back(imu_data->Data());
                   }});
 }
+void OrderedMultiQueue::AddQueue(std::string name, OdomFuction call_back) {
+  queues_.emplace(
+      name, Queue{{}, [=](std::unique_ptr<Data> data) {
+                    DispathcData<OdometryData> *imu_data =
+                        dynamic_cast<DispathcData<OdometryData> *>(data.get());
+                    CHECK(imu_data) << "Invalid  dynamic_cast to 'OdomFuction' ";
+                    call_back(imu_data->Data());
+                  }});
+}
 //
 void OrderedMultiQueue::AddData(const std::string &name,
                                 std::unique_ptr<Data> data) {
-  CHECK(queues_.count(name));
+  CHECK(queues_.count(name))<<name;
+  {
   std::lock_guard<std::mutex> lock(mutex_);
   queues_[name].queue.push(std::move(data));
+  }
+  // Dispathch();
 }
 void OrderedMultiQueue::Start() {
   dispath_thead_ = std::thread([this]() {
     while (!kill_thread) {
       Dispathch();
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      if(sensor_cout++>=1000){
+        LOG_EVERY_N(ERROR,100)<<"No data recive!!!!!!!!!!!!!!";
+      }
     }
   });
+}
+void OrderedMultiQueue::Stop() {
+  kill_thread = true;
+  if (dispath_thead_.joinable()) {
+    dispath_thead_.join();
+  }
 }
 
 //
 void OrderedMultiQueue::Dispathch() {
   while (true) {
-    // for (const auto &queue : queues_) {
+  // for (const auto &queue : queues_) {
     const Data *next_data = nullptr;
     Queue *next_queue = nullptr;
     std::string next_queue_key;
@@ -69,7 +90,7 @@ void OrderedMultiQueue::Dispathch() {
       }
       ++it;
     }
-    const double common_start_time = GetStartCommontime();
+    const common::Time common_start_time = GetStartCommontime();
     int next_queue_size = 0;
     {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -83,7 +104,9 @@ void OrderedMultiQueue::Dispathch() {
         data = std::move(next_queue->queue.front());
         next_queue->queue.pop();
       }
+      sensor_cout = 0;
       next_queue->callback(std::move(data));
+
     } else if (next_queue_size < 2) {
       // CHECK(!next_queue->queue.empty());
       last_dispatched_time_ = next_data->GetTime();
@@ -95,10 +118,10 @@ void OrderedMultiQueue::Dispathch() {
       LOG(INFO) << "Cache 2 early "
                 << "'" << next_queue_key << "' "
                 << "data to sysytem at "
-                << std::to_string(last_dispatched_time_);
+                << last_dispatched_time_;
     } else {
       std::unique_ptr<Data> next_data_owner = nullptr;
-      double next_queue_queue_front_time = 0;
+      common::Time next_queue_queue_front_time ;
       {
         std::lock_guard<std::mutex> lock(mutex_);
         next_data_owner = std::move(next_queue->queue.front());
@@ -113,24 +136,24 @@ void OrderedMultiQueue::Dispathch() {
       }
       LOG(INFO) << "Drop early " << next_queue_key << " data...";
     }
+  // }
   }
 }
 
-double OrderedMultiQueue::GetStartCommontime() {
-  if (common_start_time_ != -1.0f) return common_start_time_;
+common::Time OrderedMultiQueue::GetStartCommontime() {
+  if (common_start_time_.has_value()) return common_start_time_.value();
+  common_start_time_ = common::FromUniversal(0);
   for (auto &entry : queues_) {
-    common_start_time_ =
-        std::fmax(common_start_time_, entry.second.queue.front()->GetTime());
+    common_start_time_  = std::max(common_start_time_.value(),
+                                      entry.second.queue.front()->GetTime());
   }
-  LOG(INFO) << "All sensor start at time: "
-            << std::to_string(common_start_time_);
-  return common_start_time_;
+  LOG(INFO) << "All sensor start at time: " << common_start_time_.value();
+
+  return common_start_time_.value();
 };
 
 OrderedMultiQueue::~OrderedMultiQueue() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  kill_thread = true;
-  dispath_thead_.join();
+  Stop();
 }
 }  // namespace sensor
 }  // namespace jarvis

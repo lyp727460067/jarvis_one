@@ -12,7 +12,6 @@ namespace jarvis {
 namespace estimator {
 class InitialPoseFactor : public ceres::SizedCostFunction<6, 7> {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   InitialPoseFactor(const Eigen::Vector3d &_P, const Eigen::Quaterniond &_Q) {
     init_P = _P;
     init_Q = _Q;

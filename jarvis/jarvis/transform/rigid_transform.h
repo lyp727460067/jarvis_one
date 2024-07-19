@@ -16,7 +16,6 @@ namespace transform {
 template <typename FloatType>
 class Rigid2 {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   using Vector = Eigen::Matrix<FloatType, 2, 1>;
   using Rotation2D = Eigen::Rotation2D<FloatType>;
 
@@ -100,7 +99,6 @@ using Rigid2f = Rigid2<float>;
 template <typename FloatType>
 class Rigid3 {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   using Vector = Eigen::Matrix<FloatType, 3, 1>;
   using Quaternion = Eigen::Quaternion<FloatType>;
   using AngleAxis = Eigen::AngleAxis<FloatType>;

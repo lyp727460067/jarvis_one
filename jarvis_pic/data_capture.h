@@ -4,7 +4,7 @@
 #include <memory>
 #include <opencv2/opencv.hpp>
 #include <optional>
-
+#include "shm_mod.h"
 #include "Eigen/Core"
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
@@ -12,15 +12,15 @@ namespace jarvis_pic {
 struct DataCaptureOption {
   int use_method = 0;
   uint32_t cam_durion_imu_cout = 20;
+  uint32_t cam_durion_odom_cout = 10;
   int imu_durition = 4;  // ms
   int frame_width = 640;
   int frame_hight = 544;
 };
 
 struct Frame {
-  uint64_t id;
   uint64_t time;
-  cv::Mat image;
+  std::vector<cv::Mat> images;
 };
 struct ImuData 
 {
@@ -28,38 +28,65 @@ struct ImuData
   Eigen::Vector3d linear_acceleration;
   Eigen::Vector3d angular_velocity;
 };
-
+struct EncoderData {
+  uint64_t time;
+  int32_t left_encoder;
+  int32_t right_encoder;
+};
+struct SystmeInfo {
+  uint8_t state;
+};
 class DataCapture {
  public:
   explicit DataCapture(const DataCaptureOption& option);
-  explicit DataCapture(){};
+  DataCapture(){};
   virtual ~DataCapture();
-  void Rigister(std::function<void(const Frame&)> f) {
-    frame_call_backs_.push_back(std::move(f));
+  void Rigister(const std::string& id, std::function<void(const Frame&)> f) {
+    frame_call_backs_.emplace(id, std::move(f));
   }
-  void Rigister(std::function<void(const ImuData&) >f) {
-    imu_call_backs_.push_back(std::move(f));
+  void Rigister(const std::string& id, std::function<void(const ImuData&)> f) {
+    imu_call_backs_.emplace(id, std::move(f));
+  }
+  void Rigister(const std::string& id,
+                std::function<void(const EncoderData&)> f) {
+    encoder_call_backs_.emplace(id, std::move(f));
+  }
+  void Rigister(std::function<void(const SystmeInfo&)> f) {
+    system_info_call_backs_ = std::move(f);
   }
   virtual uint64_t GetOrigImuTime(const uint64_t& time);
   virtual void Start();
   virtual void Stop();
+  void RemoveCallBack(const std::string& id);
 
  protected:
   void Run();
   void SysPorocess();
+  void SysPorocessOdom();
   void ProcessImu(const ModSyncImuFb& imu);
   void ProcessImag(const CameraFrame& frame);
-  
-  std::vector<std::function<void(const ImuData&)>> imu_call_backs_;
-  std::vector<std::function<void(const Frame&)>> frame_call_backs_;
+  void ProcessOdom(const ModSyncChassisPosFb& frame);
+  std::function<void(const SystmeInfo&)> system_info_call_backs_;
+  //
+  std::mutex mutex_;
+  std::map<std::string, std::function<void(const ImuData&)>> imu_call_backs_;
+  std::map<std::string, std::function<void(const Frame&)>> frame_call_backs_;
+  std::map<std::string, std::function<void(const EncoderData&)>>
+      encoder_call_backs_;
+  //
   DataCaptureOption option_;
   std::unique_ptr<ShmSensorQueue> mem_ssq_;
+
+  std::unique_ptr<ShmMod> shm_mod_;
   std::vector<ModSyncImuFb> imu_catch_;
+  std::vector<std::pair<uint64_t,EncoderData>> odom_catch_;
   std::vector<std::pair<uint8_t,Frame>> image_catch_;
   std::thread thread_;
   std::optional<std::pair<uint64_t, uint64_t>> sys_time_base_;
+  std::optional<std::pair<uint64_t, uint64_t>> sys_odom_time_base_;
   uint32_t last_frame_sys_count_ = 0;
   uint64_t last_imu_time_stamp_ = 0;
+  uint64_t last_odom_time_stamp_ = 0;
   bool stop_ = false;
 
 };

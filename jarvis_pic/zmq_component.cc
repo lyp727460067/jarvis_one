@@ -34,6 +34,7 @@ struct PoseData {
   double qx;
   double qy;
   double qz;
+  uint8_t flag;
 };
 // namespace
 cv::Mat GenerateImageWithKeyPoint(
@@ -63,7 +64,8 @@ cv::Mat GenerateImageWithKeyPoint(
 
   return loop_match_img;
 }
-std::vector<uint8_t> ToCData(const jarvis::TrackingData &data) {
+std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
+                             uint8_t slip_data) {
   //
   //
   const auto &tracking_data = data;
@@ -81,21 +83,23 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data) {
 
   auto image_result = GenerateImageWithKeyPoint(
       *tracking_data.data->image, tracking_data.data->key_points, {},
-      *tracking_data.data->rimage, tracking_data.data->extend_points,
-      "pre_imag", "curr_imag", tracking_data.data->outlier_pointclass_id);
+      cv::Mat(), {},
+      "pre_imag", "curr_imag", {0});
 
   cv::imencode(".jpeg", image_result, datas, params);
   //
 
-  PoseData pose{
-      data.data->pose.translation().x(), data.data->pose.translation().y(),
-      data.data->pose.translation().z(), data.data->pose.rotation().w(),
-      data.data->pose.rotation().x(),    data.data->pose.rotation().y(),
-      data.data->pose.rotation().z()};
+  PoseData pose{data.data->imu_state.pose.translation().x(),
+                data.data->imu_state.pose.translation().y(),
+                data.data->imu_state.pose.translation().z(),
+                data.data->imu_state.pose.rotation().w(),
+                data.data->imu_state.pose.rotation().x(),
+                data.data->imu_state.pose.rotation().y(),
+                data.data->imu_state.pose.rotation().z(),
+                slip_data};
   int lenth = datas.size();
   datas.resize(datas.size() + sizeof(PoseData));
   memcpy((void *)(datas.data() + lenth), (void *)&pose, sizeof(PoseData));
-
   std::vector<uint8_t> result;
   result.push_back(0xaa);
   result.push_back(0x55);
@@ -124,10 +128,11 @@ ZmqComponent::ZmqComponent() {
 //
 //
 
-void ZmqComponent::PubLocalData(const jarvis::TrackingData &data) {
+void ZmqComponent::PubLocalData(const jarvis::TrackingData &data,
+                                uint8_t slip_data) {
   //
   for (auto &dev : device_) {
-    dev->tx(ToCData(data));
+    dev->tx(ToCData(data, slip_data));
   }
 };
 
@@ -135,32 +140,33 @@ ZmqComponent::~ZmqComponent() {}
 //
 MpcComponent::MpcComponent() : shm_mod_(new ShmMod()) {}
 //
-void MpcComponent::Write(const jarvis::TrackingData &data,
-                         const uint64_t &imu_base) {
+void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
+                         const jarvis::TrackingData &data,
+                         const uint64_t &imu_base, bool slip) {
   // /
   ModLocPoseFb mpc_data{
       static_cast<uint64_t>(jarvis::common::ToUniversal(data.data->time) * 1e2),
       static_cast<uint64_t>(imu_base * 1e3),
-      data.data->pose.translation().x(),
-      data.data->pose.translation().y(),
-      data.data->pose.translation().z(),
-      data.data->pose.rotation().x(),
-      data.data->pose.rotation().y(),
-      data.data->pose.rotation().z(),
-      data.data->pose.rotation().w(),
-      0,
+      pose.translation().x(),
+      pose.translation().y(),
+      pose.translation().z(),
+      pose.rotation().x(),
+      pose.rotation().y(),
+      pose.rotation().z(),
+      pose.rotation().w(),
+      slip?uint8_t(9):uint8_t(0),
       static_cast<uint8_t>(data.status)};
 
   shm_mod_->SetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
   //
-  //
-  memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
-  int lenth = shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
+  // //
+  // memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
+  // shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
 
-  jarvis::transform::Rigid3d read_pose(
-      Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
-      Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  LOG(INFO) << "Read pose: " << mpc_data.timestamp << " " << read_pose << " "
-            << lenth;
+  // jarvis::transform::Rigid3d read_pose(
+  //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
+  //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
+  // LOG(INFO) << "Read pose: " << mpc_data.imu_timestamp << " " << read_pose << " "
+  //           << "state "<<int(mpc_data.state);
 }
 }  // namespace jarvis_pic

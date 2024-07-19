@@ -44,7 +44,7 @@ namespace jarvis {
 
 TrajectorBuilder::TrajectorBuilder(const std::string &config,
                                    CallBack call_back)
-    : tracker_(estimator::TrackerFactory(config)),
+    :config_file_(config), tracker_(estimator::TrackerFactory(config)),
       call_back_(call_back) {
   //  cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   //  int pn = config.find_last_of('/');
@@ -69,38 +69,27 @@ TrajectorBuilder::TrajectorBuilder(const std::string &config,
   //          map_builder_option, std::make_unique<CameraModules>(config));
   //  map_builder_ = CreateMapBuilder(config);
 }
+TrajectorBuilder::TrajectorBuilder() {}
 //
 void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   auto tracking_data = tracker_->AddImageData(images);
-  if (tracking_data != nullptr && tracking_data->tracking_result) {
-    if (!tracking_data->tracking_result->data->tracking_map_points.empty()) {
-      // map_builder_->AddTrackingData(0, *tracking_data->tracking_result);
-      if (call_back_) {
-        call_back_(*tracking_data->tracking_result);
-      }
-    }
-  } else if (tracking_data != nullptr) {
-    TrackingData data{
-        std::make_shared<TrackingData::Data>(
-            TrackingData::Data{tracking_data->feature_result.time,
-                               tracking_data->feature_result.pose,
-                               {},
-                               tracking_data->feature_result.key_points,
-                               tracking_data->feature_result.images,
-                               {},
-                               nullptr,
-                               {0}}),0};
-    if (call_back_) {
-      call_back_(data);
-    }
-  };
+  if (call_back_) {
+    call_back_(*tracking_data);
+  }
+
+  if (tracking_data->status == 0) {
+    LOG(ERROR)<<"Lost ....restart ..";
+    tracker_ = estimator::TrackerFactory(config_file_);
+  }
+
 }
 //
 void TrajectorBuilder::AddImuData(const   sensor::ImuData &imu_data) {
   tracker_->AddImuData(imu_data);
 }
 
-TrajectorBuilder::~TrajectorBuilder() {}
+TrajectorBuilder::~TrajectorBuilder() {
+}
 
 std::vector<Eigen::Vector3d> TrajectorBuilder::GetMapPoints() {
   //  const auto all_map_points = map_builder_->GetAllMapPoints();

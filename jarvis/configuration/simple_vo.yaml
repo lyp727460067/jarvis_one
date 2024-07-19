@@ -1,0 +1,26 @@
+%YAML:1.0
+
+###slipedetect
+type:   2
+min_disparity_num : 20
+max_disparity : 1
+imu_cam_time_offset : -0.1
+que_time_duration : 2
+zero_velocity_odom_delte_s_threash_hold : 0.1
+pose_odom_err_s_threash_hold : 0.30
+pose_odom_err_theta_threash_hold : 50  #deg
+## simplevio
+###
+min_track_num: 6
+min_pnp_inlier_num : 15
+min_convisible_count : 100
+#feature traker paprameters
+max_cnt: 100            # max feature number in feature tracking
+min_dist: 40            # min distance between two features 
+fast_th: 10            # min distance between two features 
+
+flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
+lk_win_size : 21
+lk_pre_max_layer : 4
+
+

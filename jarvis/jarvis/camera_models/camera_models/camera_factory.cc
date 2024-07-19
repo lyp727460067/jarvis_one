@@ -80,6 +80,26 @@ CameraPtr CameraFactory::generateCamera(Camera::ModelType modelType,
   }
 }
 
+CameraPtr CameraFactory::GenerateCameraFromOption(const CameraOption& options) {
+  std::string sModelType = options.camera_model;
+  if (options.camera_model == "pinhole" &&
+      options.distortion_model == "equidistant") {
+    LOG(INFO) << "start kannala_brandt";
+    EquidistantCameraPtr camera(new EquidistantCamera);
+    EquidistantCamera::Parameters params(
+        options.name, options.resolution.x(), options.resolution.y(),
+        options.distortions[0], options.distortions[1], options.distortions[2],
+        options.distortions[3], options.intrinsics[0], options.intrinsics[1],
+        options.intrinsics[2], options.intrinsics[3]);
+    //= camera->getParameters();
+    // params.readFromYamlFile(filename);
+    camera->setParameters(params);
+    return camera;
+  }
+  LOG(FATAL) << "option not support..";
+  return CameraPtr();
+}
+//
 CameraPtr CameraFactory::generateCameraFromYamlFile(
     const std::string& filename) {
   cv::FileStorage fs(filename, cv::FileStorage::READ);

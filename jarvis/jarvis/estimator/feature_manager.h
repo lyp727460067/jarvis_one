@@ -22,8 +22,6 @@
 #include "parameters.h"
 namespace jarvis {
 namespace estimator {
-// using namespace std;
-// using namespace Eigen;
 class FeaturePerFrame {
  public:
   FeaturePerFrame(const Eigen::Matrix<double, 7, 1> &_point, double td) {
@@ -58,7 +56,7 @@ class FeaturePerId {
  public:
   const int feature_id;
   int start_frame;
-  vector<FeaturePerFrame> feature_per_frame;
+  std::vector<FeaturePerFrame> feature_per_frame;
   int used_num;
   double estimated_depth;
   int solve_flag;  // 0 haven't solve yet; 1 solve succ; 2 solve fail;
@@ -72,19 +70,26 @@ class FeaturePerId {
 
   int endFrame();
 };
+struct FeatureManagerOption {
+  std::vector<transform::Rigid3d> extric_camera_to_imu;
+  bool use_stereo =true;
+  double init_depth = 5.0;
+  double min_parallax = 1. / 377;
+
+};
 
 class FeatureManager {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  FeatureManager(Eigen::Matrix3d _Rs[]);
+  // FeatureManager(Eigen::Matrix3d _Rs[]);
+  FeatureManager(const FeatureManagerOption &options);
 
-  void setRic(Eigen::Matrix3d _ric[]);
+  // void setRic(Eigen::Matrix3d _ric[]);
   void clearState();
   int getFeatureCount();
   bool addFeatureCheckParallax(int frame_count,
-                               const ImageFeatureTrackerResult &image,
+                               const ImageFeatureTrackerData &image,
                                double td);
-  std::vector<pair<Eigen::Vector3d, Eigen::Vector3d>> getCorresponding(
+  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> getCorresponding(
       int frame_count_l, int frame_count_r);
   // void updateDepth(const VectorXd &x);
   void setDepth(const Eigen::VectorXd &x);
@@ -101,13 +106,13 @@ class FeatureManager {
                           Eigen::Matrix3d Rs[], Eigen::Vector3d tic[],
                           Eigen::Matrix3d ric[]);
   bool solvePoseByPnP(Eigen::Matrix3d &R_initial, Eigen::Vector3d &P_initial,
-                      vector<cv::Point2f> &pts2D, vector<cv::Point3f> &pts3D);
+                      std::vector<cv::Point2f> &pts2D, std::vector<cv::Point3f> &pts3D);
   void removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P,
                             Eigen::Matrix3d new_R, Eigen::Vector3d new_P);
   void removeBack();
   void removeFront(int frame_count);
-  void removeOutlier(set<int> &outlierIndex);
-  list<FeaturePerId> feature;
+  void removeOutlier(std::set<int> &outlierIndex);
+  std::list<FeaturePerId> feature;
   int last_track_num = 0;
   double last_average_parallax = 0.0;
   int new_feature_num = 0;
@@ -115,8 +120,9 @@ class FeatureManager {
 
  private:
   double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
-  const Eigen::Matrix3d *Rs = nullptr;
-  Eigen::Matrix3d ric[2];
+  // const Eigen::Matrix3d *Rs = nullptr;
+  // Eigen::Matrix3d ric[2];
+  FeatureManagerOption options_;
 };
 }  // namespace estimator
 }  // namespace jarvis

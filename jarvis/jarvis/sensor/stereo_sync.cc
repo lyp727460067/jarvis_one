@@ -17,7 +17,7 @@ void StereoSync::ProcessImage(LocalImageData img, std::string topic) {
    cache_images_[topic].emplace_back(img.time, img);
     if (topic == main_base_topic_) {
       auto &main_image_list = cache_images_[main_base_topic_];
-      const double &main_image_time = main_image_list.front().first;
+      auto const  &main_image_time = main_image_list.front().first;
       bool main_image_list_earse = false;
       sensor::ImageData image_datas;
       image_datas.time = main_image_time;
@@ -28,8 +28,8 @@ void StereoSync::ProcessImage(LocalImageData img, std::string topic) {
         if (image_list.first != main_base_topic_) {
           auto it = std::find_if(
               image_list.second.begin(), image_list.second.end(),
-              [=](const std::pair<double, LocalImageData> &time) {
-                return fabs(time.first - main_image_time) <
+              [=](const std::pair<common::Time, LocalImageData> &time) {
+                return  std::fabs(common::ToSeconds( (time.first - main_image_time))) <
                        cam0_cam1_time_offset_threash_hold_;
               });
           if (it != image_list.second.end()) {

@@ -198,9 +198,9 @@ namespace VSLAM
                     }
 
                     jarvis_pic::Frame tmpframe;
-                    tmpframe.id    = 0;
                     tmpframe.time  = frame.head.time_stamp;
-                    tmpframe.image = l_grayImg;
+                    tmpframe.images.push_back(l_grayImg);
+                    tmpframe.images.push_back(r_grayImg);
                     for (auto& f : frame_call_backs_) 
                     {
                        f(tmpframe);
@@ -247,7 +247,7 @@ namespace VSLAM
 
         this->mtCamCapture_AlignedThread = std::thread([](DataCapturer *p_this) { p_this->ImageReceiveLoop(); }, this);
 
-        this->mtCamCapture_AlignedThread.join();
+        // this->mtCamCapture_AlignedThread.join();
     } 
 
     void DataCapturer::Stop()

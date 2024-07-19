@@ -11,7 +11,6 @@
  *******************************************************/
 #ifndef JARVSI_INITIAL_INITAL_EX_ROTATION_
 #define JARVSI_INITIAL_INITAL_EX_ROTATION_
-#pragma once
 
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
@@ -26,9 +25,9 @@ namespace estimator {
 class InitialEXRotation {
  public:
   InitialEXRotation();
-  bool CalibrationExRotation(std::vector<pair<Eigen::Vector3d, Eigen::Vector3d>> corres,
-                             Eigen::Quaterniond delta_q_imu,
-                             Eigen::Matrix3d &calib_ric_result);
+  bool CalibrationExRotation(
+      std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> corres,
+      Eigen::Quaterniond delta_q_imu, Eigen::Matrix3d &calib_ric_result);
 
  private:
   Eigen::Matrix3d solveRelativeR(
