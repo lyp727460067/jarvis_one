@@ -541,7 +541,7 @@ void XPTrackerInvoker::operator()(const Range& range) const {
       if (level == start_level) {
         status[ptidx] = false;
       }
-      DBG_XP_PYRAMID("continue at itr = " << j);
+      // DBG_XP_PYRAMID("continue at itr = " << j);
       continue;
     }
 

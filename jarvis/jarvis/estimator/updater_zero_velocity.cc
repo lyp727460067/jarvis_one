@@ -75,7 +75,6 @@ class AutoZeroVelocityCostFuction {
                                            7, 9>(
         new AutoZeroVelocityCostFuction(weight, average_acc, average_gry));
   }
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
  private:
   const std::array<double, 2> weight_;
@@ -501,7 +500,7 @@ ceres::CostFunction* UpdataZeroVelocity::CostFunction() const {
 void UpdataZeroVelocity::AddToProblem(ceres::Problem* problem,
                                       ceres::LossFunction* loss_function,
                                       std::array<double*, 3> pqv) const {
-  LOG(INFO) << "Add ZeroVelocity factor.";
+  // LOG(INFO) << "Add ZeroVelocity factor.";
   gravity_ = options_.imu_velocity_option.const_gravity;
   problem->AddResidualBlock(CostFunction(), loss_function, pqv[0], pqv[1],
                             pqv[2]);

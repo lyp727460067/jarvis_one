@@ -107,7 +107,6 @@ struct UpdataZeroVelocityOption {
 //
 class UpdataZeroVelocity {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   UpdataZeroVelocity(const UpdataZeroVelocityOption& option);
   bool IsZeroVelocity(const common::Time& time);
   bool IsZeroVelocity();

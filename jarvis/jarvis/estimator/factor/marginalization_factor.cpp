@@ -155,6 +155,8 @@ int MarginalizationInfo::globalSize(int size) const {
 
 void *ThreadsConstructA(void *threadsstruct) {
   ThreadsStruct *p = ((ThreadsStruct *)threadsstruct);
+  double mem_i[100];
+  double mem_j[100];
   for (auto it : p->sub_factors) {
     for (int i = 0; i < static_cast<int>(it->parameter_blocks.size()); i++) {
       int idx_i = p->parameter_block_idx[reinterpret_cast<long>(
@@ -162,14 +164,21 @@ void *ThreadsConstructA(void *threadsstruct) {
       int size_i = p->parameter_block_size[reinterpret_cast<long>(
           it->parameter_blocks[i])];
       if (size_i == 7) size_i = 6;
-      Eigen::MatrixXd jacobian_i = it->jacobians[i].leftCols(size_i);
+      Eigen::MatrixXd jacobian_i = Eigen::Map<Eigen::MatrixXd>(
+          reinterpret_cast<double *>(&mem_i), it->jacobians[i].rows(), size_i);
+      jacobian_i.noalias() = it->jacobians[i].leftCols(size_i);
       for (int j = i; j < static_cast<int>(it->parameter_blocks.size()); j++) {
         int idx_j = p->parameter_block_idx[reinterpret_cast<long>(
             it->parameter_blocks[j])];
         int size_j = p->parameter_block_size[reinterpret_cast<long>(
             it->parameter_blocks[j])];
         if (size_j == 7) size_j = 6;
-        Eigen::MatrixXd jacobian_j = it->jacobians[j].leftCols(size_j);
+
+        // Eigen::MatrixXd jacobian_j = it->jacobians[j].leftCols(size_j);
+        Eigen::MatrixXd jacobian_j =
+            Eigen::Map<Eigen::MatrixXd>(reinterpret_cast<double *>(&mem_j),
+                                        it->jacobians[j].rows(), size_j);
+        jacobian_j.noalias() = it->jacobians[j].leftCols(size_j);
         if (i == j)
           p->A.block(idx_i, idx_j, size_i, size_j) +=
               jacobian_i.transpose() * jacobian_j;
@@ -296,10 +305,10 @@ void MarginalizationInfo::marginalize() {
   }
   for (int i = num_threads - 1; i >= 0; i--) {
     pthread_join(tids[i], NULL);
-    A += threadsstruct[i].A;
-    b += threadsstruct[i].b;
+    A.noalias() += threadsstruct[i].A;
+    b.noalias() += threadsstruct[i].b;
   }
-  // ROS_DEBUG("thread summing up costs %f ms", t_thread_summing.toc());
+  VLOG(10) << "thread summing up costs" <<t_thread_summing.toc();
   // ROS_INFO("A diff %f , b diff %f ", (A - tmp_A).sum(), (b - tmp_b).sum());
 
   // TODO
@@ -324,23 +333,28 @@ void MarginalizationInfo::marginalize() {
   Eigen::MatrixXd Arr = A.block(m, m, n, n);
   Eigen::VectorXd brr = b.segment(m, n);
   {
-  auto  A = Arr - Arm * Amm_inv * Amr;
-  auto b = brr - Arm * Amm_inv * bmm;
+    std::vector<double> pre_amem(std::vector<double>((n) * (n)));
+    Eigen::Map<Eigen::MatrixXd> A(pre_amem.data(), n, n);
+    A.noalias() = Arr - Arm * Amm_inv * Amr;
+    std::vector<double> pre_bmem(n);
+    Eigen::Map<Eigen::VectorXd> b(pre_bmem.data(), n);
+    b.noalias() = brr - Arm * Amm_inv * bmm;
 
-  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
-  Eigen::VectorXd S =
-      Eigen::VectorXd((saes2.eigenvalues().array() > eps)
-                          .select(saes2.eigenvalues().array(), 0));
-  Eigen::VectorXd S_inv =
-      Eigen::VectorXd((saes2.eigenvalues().array() > eps)
-                          .select(saes2.eigenvalues().array().inverse(), 0));
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
+    Eigen::VectorXd S =
+        Eigen::VectorXd((saes2.eigenvalues().array() > eps)
+                            .select(saes2.eigenvalues().array(), 0));
+    Eigen::VectorXd S_inv =
+        Eigen::VectorXd((saes2.eigenvalues().array() > eps)
+                            .select(saes2.eigenvalues().array().inverse(), 0));
 
-  Eigen::VectorXd S_sqrt = S.cwiseSqrt();
-  Eigen::VectorXd S_inv_sqrt = S_inv.cwiseSqrt();
+    Eigen::VectorXd S_sqrt = S.cwiseSqrt();
+    Eigen::VectorXd S_inv_sqrt = S_inv.cwiseSqrt();
 
-  linearized_jacobians = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
-  linearized_residuals =
-      S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
+    linearized_jacobians =
+        S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
+    linearized_residuals =
+        S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
   }
   // std::cout << A << std::endl
   //           << std::endl;

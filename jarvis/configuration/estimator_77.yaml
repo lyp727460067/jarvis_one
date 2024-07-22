@@ -113,7 +113,7 @@ bas_norm_max : 1
 bgs_norm_max : 0.5
 translation_norm_max : 0.5
 translation_z_max : 0.5
-ratation_max : 20
+ratation_max : 10
 
 #unsynchronization parameters
 estimate_td: 0                      # online estimate time offset between camera and imu

@@ -24,7 +24,6 @@ enum {
 
 class CostFunctionFactory {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   CostFunctionFactory();
 
   static std::shared_ptr<CostFunctionFactory> instance(void);

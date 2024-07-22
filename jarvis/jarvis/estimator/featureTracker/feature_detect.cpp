@@ -4,15 +4,23 @@
 #include "Eigen/Eigenvalues"
 #include "algorithm"
 #include "glog/logging.h"
+#include "utility/tic_toc.h"
+
+#include "feature_extract.h"
+#ifdef __ARM_NEON__
+#include "Fast.h"
+#endif
 namespace jarvis {
 namespace estimator {
 
+
+
+
 FeatureDetect::FeatureDetect(const FeatureDetectOption& options)
     : options_(options),
-      grid_width_((options.imag_size.x() + options.grid_size.x() - 1) /
-                  options.grid_size.x()),
-      grid_height_((options.imag_size.y() + options.grid_size.y() - 1) /
-                   options.grid_size.y()) {}
+      grid_width_((options.imag_size.x()) / options.grid_size.x()),
+      grid_height_((options.imag_size.y()) / options.grid_size.y()),
+      min_distance_(options_.min_distance * options_.min_distance * 4) {}
 
 //
 void FeatureDetect::Convolution(const cv::Mat& image,
@@ -43,16 +51,44 @@ void FeatureDetect::Convolution(const cv::Mat& image,
     }
   }
 }
-
+// #define IMG_W 640
+void FeatureDetect::FastNeon(const cv::Mat& image,
+                             std::vector<cv::KeyPoint>& out, int thresh_hodl,
+                             const cv::Mat& mask, bool score) {
+#ifdef __ARM_NEON__
+  int levelWidth = image.cols;
+  int levelHeight = image.rows;
+  // uint8_t (*imgPtr)[IMG_W]  =  image.ptr();
+  // uint8_t outPtr[544][IMG_W];
+  std::vector<std::vector<uint8_t>> out1(image.rows,
+                                        std::vector<uint8_t>(image.cols, 0));
+  std::vector<uint32_t> points;
+  pislam::fastDetect(levelWidth, levelHeight, image, out1, thresh_hodl,mask);
+  pislam::fastExtract(levelWidth, levelHeight, out1, points,mask);
+  // TicToc t_t;
+  for (auto p = points.begin() ; p < points.end(); ++p) {
+    uint32_t x = pislam::decodeFastX(*p);
+    uint32_t y = pislam::decodeFastY(*p);
+    out.emplace_back(x,y,2);
+    // uint32_t score = pislam::decodeFastScore(*p);
+    // *p = pislam::encodeFast(score, x, y);
+  }
+  // VLOG(10) << "FastNeone fast costs: " << t_t.toc() << " ms";
+  // LOG(INFO)<<"FastNeon size: " <<out.size();
+#endif
+}
 //
 std::vector<std::pair<int, double>> FeatureDetect::ComputeEigens(
     const cv::Point2i& offset, const std::vector<cv::KeyPoint>& keypoints,
-    const cv::Mat& derive) {
+    const cv::Mat& derive,const cv::Mat& mask) {
   std::vector<std::pair<int, double>> eigens;
   for (size_t i = 0; i < keypoints.size(); i++) {
     //
     int row = floor(keypoints[i].pt.y + offset.y);
     int col = floor(keypoints[i].pt.x + offset.x);
+    if (mask.at<uint8_t>(row, col) < 127) {
+      continue;
+    }
     const auto& grad_x = derive.ptr<short>(row, col)[0];
     const auto& grad_y = derive.ptr<short>(row, col)[1];
     Eigen::Matrix2d cov;
@@ -93,12 +129,18 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       cv::Rect img_roi =
           cv::Rect(x, y, options_.grid_size.x(), options_.grid_size.y());
       std::vector<cv::KeyPoint> pts_new;
-      cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold*2, false);
-      if( pts_new.empty()){
-        cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold/2, false);
-      }
+      
+      // #ifdef __ARM_NEON__
+      // GoodFeaturesToTrack_neon(img(img_roi), pts_new,1000,0.001,0);
+      // #else 
+      cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
+      // FastNeon(img(img_roi), pts_new, options_.fast_thresh_hold, false);
+      // if( pts_new.empty()){
+      //   cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
+      // }
       // cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
-      //
+      
+      // #endif
       for (size_t i = 0; i < pts_new.size(); i++) {
         cv::KeyPoint pt_cor = pts_new.at(i);
         pt_cor.pt.x += (float)x;
@@ -131,27 +173,38 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       // }
     });
   }
-  std::vector<std::thread> threads;
-  // threads_.resize(options_.num_thread_);
-  for (int i = 0; i < options_.num_thread_; i++) {
-    threads.emplace_back([&tasks, i]() {
-      for (auto& f : tasks[i]) {
-        f();
-      }
-    });
+  if (options_.num_thread_ != 1) {
+    std::vector<std::thread> threads;
+    // threads_.resize(options_.num_thread_);
+    for (int i = 0; i < options_.num_thread_; i++) {
+      threads.emplace_back([&tasks, i]() {
+        for (auto& f : tasks[i]) {
+          f();
+        }
+      });
+    }
+    LOG(INFO) << "!";
+    for (int i = 0; i < options_.num_thread_; i++) {
+      TicToc t_t;
+      threads[i].join();
+      VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
+    }
+    LOG(INFO) << point_collection.size();
+    return point_collection;
   }
-  LOG(INFO)<<"!";
-  for (int i = 0; i < options_.num_thread_; i++) {
-    threads[i].join();
+  for (auto& f : tasks[0]) {
+    f();
   }
-  LOG(INFO)<<point_collection.size();
   return point_collection;
 }
 //
 //
 bool FeatureDetect::CheckGridValid(
     const std::vector<std::vector<cv::Point2f>>& grid,
-    const cv::Point2f& point) {
+    const cv::Point2f& point,const cv::Mat& mask) {
+  if (mask.at<uint8_t>((int)point.y, (int)point.x) < 127) {
+    return false;
+  }
   int x_cell = point.x / options_.grid_size.x();
   int y_cell = point.y / options_.grid_size.y();
   int x1 = x_cell - 1;
@@ -171,8 +224,7 @@ bool FeatureDetect::CheckGridValid(
         for (size_t j = 0; j < m.size(); j++) {
           float dx = point.x - m[j].x;
           float dy = point.y - m[j].y;
-          if (dx * dx + dy * dy <
-              options_.min_distance * options_.min_distance*4) {
+          if (dx * dx + dy * dy < min_distance_) {
             return false;
           }
         }
@@ -187,9 +239,21 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
                                                const cv::Mat& mask) {
   //
   CHECK(options_.min_distance >= 1);
-  auto keypoints = ExtractFastWithGrid(image, mask);
-  auto eigens = ComputeEigens(cv::Point2i(0, 0), keypoints, derive);
+  TicToc t_t;
+  std::vector<cv::KeyPoint> keypoints;
+  // cv::FAST(image, keypoints, options_.fast_thresh_hold, false);
+  // GoodFeaturesToTrack_neon(image, keypoints,max_corners,0.001,0);
+  FastNeon(image,keypoints,options_.fast_thresh_hold,mask, false);
+  // LOG(INFO)<<keypoints.size();
+  // auto keypoints = ExtractFastWithGrid(image, mask);
+  VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
+  auto eigens = ComputeEigens(cv::Point2i(0, 0), keypoints, derive,mask);
   //
+  VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
+
+
+
+  // VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
   std::sort(
       eigens.begin(), eigens.end(),
       [](const std::pair<int, double>& lhs, const std::pair<int, double>& rhs) {
@@ -206,11 +270,11 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
   std::vector<cv::Point2f> corners;
   std::vector<std::vector<cv::Point2f>> grid(grid_width_ * grid_height_);
   for (size_t i = 0; i < keypoints_.size(); i++) {
+    if (!CheckGridValid(grid, keypoints_[i].pt,mask)) continue;
     int y = (int)(keypoints_[i].pt.y);
     int x = (int)(keypoints_[i].pt.x);
     int x_cell = x / options_.grid_size.x();
     int y_cell = y / options_.grid_size.y();
-    if (!CheckGridValid(grid, keypoints_[i].pt)) continue;
 
     grid[y_cell * grid_width_ + x_cell].push_back(
         cv::Point2f((float)x, (float)y));
@@ -218,6 +282,7 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
     ++ncorners;
     if (max_corners > 0 && (int)ncorners == max_corners) break;
   }
+  VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
   return corners;
 }
 

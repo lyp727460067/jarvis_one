@@ -25,8 +25,9 @@ class MpcComponent {
  public:
   MpcComponent() ;
   MpcComponent(const MpcComponent&) = delete;
-  void Write(const jarvis::TrackingData& data, const uint64_t& time_base,
-             bool slip=false);
+  void Write(const jarvis::transform::Rigid3d& pose,
+             const jarvis::TrackingData& data, const uint64_t& time_base,
+             bool slip = false);
 
  private:
   std::unique_ptr<ShmMod> shm_mod_;

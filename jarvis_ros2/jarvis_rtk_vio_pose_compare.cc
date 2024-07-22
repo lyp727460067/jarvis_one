@@ -245,9 +245,9 @@ jarvis::transform::Rigid3d RtkToPose(const RtkData& data) {
 std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
   std::vector<Pose> result;
   for (const auto& d : datas) {
-
     auto r = RtkToPose(d);
-    result.push_back(Pose{d.time*1000, d.local_time*1000, r.translation(), r.rotation()});
+    result.push_back(Pose{d.time * 1000, d.local_time * 1000, r.translation(),
+                          r.rotation()});
     // LOG(INFO)<<d.time;
   }
   return result;

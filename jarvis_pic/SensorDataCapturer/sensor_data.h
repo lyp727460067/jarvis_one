@@ -39,7 +39,6 @@ typedef struct StereoImages
 
 typedef struct ImuData_NotAligned
 {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     uint64_t time_stamp;  ///<  MCU端时间戳 [us]
     uint32_t sync_count;   ///<  脉冲计数
       /// Gyroscope reading, angular velocity (rad/s)
@@ -55,7 +54,6 @@ typedef struct ImuData_NotAligned
  */
 struct ImuData 
 {
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   /// Timestamp of the reading
   double timestamp;
 

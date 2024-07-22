@@ -82,10 +82,7 @@ ImuState ImuExtrapolator::Exrapolate(const common::Time& time) {
   }
 
   //
-  LOG(INFO)<<imu_intergral_->Time();
-  LOG(INFO)<<imu_datas_.front().time;
   if (imu_intergral_->Time() < imu_datas_.front().time) {
-    LOG(INFO)<<"!";
     imu_intergral_->AddLastImuObservation(imu_datas_.front());
   }
   //
@@ -100,10 +97,8 @@ ImuState ImuExtrapolator::Exrapolate(const common::Time& time) {
     imu_intergral_->AddLastImuObservation(*it);
     ++it;
   }
-  LOG(INFO)<<time;
   while (it != imu_datas_.end() &&
          (it->time < time)) {
-    LOG(INFO)<<it->time; 
     imu_intergral_->AddImuObservation(*it);
     imu_intergral_->Advance(it->time);
     ++it;
@@ -139,6 +134,7 @@ void ImuExtrapolator::AddState(const common::Time& time,
   //
   //
   TrimImuData(time);
+  LOG_EVERY_N(WARNING, 60) <<"imu date behind .. "<<imu_datas_.size();
 }
 
 ImuExtrapolator::~ImuExtrapolator() {}

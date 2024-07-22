@@ -190,6 +190,7 @@ void ParseYAMLOption(const std::string &file,
     option->estimate_td = fsSettings["estimate_td"];
     option->estimate_extrinsic = fsSettings["estimate_extrinsic"];
     option->init_td = fsSettings["td"];
+    // option->use_stereo_sample_ration = fsSettings["use_stereo_sample_ration"];
 
     option->fail_detect_option.track_feat_lost_min_num =
         fsSettings["track_feat_lost_min_num"];

@@ -21,7 +21,6 @@ namespace jarvis {
 namespace estimator {
 class ProjectionFactor : public ceres::SizedCostFunction<2, 7, 7, 7, 1> {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ProjectionFactor(const Eigen::Vector3d &_pts_i,
                    const Eigen::Vector3d &_pts_j);
   virtual bool Evaluate(double const *const *parameters, double *residuals,

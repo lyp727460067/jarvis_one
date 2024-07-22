@@ -41,6 +41,7 @@
 #include "jarvis/sensor/image_data.h"
 #include "jarvis/sensor/imu_data.h"
 #include "jarvis/estimator/updater_zero_velocity.h"
+#include "jarvis/common/fixed_ratio_sampler.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
 namespace jarvis {
@@ -75,7 +76,7 @@ struct EstimatorOption {
   int estimate_extrinsic =1;
   double init_td = 0;
   double optimazation_outliers_rejection_th=3;
-  
+  double use_stereo_sample_ration=0.05; 
 };
 
 class Estimator {
@@ -236,6 +237,8 @@ class Estimator {
   Alignment alignment_;
   std::vector<bool> failuer_track_lost_;
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
+  std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
+  int convin_used_num = 4;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

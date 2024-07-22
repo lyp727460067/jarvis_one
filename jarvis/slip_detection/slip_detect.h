@@ -49,6 +49,7 @@ class SlipDetect {
   jarvis::transform::Rigid3d ToPoseInOdom(
       const jarvis::transform::Rigid3d& pose);
 
+  void ClearData();
  private:
   using KeyPointData =
       std::unordered_map<uint64_t, std::map<jarvis::common::Time, Eigen::Vector2d>>;
@@ -57,16 +58,21 @@ class SlipDetect {
   void DropData(const jarvis::common::Time& time, KeyPointData* deque);
 
   template <typename T>
-  double ComputePosesS(std::deque<T>* deque);
+  double ComputePosesS(std::deque<T>* deque,const jarvis::common::Time& time);
   //
   template <typename T>
-  double ComputePosesTheta(std::deque<T>* deque);
+  int ComputePosesCount(std::deque<T>* deque,
+                           const jarvis::common::Time& time);
+  //
+  //
+  template <typename T>
+  double ComputePosesTheta(std::deque<T>* deque,const jarvis::common::Time& time);
   //
 
 
   bool ZeroVelocityDetect(const jarvis::common::Time&time);
   bool SimpleDetect(const jarvis::common::Time&time);
-
+  std::mutex mutex_;
   bool IsZeroVelocity();
   const SlipDetectOption options_;
   std::unique_ptr<jarvis::estimator::FeatureTracker> feature_tracker_;
@@ -76,6 +82,7 @@ class SlipDetect {
   std::unique_ptr<SimpleVo> simple_vo_;
   jarvis::common::Time latest_time_;
   jarvis::transform::Rigid3d transform_cam_to_odom_map_;
+  
 };
 std::unique_ptr<SlipDetect> FactorSlipDetect(
     const std::string& file);
