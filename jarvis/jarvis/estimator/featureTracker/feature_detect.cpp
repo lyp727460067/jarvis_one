@@ -1,7 +1,7 @@
 #include "feature_detect.h"
 
-#include "Eigen/Core"
-#include "Eigen/Eigenvalues"
+#include <Eigen/Core>
+#include <Eigen/Eigenvalues>
 #include "algorithm"
 #include "glog/logging.h"
 #include "utility/tic_toc.h"

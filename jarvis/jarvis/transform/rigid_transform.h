@@ -6,8 +6,8 @@
 #include <sstream>
 #include <string>
 
-#include "Eigen/Core"
-#include "Eigen/Geometry"
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include "jarvis/common/math.h"
 #include "jarvis/common/port.h"
 
