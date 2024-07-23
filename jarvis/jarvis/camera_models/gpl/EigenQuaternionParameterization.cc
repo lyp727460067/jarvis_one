@@ -1,4 +1,4 @@
-#include "camera_models/gpl/EigenQuaternionParameterization.h"
+#include "jarvis/camera_models/gpl/EigenQuaternionParameterization.h"
 
 #include <cmath>
 namespace jarvis {

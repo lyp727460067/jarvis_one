@@ -1,6 +1,5 @@
 #include "estimator/updater_zero_velocity.h"
 
-// #include <boost/math/distributions/chi_squared.hpp>
 #include <random>
 
 #include "glog/logging.h"

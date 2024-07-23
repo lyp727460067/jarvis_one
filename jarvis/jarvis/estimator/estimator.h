@@ -42,6 +42,7 @@
 #include "jarvis/sensor/imu_data.h"
 #include "jarvis/estimator/updater_zero_velocity.h"
 #include "jarvis/common/fixed_ratio_sampler.h"
+#include "jarvis/sensor/odometry_data.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
 namespace jarvis {
@@ -90,7 +91,7 @@ class Estimator {
   ~Estimator();
   bool IsStereo();
   void setParameter();
-
+  void AddOdometryData(const sensor::OdometryData& odometry_data);
   // interface
   void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
   void inputIMU(double t, const Eigen::Vector3d &linearAcceleration,

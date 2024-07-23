@@ -8,6 +8,7 @@ namespace sensor {
 struct OdometryData {
   common::Time time;
   transform::Rigid3d pose;
+  static std::string TypeName() { return "odom"; }
 };
 }  // namespace sensor
 

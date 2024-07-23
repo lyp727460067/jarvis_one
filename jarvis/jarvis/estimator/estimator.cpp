@@ -99,7 +99,7 @@ std::unique_ptr<TrackingData> ExtractKeyFrameMapPoints(
 }
 }  // namespace
 //
-
+void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {}
 std::unique_ptr<TrackingData> Estimator::AddImageData(
     const sensor::ImageData &images) {
   TicToc add_image_data_cost;

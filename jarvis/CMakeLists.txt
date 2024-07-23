@@ -41,7 +41,7 @@ find_package(yaml-cpp  REQUIRED) #version 0.7.0
 include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/
+  ${PROJECT_SOURCE_DIR}/jarvis/
   ${PROJECT_SOURCE_DIR}/rtm/includes/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
@@ -59,6 +59,7 @@ list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
 ##
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
+message(${ALL_TEST_SRCS})
 ##
 #file(GLOB_RECURSE VINS_LIBRARY_SRCS "src/mapping/tracking/*test_ros.cc" "src/mapping/tracking/*test_ros.cpp"
 # "src/mapping/tracking/*test_ros.h")

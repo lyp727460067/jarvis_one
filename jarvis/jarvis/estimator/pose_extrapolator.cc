@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "cartographer/mapping/pose_extrapolator.h"
+#include "jarvis/estimator/pose_extrapolator.h"
 
 #include <algorithm>
 
-#include "absl/memory/memory.h"
-#include "cartographer/transform/transform.h"
+#include <memory.h>
+#include "jarvis/transform/transform.h"
 #include "glog/logging.h"
 
-namespace cartographer {
-namespace mapping {
+namespace jarvis{
+namespace  estimator{
 
 PoseExtrapolator::PoseExtrapolator(const common::Duration pose_queue_duration,
                                    double imu_gravity_time_constant)
@@ -35,11 +35,11 @@ PoseExtrapolator::PoseExtrapolator(const common::Duration pose_queue_duration,
 std::unique_ptr<PoseExtrapolator> PoseExtrapolator::InitializeWithImu(
     const common::Duration pose_queue_duration,
     const double imu_gravity_time_constant, const sensor::ImuData& imu_data) {
-  auto extrapolator = absl::make_unique<PoseExtrapolator>(
+  auto extrapolator =std::make_unique<PoseExtrapolator>(
       pose_queue_duration, imu_gravity_time_constant);
   extrapolator->AddImuData(imu_data);
   extrapolator->imu_tracker_ =
-      absl::make_unique<ImuTracker>(imu_gravity_time_constant, imu_data.time);
+      std::make_unique<ImuTracker>(imu_gravity_time_constant, imu_data.time);
   extrapolator->imu_tracker_->AddImuLinearAccelerationObservation(
       imu_data.linear_acceleration);
   extrapolator->imu_tracker_->AddImuAngularVelocityObservation(
@@ -73,7 +73,7 @@ void PoseExtrapolator::AddPose(const common::Time time,
       tracker_start = std::min(tracker_start, imu_data_.front().time);
     }
     imu_tracker_ =
-        absl::make_unique<ImuTracker>(gravity_time_constant_, tracker_start);
+        std::make_unique<ImuTracker>(gravity_time_constant_, tracker_start);
   }
   timed_pose_queue_.push_back(TimedPose{time, pose});
   while (timed_pose_queue_.size() > 2 &&
@@ -84,8 +84,8 @@ void PoseExtrapolator::AddPose(const common::Time time,
   AdvanceImuTracker(time, imu_tracker_.get());
   TrimImuData();
   TrimOdometryData();
-  odometry_imu_tracker_ = absl::make_unique<ImuTracker>(*imu_tracker_);
-  extrapolation_imu_tracker_ = absl::make_unique<ImuTracker>(*imu_tracker_);
+  odometry_imu_tracker_ =std::make_unique<ImuTracker>(*imu_tracker_);
+  extrapolation_imu_tracker_ =std::make_unique<ImuTracker>(*imu_tracker_);
 }
 
 void PoseExtrapolator::AddImuData(const sensor::ImuData& imu_data) {
@@ -242,7 +242,7 @@ Eigen::Vector3d PoseExtrapolator::ExtrapolateTranslation(common::Time time) {
   return extrapolation_delta * linear_velocity_from_odometry_;
 }
 
-PoseExtrapolator::ExtrapolationResult
+ExtrapolationResult
 PoseExtrapolator::ExtrapolatePosesWithGravity(
     const std::vector<common::Time>& times) {
   std::vector<transform::Rigid3f> poses;
