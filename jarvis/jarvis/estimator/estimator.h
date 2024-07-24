@@ -19,7 +19,7 @@
 #include <queue>
 #include <thread>
 #include <unordered_map>
-
+#include "data_base.h"
 #include "jarvis/estimator/feature_manager.h"
 #include "jarvis/common/time.h"
 #include "jarvis/estimator/factor/imu_factor.h"
@@ -43,6 +43,7 @@
 #include "jarvis/estimator/updater_zero_velocity.h"
 #include "jarvis/common/fixed_ratio_sampler.h"
 #include "jarvis/sensor/odometry_data.h"
+#include "jarvis/estimator/factor/odometry_factor.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
 namespace jarvis {
@@ -72,6 +73,7 @@ struct EstimatorOption {
   UpdataZeroVelocityOption updata_zerovelocity_option;
   bool enable_zero_velocity =0;;
   int  use_imu = 1;
+  int  use_odom = 1;
   int use_cam_num = 1;
   int estimate_td = 1;
   int estimate_extrinsic =1;
@@ -94,8 +96,6 @@ class Estimator {
   void AddOdometryData(const sensor::OdometryData& odometry_data);
   // interface
   void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
-  void inputIMU(double t, const Eigen::Vector3d &linearAcceleration,
-                const Eigen::Vector3d &angularVelocity);
   void inputFeature(double t, const ImageFeatureTrackerData &featureFrame);
   void inputImage(double t, const cv::Mat &_img,
                   const cv::Mat &_img1 = cv::Mat());
@@ -183,6 +183,9 @@ class Estimator {
   double Headers[(WINDOW_SIZE + 1)];
 
   IntegrationBase *pre_integrations[(WINDOW_SIZE + 1)];
+  //
+  OdomFactor* odometry_factor_[WINDOW_SIZE + 1];
+  //
   bool is_velocity_updates_[(WINDOW_SIZE + 1)];
   Eigen::Vector3d acc_0, gyr_0;
 
@@ -240,6 +243,7 @@ class Estimator {
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
   int convin_used_num = 4;
+  std::unique_ptr<DataBase> data_base_;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

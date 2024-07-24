@@ -58,6 +58,8 @@ class DataBase {
   sensor::OdometryData InterpolateOdometryUseLastData(
       const common::Time &time) const;
   //
+  sensor::ImuData InterpolateImuUseLastData(const common::Time &time) const;
+  //
   //
   std::vector<sensor::ImuData> GetImuIntervalData(
       const common::Time &first_time, const common::Time &end_time);

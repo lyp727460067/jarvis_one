@@ -86,15 +86,15 @@ struct ImuData {
         linear_acceleration,
         angular_velocity,
     });
-    LOG(INFO)<<common::FromUniversal(time / 100);
+    // LOG(INFO)<<common::FromUniversal(time / 100);
     auto state = KImuExtrapolator->Exrapolate(
         common::FromUniversal(time / 100) + common::FromSeconds(0.001));
-    LOG(INFO) << state.pose;
+    // LOG(INFO) << state.pose;
     ros_compont->PushMark({{"imu_pose", state.pose}}, false);
     // ros_compont->PosePub(state.pose, transform::Rigid3d::Identity());
     return std::make_unique<sensor::DispathcData<sensor::ImuData>>(
         sensor::ImuData{
-            common::FromUniversal(time / 100),
+            common::FromUniversal(time / 100) - common::FromSeconds(0.1),
             linear_acceleration,
             angular_velocity,
         });
@@ -467,7 +467,7 @@ int main(int argc, char* argv[]) {
           kOPoseFile << info.str() << std::endl;
         }
 
-        ros_compont->PushMark({{"vo", tracking_data.data->imu_state.pose}}, true);
+        ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
         ros_compont->OnLocalTrackingResultCallback(
             tracking_data, nullptr, transform::Rigid3d::Identity());
         ros_compont->PosePub(tracking_data.data->imu_state.pose,
@@ -493,20 +493,25 @@ int main(int argc, char* argv[]) {
       LOG(WARNING) << "Input Image empty..";
       return;
     }
+    if(imag_data.time<common::FromUniversal(530343438350))return;
     auto start = std::chrono::high_resolution_clock::now();
     builder_->AddImageData(imag_data);
     LOG(INFO) << "One frame cost: "
               << std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::high_resolution_clock::now() - start)
                      .count();
-    cv::imshow("show", *imag_data.image[0]);
-    cv::waitKey(0);
+    // cv::imshow("show", *imag_data.image[0]);
+    // cv::waitKey(0);
     // if(cv::waitKey()=='c'){
     //   jarvis::restart =true;
     // }
   });
-  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu_data) {
-    builder_->AddImuData(imu_data);
+  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
+    builder_->AddImuData(jarvis::sensor::ImuData{
+        imu.time + common::FromSeconds(0.1),
+        imu.linear_acceleration,
+        imu.angular_velocity,
+    });
   });
 
   LOG(INFO) << "Parse image dir: " << image_file;

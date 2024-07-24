@@ -23,13 +23,16 @@ class OdomFactor {
  public:
   OdomFactor(const OdomFactorOption &option, const DataBase *data_base);
   //
-  void ComputeObserve(common::Time start_time, const common::Time &time);
+  void ComputeObserve(const common::Time start_time, const common::Time &time);
   void AddToProblem(ceres::Problem *problem, ceres::LossFunction *loss_function,
                     std::array<double *, 2> pq) const;
-
+  void Merge(const OdomFactor &odom_factor);
+  ceres::CostFunction* CostFunction() const;
  private:
   const OdomFactorOption option_;
   const DataBase *data_base_;
+  common::Time start_time_;
+  common::Time end_time_;
   std::optional<Eigen::Vector3d> translation_observe_;
 };
 

@@ -43,6 +43,7 @@ Estimator::Estimator(const EstimatorOption &options):options_(options),
   f_manager = std::make_unique<FeatureManager>(
       FeatureManagerOption{options.calibrate_option.extric_camera_to_imu});
   //
+  data_base_ = std::make_unique<DataBase>(1);
   stereo_sample_ = std::make_unique<common::FixedRatioSampler>(
       options_.use_stereo_sample_ration);
   if (options_.enable_zero_velocity) {
@@ -57,6 +58,7 @@ Estimator::Estimator(const EstimatorOption &options):options_(options),
   for (int i = 0; i < WINDOW_SIZE + 1; i++) {
     pre_integrations[i] = nullptr;
     Headers[i] = 0.0;
+    odometry_factor_[i] = nullptr;
     images_[i] = std::make_pair<double, ImageFeatureTrackerData>(0, {});
   }
 
@@ -99,7 +101,6 @@ std::unique_ptr<TrackingData> ExtractKeyFrameMapPoints(
 }
 }  // namespace
 //
-void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {}
 std::unique_ptr<TrackingData> Estimator::AddImageData(
     const sensor::ImageData &images) {
   TicToc add_image_data_cost;
@@ -174,16 +175,16 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     tracking_data->data->imu_state = ImuState{imu_state_data};
     tracking_data->status = TrackState(state);
   }
+  data_base_->TrimData(images.time);
   return tracking_data;
 }
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
   double d_time = common::ToSeconds(imu_data.time - common::FromUniversal(0));
-
   if (update_zero_velocity_) {
     update_zero_velocity_->AddImu(imu_data);
   }
-  inputIMU(d_time, imu_data.linear_acceleration, imu_data.angular_velocity);
+  data_base_->AddImu(imu_data);
 }
 
 bool Estimator::IsStereo(){
@@ -293,25 +294,8 @@ void Estimator::inputImage(double t, const cv::Mat &_img,
                            const cv::Mat &_img1) {
   // printf("process time: %f\n", processTime.toc());
 }
-
-void Estimator::inputIMU(double t, const Eigen::Vector3d &linearAcceleration,
-                         const Eigen::Vector3d &angularVelocity) {
-  mBuf.lock();
-  accBuf.push(std::make_pair(t, linearAcceleration));
-  gyrBuf.push(std::make_pair(t, angularVelocity));
-  // printf("input imu with time %f \n", t);
-
-  mBuf.unlock();
-  if (solver_flag == NON_LINEAR) {
-    mPropagate.lock();
-    fastPredictIMU(t, linearAcceleration, angularVelocity);
-    kGlobleImuPose.push_back(latest_P);
-    kGlobleImuExtrapolatorPose.first = t;
-    kGlobleImuExtrapolatorPose.second = transform::Rigid3d(latest_P, latest_Q);
-
-    // pubLatestOdometry(latest_P, latest_Q, latest_V, t);
-    mPropagate.unlock();
-  }
+void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {
+  data_base_->AddOdometry(odometry_data);
 }
 
 void Estimator::inputFeature(double t,
@@ -325,33 +309,33 @@ void Estimator::inputFeature(double t,
 bool Estimator::GetImuInterval(
     double t0, double t1, std::vector<std::pair<double, Eigen::Vector3d>> &accVector,
     std::vector<std::pair<double, Eigen::Vector3d>> &gyrVector) {
-  auto acc_buf_temp = accBuf;
-  auto gyr_buf_temp = gyrBuf;
+  // auto acc_buf_temp = accBuf;
+  // auto gyr_buf_temp = gyrBuf;
 
-  if (acc_buf_temp.empty()) {
-    printf("not receive imu\n");
-    return false;
-  }
-  // printf("get imu from %f %f\n", t0, t1);
-
-  // accBuf.back().first);
-  // if (t1 <= acc_buf_temp.back().first) {
-  while (!acc_buf_temp.empty() && acc_buf_temp.front().first <= t0) {
-    acc_buf_temp.pop();
-    gyr_buf_temp.pop();
-  }
-  while (!acc_buf_temp.empty() && acc_buf_temp.front().first < t1) {
-    accVector.push_back(acc_buf_temp.front());
-    acc_buf_temp.pop();
-    gyrVector.push_back(gyr_buf_temp.front());
-    gyr_buf_temp.pop();
-  }
-  // accVector.push_back(acc_buf_temp.front());
-  // gyrVector.push_back(gyr_buf_temp.front());
-  // } else {
-  //   LOG(WARNING)<<"wait for imu";
+  // if (acc_buf_temp.empty()) {
+  //   printf("not receive imu\n");
   //   return false;
   // }
+  // // printf("get imu from %f %f\n", t0, t1);
+
+  // // accBuf.back().first);
+  // // if (t1 <= acc_buf_temp.back().first) {
+  // while (!acc_buf_temp.empty() && acc_buf_temp.front().first <= t0) {
+  //   acc_buf_temp.pop();
+  //   gyr_buf_temp.pop();
+  // }
+  // while (!acc_buf_temp.empty() && acc_buf_temp.front().first < t1) {
+  //   accVector.push_back(acc_buf_temp.front());
+  //   acc_buf_temp.pop();
+  //   gyrVector.push_back(gyr_buf_temp.front());
+  //   gyr_buf_temp.pop();
+  // }
+  // // accVector.push_back(acc_buf_temp.front());
+  // // gyrVector.push_back(gyr_buf_temp.front());
+  // // } else {
+  // //   LOG(WARNING)<<"wait for imu";
+  // //   return false;
+  // // }
   return true;
 }
 //
@@ -359,51 +343,40 @@ bool Estimator::getIMUInterval(
     double t0, double t1,
     std::vector<std::pair<double, Eigen::Vector3d>> &accVector,
     std::vector<std::pair<double, Eigen::Vector3d>> &gyrVector) {
-  if (accBuf.empty()) {
-    printf("not receive imu\n");
-    return false;
+  const common::Time start_time = common::Time(common::FromSeconds(t0));
+  const common::Time end_time = common::Time(common::FromSeconds(t1));
+  //
+  auto result = data_base_->GetImuIntervalData(start_time, end_time);
+  if (result.empty()) return false;
+  for (const auto &r : result) {
+    accVector.push_back({common::ToSeconds(r.time - common::FromUniversal(0)),
+                         r.linear_acceleration});
+    gyrVector.push_back({common::ToSeconds(r.time - common::FromUniversal(0)),
+                         r.angular_velocity});
   }
-  // printf("get imu from %f %f\n", t0, t1);
-  // printf("imu fornt time %f   imu end time %f\n", accBuf.front().first,
-  // accBuf.back().first);
-    while (!accBuf.empty()&& accBuf.front().first <= t0) {
-      accBuf.pop();
-      gyrBuf.pop();
-    }
-    while (!accBuf.empty() && accBuf.front().first < t1) {
-      accVector.push_back(accBuf.front());
-      accBuf.pop();
-      gyrVector.push_back(gyrBuf.front());
-      gyrBuf.pop();
-    }
-    if(!accBuf.empty()){
-      accVector.push_back(accBuf.front());
-      gyrVector.push_back(gyrBuf.front());
-    }
-    // accVector.push_back(accBuf.front());
-    // gyrVector.push_back(gyrBuf.front());
-  // } else {
-  //   printf("wait for imu\n");
-  //   return false;
-  // }
   return true;
 }
 
 bool Estimator::IMUAvailable(double t) {
-  if (!accBuf.empty() && t <= accBuf.back().first)
-    return true;
-  else
-    return false;
+
 }
 
 int Estimator::processMeasurements() {
   // printf("process measurments\n");
   std::pair<double, ImageFeatureTrackerData> feature;
   std::vector<std::pair<double, Eigen::Vector3d>> accVector, gyrVector;
+
+
+  odometry_factor_[frame_count].
   if (!featureBuf.empty()) {
     feature = featureBuf.front();
     curTime = feature.first + td;
-    
+    if(odometry_factor_[frame_count]=nullptr){
+      odometry_factor_[frame_count] =  new OdomFactor(OdomFactorOption{},data_base_.get());
+    }
+    const common::Time start_time = common::Time(common::FromSeconds(prevTime));
+    const common::Time end_time = common::Time(common::FromSeconds(curTime));
+    odometry_factor_->ComputeObserve(start_time,end_time);
     // while (1) {
     //   if ((!options_.use_imu || IMUAvailable(feature.first + td)))
     //     break;
@@ -416,13 +389,18 @@ int Estimator::processMeasurements() {
     //     break;
     //   }
     // }
+    
     if (options_.use_imu) {
       getIMUInterval(prevTime, curTime, accVector, gyrVector);
+      LOG(INFO)<< accVector.size();
     }
+    LOG(INFO)<<std::to_string(prevTime);
     featureBuf.pop();
-    if (options_.use_imu) {
+    if (options_.use_imu&& !accVector.empty()) {
       if (!initFirstPoseFlag) initFirstIMUPose(accVector);
       for (size_t i = 0; i < accVector.size(); i++) {
+        LOG(INFO)<<std::to_string( accVector[i].first);
+        LOG(INFO)<<accVector[i].second.transpose();
         double dt;
         if (i == 0)
           dt = accVector[i].first - prevTime;
@@ -430,11 +408,14 @@ int Estimator::processMeasurements() {
           dt = curTime - accVector[i - 1].first;
         else
           dt = accVector[i].first - accVector[i - 1].first;
+
+          LOG(INFO)<<std::to_string(dt);
         processIMU(accVector[i].first, dt, accVector[i].second,
                    gyrVector[i].second);
       }
     }
     prevTime = curTime;
+    if(!initFirstPoseFlag)return TrackState::INIT;
     if(processImage(feature.second, feature.first)!=TrackState::TRACKING){
         return TrackState::LOST;
     }
@@ -661,11 +642,11 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
   } else {
     TicToc t_solve;
     // if (!options_.use_imu) {
-    if(!imageframe.pre_integration->IsValid()){
-      LOG(WARNING)<<"IMU Avalibal.use pnp init..";
-      f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
-      // sleep(4);
-    }
+    // if(!imageframe.pre_integration->IsValid()){
+    //   LOG(WARNING)<<"IMU Avalibal.use pnp init..";
+    //   f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
+    //   // sleep(4);
+    // }
     f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
     optimization();
     std::set<int> removeIndex;
@@ -1223,16 +1204,19 @@ void Estimator::optimization() {
                                         para_SpeedBias[j]});
           }
         }
+        odometry_factor_[i]->AddToProblem(
+            &problem, nullptr,
+            std::array<double *, 3>{para_Pose[i], para_Pose[j]});
+        //
+        if (!pre_integrations[j]->IsValid()) {
+          problem.SetParameterBlockConstant(para_SpeedBias[i]);
+          problem.SetParameterBlockConstant(para_SpeedBias[j]);
+          problem.SetParameterBlockConstant(para_Ex_Pose[0]);
+          problem.SetParameterBlockConstant(para_Ex_Pose[1]);
 
-      if (!pre_integrations[j]->IsValid()) {
-        problem.SetParameterBlockConstant(para_SpeedBias[i]);
-        problem.SetParameterBlockConstant(para_SpeedBias[j]);
-        problem.SetParameterBlockConstant(para_Ex_Pose[0]);
-        problem.SetParameterBlockConstant(para_Ex_Pose[1]);
+          LOG(WARNING) << j << " Imu avalid..";
 
-        LOG(WARNING) << j << " Imu avalid..";
-
-        continue;
+          continue;
       }
 
       IMUFactor *imu_factor = new IMUFactor(pre_integrations[j]);
@@ -1410,6 +1394,9 @@ void Estimator::optimization() {
         marginalization_info->addResidualBlockInfo(residual_block_info);
       }
     }
+    
+    odometry_factor_[i]->AddToProblem(
+        &problem, nullptr, std::array<double *, 3>{para_Pose[i], para_Pose[j]});
 
     if (options_.use_imu) {
       if (pre_integrations[1]->IsValid()) {
@@ -1612,6 +1599,7 @@ void Estimator::slideWindow() {
         Rs[i].swap(Rs[i + 1]);
         Ps[i].swap(Ps[i + 1]);
         is_velocity_updates_[i] = is_velocity_updates_[i+1];
+        std::swap(odometry_factor_[i],odometry_factor_[i+1]);
         if (options_.use_cam_num) {
           std::swap(pre_integrations[i], pre_integrations[i + 1]);
 
@@ -1633,8 +1621,9 @@ void Estimator::slideWindow() {
         Vs[WINDOW_SIZE] = Vs[WINDOW_SIZE - 1];
         Bas[WINDOW_SIZE] = Bas[WINDOW_SIZE - 1];
         Bgs[WINDOW_SIZE] = Bgs[WINDOW_SIZE - 1];
-
         delete pre_integrations[WINDOW_SIZE];
+        delete odometry_factor_[WINDOW_SIZE];
+        odometry_factor_[WINDOW_SIZE]=  new  OdomFactor(OdomFactorOption{},data_base_.get());
         pre_integrations[WINDOW_SIZE] = new IntegrationBase{options_.imu_option,
             acc_0, gyr_0, Bas[WINDOW_SIZE], Bgs[WINDOW_SIZE]};
 
@@ -1677,7 +1666,9 @@ void Estimator::slideWindow() {
         Vs[frame_count - 1] = Vs[frame_count];
         Bas[frame_count - 1] = Bas[frame_count];
         Bgs[frame_count - 1] = Bgs[frame_count];
-
+        odometry_factor_[frame_count - 1]->Merge(*odometry_factor_[frame_count]);
+        delete odometry_factor_[WINDOW_SIZE];
+        odometry_factor_[WINDOW_SIZE]=  new  OdomFactor(OdomFactorOption{},data_base_.get());
         delete pre_integrations[WINDOW_SIZE];
         pre_integrations[WINDOW_SIZE] = new IntegrationBase{options_.imu_option,
             acc_0, gyr_0, Bas[WINDOW_SIZE], Bgs[WINDOW_SIZE]};
@@ -1826,48 +1817,48 @@ void Estimator::outliersRejection(std::set<int> &removeIndex) {
 
 void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration,
                                Eigen::Vector3d angular_velocity) {
-  double dt = t - latest_time;
-  latest_time = t;
-  Eigen::Vector3d un_acc_0 = latest_Q * (latest_acc_0 - latest_Ba) - g;
-  Eigen::Vector3d un_gyr = 0.5 * (latest_gyr_0 + angular_velocity) - latest_Bg;
-  latest_Q = latest_Q * Utility::deltaQ(un_gyr * dt);
-  Eigen::Vector3d un_acc_1 = latest_Q * (linear_acceleration - latest_Ba) - g;
-  Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
-  latest_P = latest_P + dt * latest_V + 0.5 * dt * dt * un_acc;
-  latest_V = latest_V + dt * un_acc;
-  latest_acc_0 = linear_acceleration;
-  latest_gyr_0 = angular_velocity;
+  // double dt = t - latest_time;
+  // latest_time = t;
+  // Eigen::Vector3d un_acc_0 = latest_Q * (latest_acc_0 - latest_Ba) - g;
+  // Eigen::Vector3d un_gyr = 0.5 * (latest_gyr_0 + angular_velocity) - latest_Bg;
+  // latest_Q = latest_Q * Utility::deltaQ(un_gyr * dt);
+  // Eigen::Vector3d un_acc_1 = latest_Q * (linear_acceleration - latest_Ba) - g;
+  // Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
+  // latest_P = latest_P + dt * latest_V + 0.5 * dt * dt * un_acc;
+  // latest_V = latest_V + dt * un_acc;
+  // latest_acc_0 = linear_acceleration;
+  // latest_gyr_0 = angular_velocity;
 }
 
 void Estimator::updateLatestStates() {
-  mPropagate.lock();
-  latest_time = Headers[frame_count] + td;
-  latest_P = Ps[frame_count];
-  latest_Q = Rs[frame_count];
-  latest_V = Vs[frame_count];
-  latest_Ba = Bas[frame_count];
-  latest_Bg = Bgs[frame_count];
-  latest_acc_0 = acc_0;
-  latest_gyr_0 = gyr_0;
-  mBuf.lock();
-  std::queue<std::pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
-  // imu_extrapolator_->AddState(
-  //     latest_time,
-  //     ImuState{transform::Rigid3d(Ps[frame_count], Eigen::Quaterniond(
-  //     Rs[frame_count])),
-  //              Vs[frame_count], Bas[frame_count], Bgs[frame_count]});
-  // //
-  std::queue<std::pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
-  mBuf.unlock();
-  while (!tmp_accBuf.empty()) {
-    double t = tmp_accBuf.front().first;
-    Eigen::Vector3d acc = tmp_accBuf.front().second;
-    Eigen::Vector3d gyr = tmp_gyrBuf.front().second;
-    fastPredictIMU(t, acc, gyr);
-    tmp_accBuf.pop();
-    tmp_gyrBuf.pop();
-  }
-  mPropagate.unlock();
+  // mPropagate.lock();
+  // latest_time = Headers[frame_count] + td;
+  // latest_P = Ps[frame_count];
+  // latest_Q = Rs[frame_count];
+  // latest_V = Vs[frame_count];
+  // latest_Ba = Bas[frame_count];
+  // latest_Bg = Bgs[frame_count];
+  // latest_acc_0 = acc_0;
+  // latest_gyr_0 = gyr_0;
+  // mBuf.lock();
+  // std::queue<std::pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
+  // // imu_extrapolator_->AddState(
+  // //     latest_time,
+  // //     ImuState{transform::Rigid3d(Ps[frame_count], Eigen::Quaterniond(
+  // //     Rs[frame_count])),
+  // //              Vs[frame_count], Bas[frame_count], Bgs[frame_count]});
+  // // //
+  // std::queue<std::pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
+  // mBuf.unlock();
+  // while (!tmp_accBuf.empty()) {
+  //   double t = tmp_accBuf.front().first;
+  //   Eigen::Vector3d acc = tmp_accBuf.front().second;
+  //   Eigen::Vector3d gyr = tmp_gyrBuf.front().second;
+  //   fastPredictIMU(t, acc, gyr);
+  //   tmp_accBuf.pop();
+  //   tmp_gyrBuf.pop();
+  // }
+  // mPropagate.unlock();
 }
 
 //

@@ -243,9 +243,11 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
   std::vector<cv::KeyPoint> keypoints;
   // cv::FAST(image, keypoints, options_.fast_thresh_hold, false);
   // GoodFeaturesToTrack_neon(image, keypoints,max_corners,0.001,0);
+#ifdef __ARM_NEON__
   FastNeon(image,keypoints,options_.fast_thresh_hold,mask, false);
-  // LOG(INFO)<<keypoints.size();
-  // auto keypoints = ExtractFastWithGrid(image, mask);
+#else 
+ keypoints = keypoints = ExtractFastWithGrid(image, mask);
+#endif
   VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
   auto eigens = ComputeEigens(cv::Point2i(0, 0), keypoints, derive,mask);
   //

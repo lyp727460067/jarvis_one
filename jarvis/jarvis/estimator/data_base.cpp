@@ -29,8 +29,6 @@ sensor::ImuData Interpolate(const sensor::ImuData &start,
 template <typename Sensor>
 bool HasDataForTime(const std::deque<Sensor> *data_base,
                     const common::Time &time) {
-  LOG(INFO) << data_base->front().time;
-  LOG(INFO) << data_base->back().time;
   return data_base->size() > 2 && data_base->front().time < time &&
          time < data_base->back().time;
 }
@@ -66,6 +64,13 @@ sensor::ImuData DataBase::InterpolateImu(const common::Time &time) const {
   return InterpolateSensor(&imu_data_, time);
 }
 //
+sensor::ImuData DataBase::InterpolateImuUseLastData(
+    const common::Time &time) const {
+  CHECK(imu_data_.size() > 2) << "imu size <2";
+  return Interpolate(*std::prev(imu_data_.end(), 2),
+                     *std::prev(imu_data_.end(), 1), time);
+}
+//
 bool DataBase::HasImuData(const common::Time &time) const {
   return HasDataForTime(&imu_data_, time);
 }
@@ -76,12 +81,9 @@ bool DataBase::HasOdometryData(const common::Time &time) const {
 //
 std::vector<sensor::ImuData> DataBase::GetImuIntervalData(
     const common::Time &first_time, const common::Time &end_time) {
-  CHECK(HasDataForTime(&imu_data_, first_time))
-      << "imu data range does not include time " << first_time;
-  CHECK(HasDataForTime(&imu_data_, end_time))
-      << "imu data range does not include time " << end_time;
-
-  //
+  LOG(INFO)<<first_time;
+  LOG(INFO)<<end_time;
+  if (!HasImuData(first_time)) return {};
   auto data = std::upper_bound(
       imu_data_.begin(), imu_data_.end(), first_time,
       [](const common::Time &time, const sensor::ImuData &imu_data) {
@@ -89,10 +91,14 @@ std::vector<sensor::ImuData> DataBase::GetImuIntervalData(
       });
   std::vector<sensor::ImuData> result;
   result.push_back(InterpolateImu(first_time));
-  for (; data->time < end_time; ++data) {
+  for (; data != imu_data_.end() && data->time < end_time; ++data) {
     result.push_back(*data);
   }
-  result.push_back(InterpolateImu(end_time));
+  if (!HasImuData(end_time)) {
+    // result.push_back(InterpolateImuUseLastData(end_time));
+  } else {
+    result.push_back(InterpolateImu(end_time));
+  }
   return result;
 }
 
@@ -102,12 +108,12 @@ DataBase::DataBase(const double data_duration)
 //
 
 void DataBase::TrimData(const common::Time &time) {
-  if (odometry_data_.size() > 2 &&
+  while(odometry_data_.size() > 2 &&
       odometry_data_.front().time <
           time - common::FromSeconds(data_duration_)) {
     odometry_data_.pop_front();
   }
-  if (imu_data_.size() > 2 &&
+  while(imu_data_.size() > 2 &&
       imu_data_.front().time < time - common::FromSeconds(data_duration_)) {
     imu_data_.pop_front();
   }
@@ -118,7 +124,7 @@ void DataBase::AddOdometry(const sensor::OdometryData &odom) {
   odometry_data_.push_back(odom);
 }
 void DataBase::AddImu(const sensor::ImuData &imu) {
-  LOG(INFO) << imu.time;
+  // LOG(INFO) << imu.time;
   imu_data_.push_back(imu);
 }
 
