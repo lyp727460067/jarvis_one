@@ -106,16 +106,14 @@ class JarvisBuilder {
 
     });
 
-    data_capture_->Rigister("slip_detect",[&](const EncoderData& encode) {
+    data_capture_->Rigister("slip_detect",[&](const OdomData& encode) {
       if(!slip_detect_)return ;
-      if (!last_encoder_data_.has_value()) {
-        last_encoder_data_ =
-            Eigen::Vector2i(encode.left_encoder, encode.right_encoder);
+      if (!last_odom_data_.has_value()) {
+        last_odom_data_ = encode;
       }
-      const Eigen::Vector2i cur_encode{encode.left_encoder,
-                                       encode.right_encoder};
-      const Eigen::Vector2d delta_encode =
-          0.001 * (cur_encode - last_encoder_data_.value()).cast<double>();
+      //
+      auto delta_encode = encode.translation - last_odom_data_.value().translation;
+      last_odom_data_ = encode;
       //
       if (abs(delta_encode.x()) < 0.001 && abs(delta_encode.y() < 0.001)) {
         if (slip_detect_) {
@@ -123,16 +121,11 @@ class JarvisBuilder {
         }
       }
       //
-      last_encoder_data_ = cur_encode;
-      auto delta_theta = (delta_encode.y() - delta_encode.x()) / kWheelDistance;
-      auto delta_translation = (delta_encode.y() + delta_encode.x()) / 2.0;
-      jarvis::transform::Rigid3d delta_pose(
-          Eigen::Vector3d(delta_translation, 0, 0),
-          Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
-      global_odom_ = global_odom_ * delta_pose;
+
       if (slip_detect_) {
         slip_detect_->AddOdometry(sensor::OdometryData{
-            jarvis::common::FromUniversal(encode.time * 10), global_odom_});
+            jarvis::common::FromUniversal(encode.time * 10),
+            transform::Rigid3d(encode.translation, encode.rotaion)});
       }
 
     });
@@ -154,10 +147,13 @@ class JarvisBuilder {
         kOImuFile << info.str() << std::endl;
       });
 
-      data_capture_->Rigister("data_record",[&](const EncoderData& imu) {
+      data_capture_->Rigister("data_record", [&](const OdomData& odom) {
         std::stringstream info;
-        info << "odom " << std::to_string(uint64_t(imu.time * 1e3)) << " "
-             << imu.left_encoder << " " << imu.right_encoder;
+        info << "odom " << std::to_string(uint64_t(odom.time * 1e3)) << " "
+             << odom.translation.x() << " " << odom.translation.y() << " "
+             << odom.translation.z() << " " << odom.rotaion.w() << " "
+             << odom.rotaion.x() << " " << odom.rotaion.x() << " "
+             << odom.rotaion.z();
         kOImuFile << info.str() << std::endl;
       });
       data_capture_->Rigister("data_record",[&](const Frame& frame) {
@@ -183,7 +179,7 @@ class JarvisBuilder {
           jarvis_brige_.reset(nullptr);
           imu_extrapolator_.reset(nullptr);
           slip_detect_.reset(nullptr);
-          global_odom_= transform::Rigid3d::Identity();
+          // global_odom_= transform::Rigid3d::Identity();
           kVioState= 0;
           }
         else {
@@ -229,11 +225,10 @@ class JarvisBuilder {
   }
 
  private:
-  static constexpr double kWheelDistance = 0.37;
+  
   const std::string config_path_;
-  jarvis::transform::Rigid3d global_odom_ =
-      jarvis::transform::Rigid3d::Identity();
-  std::optional<Eigen::Vector2i> last_encoder_data_;
+  std::optional<OdomData > last_odom_data_;
+  
   jarvis_pic::MpcComponent mpc_;
   std::unique_ptr<DataCapture> data_capture_;
   std::unique_ptr<JarvisBrige> jarvis_brige_;

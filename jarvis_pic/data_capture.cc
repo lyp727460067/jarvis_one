@@ -6,11 +6,37 @@
 #define FRAME_MAX_LEN (4116580)
 // #include "SensorDataCapturer/DataCapturer.h"
 #include "glog/logging.h"
+#include "optional"
+#include "jarvis/transform/rigid_transform.h"
 //
-#define NEED_SYNC
+// #define NEED_SYNC
 namespace jarvis_pic {
 namespace {
 // #define FRAME_MAX_LEN (640 * 544 * 100)
+
+constexpr double kWheelDistance = 0.37;
+std::optional<Eigen::Vector2i> kLastEncoderData;
+jarvis::transform::Rigid3d global_odom_ =
+      jarvis::transform::Rigid3d::Identity();
+
+void EncodeToOdom(const EncoderData& encode) {
+  if (!kLastEncoderData.has_value()) {
+    kLastEncoderData =
+        Eigen::Vector2i(encode.left_encoder, encode.right_encoder);
+  }
+  const Eigen::Vector2i cur_encode{encode.left_encoder, encode.right_encoder};
+  const Eigen::Vector2d delta_encode =
+      0.001 * (cur_encode - kLastEncoderData.value()).cast<double>();
+
+  kLastEncoderData = cur_encode;
+  auto delta_theta = (delta_encode.y() - delta_encode.x()) / kWheelDistance;
+  auto delta_translation = (delta_encode.y() + delta_encode.x()) / 2.0;
+  jarvis::transform::Rigid3d delta_pose(
+      Eigen::Vector3d(delta_translation, 0, 0),
+      Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
+  global_odom_ = global_odom_ * delta_pose;
+
+}
 
 #define GET_BIT(var, bit) (((var) >> (bit)) & 0x01)
 std::array<uint8_t, FRAME_MAX_LEN> read_buf;
@@ -31,18 +57,81 @@ DataCapture::DataCapture(const DataCaptureOption& option)
     : mem_ssq_(new ShmSensorQueue), shm_mod_(new ShmMod()) {}
 //
 void DataCapture::Start() {
-  thread_ = std::thread([this]() {
+  threads_.emplace_back([this]() {
     while (!stop_) {
-      Run();
-      std::this_thread::sleep_for(
-          std::chrono::milliseconds(4));
+      
+      ModUIBoardStatusFb mower_status;
+      int s = shm_mod_->GetModByID(MOD_ID_UI_BOARD_STATUS_FB, &mower_status);
+      if (s == sizeof(ModUIBoardStatusFb)) {
+        // std::lock_guard<std::mutex> lock(mutex_);
+        system_info_call_backs_({mower_status.MowerStatus});
+      }
+
+      ModSyncImuFb imudata;
+      int32_t res = mem_ssq_->PopImuData(&imudata);
+      while (res > 0) {
+        if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
+          last_imu_time_stamp_ = imudata.time_stamp;
+          std::lock_guard<std::mutex> lock(mutex_);
+          ProcessImu(imudata);
+        }
+        res = mem_ssq_->PopImuData(&imudata);
+      }
+      ModSyncChassisPosFb odom_data;
+      int ret_len = mem_ssq_->PopEncodeData(&odom_data);
+      while (ret_len > 0) {
+        if (last_odom_time_stamp_ != odom_data.time_stamp) {
+          last_odom_time_stamp_ = odom_data.time_stamp;
+          std::lock_guard<std::mutex> lock(mutex_);
+          ProcessOdom(odom_data);
+        }
+        ret_len = mem_ssq_->PopEncodeData(&odom_data);
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+  
+  });
+  threads_.emplace_back([this]() {
+    while (!stop_) {
+      
+      CameraFrame frame;
+      frame.buf = read_buf.data();
+      frame.max_len = FRAME_MAX_LEN;
+
+      int ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
+
+      while (ret_len >= 0) {
+        uint32_t frame_sys_count = frame.head.sys_count;
+        if (last_frame_sys_count_ != frame_sys_count) {
+          static uint64_t last_time = frame.head.time_stamp;
+          // LOG(INFO)<<frame.head.time_stamp-last_time;
+          last_time = frame.head.time_stamp;
+          last_frame_sys_count_ = frame_sys_count;
+          std::lock_guard<std::mutex> lock(mutex_);
+          ProcessImag(frame);
+        }
+        ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(30));
     }
   });
+  // thread_ = std::thread([this]() {
+  //   while (!stop_) {
+  //     Run();
+  //     std::this_thread::sleep_for(
+  //         std::chrono::milliseconds(4));
+  //   }
+  // });
 }
 
 void DataCapture::Stop() {
   stop_ = true;
-  thread_.join();
+  for (size_t i = 0; i < threads_.size(); i++) {
+    if (threads_[i].joinable()) {
+      threads_[i].join();
+    }
+  }
+  // thread_.join();
 }
 DataCapture::~DataCapture() { Stop(); }
 //
@@ -127,55 +216,19 @@ void DataCapture::ProcessOdom(const ModSyncChassisPosFb& odom) {
   auto odom_data =
       EncoderData{odom.time_stamp, odom.chassis_pos.left_encoder_pos,
                   odom.chassis_pos.right_encoder_pos};
+  EncodeToOdom(odom_data);
+  //
+  auto odom_data_tmp = OdomData{odom.time_stamp, global_odom_.translation(),
+                                global_odom_.rotation()};
+  //
   for (const auto& f : encoder_call_backs_) {
-    f.second(odom_data);
+    f.second(odom_data_tmp);
   }
 #endif
 }
 //
 void DataCapture::Run() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  ModUIBoardStatusFb mower_status;
-  int s = shm_mod_->GetModByID(MOD_ID_UI_BOARD_STATUS_FB, &mower_status);
-  if (s == sizeof(ModUIBoardStatusFb)) {
-    system_info_call_backs_({mower_status.MowerStatus});
-  }
-
-  ModSyncImuFb imudata;
-  int32_t res = mem_ssq_->PopImuData(&imudata);
-  while (res > 0) {
-    if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
-      last_imu_time_stamp_ = imudata.time_stamp;
-      ProcessImu(imudata);
-    }
-    res = mem_ssq_->PopImuData(&imudata);
-  }
-  ModSyncChassisPosFb odom_data;
-  int ret_len = mem_ssq_->PopEncodeData(&odom_data);
-  while (ret_len > 0) {
-    if (last_odom_time_stamp_ != odom_data.time_stamp) {
-      last_odom_time_stamp_ = odom_data.time_stamp;
-      ProcessOdom(odom_data);
-    }
-    ret_len = mem_ssq_->PopEncodeData(&odom_data);
-  }
-  CameraFrame frame;
-  frame.buf = read_buf.data();
-  frame.max_len = FRAME_MAX_LEN;
-
-  ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
-  while (ret_len >= 0) {
-    uint32_t frame_sys_count = frame.head.sys_count;
-    if (last_frame_sys_count_ != frame_sys_count) {
-      static uint64_t last_time = frame.head.time_stamp;
-      // LOG(INFO)<<frame.head.time_stamp-last_time;
-      last_time = frame.head.time_stamp;
-      last_frame_sys_count_ = frame_sys_count;
-      ProcessImag(frame);
-    }
-    ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
-  }
-
+  
   //
   // ModRTKFB  rtk_data;
 #ifdef NEED_SYNC
@@ -309,7 +362,7 @@ void DataCapture::SysPorocessOdom() {
 }
 //
 void DataCapture::RemoveCallBack(const std::string& id) {
-  // std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   imu_call_backs_.erase(id);
   frame_call_backs_.erase(id);
   encoder_call_backs_.erase(id);

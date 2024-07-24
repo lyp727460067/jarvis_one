@@ -3,6 +3,7 @@
 #include "data_capture.h"
 namespace jarvis_pic {
 using namespace jarvis;
+constexpr double kImuOdomPrvCamOffTime =0.1;
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
@@ -30,16 +31,25 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 
   order_queue_->AddQueue(kImuTopic,
                          [&](const jarvis::sensor::ImuData& imu_data) {
+                          LOG(INFO) << imu_data.time;
                            builder_->AddImuData(jarvis::sensor::ImuData{
-                               imu_data.time + common::FromSeconds(0.005),
+                               imu_data.time + common::FromSeconds(kImuOdomPrvCamOffTime),
                                imu_data.linear_acceleration,
                                imu_data.angular_velocity,
                            });
                          });
   //
   order_queue_->AddQueue(
+      kOdomTopic, [&](const jarvis::sensor::OdometryData& odom_data) {
+        LOG(INFO) << odom_data.time;
+        builder_->AddOdometryData(jarvis::sensor::OdometryData{
+            odom_data.time + common::FromSeconds(kImuOdomPrvCamOffTime),
+            odom_data.pose
+        });
+      });
+  order_queue_->AddQueue(
       kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
-        // LOG(INFO) << std::to_string(imag_data.time);
+        LOG(INFO) << imag_data.time;
         if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
           LOG(WARNING) << "Input Image empty..";
           return;
@@ -59,7 +69,6 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8,
     //  8)); clahe->apply( frame.image, temp1);
     // auto temp = std::make_shared<cv::Mat>(temp1.clone());
-    // LOG(INFO) << jarvis::common::FromUniversal(frame.time * 10);
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<
@@ -79,11 +88,23 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         std::make_unique<jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
             jarvis::sensor::ImuData{
                 jarvis::common::FromUniversal(imu.time * 10) -
-                    common::FromSeconds(0.005),
+                    common::FromSeconds(kImuOdomPrvCamOffTime),
                 imu.linear_acceleration,
                 imu.angular_velocity,
             }));
   });
+
+  data_capture_->Rigister(class_name_, [&](const OdomData& odom) {
+    order_queue_->AddData(
+        kOdomTopic,
+        std::make_unique<
+            jarvis::sensor::DispathcData<jarvis::sensor::OdometryData>>(
+            jarvis::sensor::OdometryData{
+                jarvis::common::FromUniversal(odom.time * 10) -
+                    common::FromSeconds(kImuOdomPrvCamOffTime),
+                transform::Rigid3d(odom.translation, odom.rotaion)}));
+  });
+
   order_queue_->Start();
 }
 //

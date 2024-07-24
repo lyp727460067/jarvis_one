@@ -6,6 +6,7 @@
 #include <optional>
 #include "shm_mod.h"
 #include <Eigen/Core>
+#include <Eigen/Eigen>
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
 namespace jarvis_pic {
@@ -22,8 +23,7 @@ struct Frame {
   uint64_t time;
   std::vector<cv::Mat> images;
 };
-struct ImuData 
-{
+struct ImuData {
   uint64_t time;
   Eigen::Vector3d linear_acceleration;
   Eigen::Vector3d angular_velocity;
@@ -32,6 +32,11 @@ struct EncoderData {
   uint64_t time;
   int32_t left_encoder;
   int32_t right_encoder;
+};
+struct OdomData {
+  uint64_t time;
+  Eigen::Vector3d translation;
+  Eigen::Quaterniond  rotaion;
 };
 struct SystmeInfo {
   uint8_t state;
@@ -48,7 +53,7 @@ class DataCapture {
     imu_call_backs_.emplace(id, std::move(f));
   }
   void Rigister(const std::string& id,
-                std::function<void(const EncoderData&)> f) {
+                std::function<void(const OdomData&)> f) {
     encoder_call_backs_.emplace(id, std::move(f));
   }
   void Rigister(std::function<void(const SystmeInfo&)> f) {
@@ -71,7 +76,7 @@ class DataCapture {
   std::mutex mutex_;
   std::map<std::string, std::function<void(const ImuData&)>> imu_call_backs_;
   std::map<std::string, std::function<void(const Frame&)>> frame_call_backs_;
-  std::map<std::string, std::function<void(const EncoderData&)>>
+  std::map<std::string, std::function<void(const OdomData&)>>
       encoder_call_backs_;
   //
   DataCaptureOption option_;
@@ -88,7 +93,7 @@ class DataCapture {
   uint64_t last_imu_time_stamp_ = 0;
   uint64_t last_odom_time_stamp_ = 0;
   bool stop_ = false;
-
+  std::vector<std::thread> threads_;
 };
 std::unique_ptr<DataCapture> CreateDataCaputure(
     const DataCaptureOption& option);

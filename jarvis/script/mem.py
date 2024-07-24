@@ -20,15 +20,13 @@ parser.add_option("--proc_memlog", dest="proc_memlog",
                   default="", help="proc_memlog")
 (options, args) = parser.parse_args()
 # ParseFromLog()
-options.proc_memlog="/home/lyp/data/proc_memlog.txt"
+options.proc_memlog="/home/lyp/data/0719/proc_memlog.txt"
 # Read the original and optimized poses files.
 def ParseFromLog(file):
   time_start = 0.0
   delte_num  = 0
   mem_cost= []
   cpu_cost= []
-  totola_cpu_cost= []
-  sensor_node_cpu_cost= []
   f=open(file, encoding='UTF-8')
   txt=[]
   info= ""
@@ -45,35 +43,17 @@ def ParseFromLog(file):
       # time = time_string_index_string[time_index:]
       # print(line_strip[1])
 
-    time_strng_index1 = line.find("mpslam")
+    time_strng_index1 = line.find("jarvis_pic_slip_detect_main")
     if time_strng_index1!= -1:
       line_strip = line_strip.split()
       pesent =  line_strip[6] 
       pesent =pesent.rstrip('%'); 
-      if int(pesent)-1 >30:
-        cpu_cost.append(29)
-      else :
-        cpu_cost.append(int(pesent)-1)
-
-      # time = time_string_index_string[time_index:]
-    time_strng_index2 = line.find("CPU:")
-    if time_strng_index2!= -1:
-      line_strip = line_strip.split()
-      pesent =  line_strip[1] 
-      pesent =pesent.rstrip('%'); 
       
-      totola_cpu_cost.append(int(pesent))
-
-    time_strng_index3 = line.find("sensor_node")
-    if time_strng_index3!= -1:
-      line_strip = line_strip.split()
-      pesent =  line_strip[6] 
-      pesent =pesent.rstrip('%'); 
-      
-      sensor_node_cpu_cost.append(int(pesent))
+      cpu_cost.append(int(pesent)-1)
       # time = time_string_index_string[time_index:]
+
   # print(cpu_cost)
-  return mem_cost,cpu_cost,totola_cpu_cost,sensor_node_cpu_cost
+  return mem_cost,cpu_cost 
 
 
 
@@ -91,35 +71,23 @@ def  MyPlot(plot,befor_ceres_time1,tilte, x_offset=0):
 
 # print("read befor")
 if options.proc_memlog != '':
-  mem_cost,cpu_cost,totola_cpu_cost,sensor_node_cpu_cost= ParseFromLog(options.proc_memlog)
+  mem_cost,cpu_cost = ParseFromLog(options.proc_memlog)
   index = []
   cpu_index = []
-  total_index = []
-  sensor_node_cpu_cost_index = []
   for num in range(0,  len(mem_cost)):
     index.append(num)
   for num in range(0,  len(cpu_cost)):
     cpu_index.append(num)
 
-  for num in range(0,  len(totola_cpu_cost)):
-    total_index.append(num)
-  for num in range(0,  len(sensor_node_cpu_cost)):
-    sensor_node_cpu_cost_index.append(num)
 
-  # plot.plot(index, mem_cost, '-', label="mem_cost",
-  #           alpha=1, color="green")
-  # MyPlot(plot,mem_cost,"mem_cost", x_offset=400)
-  # plot.plot(cpu_index, cpu_cost, '.', label="cpu_cost",
-  #           alpha=1, color="red")
-  # MyPlot(plot,cpu_cost,"cpu_cost")
-
-  plot.plot(total_index, totola_cpu_cost, '.', label="totola_cpu_cost",
-            alpha=1, color="red")
-  MyPlot(plot,totola_cpu_cost,"totola_cpu_cost",x_offset=1000)
-  
-  plot.plot(sensor_node_cpu_cost_index, sensor_node_cpu_cost, '.', label="sensor_node_cpu_cost",
+  plot.plot(index, mem_cost, '-', label="mem_cost",
             alpha=1, color="green")
-  MyPlot(plot,sensor_node_cpu_cost,"sensor_node_cpu_cost",x_offset=1400)
+  MyPlot(plot,mem_cost,"mem_cost", x_offset=400)
+  plot.plot(cpu_index, cpu_cost, '.', label="cpu_cost",
+            alpha=1, color="red")
+
+  MyPlot(plot,cpu_cost,"cpu_cost")
+
 # if len(befor_ceres_time) !=0:
 #   plot.plot(befor_ceres_time_durion, befor_ceres_time, '-', label="befor_ceres",
 #             alpha=1, color="green")

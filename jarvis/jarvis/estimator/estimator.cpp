@@ -361,7 +361,9 @@ bool Estimator::getIMUInterval(
   return true;
 }
 
-bool Estimator::IMUAvailable(double t) {}
+bool Estimator::IMUAvailable(double t) {
+  return true;
+}
 
 int Estimator::processMeasurements() {
   // printf("process measurments\n");
