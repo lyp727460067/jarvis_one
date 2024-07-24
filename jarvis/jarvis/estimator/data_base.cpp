@@ -81,8 +81,6 @@ bool DataBase::HasOdometryData(const common::Time &time) const {
 //
 std::vector<sensor::ImuData> DataBase::GetImuIntervalData(
     const common::Time &first_time, const common::Time &end_time) {
-  LOG(INFO)<<first_time;
-  LOG(INFO)<<end_time;
   if (!HasImuData(first_time)) return {};
   auto data = std::upper_bound(
       imu_data_.begin(), imu_data_.end(), first_time,

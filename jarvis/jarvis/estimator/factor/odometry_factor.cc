@@ -26,6 +26,7 @@ class OdomCostFuction
     Eigen::Vector3d p_b(parameters[1][0], parameters[1][1], parameters[1][2]);
 
     Eigen::Vector3d delta_t = translation_observe - (p_b - p_a);
+    LOG(INFO)<<translation_observe ;
     //
     Eigen::Matrix<double, residuals_block_size, residuals_block_size>
         sqrt_info = weight_ * Eigen::Matrix<double, residuals_block_size,
@@ -71,9 +72,10 @@ OdomFactor::OdomFactor(const OdomFactorOption& option,
 void OdomFactor::ComputeObserve(common::Time start_time,
                                 const common::Time& time) {
   //
-  start_time_ = start_time;
-  end_time_ = time;
+  CHECK(data_base_!=nullptr);
+
   if (!data_base_->HasOdometryData(start_time)) return;
+
   const sensor::OdometryData start_data =
       data_base_->InterpolateOdometry(start_time);
   //
@@ -83,33 +85,35 @@ void OdomFactor::ComputeObserve(common::Time start_time,
   } else {
     end_data = data_base_->InterpolateOdometry(time);
   }
-  translation_observe_ =
-      end_data.pose.translation() - start_data.pose.translation();
   //
-  LOG(INFO) << translation_observe_.value().transpose();
+  odom_observe_ = start_data.pose.inverse() * end_data.pose;
+  start_pose_ = start_data.pose;
 }
 //
-void OdomFactor::Merge(const OdomFactor &odom_factor)
-{
-  CHECK(odom_factor.translation_observe_.has_value());
-  end_time_ = odom_factor.end_time_;
-  translation_observe_.reset();
-  ComputeObserve(start_time_,end_time_);
+void OdomFactor::Merge(const OdomFactor& odom_factor) {
+  if (!odom_factor.odom_observe_.has_value()) {
+    odom_observe_.reset();
+  }
+  if (!odom_observe_.has_value()) return;
+  //
+  odom_observe_ = odom_observe_.value() * odom_factor.odom_observe_.value();
+  //
 }
 //
 ceres::CostFunction* OdomFactor::CostFunction() const {
-  if (!translation_observe_.has_value()) {
+  if (!odom_observe_.has_value()) {
     LOG(WARNING) << "odom factor invalid...";
     return nullptr;
   }
-  return new OdomCostFuction(option_.optimize_weight,
-                             translation_observe_.value());
+  Eigen::Vector3d translation_observe =
+      start_pose_.rotation() * odom_observe_.value().translation();
+  return new OdomCostFuction(option_.optimize_weight, translation_observe);
 }
 void OdomFactor::AddToProblem(ceres::Problem* problem,
                               ceres::LossFunction* loss_function,
                               std::array<double*, 2> pq) const {
   ceres::CostFunction* cons_function = CostFunction();
-  if(cons_function==nullptr)return;
+  if (cons_function == nullptr) return;
   problem->AddResidualBlock(cons_function, loss_function, pq[0], pq[1]);
 }
 

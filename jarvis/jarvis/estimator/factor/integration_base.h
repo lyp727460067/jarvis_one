@@ -75,11 +75,17 @@ class IntegrationBase {
       propagate(dt_buf[i], acc_buf[i], gyr_buf[i]);
   }
   bool IsValid() {
-    if (sum_dt > 5.0) return false;
+    if (sum_dt > 10.0){
+        LOG(WARNING)<<"Imu interval too large!! "<<sum_dt;
+        return false;
+    } 
     // LOG(INFO)<<acc_buf.size();
     // LOG(INFO) << common::RadToDeg(transform::GetYaw(delta_q));
     // if (acc_buf.size() <= 15 || acc_buf.size() >= 30) return false;
-    if (acc_buf.size() <= 3 ) return false;
+    if (acc_buf.size() <= 3 ){
+        LOG(WARNING)<<"acc_buf <3..";
+        return false;
+    } 
     return true;
   }
   void midPointIntegration(

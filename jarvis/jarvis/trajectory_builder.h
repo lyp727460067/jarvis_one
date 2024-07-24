@@ -9,6 +9,7 @@
 #include "sensor/imu_data.h"
 //
 #include "jarvis/key_frame_data.h"
+#include "sensor/odometry_data.h"
 namespace jarvis {
 namespace estimator{
   class Estimator;
@@ -21,6 +22,7 @@ class TrajectorBuilder {
   virtual void AddImageData(const sensor::ImageData &images);
   //
   virtual void AddImuData(const sensor::ImuData &imu_data);
+  virtual void AddOdometryData(const sensor::OdometryData& odometry_data);
   // MapBuilderInterface *GetMapBuilder() { return map_builder_.get(); }
 
    std::vector<Eigen::Vector3d> GetMapPoints();

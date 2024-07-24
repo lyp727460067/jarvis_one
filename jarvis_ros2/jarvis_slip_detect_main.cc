@@ -110,7 +110,7 @@ struct OdomData {
   static std::string Name() { return kOdomTopic; }
   std::unique_ptr<sensor::Data> ToPatchData() {
     return std::make_unique<sensor::DispathcData<sensor::OdometryData>>(
-        sensor::OdometryData{common::FromUniversal(time / 100),
+        sensor::OdometryData{common::FromUniversal(time / 100)- common::FromSeconds(0.1),
                              transform::Rigid3d(translation, rotation)});
   }
 
@@ -482,6 +482,11 @@ int main(int argc, char* argv[]) {
                          [&](const sensor::OdometryData& odom_data) {
                            // LOG(INFO)<<odom_data.pose<<odom_data.time;;
                            ros_compont->PushMark({{"odom", odom_data.pose}});
+                           builder_->AddOdometryData(
+                               jarvis::sensor::OdometryData{
+                                   odom_data.time + common::FromSeconds(0.1),
+                                   odom_data.pose});
+
                            slip_detect->AddOdometry(odom_data);
                          });
   //
@@ -493,7 +498,7 @@ int main(int argc, char* argv[]) {
       LOG(WARNING) << "Input Image empty..";
       return;
     }
-    if(imag_data.time<common::FromUniversal(530343438350))return;
+    // if(imag_data.time<common::FromUniversal(530343438350))return;
     auto start = std::chrono::high_resolution_clock::now();
     builder_->AddImageData(imag_data);
     LOG(INFO) << "One frame cost: "

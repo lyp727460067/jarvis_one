@@ -71,9 +71,11 @@ struct EstimatorOption {
   ImuOption imu_option;
   FailureDetectOptoin fail_detect_option;
   UpdataZeroVelocityOption updata_zerovelocity_option;
+  OdomFactorOption odom_factor_option;
   bool enable_zero_velocity =0;;
   int  use_imu = 1;
   int  use_odom = 1;
+  double  data_base_lenth = 1;
   int use_cam_num = 1;
   int estimate_td = 1;
   int estimate_extrinsic =1;
@@ -240,10 +242,11 @@ class Estimator {
   int estimate_extrinsic_ = 2;
   Alignment alignment_;
   std::vector<bool> failuer_track_lost_;
-  std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
+  std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_=nullptr;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
   int convin_used_num = 4;
-  std::unique_ptr<DataBase> data_base_;
+  std::unique_ptr<DataBase> data_base_=nullptr;
+  jarvis::transform::Rigid3d transform_imu_to_robot_;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

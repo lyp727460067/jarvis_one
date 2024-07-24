@@ -16,7 +16,7 @@ namespace jarvis {
 namespace estimator {
 
 struct OdomFactorOption {
-  double optimize_weight = 20;
+  double optimize_weight = 1e4;
 };
 //
 class OdomFactor {
@@ -30,10 +30,9 @@ class OdomFactor {
   ceres::CostFunction* CostFunction() const;
  private:
   const OdomFactorOption option_;
-  const DataBase *data_base_;
-  common::Time start_time_;
-  common::Time end_time_;
-  std::optional<Eigen::Vector3d> translation_observe_;
+  const DataBase *data_base_=nullptr;
+  std::optional<transform::Rigid3d> odom_observe_;
+  transform::Rigid3d  start_pose_;
 };
 
 }  // namespace estimator

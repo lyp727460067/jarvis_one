@@ -115,7 +115,6 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
     const cv::Mat& img, const cv::Mat& mask) {
   const int grid_size = grid_height_ * grid_width_;
   std::vector<cv::KeyPoint> point_collection;
-  LOG(INFO)<< grid_size;
   point_collection.reserve(grid_size);
   //
   std::vector<std::vector<std::function<void()>>> tasks(options_.num_thread_);
@@ -183,13 +182,12 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
         }
       });
     }
-    LOG(INFO) << "!";
     for (int i = 0; i < options_.num_thread_; i++) {
       TicToc t_t;
       threads[i].join();
       VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
     }
-    LOG(INFO) << point_collection.size();
+    // LOG(INFO) << point_collection.size();
     return point_collection;
   }
   for (auto& f : tasks[0]) {

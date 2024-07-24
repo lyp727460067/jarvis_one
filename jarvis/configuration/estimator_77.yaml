@@ -89,6 +89,10 @@ acc_w: 0.001        # accelerometer bias random work noise standard deviation.
 gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
 g_norm: 9.81007     # gravity magnitude
 
+use_odom : 0
+odom_optimization_weight: 1e4
+data_base_lenth : 1
+
 ##
 UpdataZeroVelocityOption:
   enable: 1
@@ -108,7 +112,7 @@ UpdataZeroVelocityOption:
 
 
 track_feat_lost_min_num: 10
-track_feat_lost_win_size :  20
+track_feat_lost_win_size :  60
 bas_norm_max : 1.0
 bgs_norm_max : 0.5
 translation_norm_max : 1

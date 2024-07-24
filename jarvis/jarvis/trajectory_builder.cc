@@ -84,12 +84,14 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
 
 }
 //
-void TrajectorBuilder::AddImuData(const   sensor::ImuData &imu_data) {
+void TrajectorBuilder::AddImuData(const sensor::ImuData &imu_data) {
   tracker_->AddImuData(imu_data);
 }
-
-TrajectorBuilder::~TrajectorBuilder() {
+void TrajectorBuilder::AddOdometryData(
+    const sensor::OdometryData &odometry_data) {
+  tracker_->AddOdometryData(odometry_data);
 }
+TrajectorBuilder::~TrajectorBuilder() {}
 
 std::vector<Eigen::Vector3d> TrajectorBuilder::GetMapPoints() {
   //  const auto all_map_points = map_builder_->GetAllMapPoints();
