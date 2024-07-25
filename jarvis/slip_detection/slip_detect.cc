@@ -42,11 +42,10 @@ jarvis::transform::Rigid3d SlipDetect::ToPoseInOdom(
   const auto pose = transform_cam_to_odom_map_1 * pose1 *
                     transform_cam_to_odom_map_1.inverse();
   return jarvis::transform::Rigid3d(
-      Eigen::Vector3d(pose.translation().x() ,
-                      pose.translation().y() ,
-                      0),
+      Eigen::Vector3d(pose.translation().x(), pose.translation().y(), 0),
       pose.rotation());
 }
+//
 void SlipDetect::ClearData() {
   std::lock_guard<std::mutex> lock(mutex_);
   key_point_datas_.clear();
@@ -113,7 +112,7 @@ double SlipDetect::ComputePosesTheta(std::deque<T>* datas,
 }
 
 template <typename T>
-int SlipDetect::ComputePosesCount(std::deque<T>*datas,
+int SlipDetect::ComputePosesCount(std::deque<T>* datas,
                                   const jarvis::common::Time& time) {
   int count = 0;
   for (size_t i = 1; i < datas->size(); i++) {
@@ -126,7 +125,6 @@ int SlipDetect::ComputePosesCount(std::deque<T>*datas,
 //
 
 bool SlipDetect::SimpleDetect(const jarvis::common::Time& time) {
-
   std::lock_guard<std::mutex> lock(mutex_);
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &odometry_datas_);
@@ -138,8 +136,8 @@ bool SlipDetect::SimpleDetect(const jarvis::common::Time& time) {
   const auto delta_s = delta_odom_s - delta_pose_s;
   // LOG(INFO) << ComputePosesTheta(&odometry_datas_,time);
   // LOG(INFO) << ComputePosesTheta(&pose_datas_,time);
-  const auto delta_theta = std::abs(ComputePosesTheta(&odometry_datas_,time) -
-                                    ComputePosesTheta(&pose_datas_,time));
+  const auto delta_theta = std::abs(ComputePosesTheta(&odometry_datas_, time) -
+                                    ComputePosesTheta(&pose_datas_, time));
 
   if (delta_s > options_.pose_odom_err_s_threash_hold ||
       delta_theta > options_.pose_odom_err_theta_threash_hold) {
@@ -160,7 +158,7 @@ bool SlipDetect::ZeroVelocityDetect(const jarvis::common::Time& time) {
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &key_point_datas_);
   if (!IsZeroVelocity()) return false;
-  if (ComputePosesS(&odometry_datas_,time) >
+  if (ComputePosesS(&odometry_datas_, time) >
       options_.zero_velocity_odom_delte_s_threash_hold) {
     return true;
   }
@@ -238,4 +236,4 @@ std::unique_ptr<SlipDetect> FactorSlipDetect(const std::string& file) {
 }
 
 }  // namespace slip_detect
-}
+}  // namespace jarvis

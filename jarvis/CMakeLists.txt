@@ -3,8 +3,8 @@ project(jarvis VERSION 1.0.0)
 
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 
-#set(BUILD_TYPE Release)
-set(BUILD_TYPE Debug)
+set(BUILD_TYPE Release)
+# set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
