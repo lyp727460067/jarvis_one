@@ -26,7 +26,6 @@ class OdomCostFuction
     Eigen::Vector3d p_b(parameters[1][0], parameters[1][1], parameters[1][2]);
 
     Eigen::Vector3d delta_t = translation_observe - (p_b - p_a);
-    LOG(INFO)<<translation_observe ;
     //
     Eigen::Matrix<double, residuals_block_size, residuals_block_size>
         sqrt_info = weight_ * Eigen::Matrix<double, residuals_block_size,

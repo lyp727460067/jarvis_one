@@ -313,6 +313,7 @@ bool Estimator::GetImuInterval(
     double t0, double t1,
     std::vector<std::pair<double, Eigen::Vector3d>> &accVector,
     std::vector<std::pair<double, Eigen::Vector3d>> &gyrVector) {
+  return false;
   // auto acc_buf_temp = accBuf;
   // auto gyr_buf_temp = gyrBuf;
 
@@ -340,7 +341,6 @@ bool Estimator::GetImuInterval(
   // //   LOG(WARNING)<<"wait for imu";
   // //   return false;
   // // }
-  return true;
 }
 //
 bool Estimator::getIMUInterval(

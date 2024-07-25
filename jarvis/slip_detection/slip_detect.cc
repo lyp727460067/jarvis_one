@@ -28,6 +28,9 @@ SlipDetect::SlipDetect(const SlipDetectOption& option)
 void SlipDetect::AddOdometry(const jarvis::sensor::OdometryData& odom) {
   std::lock_guard<std::mutex> lock(mutex_);
   odometry_datas_.push_back(odom);
+  if (odometry_datas_.size() > KMaxDataLenth) {
+    odometry_datas_.pop_front();
+  }
 }
 //
 jarvis::transform::Rigid3d SlipDetect::ToPoseInOdom(
@@ -41,7 +44,6 @@ jarvis::transform::Rigid3d SlipDetect::ToPoseInOdom(
   return jarvis::transform::Rigid3d(
       Eigen::Vector3d(pose.translation().x() ,
                       pose.translation().y() ,
-                         
                       0),
       pose.rotation());
 }
@@ -54,6 +56,9 @@ void SlipDetect::ClearData() {
 void SlipDetect::AddPose(const TimePose& pose) {
   std::lock_guard<std::mutex> lock(mutex_);
   pose_datas_.push_back({pose.time, ToPoseInOdom(pose.pose)});
+  if (pose_datas_.size() > KMaxDataLenth) {
+    pose_datas_.pop_front();
+  }
 }
 //
 void SlipDetect::AddImage(const jarvis::sensor::ImageData& image_data) {

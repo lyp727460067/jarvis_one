@@ -82,7 +82,7 @@ class SlipDetect {
   std::unique_ptr<SimpleVo> simple_vo_;
   jarvis::common::Time latest_time_;
   jarvis::transform::Rigid3d transform_cam_to_odom_map_;
-  
+  static constexpr int KMaxDataLenth =1000; 
 };
 std::unique_ptr<SlipDetect> FactorSlipDetect(
     const std::string& file);

@@ -247,6 +247,7 @@ class Estimator {
   int convin_used_num = 4;
   std::unique_ptr<DataBase> data_base_=nullptr;
   jarvis::transform::Rigid3d transform_imu_to_robot_;
+  
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 
