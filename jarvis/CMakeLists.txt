@@ -82,7 +82,6 @@ set_target_properties(
         ${glog_binary_dir}
 )
 
-
 # ceres optimization replace gtsam later
 # find_package(Ceres REQUIRED)
 # find_package(Glog REQUIRED) #version 0.6.0
@@ -107,7 +106,7 @@ INCLUDE_DIRECTORIES(
   ${yaml_lib_dir}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
-  ${GLOG_INCLUDE_DIRS}
+  
 )
 ##copy config
 add_custom_target(COPY_COFIG ALL
@@ -132,13 +131,13 @@ list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
-add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
-target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
+add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
+# target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_include_directories( ${PROJECT_NAME}  PUBLIC    ${GLOG_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
   glog
-  # -lgfortran
   ${OpenCV_LIBS}
   ${CERES_LIBRARIES}
   # ${Boost_LIBRARIES}

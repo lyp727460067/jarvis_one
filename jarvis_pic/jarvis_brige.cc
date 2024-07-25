@@ -31,7 +31,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 
   order_queue_->AddQueue(kImuTopic,
                          [&](const jarvis::sensor::ImuData& imu_data) {
-                          LOG(INFO) << imu_data.time;
+                          // LOG(INFO) << imu_data.time;
                            builder_->AddImuData(jarvis::sensor::ImuData{
                                imu_data.time + common::FromSeconds(kImuOdomPrvCamOffTime),
                                imu_data.linear_acceleration,
@@ -41,7 +41,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   //
   order_queue_->AddQueue(
       kOdomTopic, [&](const jarvis::sensor::OdometryData& odom_data) {
-        LOG(INFO) << odom_data.time;
+        // LOG(INFO) << odom_data.time;
         builder_->AddOdometryData(jarvis::sensor::OdometryData{
             odom_data.time + common::FromSeconds(kImuOdomPrvCamOffTime),
             odom_data.pose
@@ -49,7 +49,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
   order_queue_->AddQueue(
       kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
-        LOG(INFO) << imag_data.time;
+        // LOG(INFO) << imag_data.time;
         if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
           LOG(WARNING) << "Input Image empty..";
           return;

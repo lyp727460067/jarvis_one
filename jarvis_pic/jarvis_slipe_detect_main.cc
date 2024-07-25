@@ -32,7 +32,7 @@ constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
-
+int kGLOG_v = 0;
 int kVioState = 0;
 bool kSlipeState = 0;
 uint8_t kRecordFlag = 0;
@@ -46,6 +46,7 @@ void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["record"] >> kRecordFlag;
   fsSettings["slip_detect"] >> kEnableSlipDetect;
+  fsSettings["GLOG_v"] >> kGLOG_v;
 }
 }  // namespace
 //
@@ -297,9 +298,10 @@ int main(int argc, char* argv[]) {
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
   //
-
+ 
   ParseOption(config_file);
   CreateDataDir();
+  FLAGS_v = kGLOG_v;
   std::mutex jarvis_mutex;
   std::condition_variable con_variable;
   uint8_t slip_flag = 0;

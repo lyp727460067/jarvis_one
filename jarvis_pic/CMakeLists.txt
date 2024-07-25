@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.0.2)
+# include(${TOP_CMAKE_DIR}/vslam/jarvis)
 project(jarvis_pic)
 
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 
+set_target_properties(jarvis PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
 set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
@@ -44,10 +46,12 @@ get_directory_property(out_var1 INCLUDE_DIRECTORIES)
 # message(********${out_var1})
 
 INCLUDE_DIRECTORIES(
+  ${TOP_CMAKE_DIR}/vslam/jarvis/
   ${CERES_INCLUDE_DIRS}
   # ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
+
   ${GLOG_INCLUDE_DIRS}
   ${TOP_CMAKE_DIR}/libs/libmpc/include/
   ${TOP_CMAKE_DIR}/libs/mpsdk/
@@ -57,7 +61,7 @@ option(view_debug " view_debug" ON)
 if(${view_debug})
 add_definitions(-D__ZMQ_ENABLAE__)
 endif()
-add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc)
+# add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc)
 add_executable(mpslam  jarvis_slipe_detect_main.cc  
  data_capture.cc zmq_component.cc dev_socket.cc socket_wrapper.cc jarvis_brige.cc)
 # add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
@@ -65,28 +69,28 @@ add_executable(mpslam  jarvis_slipe_detect_main.cc
 
 # )
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
-  glog
-  jarvis
-  ${OpenCV_LIBS}
-  -ldl
-)
-
-
-target_include_directories( ${PROJECT_NAME}_pic_main  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(mpslam PUBLIC
-  glog
-  jarvis
-  ${OpenCV_LIBS}
-  -ldl
-   mpc
-)
-
-target_include_directories(mpslam  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-# target_link_libraries(${PROJECT_NAME}_main PUBLIC
-#   glog
+# target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
+#   # glog
 #   jarvis
 #   ${OpenCV_LIBS}
 #   -ldl
-#   mpc
 # )
+
+
+# target_include_directories( ${PROJECT_NAME}_pic_main  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+# target_link_libraries(mpslam PUBLIC
+#   # glog
+#   jarvis
+#   ${OpenCV_LIBS}
+#   -ldl
+#    mpc
+# )
+
+target_include_directories(mpslam  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(mpslam PUBLIC
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+  mpc
+)
+target_include_directories(mpslam PUBLIC jarvis )

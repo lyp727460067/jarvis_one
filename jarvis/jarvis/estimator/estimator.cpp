@@ -350,7 +350,7 @@ bool Estimator::getIMUInterval(
   const common::Time start_time = common::Time(common::FromSeconds(t0));
   const common::Time end_time = common::Time(common::FromSeconds(t1));
   //
-  if (!data_base_->HasImuData(end_time) || data_base_->HasImuData(start_time))
+  if (!data_base_->HasImuData(end_time))
     return false;
   auto result = data_base_->GetImuIntervalData(start_time, end_time);
   if (result.empty()) return false;
