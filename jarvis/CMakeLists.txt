@@ -109,10 +109,18 @@ INCLUDE_DIRECTORIES(
   ${CERES_INCLUDE_DIRS}
   ${GLOG_INCLUDE_DIRS}
 )
-
+##copy config
+add_custom_target(COPY_COFIG ALL
+  VERBATIM 
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/configuration/
+  COMMAND ${CMAKE_COMMAND} -E copy_directory 
+  ${PROJECT_SOURCE_DIR}/configuration/ ${PROJECT_BINARY_DIR}/configuration/
+  COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${PROJECT_BINARY_DIR}/configuration/"
+) 
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/rtm")
 ##
+
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
 file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc")
@@ -125,7 +133,7 @@ file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
 add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
-target_link_libraries( ${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
