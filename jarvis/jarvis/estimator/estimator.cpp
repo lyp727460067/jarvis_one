@@ -350,6 +350,8 @@ bool Estimator::getIMUInterval(
   const common::Time start_time = common::Time(common::FromSeconds(t0));
   const common::Time end_time = common::Time(common::FromSeconds(t1));
   //
+  if (!data_base_->HasImuData(end_time) || data_base_->HasImuData(start_time))
+    return false;
   auto result = data_base_->GetImuIntervalData(start_time, end_time);
   if (result.empty()) return false;
   for (const auto &r : result) {
@@ -395,9 +397,23 @@ int Estimator::processMeasurements() {
     // }
 
     if (options_.use_imu) {
-      getIMUInterval(prevTime, curTime, accVector, gyrVector);
+      if (!getIMUInterval(prevTime, curTime, accVector, gyrVector)) {
+        LOG(ERROR) << "Imu data lost!!!";
+        if (initFirstPoseFlag) {
+          return TrackState::LOST;
+        }
+      }
       LOG(INFO) << accVector.size();
     }
+
+    if (initFirstPoseFlag) {
+      double delta_time = curTime - prevTime;
+      if (abs(delta_time) > 0.3) {
+        LOG(ERROR) << "Image data lost!!";
+        return TrackState::LOST;
+      }
+    }
+
     featureBuf.pop();
     if (options_.use_imu && !accVector.empty()) {
       if (!initFirstPoseFlag) initFirstIMUPose(accVector);
