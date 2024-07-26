@@ -113,9 +113,11 @@ class JarvisBuilder {
         last_odom_data_ = encode;
       }
       //
-      auto delta_encode = encode.translation - last_odom_data_.value().translation;
+      const Eigen::Vector3d delta_encode =
+          encode.translation - last_odom_data_.value().translation;
       last_odom_data_ = encode;
       //
+      // LOG(INFO)<<encode.translation.transpose()<< " "<<  delta_encode.transpose();
       if (abs(delta_encode.x()) < 0.001 && abs(delta_encode.y() < 0.001)) {
         if (slip_detect_) {
           slip_detect_->ClearData();
@@ -351,7 +353,9 @@ int main(int argc, char* argv[]) {
     //         jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
     //
 #ifdef __ZMQ_ENABLAE__
-    zmq.PubLocalData(tracking_data, flag);
+    if (tracking_data.status == 2) {
+      zmq.PubLocalData(tracking_data, flag);
+    }
 #endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));
   }

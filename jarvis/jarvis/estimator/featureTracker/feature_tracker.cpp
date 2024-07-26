@@ -317,7 +317,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   if (!_img1.empty() && stereo_cam) {
 
     TicToc t_t;
-    r_pyramid_image_->Build(_img1);
+    // r_pyramid_image_->Build(_img1);
     ids_right.clear();
     cur_right_pts.clear();
     cur_un_right_pts.clear();
@@ -329,15 +329,12 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       std::vector<uchar> status, statusRightLeft;
       std::vector<float> err;
       // cur left ---- cur right
-      cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(),
-                               r_pyramid_image_->CurrPyram(), cur_pts,
-                               cur_right_pts, status, err, win_size, 2);
+      cv::calcOpticalFlowPyrLK(cur_img, _img1, cur_pts, cur_right_pts, status,
+                               err, cv::Size(21, 21), 5);
       // reverse check cur right ---- cur left
-      if (0) {
-        cv::calcOpticalFlowPyrLK(r_pyramid_image_->CurrPyram(),
-                                 pyramid_image_->CurrPyram(), cur_right_pts,
-                                 reverseLeftPts, statusRightLeft, err, win_size,3
-                                 );
+      if (1) {
+        cv::calcOpticalFlowPyrLK(_img1, cur_img, cur_right_pts, reverseLeftPts,
+                                 statusRightLeft, err, cv::Size(21, 21), 5);
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
               distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)

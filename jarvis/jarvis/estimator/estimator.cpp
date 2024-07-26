@@ -298,7 +298,8 @@ void Estimator::inputImage(double t, const cv::Mat &_img,
 }
 void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {
   data_base_->AddOdometry(sensor::OdometryData{
-      odometry_data.time, odometry_data.pose * transform_imu_to_robot_});
+       odometry_data.time,
+    transform_imu_to_robot_.inverse() *  odometry_data.pose * transform_imu_to_robot_});
 }
 
 void Estimator::inputFeature(double t,
@@ -398,8 +399,8 @@ int Estimator::processMeasurements() {
 
     if (options_.use_imu) {
       if (!getIMUInterval(prevTime, curTime, accVector, gyrVector)) {
-        LOG(ERROR) << "Imu data lost!!!";
         if (initFirstPoseFlag) {
+          LOG(ERROR) << "Imu data lost!!!";
           return TrackState::LOST;
         }
       }
@@ -409,7 +410,7 @@ int Estimator::processMeasurements() {
     if (initFirstPoseFlag) {
       double delta_time = curTime - prevTime;
       if (abs(delta_time) > 0.3) {
-        LOG(ERROR) << "Image data lost!!";
+        LOG(ERROR) << "Image data lost!!  "<<delta_time;
         return TrackState::LOST;
       }
     }
@@ -418,6 +419,7 @@ int Estimator::processMeasurements() {
     if (options_.use_imu && !accVector.empty()) {
       if (!initFirstPoseFlag) initFirstIMUPose(accVector);
       for (size_t i = 0; i < accVector.size(); i++) {
+
         double dt;
         if (i == 0)
           dt = accVector[i].first - prevTime;
@@ -425,7 +427,8 @@ int Estimator::processMeasurements() {
           dt = curTime - accVector[i - 1].first;
         else
           dt = accVector[i].first - accVector[i - 1].first;
-
+        // LOG(INFO)<< accVector[i].second.transpose();
+        // LOG(INFO)<<std::to_string(dt);
         processIMU(accVector[i].first, dt, accVector[i].second,
                    gyrVector[i].second);
       }
@@ -595,38 +598,42 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
       f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
       // optimization();
       if (frame_count == WINDOW_SIZE) {
-        std::map<double, ImageFrame>::iterator frame_it;
-        int i = 0;
-        for (frame_it = all_image_frame.begin();
-             frame_it != all_image_frame.end(); ++frame_it) {
-          frame_it->second.R = Rs[i];
-          frame_it->second.T = Ps[i];
-          i++;
+        if (InitialImuIsValida(1)) {
+          std::map<double, ImageFrame>::iterator frame_it;
+          int i = 0;
+          for (frame_it = all_image_frame.begin();
+               frame_it != all_image_frame.end(); ++frame_it) {
+            frame_it->second.R = Rs[i];
+            frame_it->second.T = Ps[i];
+            i++;
+          }
+          // for (int i = 0; i <= WINDOW_SIZE; i++) {
+          //   LOG(INFO) << "befor " << i << " bas :" << Bas[i].transpose()
+          //             << " bgs :" <<  Bgs[i].transpose() <<" ps "<<
+          //             Ps[i].transpose()
+          //             << " rs "<< Eigen::Quaterniond(Rs[i]);
+          // }
+
+          alignment_.solveGyroscopeBias(all_image_frame, Bgs);
+          for (int i = 0; i <= WINDOW_SIZE; i++) {
+            pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
+          }
+
+          optimization();
+          updateLatestStates();
+          solver_flag = NON_LINEAR;
+          slideWindow();
+          // for (int i = 0; i <= WINDOW_SIZE; i++) {
+          //   LOG(INFO) << "init  " << i << " bas :" << Bas[i].transpose()
+          //             << " bgs :" <<  Bgs[i].transpose() <<" ps "<<
+          //             Ps[i].transpose()
+          //             << " rs "<< Eigen::Quaterniond(Rs[i]);
+          // }
+
+          LOG(INFO) << "Initialization finish!";
+        } else {
+          slideWindow();
         }
-        // for (int i = 0; i <= WINDOW_SIZE; i++) {
-        //   LOG(INFO) << "befor " << i << " bas :" << Bas[i].transpose()
-        //             << " bgs :" <<  Bgs[i].transpose() <<" ps "<<
-        //             Ps[i].transpose()
-        //             << " rs "<< Eigen::Quaterniond(Rs[i]);
-        // }
-
-        alignment_.solveGyroscopeBias(all_image_frame, Bgs);
-        for (int i = 0; i <= WINDOW_SIZE; i++) {
-          pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
-        }
-
-        optimization();
-        updateLatestStates();
-        solver_flag = NON_LINEAR;
-        slideWindow();
-        // for (int i = 0; i <= WINDOW_SIZE; i++) {
-        //   LOG(INFO) << "init  " << i << " bas :" << Bas[i].transpose()
-        //             << " bgs :" <<  Bgs[i].transpose() <<" ps "<<
-        //             Ps[i].transpose()
-        //             << " rs "<< Eigen::Quaterniond(Rs[i]);
-        // }
-
-        LOG(INFO) << "Initialization finish!";
       }
     }
 
@@ -709,37 +716,54 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
 
   return TrackState::TRACKING;
 }
-
-bool Estimator::initialStructure() {
-  TicToc t_sfm;
-  // check imu observibility
-  {
-    std::map<double, ImageFrame>::iterator frame_it;
-    Eigen::Vector3d sum_g = Eigen::Vector3d::Zero();
-    for (frame_it = all_image_frame.begin(), ++frame_it;
-         frame_it != all_image_frame.end(); ++frame_it) {
-      double dt = frame_it->second.pre_integration->sum_dt;
-      Eigen::Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
-      sum_g += tmp_g;
-    }
-    Eigen::Vector3d aver_g;
-    aver_g = sum_g * 1.0 / ((int)all_image_frame.size() - 1);
-    double var = 0;
-    for (frame_it = all_image_frame.begin(), ++frame_it;
-         frame_it != all_image_frame.end(); ++frame_it) {
-      double dt = frame_it->second.pre_integration->sum_dt;
-      Eigen::Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
-      var += (tmp_g - aver_g).transpose() * (tmp_g - aver_g);
-      // cout << "frame g " << tmp_g.transpose() << endl;
-    }
-    var = sqrt(var / ((int)all_image_frame.size() - 1));
-    VLOG(kGlogLevel) << "IMU variation " << var;
-    LOG(INFO) << "IMU variation " << var;
-    if (var < 0.25) {
-      LOG(INFO) << "IMU excitation not enouth!";
+bool Estimator::InitialImuIsValida(int type) {
+  std::map<double, ImageFrame>::iterator frame_it;
+  Eigen::Vector3d sum_g = Eigen::Vector3d::Zero();
+  for (frame_it = all_image_frame.begin(), ++frame_it;
+       frame_it != all_image_frame.end(); ++frame_it) {
+    double dt = frame_it->second.pre_integration->sum_dt;
+    Eigen::Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
+    sum_g += tmp_g;
+  }
+  Eigen::Vector3d aver_g;
+  aver_g = sum_g * 1.0 / ((int)all_image_frame.size() - 1);
+  double var = 0;
+  Eigen::Quaterniond rataion=  Eigen::Quaterniond::Identity() ;
+  double delta_yaw = 0;
+  for (frame_it = all_image_frame.begin(), ++frame_it;
+       frame_it != all_image_frame.end(); ++frame_it) {
+    double dt = frame_it->second.pre_integration->sum_dt;
+    Eigen::Vector3d tmp_g = frame_it->second.pre_integration->delta_v / dt;
+    //
+    delta_yaw =
+        std::fmax(delta_yaw, abs(common::RadToDeg(transform::GetYaw(
+                                 frame_it->second.pre_integration->delta_q))));
+    //
+    var += (tmp_g - aver_g).transpose() * (tmp_g - aver_g);
+    // cout << "frame g " << tmp_g.transpose() << endl;
+  }
+  var = sqrt(var / ((int)all_image_frame.size() - 1));
+  VLOG(kGlogLevel) << "IMU variation " << var;
+  LOG(INFO) << "IMU variation " << var;
+  // delta_yaw = delta_yaw / ((int)all_image_frame.size() - 1);
+  if (type != 0) {
+    LOG(ERROR) << "IMU ration" <<delta_yaw ;
+    if (delta_yaw > 3) {
+      LOG(ERROR) << "IMU ratation not <2! " << delta_yaw;
       return false;
     }
+    return true;
   }
+  if (var < 0.25) {
+    LOG(INFO) << "IMU excitation not enouth!";
+    return false;
+  }
+  return true;
+}
+bool Estimator::initialStructure() {
+  if (!InitialImuIsValida()) return false;
+  TicToc t_sfm;
+  // check imu observibility
   LOG(INFO) << frame_count;
   // global sfm
   Eigen::Quaterniond Q[frame_count + 1];

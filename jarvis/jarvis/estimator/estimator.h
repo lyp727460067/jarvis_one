@@ -109,6 +109,7 @@ class Estimator {
 
   // internal
   void clearState();
+  bool InitialImuIsValida(int type=0);
   bool initialStructure();
   bool visualInitialAlign();
   bool relativePose(Eigen::Matrix3d &relative_R, Eigen::Vector3d &relative_T,

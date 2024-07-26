@@ -14,6 +14,7 @@ void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["image_sample"] >> image_sample;
   fsSettings["imu_cam_time_offset"] >> imu_cam_time_offset;
+  LOG(INFO)<< image_sample;
   LOG(INFO)<<imu_cam_time_offset ;
 }
 
@@ -49,7 +50,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
   order_queue_->AddQueue(
       kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
-        // LOG(INFO) << imag_data.time;
+
         if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
           LOG(WARNING) << "Input Image empty..";
           return;
@@ -63,6 +64,9 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
 
   data_capture_->Rigister(class_name_, [&](const Frame& frame) {
+        // static uint64_t last_time = frame.time;
+        // LOG(INFO) <<frame.time<<" " << frame.time-   last_time ;
+        // last_time = frame.time;
     if (!image_sample_->Pulse()) return;
     //  cv::Mat temp1;
     // //  cv::equalizeHist( frame.image, temp1);
@@ -83,6 +87,10 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   LOG(INFO) << "Capture start..";
 
   data_capture_->Rigister(class_name_, [&](const ImuData& imu) {
+            // static uint64_t last_time = imu.time;
+        // LOG(INFO) << imu.time<<" " <<imu.time-   last_time ;
+        // last_time =imu.time;
+    // LOG(INFO)<<imu.linear_acceleration.transpose();
     order_queue_->AddData(
         kImuTopic,
         std::make_unique<jarvis::sensor::DispathcData<jarvis::sensor::ImuData>>(
