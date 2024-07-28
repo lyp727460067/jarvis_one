@@ -298,8 +298,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img,
 }
 void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {
   data_base_->AddOdometry(sensor::OdometryData{
-       odometry_data.time,
-    transform_imu_to_robot_.inverse() *  odometry_data.pose * transform_imu_to_robot_});
+      odometry_data.time, odometry_data.pose * transform_imu_to_robot_});
 }
 
 void Estimator::inputFeature(double t,
@@ -351,10 +350,16 @@ bool Estimator::getIMUInterval(
   const common::Time start_time = common::Time(common::FromSeconds(t0));
   const common::Time end_time = common::Time(common::FromSeconds(t1));
   //
-  if (!data_base_->HasImuData(end_time))
+  if (!data_base_->HasImuData(end_time)) {
+    LOG(WARNING) << "imu base not have " << end_time << " data";
     return false;
-  auto result = data_base_->GetImuIntervalData(start_time, end_time);
-  if (result.empty()) return false;
+  }
+  std::vector<sensor::ImuData> result =
+      data_base_->GetImuIntervalData(start_time, end_time);
+  if (result.empty()) {
+    LOG(WARNING) << "GetImuIntervalData empty "<<start_time<<" "<< end_time;
+    return false;
+  }
   for (const auto &r : result) {
     accVector.push_back({common::ToSeconds(r.time - common::FromUniversal(0)),
                          r.linear_acceleration});
@@ -399,8 +404,9 @@ int Estimator::processMeasurements() {
 
     if (options_.use_imu) {
       if (!getIMUInterval(prevTime, curTime, accVector, gyrVector)) {
+        LOG(ERROR) << "Imu data invalid!!!";
         if (initFirstPoseFlag) {
-          LOG(ERROR) << "Imu data lost!!!";
+          LOG(ERROR) << "return Lost  q!!!";
           return TrackState::LOST;
         }
       }

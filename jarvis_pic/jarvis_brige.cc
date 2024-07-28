@@ -3,7 +3,7 @@
 #include "data_capture.h"
 namespace jarvis_pic {
 using namespace jarvis;
-constexpr double kImuOdomPrvCamOffTime =0.1;
+constexpr double kImuOdomPrvCamOffTime =0.04;
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
@@ -64,9 +64,14 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
 
   data_capture_->Rigister(class_name_, [&](const Frame& frame) {
-        // static uint64_t last_time = frame.time;
-        // LOG(INFO) <<frame.time<<" " << frame.time-   last_time ;
-        // last_time = frame.time;
+    if (frame.time == 0) return;
+    static uint64_t last_time = frame.time;
+    int64_t delta_t = frame.time-   last_time;
+    CHECK(delta_t >= 0) << delta_t;
+    if (delta_t >= 50636) {
+      LOG(WARNING) << frame.time << " " << delta_t;
+    }
+    last_time = frame.time;
     if (!image_sample_->Pulse()) return;
     //  cv::Mat temp1;
     // //  cv::equalizeHist( frame.image, temp1);
@@ -87,9 +92,13 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   LOG(INFO) << "Capture start..";
 
   data_capture_->Rigister(class_name_, [&](const ImuData& imu) {
-            // static uint64_t last_time = imu.time;
-        // LOG(INFO) << imu.time<<" " <<imu.time-   last_time ;
-        // last_time =imu.time;
+    static uint64_t last_time = imu.time;
+    int64_t  delta_t = imu.time-   last_time;
+    CHECK(delta_t >= 0) << delta_t;
+    if (delta_t > 10001) {
+      LOG(WARNING) << imu.time << " " << delta_t;
+    }
+    last_time = imu.time;
     // LOG(INFO)<<imu.linear_acceleration.transpose();
     order_queue_->AddData(
         kImuTopic,
@@ -103,6 +112,13 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   });
 
   data_capture_->Rigister(class_name_, [&](const OdomData& odom) {
+    static uint64_t last_time = odom.time;
+    int64_t delta_t = odom.time - last_time;
+    CHECK(delta_t >= 0) << delta_t;
+    if (delta_t > 16001) {
+      LOG(WARNING) << odom.time << " " << delta_t;
+    }
+    last_time =odom.time;
     order_queue_->AddData(
         kOdomTopic,
         std::make_unique<

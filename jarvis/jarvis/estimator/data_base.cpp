@@ -79,9 +79,14 @@ bool DataBase::HasOdometryData(const common::Time &time) const {
   return HasDataForTime(&odometry_data_, time);
 }
 //
+//
 std::vector<sensor::ImuData> DataBase::GetImuIntervalData(
     const common::Time &first_time, const common::Time &end_time) {
-  if (!HasImuData(first_time)) return {};
+  //
+  if (!HasImuData(first_time)) {
+    LOG(WARNING) << "start _time not in deque" << first_time<<imu_data_.front().time;
+    return {};
+  }
   auto data = std::upper_bound(
       imu_data_.begin(), imu_data_.end(), first_time,
       [](const common::Time &time, const sensor::ImuData &imu_data) {
@@ -93,6 +98,7 @@ std::vector<sensor::ImuData> DataBase::GetImuIntervalData(
     result.push_back(*data);
   }
   if (!HasImuData(end_time)) {
+    LOG(WARNING) << "HasImuData false";
     // result.push_back(InterpolateImuUseLastData(end_time));
   } else {
     result.push_back(InterpolateImu(end_time));
@@ -119,10 +125,11 @@ void DataBase::TrimData(const common::Time &time) {
 }
 
 void DataBase::AddOdometry(const sensor::OdometryData &odom) {
+  LOG(INFO)<<odom.pose;
   odometry_data_.push_back(odom);
 }
 void DataBase::AddImu(const sensor::ImuData &imu) {
-  // LOG(INFO) << imu.time;
+  LOG(INFO) << imu.time;
   imu_data_.push_back(imu);
 }
 

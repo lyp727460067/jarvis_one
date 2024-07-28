@@ -11,22 +11,32 @@
 namespace jarvis {
 namespace estimator {
 namespace {
+  inline Eigen::Matrix<double, 3, 3> Skew(const Eigen::Matrix<double, 3, 1>& w) {
+  Eigen::Matrix<double, 3, 3> w_x;
+  w_x << 0, -w(2), w(1), w(2), 0, -w(0), -w(1), w(0), 0;
+  return w_x;
+}
 #define residuals_block_size 3
 class OdomCostFuction
     : public ceres::SizedCostFunction<residuals_block_size, 7, 7> {
  public:
   OdomCostFuction(const double& weight,
                   const Eigen::Vector3d& translation_observe)
-      : weight_(weight), translation_observe(translation_observe) {}
+      : weight_(weight), translation_observe_(translation_observe) {}
   bool Evaluate(double const* const* parameters, double* residuals,
                 double** jacobians) const {
     //
-
+  
     Eigen::Vector3d p_a(parameters[0][0], parameters[0][1], parameters[0][2]);
+    Eigen::Quaterniond q_a(parameters[0][6], parameters[0][3], parameters[0][4],
+                           parameters[0][5]);
     Eigen::Vector3d p_b(parameters[1][0], parameters[1][1], parameters[1][2]);
 
-    Eigen::Vector3d delta_t = translation_observe - (p_b - p_a);
+    Eigen::Vector3d delta_t = -(q_a* translation_observe_) + (p_b - p_a);
     //
+    // delta_t.z() = 0;
+    // LOG(INFO) <<( p_b - p_a).transpose();
+
     Eigen::Matrix<double, residuals_block_size, residuals_block_size>
         sqrt_info = weight_ * Eigen::Matrix<double, residuals_block_size,
                                             residuals_block_size>::Identity();
@@ -35,14 +45,16 @@ class OdomCostFuction
         residuals);
     residual << delta_t;
     residual = sqrt_info * residual;
-    // LOG(INFO)<< residual ;
+    // LOG(INFO)<< residual.transpose() ;
     if (jacobians) {
       if (jacobians[0]) {
         Eigen::Map<
             Eigen::Matrix<double, residuals_block_size, 7, Eigen::RowMajor>>
             jacobians_(jacobians[0]);
+
         jacobians_.setZero();
-        jacobians_.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(0, 3) = -q_a.toRotationMatrix()*Skew(-translation_observe_);
+        jacobians_.block<3, 3>(0, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_ = sqrt_info * jacobians_;
       }
       if (jacobians[1]) {
@@ -50,7 +62,7 @@ class OdomCostFuction
             Eigen::Matrix<double, residuals_block_size, 7, Eigen::RowMajor>>
             jacobians_(jacobians[1]);
         jacobians_.setZero();
-        jacobians_.block<3, 3>(0, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_ = sqrt_info * jacobians_;
       }
     }
@@ -60,7 +72,7 @@ class OdomCostFuction
 
  private:
   const double weight_;
-  const Eigen::Vector3d translation_observe;
+  const Eigen::Vector3d translation_observe_;
 };
 }  // namespace
 OdomFactor::OdomFactor(const OdomFactorOption& option,
@@ -85,6 +97,7 @@ void OdomFactor::ComputeObserve(common::Time start_time,
     end_data = data_base_->InterpolateOdometry(time);
   }
   //
+  LOG(INFO)<<common::ToSeconds(time-start_time);
   odom_observe_ = start_data.pose.inverse() * end_data.pose;
   start_pose_ = start_data.pose;
 }
@@ -105,7 +118,9 @@ ceres::CostFunction* OdomFactor::CostFunction() const {
     return nullptr;
   }
   Eigen::Vector3d translation_observe =
-      start_pose_.rotation() * odom_observe_.value().translation();
+       odom_observe_.value().translation();
+  translation_observe.z() = 0;
+  LOG(INFO)<<translation_observe.transpose();
   return new OdomCostFuction(option_.optimize_weight, translation_observe);
 }
 void OdomFactor::AddToProblem(ceres::Problem* problem,
