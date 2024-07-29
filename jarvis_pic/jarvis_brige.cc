@@ -95,8 +95,9 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     static uint64_t last_time = imu.time;
     int64_t  delta_t = imu.time-   last_time;
     CHECK(delta_t >= 0) << delta_t;
-    if (delta_t > 10001) {
+    if (delta_t > 12001) {
       LOG(WARNING) << imu.time << " " << delta_t;
+      CHECK(false);
     }
     last_time = imu.time;
     // LOG(INFO)<<imu.linear_acceleration.transpose();

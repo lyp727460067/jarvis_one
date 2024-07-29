@@ -6,10 +6,14 @@ namespace estimator {
 inline sensor::OdometryData Interpolate(const sensor::OdometryData &start,
                                         const sensor::OdometryData &end,
                                         const common::Time &time) {
+
   const transform::TimestampedTransform slert = transform::Interpolate(
-      transform::TimestampedTransform{start.time, end.pose},
+      transform::TimestampedTransform{start.time, start.pose},
       transform::TimestampedTransform{end.time, end.pose}, time);
-  return sensor::OdometryData{slert.time, slert.transform};
+  LOG(INFO)<<start.pose<<" "<<start.time;
+  LOG(INFO)<<end.pose<<" "<<end.time;
+  LOG(INFO)<<slert.transform<<" "<<time;
+  return sensor::OdometryData{time, slert.transform};
 }
 
 //
@@ -125,11 +129,9 @@ void DataBase::TrimData(const common::Time &time) {
 }
 
 void DataBase::AddOdometry(const sensor::OdometryData &odom) {
-  LOG(INFO)<<odom.pose;
   odometry_data_.push_back(odom);
 }
 void DataBase::AddImu(const sensor::ImuData &imu) {
-  LOG(INFO) << imu.time;
   imu_data_.push_back(imu);
 }
 

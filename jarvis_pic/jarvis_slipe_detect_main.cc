@@ -209,7 +209,10 @@ class JarvisBuilder {
           bool slip_flag = false;
           if (slip_detect_) {
             if (data.status != 2) {
+
               slip_detect_->ClearData();
+              std::lock_guard<std::mutex> lock(mutex_);              
+              imu_extrapolator_->Rest();
             } else {
               slip_detect_->AddPose(slip_detect::TimePose{
                   data.data->time, data.data->imu_state.pose});

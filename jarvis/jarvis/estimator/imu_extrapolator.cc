@@ -137,6 +137,10 @@ void ImuExtrapolator::AddState(const common::Time& time,
   LOG_EVERY_N(WARNING, 60) <<"imu date behind .. "<<imu_datas_.size();
 }
 
+void ImuExtrapolator::Rest() {
+  imu_datas_.clear();
+  imu_state_.clear();
+}
 ImuExtrapolator::~ImuExtrapolator() {}
 //
 }  // namespace estimator

@@ -176,7 +176,7 @@ void ParseYAMLOption(const std::string &file,
     // esitmator yaml
     auto fsSettings = CheckFile(estimator_file);
     ParseYAMLOptionFetureOption(&fsSettings, &option->feature_track_option,
-                                calib_option, estimator_file);
+                               calib_option , estimator_file);
 
     ParseYAMLOptionImuOption(&fsSettings, &option->imu_option, calib_option);
     //
@@ -193,7 +193,9 @@ void ParseYAMLOption(const std::string &file,
     option->use_odom = fsSettings["use_odom"];
     option->odom_factor_option.optimize_weight =
         fsSettings["odom_optimization_weight"];
-    option->data_base_lenth = fsSettings["data_base_lenth"];
+    option->odom_factor_option.transform_imu_to_robot =
+        calib_option.extric_camera_to_robot *
+        calib_option.extric_camera_to_imu[0].inverse();
     // option->use_stereo_sample_ration =
     // fsSettings["use_stereo_sample_ration"];
 

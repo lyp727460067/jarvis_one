@@ -176,7 +176,16 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
                                     Eigen::Quaterniond(Rs[frame_count])),
                  Vs[frame_count], Bas[frame_count], Bgs[frame_count], g};
     tracking_data->data->imu_state = ImuState{imu_state_data};
-    tracking_data->status = TrackState(state);
+    if (TrackState(state) == TrackState::LOST) {
+      tracking_data->status = TrackState(state);
+    } else {
+      if (stable_init_cout < 10) {
+        tracking_data->status = TrackState::INIT;
+        stable_init_cout++;
+      } else {
+        tracking_data->status = TrackState(state);
+      }
+    }
   }
   data_base_->TrimData(images.time);
   return tracking_data;
@@ -298,7 +307,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img,
 }
 void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {
   data_base_->AddOdometry(sensor::OdometryData{
-      odometry_data.time, odometry_data.pose * transform_imu_to_robot_});
+      odometry_data.time, odometry_data.pose });
 }
 
 void Estimator::inputFeature(double t,
@@ -754,7 +763,7 @@ bool Estimator::InitialImuIsValida(int type) {
   // delta_yaw = delta_yaw / ((int)all_image_frame.size() - 1);
   if (type != 0) {
     LOG(ERROR) << "IMU ration" <<delta_yaw ;
-    if (delta_yaw > 3) {
+    if (delta_yaw > 2) {
       LOG(ERROR) << "IMU ratation not <2! " << delta_yaw;
       return false;
     }

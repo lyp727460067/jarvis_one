@@ -16,6 +16,7 @@ namespace jarvis {
 namespace estimator {
 
 struct OdomFactorOption {
+  transform::Rigid3d  transform_imu_to_robot;
   double optimize_weight = 1e4;
 };
 //

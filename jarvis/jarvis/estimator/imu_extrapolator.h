@@ -25,6 +25,7 @@ struct ImuExtrapolatorOption {
 class ImuExtrapolator {
  public:
   ImuExtrapolator();
+  void Rest();
   ~ImuExtrapolator();
   void AddState(const common::Time& t, const ImuState& state);
   void AddImu(const sensor::ImuData& imu_data);

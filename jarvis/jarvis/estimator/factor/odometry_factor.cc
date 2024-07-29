@@ -32,7 +32,7 @@ class OdomCostFuction
                            parameters[0][5]);
     Eigen::Vector3d p_b(parameters[1][0], parameters[1][1], parameters[1][2]);
 
-    Eigen::Vector3d delta_t = -(q_a* translation_observe_) + (p_b - p_a);
+    Eigen::Vector3d delta_t = p_b - p_a-q_a* translation_observe_;
     //
     // delta_t.z() = 0;
     // LOG(INFO) <<( p_b - p_a).transpose();
@@ -53,8 +53,8 @@ class OdomCostFuction
             jacobians_(jacobians[0]);
 
         jacobians_.setZero();
-        jacobians_.block<3, 3>(0, 3) = -q_a.toRotationMatrix()*Skew(-translation_observe_);
         jacobians_.block<3, 3>(0, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(0, 3) = q_a.toRotationMatrix()*Skew(translation_observe_);
         jacobians_ = sqrt_info * jacobians_;
       }
       if (jacobians[1]) {
@@ -97,8 +97,10 @@ void OdomFactor::ComputeObserve(common::Time start_time,
     end_data = data_base_->InterpolateOdometry(time);
   }
   //
+  
   LOG(INFO)<<common::ToSeconds(time-start_time);
   odom_observe_ = start_data.pose.inverse() * end_data.pose;
+  LOG(INFO)<<odom_observe_.value(); 
   start_pose_ = start_data.pose;
 }
 //
@@ -118,9 +120,13 @@ ceres::CostFunction* OdomFactor::CostFunction() const {
     return nullptr;
   }
   Eigen::Vector3d translation_observe =
-       odom_observe_.value().translation();
-  translation_observe.z() = 0;
-  LOG(INFO)<<translation_observe.transpose();
+      (option_.transform_imu_to_robot.inverse() * odom_observe_.value() *
+       option_.transform_imu_to_robot)
+          .translation();
+  translation_observe.x() *= 1.1;
+  LOG(INFO) << translation_observe.transpose() << " "
+            << translation_observe.transpose().norm();
+  ;
   return new OdomCostFuction(option_.optimize_weight, translation_observe);
 }
 void OdomFactor::AddToProblem(ceres::Problem* problem,

@@ -75,6 +75,7 @@ class IntegrationBase {
       propagate(dt_buf[i], acc_buf[i], gyr_buf[i]);
   }
   bool IsValid() {
+    LOG(INFO) << delta_p.transpose() << " " << delta_p.transpose().norm();
     if (sum_dt > 10.0){
         LOG(WARNING)<<"Imu interval too large!! "<<sum_dt;
         return false;

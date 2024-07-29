@@ -31,17 +31,17 @@ void EncodeToOdom(const EncoderData& encode) {
   kLastEncoderData = cur_encode;
   double delta_theta = (delta_encode.y() - delta_encode.x()) / kWheelDistance;
   double delta_translation = (delta_encode.y() + delta_encode.x()) / 2.0;
+  LOG(INFO) << delta_translation;
   jarvis::transform::Rigid3d delta_pose(
       Eigen::Vector3d(delta_translation, 0, 0),
-      Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
+      Eigen::AngleAxisd(delta_theta, Eigen::Vector3d::UnitZ()));
   global_odom_ = global_odom_ * delta_pose;
-
 }
 
 #define GET_BIT(var, bit) (((var) >> (bit)) & 0x01)
 std::array<uint8_t, FRAME_MAX_LEN> read_buf;
 constexpr double kGryUnit = 0.001;
-constexpr double kAccUnit = (1.0 / 2048 * 9.81);  // 加速度单位
+constexpr double kAccUnit = (1./ 2048 * 9.81);  // 加速度单位
 //
 cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
                         uint32_t height) {
