@@ -26,8 +26,9 @@
 #include <iostream>
 #include <vector>
 #include "opencv2/opencv.hpp"
+#ifdef  __ARM_NEON__
 #include "arm_neon.h"
-
+#endif
 #include "Util.h"
 #include "utility/tic_toc.h"
 namespace pislam {

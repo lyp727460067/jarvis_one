@@ -63,7 +63,9 @@ add_definitions(-D__ZMQ_ENABLAE__)
 endif()
 # add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc)
 add_executable(mpslam  jarvis_slipe_detect_main.cc  
- data_capture.cc zmq_component.cc dev_socket.cc socket_wrapper.cc jarvis_brige.cc)
+ data_capture.cc zmq_component.cc dev_socket.cc 
+ data_record.cc
+ socket_wrapper.cc jarvis_brige.cc)
 # add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
 # socket_wrapper.cc 
 

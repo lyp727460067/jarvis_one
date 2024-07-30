@@ -69,7 +69,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     int64_t delta_t = frame.time-   last_time;
     CHECK(delta_t >= 0) << delta_t;
     if (delta_t >= 50636) {
-      LOG(WARNING) << frame.time << " " << delta_t;
+      LOG(WARNING) << "image .. "<<frame.time << " " << delta_t;
     }
     last_time = frame.time;
     if (!image_sample_->Pulse()) return;
@@ -97,7 +97,6 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     CHECK(delta_t >= 0) << delta_t;
     if (delta_t > 12001) {
       LOG(WARNING) << imu.time << " " << delta_t;
-      CHECK(false);
     }
     last_time = imu.time;
     // LOG(INFO)<<imu.linear_acceleration.transpose();
@@ -117,6 +116,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     int64_t delta_t = odom.time - last_time;
     CHECK(delta_t >= 0) << delta_t;
     if (delta_t > 16001) {
+    //   CHECK(false);
       LOG(WARNING) << odom.time << " " << delta_t;
     }
     last_time =odom.time;

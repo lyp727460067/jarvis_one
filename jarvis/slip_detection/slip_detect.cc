@@ -42,7 +42,8 @@ jarvis::transform::Rigid3d SlipDetect::ToPoseInOdom(
   const auto pose = transform_cam_to_odom_map_1 * pose1 *
                     transform_cam_to_odom_map_1.inverse();
   return jarvis::transform::Rigid3d(
-      Eigen::Vector3d(pose.translation().x(), pose.translation().y(), 0),
+      Eigen::Vector3d(pose.translation().x(), pose.translation().y(),
+                      pose.translation().z()),
       pose.rotation());
 }
 //

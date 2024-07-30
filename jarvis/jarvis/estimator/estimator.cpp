@@ -51,9 +51,10 @@ Estimator::Estimator(const EstimatorOption &options)
     update_zero_velocity_ = std::make_unique<UpdataZeroVelocity>(
         options_.updata_zerovelocity_option);
   }
-  transform_imu_to_robot_ =
-      options_.calibrate_option.extric_camera_to_robot *
-      options_.calibrate_option.extric_camera_to_imu[0].inverse();
+  transform_imu_to_robot_ =transform::Rigid3d::Identity();
+      // options_.calibrate_option.extric_camera_to_imu[0] *
+      // options_.calibrate_option.extric_camera_to_robot.inverse();
+
   // imu_extrapolator_ = std::make_unique<ImuExtrapolator>();
   LOG(INFO) << "init begins";
   initThreadFlag = false;
@@ -171,6 +172,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     //
     tracking_data->data->imu_state = ImuState{imu_state_data};
   } else {
+    // auto odom_temp =   data_base_->InterpolateOdometry(images.time);
     auto imu_state_data =
         ImuState{transform::Rigid3d(Ps[frame_count],
                                     Eigen::Quaterniond(Rs[frame_count])),
@@ -415,17 +417,19 @@ int Estimator::processMeasurements() {
       if (!getIMUInterval(prevTime, curTime, accVector, gyrVector)) {
         LOG(ERROR) << "Imu data invalid!!!";
         if (initFirstPoseFlag) {
+          prevTime = curTime;
           LOG(ERROR) << "return Lost  q!!!";
+          LOG(INFO) << accVector.size();
           return TrackState::LOST;
         }
       }
-      LOG(INFO) << accVector.size();
     }
 
     if (initFirstPoseFlag) {
       double delta_time = curTime - prevTime;
       if (abs(delta_time) > 0.3) {
         LOG(ERROR) << "Image data lost!!  "<<delta_time;
+        prevTime = curTime;
         return TrackState::LOST;
       }
     }
@@ -443,10 +447,11 @@ int Estimator::processMeasurements() {
         else
           dt = accVector[i].first - accVector[i - 1].first;
         // LOG(INFO)<< accVector[i].second.transpose();
-        // LOG(INFO)<<std::to_string(dt);
         processIMU(accVector[i].first, dt, accVector[i].second,
                    gyrVector[i].second);
+        
       }
+      // LOG(INFO)<<Ps[frame_count]-Ps[frame_count-1]<<" "<<Ps[frame_count];
     }
     prevTime = curTime;
     if (!initFirstPoseFlag) return TrackState::INIT;
@@ -1007,9 +1012,18 @@ void Estimator::vector2double() {
       para_SpeedBias[i][8] = Bgs[i].z();
     }
   }
+
   // LOG(INFO) << Vs[WINDOW_SIZE].transpose();
   // LOG(INFO) << Bgs[WINDOW_SIZE].transpose();
-
+  if (options_.use_odom) {
+    para_Ex_Pose_Odom[0][0] = transform_imu_to_robot_.translation().x();
+    para_Ex_Pose_Odom[0][1] = transform_imu_to_robot_.translation().y();
+    para_Ex_Pose_Odom[0][2] = transform_imu_to_robot_.translation().z();
+    para_Ex_Pose_Odom[0][3] = transform_imu_to_robot_.rotation().x();
+    para_Ex_Pose_Odom[0][4] = transform_imu_to_robot_.rotation().y();
+    para_Ex_Pose_Odom[0][5] = transform_imu_to_robot_.rotation().z();
+    para_Ex_Pose_Odom[0][6] = transform_imu_to_robot_.rotation().w();
+  }
   for (int i = 0; i < options_.use_cam_num; i++) {
     para_Ex_Pose[i][0] = tic[i].x();
     para_Ex_Pose[i][1] = tic[i].y();
@@ -1022,6 +1036,8 @@ void Estimator::vector2double() {
     // if (IsStereo()) break;
   }
 
+  
+    
   Eigen::VectorXd dep = f_manager->getDepthVector();
   for (int i = 0; i < f_manager->getFeatureCount(); i++)
     para_Feature[i][0] = dep(i);
@@ -1106,6 +1122,14 @@ void Estimator::double2vector() {
                    .normalized()
                    .toRotationMatrix();
     }
+  }
+
+  if (options_.use_odom) {
+    transform_imu_to_robot_ = transform::Rigid3d(
+        Eigen::Vector3d(para_Ex_Pose_Odom[0][0], para_Ex_Pose_Odom[0][1],
+                        para_Ex_Pose_Odom[0][2]),
+        Eigen::Quaterniond(para_Ex_Pose_Odom[0][6], para_Ex_Pose_Odom[0][3],
+                           para_Ex_Pose_Odom[0][4], para_Ex_Pose_Odom[0][5]));
   }
 
   Eigen::VectorXd dep = f_manager->getDepthVector();
@@ -1210,7 +1234,11 @@ void Estimator::optimization() {
   } else {
     is_velocity_updates_[frame_count] = false;
   }
-
+  problem.AddParameterBlock(para_Ex_Pose_Odom[0], SIZE_POSE,
+                            new PoseLocalParameterization());
+  // /
+  ordering->AddElementToGroup(para_Ex_Pose_Odom[0], 1);
+  // problem.SetParameterBlockConstant(para_Ex_Pose_Odom[0]);
   for (int i = 0; i < options_.use_cam_num; i++) {
     ceres::LocalParameterization *local_parameterization =
         new PoseLocalParameterization();
@@ -1264,7 +1292,7 @@ void Estimator::optimization() {
       if (options_.use_odom) {
         odometry_factor_[i]->AddToProblem(
             &problem, nullptr,
-            std::array<double *, 2>{para_Pose[i], para_Pose[j]});
+            std::array<double *, 3>{para_Pose[i], para_Pose[j],para_Ex_Pose_Odom[0]});
       }
 
       //
@@ -1455,7 +1483,7 @@ void Estimator::optimization() {
       if (cost_function) {
         ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
             cost_function, NULL,
-            std::vector<double *>{para_Pose[0], para_Pose[1]},
+            std::vector<double *>{para_Pose[0], para_Pose[1],para_Ex_Pose_Odom[0]},
             std::vector<int>{0});
         marginalization_info->addResidualBlockInfo(residual_block_info);
       }
@@ -1562,7 +1590,7 @@ void Estimator::optimization() {
     for (int i = 0; i < options_.use_cam_num; i++) {
       addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
     }
-
+    addr_shift[reinterpret_cast<long>(para_Ex_Pose_Odom[0])] = para_Ex_Pose_Odom[0];
     addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
 
     std::vector<double *> parameter_blocks =
@@ -1633,7 +1661,7 @@ void Estimator::optimization() {
       for (int i = 0; i < options_.use_cam_num; i++) {
         addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
       }
-
+      addr_shift[reinterpret_cast<long>(para_Ex_Pose_Odom[0])] = para_Ex_Pose_Odom[0];
       addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
 
       std::vector<double *> parameter_blocks =

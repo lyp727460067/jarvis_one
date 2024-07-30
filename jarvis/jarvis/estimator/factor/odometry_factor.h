@@ -18,6 +18,7 @@ namespace estimator {
 struct OdomFactorOption {
   transform::Rigid3d  transform_imu_to_robot;
   double optimize_weight = 1e4;
+  double angle_threas_hold =1.5;
 };
 //
 class OdomFactor {
@@ -26,7 +27,7 @@ class OdomFactor {
   //
   void ComputeObserve(const common::Time start_time, const common::Time &time);
   void AddToProblem(ceres::Problem *problem, ceres::LossFunction *loss_function,
-                    std::array<double *, 2> pq) const;
+                    std::array<double *, 3> pqe) const;
   void Merge(const OdomFactor &odom_factor);
   ceres::CostFunction* CostFunction() const;
  private:

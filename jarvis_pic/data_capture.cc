@@ -31,7 +31,6 @@ void EncodeToOdom(const EncoderData& encode) {
   kLastEncoderData = cur_encode;
   double delta_theta = (delta_encode.y() - delta_encode.x()) / kWheelDistance;
   double delta_translation = (delta_encode.y() + delta_encode.x()) / 2.0;
-  LOG(INFO) << delta_translation;
   jarvis::transform::Rigid3d delta_pose(
       Eigen::Vector3d(delta_translation, 0, 0),
       Eigen::AngleAxisd(delta_theta, Eigen::Vector3d::UnitZ()));

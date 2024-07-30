@@ -60,6 +60,7 @@ std::set<std::string> ReadFileFromDir(const std::string& path) {
     std::string pic_name = path + std::string(entry->d_name);
     fp_set.emplace(pic_name);
   }
+  
   closedir(dir);
   // //
   LOG(INFO) << "dir path has file size :" << fp_set.size();

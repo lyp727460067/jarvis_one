@@ -10,9 +10,6 @@ inline sensor::OdometryData Interpolate(const sensor::OdometryData &start,
   const transform::TimestampedTransform slert = transform::Interpolate(
       transform::TimestampedTransform{start.time, start.pose},
       transform::TimestampedTransform{end.time, end.pose}, time);
-  LOG(INFO)<<start.pose<<" "<<start.time;
-  LOG(INFO)<<end.pose<<" "<<end.time;
-  LOG(INFO)<<slert.transform<<" "<<time;
   return sensor::OdometryData{time, slert.transform};
 }
 
