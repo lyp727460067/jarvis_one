@@ -63,8 +63,10 @@ class DataCapture {
   virtual void Start();
   virtual void Stop();
   void RemoveCallBack(const std::string& id);
-
+  void ReadImu();
+  void ReadImag();
  protected:
+
   void Run();
   void SysPorocess();
   void SysPorocessOdom();
@@ -93,7 +95,7 @@ class DataCapture {
   uint64_t last_imu_time_stamp_ = 0;
   uint64_t last_odom_time_stamp_ = 0;
   bool stop_ = false;
-  std::vector<std::thread> threads_;
+  std::array<pthread_t,2> threads_;
 };
 std::unique_ptr<DataCapture> CreateDataCaputure(
     const DataCaptureOption& option);

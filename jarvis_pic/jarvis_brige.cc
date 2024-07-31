@@ -116,7 +116,6 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     int64_t delta_t = odom.time - last_time;
     CHECK(delta_t >= 0) << delta_t;
     if (delta_t > 16001) {
-    //   CHECK(false);
       LOG(WARNING) << odom.time << " " << delta_t;
     }
     last_time =odom.time;

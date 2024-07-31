@@ -611,10 +611,6 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
     if (options_.use_cam_num == 2 && options_.use_imu) {
       LOG(INFO) << "Init with Stereo...";
       f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
-
-      for (int i = 0; i < frame_count; i++) {
-        LOG(INFO) << Ps[i];
-      }
       f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
       // optimization();
       if (frame_count == WINDOW_SIZE) {

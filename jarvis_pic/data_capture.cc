@@ -55,80 +55,108 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
 DataCapture::DataCapture(const DataCaptureOption& option)
     : mem_ssq_(new ShmSensorQueue), shm_mod_(new ShmMod()) {}
 //
-void DataCapture::Start() {
-  threads_.emplace_back([this]() {
-    while (!stop_) {
-      
-      ModUIBoardStatusFb mower_status;
-      int s = shm_mod_->GetModByID(MOD_ID_UI_BOARD_STATUS_FB, &mower_status);
-      if (s == sizeof(ModUIBoardStatusFb)) {
-        // std::lock_guard<std::mutex> lock(mutex_);
-        system_info_call_backs_({mower_status.MowerStatus});
-      }
 
-      ModSyncImuFb imudata;
-      int32_t res = mem_ssq_->PopImuData(&imudata);
-      while (res > 0) {
-        if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
-          last_imu_time_stamp_ = imudata.time_stamp;
-          std::lock_guard<std::mutex> lock(mutex_);
-          ProcessImu(imudata);
-        }
-        res = mem_ssq_->PopImuData(&imudata);
-      }
-      ModSyncChassisPosFb odom_data;
-      int ret_len = mem_ssq_->PopEncodeData(&odom_data);
-      while (ret_len > 0) {
-        if (last_odom_time_stamp_ != odom_data.time_stamp) {
-          last_odom_time_stamp_ = odom_data.time_stamp;
-          std::lock_guard<std::mutex> lock(mutex_);
-          ProcessOdom(odom_data);
-        }
-        ret_len = mem_ssq_->PopEncodeData(&odom_data);
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+//
+void DataCapture::ReadImu() {
+  while (!stop_) {
+    ModUIBoardStatusFb mower_status;
+    int s = shm_mod_->GetModByID(MOD_ID_UI_BOARD_STATUS_FB, &mower_status);
+    if (s == sizeof(ModUIBoardStatusFb)) {
+      // std::lock_guard<std::mutex> lock(mutex_);
+      system_info_call_backs_({mower_status.MowerStatus});
     }
-  
-  });
-  threads_.emplace_back([this]() {
-    while (!stop_) {
-      
-      CameraFrame frame;
-      frame.buf = read_buf.data();
-      frame.max_len = FRAME_MAX_LEN;
 
-      int ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
-
-      while (ret_len >= 0) {
-        uint32_t frame_sys_count = frame.head.sys_count;
-        if (last_frame_sys_count_ != frame_sys_count) {
-          static uint64_t last_time = frame.head.time_stamp;
-          // LOG(INFO)<<frame.head.time_stamp-last_time;
-          last_time = frame.head.time_stamp;
-          last_frame_sys_count_ = frame_sys_count;
-          std::lock_guard<std::mutex> lock(mutex_);
-          ProcessImag(frame);
-        }
-        ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
+    ModSyncImuFb imudata;
+    int32_t res = mem_ssq_->PopImuData(&imudata);
+    while (res > 0) {
+      if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
+        last_imu_time_stamp_ = imudata.time_stamp;
+        std::lock_guard<std::mutex> lock(mutex_);
+        ProcessImu(imudata);
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(30));
+      res = mem_ssq_->PopImuData(&imudata);
     }
-  });
-  // thread_ = std::thread([this]() {
-  //   while (!stop_) {
-  //     Run();
-  //     std::this_thread::sleep_for(
-  //         std::chrono::milliseconds(4));
-  //   }
-  // });
+    ModSyncChassisPosFb odom_data;
+    int ret_len = mem_ssq_->PopEncodeData(&odom_data);
+    while (ret_len > 0) {
+      if (last_odom_time_stamp_ != odom_data.time_stamp) {
+        last_odom_time_stamp_ = odom_data.time_stamp;
+        std::lock_guard<std::mutex> lock(mutex_);
+        ProcessOdom(odom_data);
+      }
+      ret_len = mem_ssq_->PopEncodeData(&odom_data);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  };
 }
 
+//
+void DataCapture::ReadImag() {
+  CameraFrame frame;
+  frame.buf = read_buf.data();
+  frame.max_len = FRAME_MAX_LEN;
+  while (!stop_) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    // auto start = std::chrono::high_resolution_clock::now();
+    int ret_len = mem_ssq_->PopAllCameraData(IMAGE_RESIZE_HALF, frame);
+    //   LOG(INFO) << "read frame: "
+    //             << std::chrono::duration_cast<std::chrono::milliseconds>(
+    //                    std::chrono::high_resolution_clock::now() - start)
+    //                    .count();
+    if (ret_len < 0) {
+      // LOG(INFO)<<"no image...";
+      continue;
+    }
+    uint32_t frame_sys_count = frame.head.sys_count;
+    if (last_frame_sys_count_ != frame_sys_count) {
+      static uint64_t last_time = frame.head.time_stamp;
+      // LOG(INFO) << frame.head.time_stamp - last_time;
+      last_time = frame.head.time_stamp;
+      last_frame_sys_count_ = frame_sys_count;
+      // std::lock_guard<std::mutex> lock(mutex_);
+      ProcessImag(frame);
+    }
+    // }
+  }
+}
+//
+void* ReadImuPtread(void* p) {
+  DataCapture* data_capture = (DataCapture*)p;
+  data_capture->ReadImu();
+  return p;
+};
+void* ReadImgPtread(void* p) {
+  DataCapture* data_capture = (DataCapture*)p;
+  data_capture->ReadImag();
+  return p;
+};
+
+//
+void DataCapture::Start() {
+  //
+  pthread_attr_t attr;
+  struct sched_param sched_param;
+  pthread_attr_init(&attr);
+  // 设置线程为实时线程
+  // pthread_attr_setinheritsched(&attr, SCHED_OTHER);
+  pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+  // 设置线程优先级
+  sched_param.sched_priority = sched_get_priority_max(SCHED_FIFO);
+  pthread_attr_setschedparam(&attr, &sched_param);
+  // sched_param.sched_priority = 90;
+  int ret = pthread_create(&threads_[0],&attr, ReadImuPtread, this);
+  CHECK(ret==0) << "Read Imu thread creat faied..";
+  ret = pthread_create(&threads_[1], nullptr, ReadImgPtread, this);
+  CHECK(ret==0) << "Read imag thread creat faied..";
+}
+//
 void DataCapture::Stop() {
   stop_ = true;
   for (size_t i = 0; i < threads_.size(); i++) {
-    if (threads_[i].joinable()) {
-      threads_[i].join();
-    }
+    pthread_join(threads_[i], NULL);
+    // if (threads_[i].joinable()) {
+    // threads_[i].join();
+    // }
   }
   // thread_.join();
 }
@@ -281,7 +309,8 @@ uint64_t DataCapture::GetOrigImuTime(const uint64_t& time) {
 //
 void DataCapture::ProcessImag(const CameraFrame& frame) {
   const auto frame_data = ToFrameData(frame, option_);
-  if (frame_data.images[0].empty()) {
+  if (frame_data.images[0].empty()||frame_data.images[1].empty()) {
+    LOG(ERROR)<<"Parse image err..";
     return;
   }
 #ifdef NEED_SYNC

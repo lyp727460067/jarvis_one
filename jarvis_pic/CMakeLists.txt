@@ -54,6 +54,7 @@ INCLUDE_DIRECTORIES(
 
   ${GLOG_INCLUDE_DIRS}
   ${TOP_CMAKE_DIR}/libs/libmpc/include/
+  ${TOP_CMAKE_DIR}/libs/libimageproc/include/
   ${TOP_CMAKE_DIR}/libs/mpsdk/
 )
 

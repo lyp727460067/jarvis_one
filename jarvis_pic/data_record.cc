@@ -1,5 +1,5 @@
 #include "data_record.h"
-
+// #include "file_stream.h"
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -74,14 +74,21 @@ void DataRecord::AddFrame(const Frame& frame) {
     return;
   }
   std::lock_guard<std::mutex> lock(mutex_);
+
   tasks_.push([=]() {
+    //
+    cv::Mat merge_image;
+    cv::hconcat(frame.images[0], frame.images[1], merge_image);
+    // LDCV::Mat image(merge_image.rows, merge_image.cols, merge_image.ptr());
+    // LDCV::imwrite(
+    //     image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".bmp",
+    //     image);
     cv::imwrite(
-        image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + "_l_.png",
-        frame.images[0]);
-    cv::imwrite(
-        image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + "_r_.png",
-        frame.images[1]);
+        image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".png",
+        merge_image);
   });
+
+
 }
 void DataRecord::AddImu(const ImuData& imu) {
   if (!record_) return;
