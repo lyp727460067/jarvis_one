@@ -1,11 +1,11 @@
 #ifndef EQUIDISTANTCAMERA_H
 #define EQUIDISTANTCAMERA_H
 
-#include <opencv2/core/core.hpp>
 #include <string>
 
 #include "camera_models/camera_models/camera.h"
 #include "ceres/rotation.h"
+#include "opencv2/core/core.hpp"
 namespace jarvis {
 namespace camera_models {
 

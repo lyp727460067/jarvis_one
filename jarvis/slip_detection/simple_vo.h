@@ -6,7 +6,7 @@
 #include <memory>
 #include <optional>
 
-#include <Eigen/Core>
+#include "Eigen/Core"
 #include "ceres/ceres.h"
 #include "jarvis/common/time.h"
 #include "jarvis/trajectory_builder.h"

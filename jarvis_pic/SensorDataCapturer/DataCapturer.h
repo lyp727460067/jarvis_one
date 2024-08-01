@@ -7,9 +7,9 @@
 #include <mutex>
 #include <deque>
 
-#include <opencv2/core/core.hpp>
+#include "opencv2/core/core.hpp"
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include "opencv2/imgproc/imgproc.hpp"
 
 #include "data_protocol.h"
 #include "shm_sensor_queue.h"

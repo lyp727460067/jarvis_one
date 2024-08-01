@@ -8,7 +8,7 @@
 #include <queue>
 #include <string>
 #include <optional>
-#include <Eigen/Core>
+#include "Eigen/Core"
 #include "glog/logging.h"
 #include "opencv2/opencv.hpp"
 #include "jarvis/sensor/image_data.h"

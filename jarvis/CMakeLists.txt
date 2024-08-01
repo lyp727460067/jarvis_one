@@ -201,14 +201,14 @@ install(
 
 
 
-file(GLOB_RECURSE INSTALL_SOURCE_HDRS "jarvis/*.h" "slip_detection/*.h"
-)
+# file(GLOB_RECURSE INSTALL_SOURCE_HDRS "jarvis/*.h" "slip_detection/*.h"
+# )
 
-foreach(HDR ${INSTALL_SOURCE_HDRS})
-  file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${HDR})
-  get_filename_component(DIR ${REL_FIL} DIRECTORY)
-  install(
-    FILES ${HDR}
-    DESTINATION  include/${DIR}
-  )
-endforeach()
+# foreach(HDR ${INSTALL_SOURCE_HDRS})
+#   file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${HDR})
+#   get_filename_component(DIR ${REL_FIL} DIRECTORY)
+#   install(
+#     FILES ${HDR}
+#     DESTINATION  include/${DIR}
+#   )
+# endforeach()

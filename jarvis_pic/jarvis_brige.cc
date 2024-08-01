@@ -67,7 +67,11 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     if (frame.time == 0) return;
     static uint64_t last_time = frame.time;
     int64_t delta_t = frame.time-   last_time;
-    CHECK(delta_t >= 0) << delta_t;
+    if (delta_t <= 0) {
+      LOG(WARNING) << "image time reorde.." << delta_t;
+      return;
+    }
+    // CHECK(delta_t >= 0) << delta_t;
     if (delta_t >= 50636) {
       LOG(WARNING) << "image .. "<<frame.time << " " << delta_t;
     }
@@ -94,7 +98,12 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   data_capture_->Rigister(class_name_, [&](const ImuData& imu) {
     static uint64_t last_time = imu.time;
     int64_t  delta_t = imu.time-   last_time;
-    CHECK(delta_t >= 0) << delta_t;
+    if (delta_t <= 0) {
+      LOG(WARNING) << "imu time reorde.." << delta_t;
+      last_time = imu.time;
+      return;
+    }
+    // CHECK(delta_t >= 0) << delta_t;
     if (delta_t > 12001) {
       LOG(WARNING) << imu.time << " " << delta_t;
     }
@@ -114,7 +123,13 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   data_capture_->Rigister(class_name_, [&](const OdomData& odom) {
     static uint64_t last_time = odom.time;
     int64_t delta_t = odom.time - last_time;
-    CHECK(delta_t >= 0) << delta_t;
+    //
+    if (delta_t <= 0) {
+      LOG(WARNING) << "odom time reorde.." << delta_t;
+      last_time = odom.time;
+      return;
+    }
+    // CHECK(delta_t >= 0) << delta_t;
     if (delta_t > 16001) {
       LOG(WARNING) << odom.time << " " << delta_t;
     }

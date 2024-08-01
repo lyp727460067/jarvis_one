@@ -5,7 +5,7 @@
 //
 #include <execinfo.h>
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 #include <csignal>
 #include <cstdio>
 #include <iostream>

@@ -59,6 +59,7 @@
  * x86 SSE. (e.g. would solve a hole or NaN pixel in the rendering result)
  */
 /* _mm_min|max_ps|ss|pd|sd */
+#ifdef __ARM_NEON__
 #ifndef SSE2NEON_PRECISE_MINMAX
 #define SSE2NEON_PRECISE_MINMAX (0)
 #endif
@@ -9286,4 +9287,5 @@ FORCE_INLINE uint64_t _rdtsc(void)
 #pragma GCC pop_options
 #endif
 
+#endif
 #endif

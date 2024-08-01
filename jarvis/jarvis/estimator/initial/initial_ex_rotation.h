@@ -12,7 +12,7 @@
 #ifndef JARVSI_INITIAL_INITAL_EX_ROTATION_
 #define JARVSI_INITIAL_INITAL_EX_ROTATION_
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 #include <opencv2/opencv.hpp>
 #include <vector>
 

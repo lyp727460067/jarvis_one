@@ -1,7 +1,7 @@
 #ifndef PINHOLECAMERA_H
 #define PINHOLECAMERA_H
 
-#include <opencv2/core/core.hpp>
+#include "opencv2/core/core.hpp"
 #include <string>
 
 #include "camera_models/camera_models/camera.h"

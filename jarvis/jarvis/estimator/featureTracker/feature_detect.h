@@ -2,8 +2,9 @@
 #define _JARVIS_ESTIMATIOR_FEATURE_DETECT_
 #include <thread>
 #include <vector>
-#include <opencv2/opencv.hpp>
-#include <Eigen/Core>
+
+#include "Eigen/Core"
+#include "opencv2/opencv.hpp"
 namespace jarvis {
 namespace estimator {
 struct FeatureDetectOption {
@@ -42,7 +43,7 @@ class FeatureDetect {
   //
   std::vector<cv::KeyPoint> ExtractFastWithGrid(
       const cv::Mat& image, const cv::Mat& mask);
-
+  
   std::vector<std::pair<int, double>> ComputeEigens(
       const cv::Point2i& offset, const std::vector<cv::KeyPoint>&,
       const cv::Mat& derive, const cv::Mat& mask);

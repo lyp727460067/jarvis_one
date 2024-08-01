@@ -1,7 +1,7 @@
 #include "simple_vo.h"
 
 #include <map>
-#include <opencv2/core/eigen.hpp>
+#include "opencv2/core/eigen.hpp"
 
 #include "glog/logging.h"
 #include "jarvis/estimator/featureTracker/feature_tracker.h"

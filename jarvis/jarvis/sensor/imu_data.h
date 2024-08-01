@@ -1,6 +1,6 @@
 #ifndef JARVIS_SENSOR_IMU_DATA_H
 #define JARVIS_SENSOR_IMU_DATA_H
-#include <Eigen/Core>
+#include "Eigen/Core"
 #include "jarvis/common/time.h"
 namespace jarvis {
 namespace sensor {

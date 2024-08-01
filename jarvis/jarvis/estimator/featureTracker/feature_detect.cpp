@@ -1,11 +1,11 @@
 #include "feature_detect.h"
 
-#include <Eigen/Core>
-#include <Eigen/Eigenvalues>
+#include "Eigen/Core"
+#include "Eigen/Eigenvalues"
 #include "algorithm"
 #include "glog/logging.h"
 #include "utility/tic_toc.h"
-
+#include "jarvis/estimator/parameters.h"
 #include "feature_extract.h"
 #ifdef __ARM_NEON__
 #include "Fast.h"
@@ -246,10 +246,9 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
 #else 
  keypoints = keypoints = ExtractFastWithGrid(image, mask);
 #endif
-  VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
   auto eigens = ComputeEigens(cv::Point2i(0, 0), keypoints, derive,mask);
   //
-  VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
+  VLOG(kGlogCostTimeLevel) << "detect feature fast costs: " << t_t.toc() << " ms";
 
 
 
@@ -282,7 +281,6 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
     ++ncorners;
     if (max_corners > 0 && (int)ncorners == max_corners) break;
   }
-  VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
   return corners;
 }
 

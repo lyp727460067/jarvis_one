@@ -2,7 +2,7 @@
 #include <jarvis/estimator/featureTracker/feature_tracker.h>
 #include <slip_detection/slip_detect.h>
 
-#include <opencv2/core/eigen.hpp>
+#include "opencv2/core/eigen.hpp"
 #include <slip_detection/simple_vo.h>
 #include "jarvis/option_parse.h"
 #include "opencv2/opencv.hpp"

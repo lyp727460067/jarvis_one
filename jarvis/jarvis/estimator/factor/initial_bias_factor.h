@@ -3,7 +3,7 @@
 
 #include <ceres/ceres.h>
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"

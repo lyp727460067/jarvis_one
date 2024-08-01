@@ -14,20 +14,21 @@
 
 #include <execinfo.h>
 
-#include <Eigen/Dense>
 #include <csignal>
 #include <cstdio>
 #include <iostream>
-#include <opencv2/opencv.hpp>
 #include <queue>
 
+#include "Eigen/Core"
 #include "jarvis/camera_models/camera_models/CataCamera.h"
 #include "jarvis/camera_models/camera_models/PinholeCamera.h"
 #include "jarvis/camera_models/camera_models/camera_factory.h"
+#include "jarvis/estimator/featureTracker/feature_detect.h"
+#include "jarvis/estimator/featureTracker/pyramid_image.h"
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/tic_toc.h"
-#include "jarvis/estimator/featureTracker/pyramid_image.h"
-#include "jarvis/estimator/featureTracker/feature_detect.h"
+#include "opencv2/opencv.hpp"
+
 namespace jarvis {
 namespace estimator {
 

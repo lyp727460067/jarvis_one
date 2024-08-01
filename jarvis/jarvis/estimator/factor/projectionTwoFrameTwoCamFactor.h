@@ -14,7 +14,7 @@
 
 #include <ceres/ceres.h>
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/tic_toc.h"

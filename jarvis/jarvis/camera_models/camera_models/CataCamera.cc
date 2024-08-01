@@ -2,14 +2,14 @@
 
 #include <cmath>
 #include <cstdio>
-#include <Eigen/Dense>
 #include <iomanip>
 #include <iostream>
-#include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/core/eigen.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-
+#include "CataCamera.h"
+#include "Eigen/Dense"
 #include "camera_models/gpl/gpl.h"
+#include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/core/eigen.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 namespace jarvis {
 namespace camera_models {
 

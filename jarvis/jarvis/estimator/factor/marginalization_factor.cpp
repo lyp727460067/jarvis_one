@@ -9,8 +9,8 @@
  *******************************************************/
 
 #include "jarvis/estimator/factor/marginalization_factor.h"
-#include <Eigen/Eigenvalues> 
-
+#include "Eigen/Eigenvalues" 
+#include "jarvis/estimator/parameters.h"
 #include <fstream>
 namespace jarvis {
 namespace estimator {
@@ -127,7 +127,7 @@ void MarginalizationInfo::addResidualBlockInfo(
 }
 
 void MarginalizationInfo::preMarginalize() {
-  VLOG(kGlogLevel) << "marginalize fator size: " << factors.size();
+  VLOG(kGlogCostTimeLevel) << "marginalize fator size: " << factors.size();
 
   for (auto it : factors) {
     it->Evaluate();
@@ -308,7 +308,7 @@ void MarginalizationInfo::marginalize() {
     A.noalias() += threadsstruct[i].A;
     b.noalias() += threadsstruct[i].b;
   }
-  VLOG(10) << "thread summing up costs" <<t_thread_summing.toc();
+  VLOG(kGlogCostTimeLevel) << "thread summing up costs" <<t_thread_summing.toc();
   // ROS_INFO("A diff %f , b diff %f ", (A - tmp_A).sum(), (b - tmp_b).sum());
 
   // TODO

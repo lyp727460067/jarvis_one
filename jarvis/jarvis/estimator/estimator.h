@@ -10,12 +10,12 @@
 
 #ifndef JARVIS_ESTIMATOR_ESTIMATOR_H
 #define JARVIS_ESTIMATOR_ESTIMATOR_H
-#include <ceres/ceres.h>
+#include "ceres/ceres.h"
 
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
+#include "Eigen/Core"
+#include "Eigen/Dense"
+#include "Eigen/Geometry"
 #include <mutex>
-#include <opencv2/core/eigen.hpp>
 #include <queue>
 #include <thread>
 #include <unordered_map>
@@ -121,7 +121,7 @@ class Estimator {
   void vector2double();
   void double2vector();
   bool failureDetection();
-
+  
   bool getIMUInterval(
       double t0, double t1,
       std::vector<std::pair<double, Eigen::Vector3d>> &accVector,
@@ -160,7 +160,7 @@ class Estimator {
   double prevTime = 0, curTime = 0;
   double prev_time_ = 0;
   bool openExEstimation = false;
-
+  
   // std::thread trackThread;
   // std::thread processThread;
 
@@ -172,7 +172,15 @@ class Estimator {
 
   Eigen::Matrix3d ric[2];
   Eigen::Vector3d tic[2];
-
+  struct PoseState {
+    transform::Rigid3d pose;
+    Eigen::Vector3d linear_velocity{0, 0, 0};
+    Eigen::Vector3d linear_acceleration_bias{0, 0, 0};
+    Eigen::Vector3d angular_velocity_bias{0, 0, 0};
+  };
+  
+   
+  // PoseState pose_state_[WINDOW_SIZE + 1];
   Eigen::Vector3d Ps[(WINDOW_SIZE + 1)];
   Eigen::Vector3d Vs[(WINDOW_SIZE + 1)];
   Eigen::Matrix3d Rs[(WINDOW_SIZE + 1)];
@@ -199,7 +207,7 @@ class Estimator {
   int frame_count = 0;
   int sum_of_outlier = 0, sum_of_back = 0, sum_of_front = 0, sum_of_invalid = 0;
   int inputImageCnt = 0;
-
+  
   std::unique_ptr<FeatureManager> f_manager = nullptr;
   MotionEstimator m_estimator;
   InitialEXRotation initial_ex_rotation;
@@ -229,7 +237,7 @@ class Estimator {
 
   std::map<double, ImageFrame> all_image_frame;
   IntegrationBase *tmp_pre_integration = nullptr;
-
+  
   Eigen::Vector3d initP;
   Eigen::Matrix3d initR;
 

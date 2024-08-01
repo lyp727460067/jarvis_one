@@ -3,7 +3,7 @@
 
 #include <ceres/ceres.h>
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 #include <deque>
 #include <iostream>
 #include <optional>
@@ -18,7 +18,7 @@ namespace estimator {
 struct OdomFactorOption {
   transform::Rigid3d  transform_imu_to_robot;
   double optimize_weight = 1e4;
-  double angle_threas_hold =1.5;
+  double angle_threas_hold =5.5;
 };
 //
 class OdomFactor {

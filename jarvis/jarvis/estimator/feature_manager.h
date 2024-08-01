@@ -11,7 +11,7 @@
 #ifndef FEATURE_MANAGER_H
 #define FEATURE_MANAGER_H
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 #include <algorithm>
 #include <list>
 #include <numeric>

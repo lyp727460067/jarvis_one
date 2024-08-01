@@ -2,7 +2,7 @@
 
 #include "pose_optimization.h"
 
-#include <Eigen/Core>
+#include "Eigen/Core"
 
 #include "ceres/ceres.h"
 #include "jarvis/transform/timestamped_transform.h"

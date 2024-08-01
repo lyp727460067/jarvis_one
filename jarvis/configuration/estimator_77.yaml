@@ -92,7 +92,7 @@ g_norm: 9.81007     # gravity magnitude
 use_odom : 0
 odom_optimization_weight: 1e4
 data_base_lenth : 1
-
+angle_threas_hold : 6
 ##
 UpdataZeroVelocityOption:
   enable: 1

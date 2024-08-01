@@ -2,7 +2,7 @@
 
 #ifndef __JARVIS_VIO__CAMERA_BASE_INTERFACE_
 #define __JARVIS_VIO__CAMERA_BASE_INTERFACE_
-#include <Eigen/Core>
+#include "Eigen/Core"
 #include <vector>
 
 #include "glog/logging.h"

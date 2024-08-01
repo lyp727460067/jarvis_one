@@ -22,8 +22,8 @@
 #ifndef OV_CORE_SENSOR_DATA_H
 #define OV_CORE_SENSOR_DATA_H
 
-#include <Eigen/Eigen>
-#include <opencv2/opencv.hpp>
+#include "Eigen/Eigen"
+#include "opencv2/opencv.hpp"
 #include <vector>
 
 namespace VSLAM 

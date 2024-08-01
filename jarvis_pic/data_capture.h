@@ -5,8 +5,8 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include "shm_mod.h"
-#include <Eigen/Core>
-#include <Eigen/Eigen>
+#include "Eigen/Core"
+#include "Eigen/Eigen"
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
 namespace jarvis_pic {

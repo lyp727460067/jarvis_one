@@ -2,9 +2,9 @@
 #define COSTFUNCTIONFACTORY_H
 
 #include <memory>
-#include <opencv2/core/core.hpp>
 
 #include "camera_models/camera_models/camera.h"
+#include "opencv2/core/core.hpp"
 namespace ceres {
 class CostFunction;
 }

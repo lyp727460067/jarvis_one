@@ -1,6 +1,6 @@
 #ifndef JARVIS_SENSOR_IMAGE_DATA_H
 #define JARVIS_SENSOR_IMAGE_DATA_H
-#include <Eigen/Core>
+#include "Eigen/Core"
 #include <memory>
 #include <opencv2/core.hpp>
 #include "jarvis/common/time.h"

@@ -3,7 +3,7 @@
 
 #include <ceres/ceres.h>
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 #include <iostream>
 
 #include "jarvis/estimator/parameters.h"

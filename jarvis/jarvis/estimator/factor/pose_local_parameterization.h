@@ -12,7 +12,7 @@
 
 #include <ceres/ceres.h>
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 
 #include "jarvis/utility/utility.h"
 namespace jarvis {

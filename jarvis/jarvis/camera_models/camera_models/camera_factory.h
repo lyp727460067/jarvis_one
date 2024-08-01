@@ -2,7 +2,7 @@
 #define _JARVIS_CAMERA_MODELS_CAMERAFACTORY_H
 
 #include <memory>
-#include <opencv2/core/core.hpp>
+#include "opencv2/core/core.hpp"
 
 #include "camera_models/camera_models/camera.h"
 #include "jarvis/option_parse.h"

@@ -10,12 +10,12 @@
 
 #include "jarvis/estimator/estimator.h"
 
-#include <ceres/tiny_solver.h>
-#include <ceres/tiny_solver_autodiff_function.h>
-
+#include "ceres/tiny_solver.h"
+#include "ceres/tiny_solver_autodiff_function.h"
 #include "glog/logging.h"
 #include "imu_extrapolator.h"
 #include "jarvis/common/time.h"
+#include "jarvis/estimator/parameters.h"
 #include "jarvis/option_parse.h"
 namespace jarvis {
 bool restart = false;
@@ -26,6 +26,7 @@ std::vector<Eigen::Vector3d> GetGlobleImuPose() { return kGlobleImuPose; }
 std::pair<double, transform::Rigid3d> GetGlobleImuExtrapolatorPose() {
   return kGlobleImuExtrapolatorPose;
 }
+
 namespace estimator {
 namespace {
 constexpr uint8_t kGlogLevel = 1;
@@ -33,6 +34,7 @@ constexpr uint8_t kGlogLevel = 1;
 // ofstream cam_time_babg("/tmp/cam_time_babg.txt");
 //
 // Estimator(const EstimatorOption &options);
+
 Estimator::Estimator(const EstimatorOption &options)
     : options_(options),
       alignment_(AlignmentOption{
@@ -44,9 +46,11 @@ Estimator::Estimator(const EstimatorOption &options)
   f_manager = std::make_unique<FeatureManager>(
       FeatureManagerOption{options.calibrate_option.extric_camera_to_imu});
   //
+
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
   stereo_sample_ = std::make_unique<common::FixedRatioSampler>(
       options_.use_stereo_sample_ration);
+  std::vector
   if (options_.enable_zero_velocity) {
     update_zero_velocity_ = std::make_unique<UpdataZeroVelocity>(
         options_.updata_zerovelocity_option);
@@ -65,7 +69,7 @@ Estimator::Estimator(const EstimatorOption &options)
     odometry_factor_[i] = nullptr;
     images_[i] = std::make_pair<double, ImageFeatureTrackerData>(0, {});
   }
-
+  
   clearState();
   // readParameters(config_file);
   setParameter();
@@ -111,7 +115,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   track_num.clear();
   //
   //
-
+    
   inputImageCnt++;
   ImageFeatureTrackerData featureFrame;
   TicToc featureTrackerTime;
@@ -1057,7 +1061,7 @@ void Estimator::double2vector() {
                                           para_Pose[0][4], para_Pose[0][5])
                            .toRotationMatrix());
     double y_diff = origin_R0.x() - origin_R00.x();
-
+    
     // TODO
     Eigen::Matrix3d rot_diff = Utility::ypr2R(Eigen::Vector3d(y_diff, 0, 0));
 
@@ -1089,13 +1093,9 @@ void Estimator::double2vector() {
 
       Bgs[i] = Eigen::Vector3d(para_SpeedBias[i][6], para_SpeedBias[i][7],
                                para_SpeedBias[i][8]);
-
-      // info<<" " << i << " bas :" << Ps[i].transpose()
-      //           << " bgs :" << Bgs[i].transpose();
-
-      // LOG(INFO) << " " << i << " Ps :" << Ps[i].transpose()
-      // << " bgs :" << Bgs[i].transpose();
     }
+    LOG_EVERY_N(INFO, 60) << "bas: " << Bas[WINDOW_SIZE].transpose()
+                          << " bgs: " << Bgs[WINDOW_SIZE].transpose();
   } else {
     for (int i = 0; i <= WINDOW_SIZE; i++) {
       Rs[i] = Eigen::Quaterniond(para_Pose[i][6], para_Pose[i][3],
@@ -1107,7 +1107,7 @@ void Estimator::double2vector() {
           Eigen::Vector3d(para_Pose[i][0], para_Pose[i][1], para_Pose[i][2]);
     }
   }
-
+  
   // cam_time_babg<<info.str()<<std::endl;
   if (options_.use_imu) {
     for (int i = 0; i < options_.use_cam_num; i++) {
@@ -1282,7 +1282,7 @@ void Estimator::optimization() {
           update_zero_velocity_->AddToProblem(
               &problem, nullptr,
               std::array<double *, 3>{para_Pose[i], para_Pose[j],
-                                      para_SpeedBias[j]});
+                                      para_SpeedBias[i]});
         }
       }
       if (options_.use_odom) {
@@ -1469,7 +1469,7 @@ void Estimator::optimization() {
         ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
             update_zero_velocity_->CostFunction(), NULL,
             std::vector<double *>{para_Pose[0], para_Pose[1],
-                                  para_SpeedBias[1]},
+                                  para_SpeedBias[0]},
             std::vector<int>{0});
         marginalization_info->addResidualBlockInfo(residual_block_info);
       }
@@ -1568,11 +1568,11 @@ void Estimator::optimization() {
 
     TicToc t_pre_margin;
     marginalization_info->preMarginalize();
-    VLOG(kGlogLevel) << "pre marginalization " << t_pre_margin.toc();
+    VLOG(kGlogCostTimeLevel) << "pre marginalization " << t_pre_margin.toc();
 
     TicToc t_margin;
     marginalization_info->marginalize();
-    VLOG(kGlogLevel) << "marginalization " << t_margin.toc();
+    VLOG(kGlogCostTimeLevel) << "marginalization " << t_margin.toc();
     // LOG(INFO)<<"marginalization "<<t_margin.toc()<<" ms ";
 
     std::unordered_map<long, double *> addr_shift;
@@ -1625,14 +1625,14 @@ void Estimator::optimization() {
       }
 
       TicToc t_pre_margin;
-      VLOG(kGlogLevel) << "begin marginalization";
+      VLOG(kGlogCostTimeLevel) << "begin marginalization";
       marginalization_info->preMarginalize();
-      VLOG(kGlogLevel) << "end pre marginalization " << t_pre_margin.toc();
+      VLOG(kGlogCostTimeLevel) << "end pre marginalization " << t_pre_margin.toc();
 
       TicToc t_margin;
-      VLOG(kGlogLevel) << "begin marginalization";
+      VLOG(kGlogCostTimeLevel) << "begin marginalization";
       marginalization_info->marginalize();
-      VLOG(kGlogLevel) << "end marginalization" << t_margin.toc();
+      VLOG(kGlogCostTimeLevel) << "end marginalization" << t_margin.toc();
 
       std::unordered_map<long, double *> addr_shift;
       for (int i = 0; i <= WINDOW_SIZE; i++) {

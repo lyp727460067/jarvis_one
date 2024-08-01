@@ -9,7 +9,7 @@
 #ifndef JARVIS_VIO_COMMON_DATA_STRUCTURE_H_
 #define JARVIS_VIO_COMMON_DATA_STRUCTURE_H_
 
-#include <Eigen/Dense>
+#include "Eigen/Dense"
 #include "transform/transform.h"
 #include "transform/rigid_transform.h"
 

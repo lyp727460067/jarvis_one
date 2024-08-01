@@ -1,25 +1,24 @@
 #include "jarvis/camera_models/calib/camera_calibration.h"
 
-#include <opencv2/core/types_c.h>
-#include <opencv2/highgui/highgui_c.h>
-
-#include <Eigen/Dense>
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/core/eigen.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
 
-#include "camera_models/camera_models/camera_factory.h"
+#include "Eigen/Dense"
 #include "camera_models/camera_models/CostFunctionFactory.h"
+#include "camera_models/camera_models/camera_factory.h"
 #include "camera_models/gpl/EigenQuaternionParameterization.h"
 #include "camera_models/gpl/EigenUtils.h"
 #include "camera_models/sparse_graph/Transform.h"
 #include "ceres/ceres.h"
+#include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/core/core.hpp"
+#include "opencv2/core/eigen.hpp"
+#include "opencv2/core/types_c.h"
+#include "opencv2/highgui/highgui_c.h"
+#include "opencv2/imgproc/imgproc.hpp"
 namespace jarvis {
 namespace camera_models {
 

@@ -1,7 +1,7 @@
 
 #include <jarvis/estimator/featureTracker/feature_tracker.h>
 #include "jarvis/option_parse.h"
-#include <opencv2/core/eigen.hpp>
+#include "opencv2/core/eigen.hpp"
 #include "yaml-cpp/yaml.h"
 #include "opencv2/opencv.hpp"
 #include "jarvis/estimator/estimator.h"
@@ -193,6 +193,10 @@ void ParseYAMLOption(const std::string &file,
     option->use_odom = fsSettings["use_odom"];
     option->odom_factor_option.optimize_weight =
         fsSettings["odom_optimization_weight"];
+    option->odom_factor_option.angle_threas_hold=
+        fsSettings["angle_threas_hold"];
+
+
     option->odom_factor_option.transform_imu_to_robot =
         calib_option.extric_camera_to_robot *
         calib_option.extric_camera_to_imu[0].inverse();

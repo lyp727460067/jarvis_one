@@ -23,6 +23,7 @@ namespace jarvis {
 namespace estimator {
 namespace {
 constexpr uint8_t kGlogLevel = 1;
+
 }
 
 
@@ -140,7 +141,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   cur_pts.clear();
   TicToc t_t1;
   pyramid_image_->Build(_img);
-  VLOG(kGlogLevel) << "pyramid_image_->Build " << t_t1.toc() << "ms";
+  VLOG(kGlogCostTimeLevel) << "pyramid_image_->Build " << t_t1.toc() << "ms";
   // cv::imshow("pre",pyramid_image_->PrePyram().back());
   // cv::imshow("pre1",pyramid_image_->CurrPyram().back());
   // cv::waitKey(0);
@@ -260,7 +261,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     reduceVector(track_cnt, status);
 
 
-    VLOG(kGlogLevel) << "temporal optical flow costs:" << t_o.toc() << "ms";
+    VLOG(kGlogCostTimeLevel) << "temporal optical flow costs:" << t_o.toc() << "ms";
     // printf("track cnt %d\n", (int)ids.size());
   }
 
@@ -268,11 +269,11 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
 
   if (1) {
     // rejectWithF();
-    VLOG(kGlogLevel) << "set mask begins";
+    VLOG(kGlogCostTimeLevel) << "set mask begins";
     TicToc t_m;
     setMask();
-    VLOG(kGlogLevel) << "set mask costs " << t_m.toc() << "ms";
-    VLOG(kGlogLevel) << "detect feature begins";
+    VLOG(kGlogCostTimeLevel) << "set mask costs " << t_m.toc() << "ms";
+    VLOG(kGlogCostTimeLevel) << "detect feature begins";
     TicToc t_t;
     int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
     if (n_max_cnt > 0) {
@@ -291,7 +292,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     } else {
       n_pts.clear();
     }
-    VLOG(kGlogLevel) << "detect feature costs: " << t_t.toc() << " ms";
+    VLOG(kGlogCostTimeLevel) << "detect feature costs: " << t_t.toc() << " ms";
 
     for (auto &p : n_pts) {
       cur_pts.push_back(p);
@@ -313,7 +314,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   TicToc t_t;
   cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
   pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
-  VLOG(kGlogLevel) << "  undistortedPts " << t_t.toc() << " ms";
+  VLOG(kGlogCostTimeLevel) << "  undistortedPts " << t_t.toc() << " ms";
   if (!_img1.empty() && stereo_cam) {
 
     TicToc t_t;
@@ -330,11 +331,11 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       std::vector<float> err;
       // cur left ---- cur right
       cv::calcOpticalFlowPyrLK(cur_img, _img1, cur_pts, cur_right_pts, status,
-                               err, cv::Size(21, 21), 5);
+                               err, cv::Size(21, 21), 2);
       // reverse check cur right ---- cur left
       if (1) {
         cv::calcOpticalFlowPyrLK(_img1, cur_img, cur_right_pts, reverseLeftPts,
-                                 statusRightLeft, err, cv::Size(21, 21), 5);
+                                 statusRightLeft, err, cv::Size(21, 21), 3);
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
               distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
@@ -367,7 +368,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
                       prev_un_right_pts_map);
     }
     prev_un_right_pts_map = cur_un_right_pts_map;
-    VLOG(kGlogLevel) << "  stereo_cam " << t_t.toc() << " ms";
+    VLOG(kGlogCostTimeLevel) << "  stereo_cam " << t_t.toc() << " ms";
   }
 
   prev_img = cur_img;
@@ -440,7 +441,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
     }
     result_data.images[camera_id]= rightImg;
   }
-  VLOG(kGlogLevel) <<"feature track whole time "<< t_r.toc();
+  VLOG(kGlogCostTimeLevel) <<"feature track whole time "<< t_r.toc();
   return ImageFeatureTrackerData {
     std::make_shared<ImageFeatureTrackerData::Data>(result_data)
   };
@@ -479,7 +480,7 @@ void FeatureTracker::rejectWithF() {
     reduceVector(track_cnt, status);
     VLOG(kGlogLevel) << "FM ransac: " << size_a << " -> " << cur_pts.size()
                      << " " << 1.0 * cur_pts.size() / size_a;
-    VLOG(kGlogLevel) << "FM ransac costs: " << t_f.toc() << " ms";
+    VLOG(kGlogCostTimeLevel) << "FM ransac costs: " << t_f.toc() << " ms";
   }
 }
 
