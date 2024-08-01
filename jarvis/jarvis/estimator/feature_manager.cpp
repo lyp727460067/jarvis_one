@@ -9,7 +9,7 @@
  *******************************************************/
 
 #include "feature_manager.h"
-
+#include "opencv2/core/eigen.hpp"
 #include "glog/logging.h"
 namespace jarvis {
 namespace estimator {
@@ -48,6 +48,7 @@ int FeatureManager::getFeatureCount() {
     }
   }
   return cnt;
+  
 }
 
 bool FeatureManager::addFeatureCheckParallax(

@@ -34,29 +34,35 @@ void OrderedMultiQueue::AddQueue(std::string name, OdomFuction call_back) {
 //
 void OrderedMultiQueue::AddData(const std::string &name,
                                 std::unique_ptr<Data> data) {
-  CHECK(queues_.count(name))<<name;
+  CHECK(queues_.count(name)) << name;
   {
-  std::lock_guard<std::mutex> lock(mutex_);
-  queues_[name].queue.push(std::move(data));
+    std::lock_guard<std::mutex> lock(mutex_);
+    queues_[name].queue.push(std::move(data));
   }
-  // Dispathch();
+#ifndef __ARM_PLATFORM__
+  Dispathch();
+#endif
 }
 void OrderedMultiQueue::Start() {
+#ifdef __ARM_PLATFORM__
   dispath_thead_ = std::thread([this]() {
     while (!kill_thread) {
       Dispathch();
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
-      if(sensor_cout++>=1000){
-        LOG_EVERY_N(ERROR,100)<<"No data recive!!!!!!!!!!!!!!";
+      if (sensor_cout++ >= 1000) {
+        LOG_EVERY_N(ERROR, 100) << "No data recive!!!!!!!!!!!!!!";
       }
     }
   });
+#endif
 }
 void OrderedMultiQueue::Stop() {
+#ifdef __ARM_PLATFORM__
   kill_thread = true;
   if (dispath_thead_.joinable()) {
     dispath_thead_.join();
   }
+#endif
 }
 
 //

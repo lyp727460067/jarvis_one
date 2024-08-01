@@ -1,6 +1,6 @@
 #ifndef SSE2NEON_H
 #define SSE2NEON_H
-
+#ifdef __ARM_PLATFORM__
 /*
  * sse2neon is freely redistributable under the MIT License.
  *
@@ -59,7 +59,6 @@
  * x86 SSE. (e.g. would solve a hole or NaN pixel in the rendering result)
  */
 /* _mm_min|max_ps|ss|pd|sd */
-#ifdef __ARM_NEON__
 #ifndef SSE2NEON_PRECISE_MINMAX
 #define SSE2NEON_PRECISE_MINMAX (0)
 #endif

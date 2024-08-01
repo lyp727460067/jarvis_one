@@ -1,18 +1,12 @@
 cmake_minimum_required(VERSION 3.0)
 project(jarvis VERSION 1.0.0)
-
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
-
-set(BUILD_TYPE Release)
 # set(BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
-
-
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
+
 
 add_compile_options(#-Werror#-Wpedantic #minor error
                    -Wreturn-type # warn no return 
@@ -20,26 +14,25 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   # -Wshadow # shadow local variable
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
+set(BUILD_TYPE Release)
 
-option(arm_neon " arm_neon" ON)
-option(build_test "build test" OFF)
-if(${arm_neon})
-add_definitions(-D__ARM_NEON__)
-
-else()
-add_definitions(-D__SSE2__)
-endif()
+if(PLATFORM_mr527)
 add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
+add_definitions(-D__ARM_NEON__)
+add_definitions(-D__ARM_PLATFORM__)
+##
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
+option(build_test "build test" OFF)
+
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
 set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
 set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
-set(yaml_lib_dir ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include/)
+set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include/)
 set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
-# find_package(Eigen3 3.4.0 EXACT) #version 3.4.0
-# lie group and lie algebra
-# find_package(OpenCV REQUIRED) #version 4.6.0
+
+
 set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
     ${Opencv_lib_dir}/libopencv_imgcodecs.so
@@ -71,44 +64,32 @@ set(SUTI_LIBS
 set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
 set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
 add_library(
-        glog
+        glog::glog
         STATIC
         IMPORTED
         GLOBAL
 )
 set_target_properties(
-        glog
+        glog::glog
         PROPERTIES IMPORTED_LOCATION
         ${glog_binary_dir}
 )
-
-# ceres optimization replace gtsam later
-# find_package(Ceres REQUIRED)
-# find_package(Glog REQUIRED) #version 0.6.0
-# test system
-#
-##
-##add proto
-# find_package(Protobuf  REQUIRED)
-# configure_file(src/mapping/test_constant.h.in ${PROJECT_BINARY_DIR}/mapping/test_constant.h)
-
+add_library(
+        yaml-cpp
+        STATIC
+        IMPORTED
+        GLOBAL
+)
+set_target_properties(
+        yaml-cpp
+        PROPERTIES IMPORTED_LOCATION
+        ${yaml_lib}
+)
 get_directory_property(out_var INCLUDE_DIRECTORIES)
 string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
 set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
 get_directory_property(out_var INCLUDE_DIRECTORIES)
-# message(******************8***${out_var})
-##
-INCLUDE_DIRECTORIES(
-  # ${EIGEN3_INCLUDE_DIR}
-  ${OpenCV_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/jarvis
-  ${PROJECT_SOURCE_DIR}/rtm/includes/
-  ${yaml_lib_dir}/
-  ${Boost_INCLUDE_DIR}
-  ${CERES_INCLUDE_DIRS}
-  
-)
-##copy config
+
 add_custom_target(COPY_COFIG ALL
   VERBATIM 
   COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/configuration/
@@ -116,6 +97,30 @@ add_custom_target(COPY_COFIG ALL
   ${PROJECT_SOURCE_DIR}/configuration/ ${PROJECT_BINARY_DIR}/configuration/
   COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${PROJECT_BINARY_DIR}/configuration/"
 ) 
+
+
+else()
+
+add_definitions(-D__SSE2__)
+find_package(Eigen3 3.4.0 EXACT)
+find_package(OpenCV REQUIRED)
+find_package(Ceres REQUIRED)
+find_package(Glog REQUIRED) 
+find_package(yaml-cpp  REQUIRED) #version 0.7.0
+find_package(GTest  REQUIRED) #version 1.12.0
+
+endif()
+
+INCLUDE_DIRECTORIES(
+  ${OpenCV_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/jarvis
+  ${PROJECT_SOURCE_DIR}/rtm/includes/
+  ${YAML_INCLUDE_DIRS}/
+  ${Boost_INCLUDE_DIR}
+  ${CERES_INCLUDE_DIRS}
+  
+)
+##copy config
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/rtm")
 ##
@@ -134,16 +139,13 @@ list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-target_include_directories( ${PROJECT_NAME}  PUBLIC    ${GLOG_INCLUDE_DIRS})
+target_include_directories( ${PROJECT_NAME}  PUBLIC           ${GLOG_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
-  glog
+  glog::glog
+  yaml-cpp
   ${OpenCV_LIBS}
-  ${CERES_LIBRARIES}
-  # ${Boost_LIBRARIES}
-  # ${SUTI_LIBS}
-  ${yaml_lib}
-  )
+  ${CERES_LIBRARIES})
 
 #
 if(${build_test})

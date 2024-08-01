@@ -50,7 +50,6 @@ Estimator::Estimator(const EstimatorOption &options)
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
   stereo_sample_ = std::make_unique<common::FixedRatioSampler>(
       options_.use_stereo_sample_ration);
-  std::vector
   if (options_.enable_zero_velocity) {
     update_zero_velocity_ = std::make_unique<UpdataZeroVelocity>(
         options_.updata_zerovelocity_option);
