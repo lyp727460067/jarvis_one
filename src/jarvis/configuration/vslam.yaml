@@ -6,7 +6,7 @@ record : 0
 GLOG_v :  0
 offline_play_bag_duration : 0.001 
 mask_id: mask.png
-imu_cam_time_offset : 0.010
+imu_cam_time_offset : 0.000
 slip_detect : 1
 slip_option: simple_vo.yaml
 # calibrate_path : /home/lyp/Downloads/calibrate_file
