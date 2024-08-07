@@ -89,13 +89,13 @@ get_directory_property(out_var INCLUDE_DIRECTORIES)
 string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
 set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
 get_directory_property(out_var INCLUDE_DIRECTORIES)
-
+message(${LIBRARY_OUTPUT_PATH})
 add_custom_target(COPY_COFIG ALL
   VERBATIM 
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/configuration/
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${LIBRARY_OUTPUT_PATH}/configuration/
   COMMAND ${CMAKE_COMMAND} -E copy_directory 
   ${PROJECT_SOURCE_DIR}/configuration/ ${PROJECT_BINARY_DIR}/configuration/
-  COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${PROJECT_BINARY_DIR}/configuration/"
+  COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${LIBRARY_OUTPUT_PATH}/configuration/"
 ) 
 
 INCLUDE_DIRECTORIES(
