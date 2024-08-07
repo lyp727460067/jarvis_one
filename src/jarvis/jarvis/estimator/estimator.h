@@ -60,7 +60,11 @@ struct FailureDetectOptoin
   double translation_norm_max =0.2;
   double translation_z_max =0.2;
   double ratation_max =20;
-
+  int enable_odo_zero_lost_detect= 0;
+  double zero_translation_norm_max =0.002;
+  double zero_translation_z_max =0.002;
+  double zero_ratation_max =0.001;
+  int zero_odo_win_size =10;
 };
 
 struct EstimatorOption {
@@ -81,6 +85,7 @@ struct EstimatorOption {
   int estimate_extrinsic =1;
   double init_td = 0;
   double optimazation_outliers_rejection_th=3;
+  double rejection_points_depth_max_th =  30;
   double use_stereo_sample_ration=0.05; 
 };
 
@@ -121,7 +126,7 @@ class Estimator {
   void vector2double();
   void double2vector();
   bool failureDetection();
-  
+  void InitFailureRestart();
   bool getIMUInterval(
       double t0, double t1,
       std::vector<std::pair<double, Eigen::Vector3d>> &accVector,
@@ -179,13 +184,13 @@ class Estimator {
     Eigen::Vector3d angular_velocity_bias{0, 0, 0};
   };
   
-   
   // PoseState pose_state_[WINDOW_SIZE + 1];
   Eigen::Vector3d Ps[(WINDOW_SIZE + 1)];
   Eigen::Vector3d Vs[(WINDOW_SIZE + 1)];
   Eigen::Matrix3d Rs[(WINDOW_SIZE + 1)];
   Eigen::Vector3d Bas[(WINDOW_SIZE + 1)];
   Eigen::Vector3d Bgs[(WINDOW_SIZE + 1)];
+  
   std::pair<double, ImageFeatureTrackerData> images_[(WINDOW_SIZE + 1)];
   double td = 0.0;
 
@@ -252,12 +257,15 @@ class Estimator {
   int estimate_extrinsic_ = 2;
   Alignment alignment_;
   std::vector<bool> failuer_track_lost_;
+  std::vector<bool> failuer_zero_lost_;
+  std::vector<bool> init_pnp_states_;
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_=nullptr;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
   int convin_used_num = 4;
   std::unique_ptr<DataBase> data_base_=nullptr;
   jarvis::transform::Rigid3d transform_imu_to_robot_;
   int stable_init_cout =0 ;
+  int optimization_max_num_iterations_ =1;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

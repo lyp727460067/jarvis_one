@@ -202,6 +202,14 @@ void ParseYAMLOption(const std::string &file,
         calib_option.extric_camera_to_imu[0].inverse();
     // option->use_stereo_sample_ration =
     // fsSettings["use_stereo_sample_ration"];
+    //
+    option->rejection_points_depth_max_th =
+        fsSettings["rejection_points_depth_max_th"];
+    option->optimazation_outliers_rejection_th =
+        fsSettings["optimazation_outliers_rejection_th"];
+
+
+    //
 
     option->fail_detect_option.track_feat_lost_min_num =
         fsSettings["track_feat_lost_min_num"];
@@ -213,8 +221,29 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["translation_norm_max"];
     option->fail_detect_option.translation_z_max =
         fsSettings["translation_z_max"];
+
+    //
     option->fail_detect_option.ratation_max = fsSettings["ratation_max"];
+    option->fail_detect_option.zero_translation_norm_max =
+        fsSettings["zero_translation_norm_max"];
+    LOG(INFO)<<option->fail_detect_option.zero_translation_norm_max ;
+    option->fail_detect_option.zero_translation_z_max =
+        fsSettings["zero_translation_z_max"];
+    LOG(INFO)<<option->fail_detect_option.zero_translation_z_max ;
+    option->fail_detect_option.zero_ratation_max =
+        fsSettings["zero_ratation_max"];
+    //
+    option->fail_detect_option.enable_odo_zero_lost_detect =
+        fsSettings["enable_odo_zero_lost_detect"];
+    //
+
+    option->fail_detect_option.zero_odo_win_size =
+        fsSettings["zero_odo_win_size"];
+    
     int t = fsSettings["UpdataZeroVelocityOption"]["enable"];
+
+
+    
     option->enable_zero_velocity = bool(t);
     LOG(INFO)<<t;
     option->updata_zerovelocity_option.optimize_weight =

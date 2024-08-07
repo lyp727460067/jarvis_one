@@ -222,27 +222,30 @@ std::string kDataDir = "/mnt/UDISK/jarvis/";
 //
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging("jarvis");
-  FLAGS_log_dir = kDataDir;
   //
   if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
     mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
   }
-  FLAGS_log_dir = kDataDir+"/log/";
   if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
     mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
   }
   //
   //
-  const std::string config_file("/oem/mowpack/ai_model/vslam.yaml");
+  const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
   //
   //
   //
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
   //
-  
+
   ParseOption(config_file);
   FLAGS_v = kGLOG_v;
+  //
+  if (kGLOG_v >= 0) {
+    FLAGS_log_dir = kDataDir+"/log/";
+  }
+  //
   data_record_ =
       std::make_unique<jarvis_pic::DataRecord>(kDataDir, kRecordFlag);
   std::mutex jarvis_mutex;

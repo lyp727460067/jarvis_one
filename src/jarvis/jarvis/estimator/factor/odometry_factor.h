@@ -29,6 +29,9 @@ class OdomFactor {
   void AddToProblem(ceres::Problem *problem, ceres::LossFunction *loss_function,
                     std::array<double *, 3> pqe) const;
   void Merge(const OdomFactor &odom_factor);
+  //
+  std::optional<double> GetObserveDistance();
+  //
   ceres::CostFunction* CostFunction() const;
  private:
   const OdomFactorOption option_;

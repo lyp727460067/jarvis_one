@@ -98,7 +98,9 @@ add_custom_target(COPY_COFIG ALL
   COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${PROJECT_BINARY_DIR}/configuration/"
 ) 
 
-
+INCLUDE_DIRECTORIES(
+  ${TOP_CMAKE_DIR}/vslam/
+)
 else()
 
 add_definitions(-D__SSE2__)
@@ -118,7 +120,7 @@ INCLUDE_DIRECTORIES(
   ${YAML_INCLUDE_DIRS}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
-  
+   
 )
 ##copy config
 
@@ -203,14 +205,14 @@ install(
 
 
 
-# file(GLOB_RECURSE INSTALL_SOURCE_HDRS "jarvis/*.h" "slip_detection/*.h"
-# )
+file(GLOB_RECURSE INSTALL_SOURCE_HDRS "jarvis/*.h" "slip_detection/*.h"
+)
 
-# foreach(HDR ${INSTALL_SOURCE_HDRS})
-#   file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${HDR})
-#   get_filename_component(DIR ${REL_FIL} DIRECTORY)
-#   install(
-#     FILES ${HDR}
-#     DESTINATION  include/${DIR}
-#   )
-# endforeach()
+foreach(HDR ${INSTALL_SOURCE_HDRS})
+  file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${HDR})
+  get_filename_component(DIR ${REL_FIL} DIRECTORY)
+  install(
+    FILES ${HDR}
+    DESTINATION  include/${DIR}
+  )
+endforeach()

@@ -226,7 +226,7 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   P_initial = -(R_initial * P);
 
   // printf("pnp size %d \n",(int)pts2D.size() );
-  if (int(pts2D.size()) < 4) {
+  if (int(pts2D.size()) < 10) {
     LOG(ERROR) << "feature tracking not enough, please slowly move you device!";
     return false;
   }
@@ -239,8 +239,13 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   // pnp_succ = cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1);
   cv::Mat inliers;
   pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 8.0 /377, 0.99, inliers);
-
-  if (!pnp_succ) {
+  int n = 0;
+  for (int i = 0; i < inliers.rows; i++) {
+    if (inliers.at<int>(i)) {
+      n++;
+    }
+  }
+  if (!pnp_succ && n >= 8) {
     LOG(ERROR) << "pnp failed ! ";
     return false;
   }
@@ -258,51 +263,52 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   return true;
 }
 
-void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
+bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
                                         Matrix3d Rs[], Vector3d tic[],
                                         Matrix3d ric[]) {
-  if (frameCnt > 0) {
-    vector<cv::Point2f> pts2D;
-    vector<cv::Point3f> pts3D;
-    for (auto &it_per_id : feature) {
-      if (it_per_id.estimated_depth > 0) {
-        int index = frameCnt - it_per_id.start_frame;
-        if ((int)it_per_id.feature_per_frame.size() >= index + 1) {
-          Vector3d ptsInCam = ric[0] * (it_per_id.feature_per_frame[0].point *
-                                        it_per_id.estimated_depth) +
-                              tic[0];
-          Vector3d ptsInWorld =
-              Rs[it_per_id.start_frame] * ptsInCam + Ps[it_per_id.start_frame];
+  if (frameCnt <= 0) return true;
+  vector<cv::Point2f> pts2D;
+  vector<cv::Point3f> pts3D;
+  for (auto &it_per_id : feature) {
+    if (it_per_id.estimated_depth > 0) {
+      int index = frameCnt - it_per_id.start_frame;
+      if ((int)it_per_id.feature_per_frame.size() >= index + 1) {
+        Vector3d ptsInCam = ric[0] * (it_per_id.feature_per_frame[0].point *
+                                      it_per_id.estimated_depth) +
+                            tic[0];
+        Vector3d ptsInWorld =
+            Rs[it_per_id.start_frame] * ptsInCam + Ps[it_per_id.start_frame];
 
-          cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
-          cv::Point2f point2d(it_per_id.feature_per_frame[index].point.x(),
-                              it_per_id.feature_per_frame[index].point.y());
-          pts3D.push_back(point3d);
-          pts2D.push_back(point2d);
-        }
+        cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
+        cv::Point2f point2d(it_per_id.feature_per_frame[index].point.x(),
+                            it_per_id.feature_per_frame[index].point.y());
+        pts3D.push_back(point3d);
+        pts2D.push_back(point2d);
       }
     }
-    Eigen::Matrix3d RCam;
-    Eigen::Vector3d PCam;
-    // trans to w_T_cam
-    RCam = Rs[frameCnt - 1] * ric[0];
-    PCam = Rs[frameCnt - 1] * tic[0] + Ps[frameCnt - 1];
-
-
-    if (solvePoseByPnP(RCam, PCam, pts2D, pts3D)) {
-      // trans to w_T_imu
-      Rs[frameCnt] = RCam * ric[0].transpose();
-      Ps[frameCnt] = -RCam * ric[0].transpose() * tic[0] + PCam;
-
-      Eigen::Quaterniond Q(Rs[frameCnt]);
-      LOG(INFO) << "frameCnt: " << frameCnt <<  " pnp Q " << Q.w() << " " <<Q.vec().transpose();
-      LOG(INFO)<< "frameCnt: " << frameCnt << " pnp P " << Ps[frameCnt].transpose() ;
-    }
   }
+  Eigen::Matrix3d RCam;
+  Eigen::Vector3d PCam;
+  // trans to w_T_cam
+  RCam = Rs[frameCnt - 1] * ric[0];
+  PCam = Rs[frameCnt - 1] * tic[0] + Ps[frameCnt - 1];
+
+  if (!solvePoseByPnP(RCam, PCam, pts2D, pts3D)) return false;
+  // trans to w_T_imu
+  Rs[frameCnt] = RCam * ric[0].transpose();
+  Ps[frameCnt] = -RCam * ric[0].transpose() * tic[0] + PCam;
+
+  Eigen::Quaterniond Q(Rs[frameCnt]);
+  LOG(INFO) << "frameCnt: " << frameCnt << " pnp Q " << Q.w() << " "
+            << Q.vec().transpose();
+  LOG(INFO) << "frameCnt: " << frameCnt << " pnp P "
+            << Ps[frameCnt].transpose();
+  return true;
 }
 
 void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
                                  Vector3d tic[], Matrix3d ric[]) {
+  std::set<int> remove_index;
   for (auto &it_per_id : feature) {
     if (it_per_id.estimated_depth > 0) continue;
 
@@ -332,11 +338,14 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       Eigen::Vector3d localPoint;
       localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
       double depth = localPoint.z();
-      // LOG(INFO)<<depth;
-      if (depth > 0)
+      const Eigen::Vector3d  localPoint_r =
+          rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
+      LOG(INFO)<<depth;
+      if (depth > 0.5 &&localPoint_r.z()>0.5)
         it_per_id.estimated_depth = depth;
-      else
-        it_per_id.estimated_depth = options_.init_depth;
+      else{
+        remove_index.insert(it_per_id.feature_id);
+      }
       /*
       Vector3d ptsGt = pts_gt[it_per_id.feature_id];
       printf("stereo %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id,
@@ -365,8 +374,10 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       triangulatePoint(leftPose, rightPose, point0, point1, point3d);
       Eigen::Vector3d localPoint;
       localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
+      const Eigen::Vector3d  localPoint_r =
+          rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
       double depth = localPoint.z();
-      if (depth > 0)
+      if (depth > 0.5 && localPoint_r.z()>0.5)
         it_per_id.estimated_depth = depth;
       else
         it_per_id.estimated_depth = options_.init_depth;
@@ -422,9 +433,10 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       it_per_id.estimated_depth = options_.init_depth;
     }
   }
+  removeOutlier(remove_index);
 }
 
-void FeatureManager::removeOutlier(std::set<int> &outlierIndex) {
+void FeatureManager::removeOutlier(const std::set<int> &outlierIndex) {
   std::set<int>::iterator itSet;
   for (auto it = feature.begin(), it_next = feature.begin();
        it != feature.end(); it = it_next) {

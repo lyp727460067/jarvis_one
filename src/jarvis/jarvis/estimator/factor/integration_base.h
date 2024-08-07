@@ -102,7 +102,7 @@ class IntegrationBase {
     Eigen::Vector3d un_gyr = 0.5 * (_gyr_0 + _gyr_1) - linearized_bg;
     result_delta_q = delta_q * Utility::deltaQ(un_gyr * dt);
     Eigen::Vector3d un_acc_1 = result_delta_q * (_acc_1 - linearized_ba);
-    Eigen::Vector3d un_acc = un_acc_1;
+    Eigen::Vector3d un_acc = 0.5*(un_acc_1+un_acc_0);
     result_delta_p = delta_p + delta_v * _dt + 0.5 * un_acc * _dt * _dt;
     result_delta_v = delta_v + un_acc * _dt;
     result_linearized_ba = linearized_ba;

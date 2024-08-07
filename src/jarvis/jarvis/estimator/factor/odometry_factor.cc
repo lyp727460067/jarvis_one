@@ -38,13 +38,12 @@ class OdomCostFuction
     Eigen::Vector3d temp = q_e * translation_observe_;
     Eigen::Vector3d delta_t = p_b - p_a - q_a * (temp);
     //
-    // delta_t.z() = 0;
     // LOG(INFO) <<( p_b - p_a).transpose();
 
     Eigen::Matrix<double, residuals_block_size, residuals_block_size>
-        sqrt_info = weight_ * Eigen::Matrix<double, residuals_block_size,
-                                            residuals_block_size>::Identity();
+        sqrt_info = Eigen::Vector3d(weight_, weight_, 4 * weight_).asDiagonal();
     //
+
     Eigen::Map<Eigen::Matrix<double, residuals_block_size, 1>> residual(
         residuals);
     residual << delta_t;
@@ -147,6 +146,21 @@ ceres::CostFunction* OdomFactor::CostFunction() const {
   // translation_observe.x() *= 1.1;
   return new OdomCostFuction(option_.optimize_weight, translation_observe);
 }
+//
+std::optional<double> OdomFactor::GetObserveDistance() {
+  if (!odom_observe_.has_value()) {
+    LOG(WARNING) << "odom observe invalid...";
+    return std::optional<double>();
+  }
+  Eigen::Vector3d translation_observe =
+      (option_.transform_imu_to_robot.inverse() * odom_observe_.value() *
+       option_.transform_imu_to_robot)
+          .translation();
+
+  return std::optional<double>(translation_observe.norm());
+}
+
+//
 void OdomFactor::AddToProblem(ceres::Problem* problem,
                               ceres::LossFunction* loss_function,
                               std::array<double*, 3> pqe) const {

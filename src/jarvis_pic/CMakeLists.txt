@@ -46,7 +46,7 @@ get_directory_property(out_var1 INCLUDE_DIRECTORIES)
 # message(********${out_var1})
 
 INCLUDE_DIRECTORIES(
-  ${TOP_CMAKE_DIR}/vslam/jarvis/
+  ${TOP_CMAKE_DIR}/vslam/src/jarvis/
   ${CERES_INCLUDE_DIRS}
   # ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}

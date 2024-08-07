@@ -113,6 +113,25 @@ struct OdomData {
         sensor::OdometryData{common::FromUniversal(time / 100)- common::FromSeconds(0.1),
                              transform::Rigid3d(translation, rotation)});
   }
+
+  void ToOdom(int32 l, int32 r) {
+    static int32_t last_l = l;
+    static int32_t last_r = r;
+    double delta_l = (l - last_l) * 0.001;
+    double delta_r = (r - last_r) * 0.001;
+    last_l = l;
+    last_r = r;
+    auto delta_theta = (delta_r - delta_l) / kWheelDistance;
+    // LOG(INFO)<<common::RadToDeg(delta_theta);
+    auto delta_translation = (delta_l + delta_r) / 2.0;
+    jarvis::transform::Rigid3d delta_pose(
+        Eigen::Vector3d(delta_translation, 0, 0),
+        Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
+    kOdom = kOdom * delta_pose;
+    translation = kOdom.translation();
+    rotation = kOdom.rotation();
+  }
+  static constexpr double kWheelDistance = 0.37;
   static std::map<uint64_t, OdomData> Parse(const std::string& dir_file);
 };
 constexpr double kGryUnit = 0.001;
@@ -146,6 +165,12 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
   ifs >> imu_data.angular_velocity.x() >> imu_data.angular_velocity.y() >>
       imu_data.angular_velocity.z() >> imu_data.linear_acceleration.x() >>
       imu_data.linear_acceleration.y() >> imu_data.linear_acceleration.z();
+  // imu_data.angular_velocity = imu_data.angular_velocity*kGryUnit;
+  // imu_data.linear_acceleration= imu_data.linear_acceleration *kAccUnit;
+  // imu_data.time   = time;
+  // ifs >> imu_data.angular_velocity.x() >> imu_data.angular_velocity.y() >>
+  //     imu_data.angular_velocity.z() >> imu_data.linear_acceleration.x() >>
+  //     imu_data.linear_acceleration.y() >> imu_data.linear_acceleration.z();
   return ifs;
 }
 //
@@ -156,12 +181,17 @@ std::istringstream& operator>>(std::istringstream& ifs, OdomData& odom_data) {
   if (type != "odom") throw "Not odom";
   uint64_t time;
   ifs >> time;
-  odom_data.time = time;
-  ifs >> odom_data.translation.x() >> odom_data.translation.y() >>
-      odom_data.translation.z() >> odom_data.rotation.w() >>
-      odom_data.rotation.x() >> odom_data.rotation.y() >>
-      odom_data.rotation.z();
+  uint64_t un_time;
+  // ifs >> un_time;
+  //
+  int un_count = 0;
+  // ifs>>un_count;
 
+  odom_data.time = time;
+  int32_t left_encoder;
+  int32_t right_encoder;
+  ifs >> left_encoder >> right_encoder;
+  odom_data.ToOdom(left_encoder, right_encoder);
   return ifs;
 }
 
@@ -207,14 +237,14 @@ uint64_t GetTimeFromName(const std::string& name) {
   std::string outdir = name.substr(0, it + 1);
   const std::string file_name =
       name.substr(it + 1, name.size() - outdir.size());
-  auto it1 = file_name.find_last_of('.') ;
-    LOG(INFO)<<std::stol(file_name.substr(0, it1));
+  auto it1 = file_name.find_last_of('.') - 3;
+  //   LOG(INFO)<<std::stol(file_name.substr(0, it1));
   return std::stol(file_name.substr(0, it1));
 }
 //
 std::string GetFromName(const std::string& name) {
   CHECK(!name.empty());
-  auto it1 = name.find_last_of('.') ;
+  auto it1 = name.find_last_of('.') - 3;
   //   LOG(INFO)<<std::stol(file_name.substr(0, it1));
   return name.substr(0, it1);
 }
@@ -313,12 +343,6 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 
     //             }}));
     // if(time>1064339798000)
-    const cv::Mat lr_image =
-        cv::imread(image.second.image_name + ".png", cv::IMREAD_GRAYSCALE);
-
-    // cv::imshow("l_image",lr_image);
-    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    cv::waitKey(0);
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
@@ -327,9 +351,14 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                     common::FromSeconds(imu_cam_time_offset),
                 {
                     std::make_shared<cv::Mat>(
-                        lr_image(cv::Rect(0, 0, 640, 544)).clone()),
+                        cv::imread(image.second.image_name + "_l_.png",
+                                   cv::IMREAD_GRAYSCALE)
+                            .clone()),
                     std::make_shared<cv::Mat>(
-                        lr_image(cv::Rect(640,0, 640, 544)).clone()),
+                        cv::imread(image.second.image_name + "_r_.png",
+                                   cv::IMREAD_GRAYSCALE)
+                            .clone()),
+
                 }}));
     // time+=100*1000*1000;
   }
@@ -457,6 +486,7 @@ int main(int argc, char* argv[]) {
                                jarvis::sensor::OdometryData{
                                    odom_data.time + common::FromSeconds(0.1),
                                    odom_data.pose});
+
                            slip_detect->AddOdometry(odom_data);
                          });
   //
@@ -488,6 +518,7 @@ int main(int argc, char* argv[]) {
         imu.angular_velocity,
     });
   });
+
   LOG(INFO) << "Parse image dir: " << image_file;
   LOG(INFO) << "Parse imu dir: " << odom_file;
   auto image_datas = ImageData::Parse(image_file);

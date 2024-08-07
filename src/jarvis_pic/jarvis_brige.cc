@@ -3,11 +3,12 @@
 #include "data_capture.h"
 namespace jarvis_pic {
 using namespace jarvis;
-constexpr double kImuOdomPrvCamOffTime =0.04;
+constexpr double kImuOdomPrvCamOffTime =0.1;
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
+Eigen::Vector3d gry_bise{0.0100714, 0.00475531, 0.00846774};
 double image_sample = 1;
 double imu_cam_time_offset = 0;
 void ParseOption(const std::string& config) {
@@ -29,15 +30,18 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       std::make_unique<jarvis::common::FixedRatioSampler>(image_sample);
   builder_ = std::make_unique<jarvis::TrajectorBuilder>(std::string(config),
                                                         std::move(call_back));
-
+  
   order_queue_->AddQueue(kImuTopic,
                          [&](const jarvis::sensor::ImuData& imu_data) {
                           // LOG(INFO) << imu_data.time;
-                           builder_->AddImuData(jarvis::sensor::ImuData{
-                               imu_data.time + common::FromSeconds(kImuOdomPrvCamOffTime),
-                               imu_data.linear_acceleration,
-                               imu_data.angular_velocity,
-                           });
+                          // LOG(INFO)<<imu_data.angular_velocity.transpose();
+                          // LOG(INFO)<<imu_data.linear_acceleration.transpose();
+                          builder_->AddImuData(jarvis::sensor::ImuData{
+                              imu_data.time +
+                                  common::FromSeconds(kImuOdomPrvCamOffTime),
+                              imu_data.linear_acceleration,
+                              imu_data.angular_velocity ,
+                          });
                          });
   //
   order_queue_->AddQueue(
@@ -68,12 +72,14 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     static uint64_t last_time = frame.time;
     int64_t delta_t = frame.time-   last_time;
     if (delta_t <= 0) {
-      LOG(WARNING) << "image time reorde.." << delta_t;
+      LOG(WARNING) << "image time reorde.." << delta_t << " cur: " << frame.time
+                   << " last: " << last_time;
       return;
     }
     // CHECK(delta_t >= 0) << delta_t;
     if (delta_t >= 50636) {
-      LOG(WARNING) << "image .. "<<frame.time << " " << delta_t;
+      LOG(WARNING) << "image .. " << frame.time << " " << delta_t
+                   << " last: " << frame.time;
     }
     last_time = frame.time;
     if (!image_sample_->Pulse()) return;
@@ -99,13 +105,15 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     static uint64_t last_time = imu.time;
     int64_t  delta_t = imu.time-   last_time;
     if (delta_t <= 0) {
-      LOG(WARNING) << "imu time reorde.." << delta_t;
+      LOG(WARNING) << "imu time reorde.." << delta_t << " cur: " << imu.time
+                   << " last: " << last_time;
       last_time = imu.time;
       return;
     }
     // CHECK(delta_t >= 0) << delta_t;
     if (delta_t > 12001) {
-      LOG(WARNING) << imu.time << " " << delta_t;
+      LOG(WARNING) << "imu lost: " << imu.time << " " << delta_t
+                   << " last: " << last_time;
     }
     last_time = imu.time;
     // LOG(INFO)<<imu.linear_acceleration.transpose();
@@ -125,13 +133,15 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     int64_t delta_t = odom.time - last_time;
     //
     if (delta_t <= 0) {
-      LOG(WARNING) << "odom time reorde.." << delta_t;
+      LOG(WARNING) << "odom time reorde.." << delta_t << " cur: " << odom.time
+                   << " last : " << last_time;
       last_time = odom.time;
       return;
     }
     // CHECK(delta_t >= 0) << delta_t;
     if (delta_t > 16001) {
-      LOG(WARNING) << odom.time << " " << delta_t;
+      LOG(WARNING) << "odo lost: " << odom.time << " " << delta_t
+                   << " last: " << last_time;
     }
     last_time =odom.time;
     order_queue_->AddData(

@@ -331,14 +331,14 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       std::vector<float> err;
       // cur left ---- cur right
       cv::calcOpticalFlowPyrLK(cur_img, _img1, cur_pts, cur_right_pts, status,
-                               err, cv::Size(21, 21), 2);
+                               err, cv::Size(7, 7), 3);
       // reverse check cur right ---- cur left
       if (1) {
         cv::calcOpticalFlowPyrLK(_img1, cur_img, cur_right_pts, reverseLeftPts,
-                                 statusRightLeft, err, cv::Size(21, 21), 3);
+                                 statusRightLeft, err, cv::Size(7, 7), 3);
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
-              distance(cur_pts[i], reverseLeftPts[i]) <= 0.5)
+              distance(cur_pts[i], reverseLeftPts[i]) <= 0.1)
             status[i] = 1;
           else
             status[i] = 0;
@@ -347,6 +347,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       ids_right = ids;
       reduceVector(cur_right_pts, status);
       reduceVector(ids_right, status);
+      LOG(INFO)<<"Right points track size : "<<cur_right_pts.size();
       // cv::Mat gray_img, loop_match_img;
       // cvtColor(_img1, loop_match_img, cv::COLOR_GRAY2RGB);
       // for (auto &&keypoint : cur_right_pts) {

@@ -73,7 +73,7 @@ class FeaturePerId {
 struct FeatureManagerOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   bool use_stereo =true;
-  double init_depth = 5.0;
+  double init_depth = -5.0;
   double min_parallax = 1. / 377;
 
 };
@@ -102,7 +102,7 @@ class FeatureManager {
                         Eigen::Matrix<double, 3, 4> &Pose1,
                         Eigen::Vector2d &point0, Eigen::Vector2d &point1,
                         Eigen::Vector3d &point_3d);
-  void initFramePoseByPnP(int frameCnt, Eigen::Vector3d Ps[],
+  bool initFramePoseByPnP(int frameCnt, Eigen::Vector3d Ps[],
                           Eigen::Matrix3d Rs[], Eigen::Vector3d tic[],
                           Eigen::Matrix3d ric[]);
   bool solvePoseByPnP(Eigen::Matrix3d &R_initial, Eigen::Vector3d &P_initial,
@@ -111,7 +111,7 @@ class FeatureManager {
                             Eigen::Matrix3d new_R, Eigen::Vector3d new_P);
   void removeBack();
   void removeFront(int frame_count);
-  void removeOutlier(std::set<int> &outlierIndex);
+  void removeOutlier(const std::set<int> &outlierIndex);
   std::list<FeaturePerId> feature;
   int last_track_num = 0;
   double last_average_parallax = 0.0;
