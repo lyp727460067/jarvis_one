@@ -94,7 +94,7 @@ add_custom_target(COPY_COFIG ALL
   VERBATIM 
   COMMAND ${CMAKE_COMMAND} -E make_directory ${LIBRARY_OUTPUT_PATH}/configuration/
   COMMAND ${CMAKE_COMMAND} -E copy_directory 
-  ${PROJECT_SOURCE_DIR}/configuration/ ${PROJECT_BINARY_DIR}/configuration/
+  ${PROJECT_SOURCE_DIR}/configuration/ ${LIBRARY_OUTPUT_PATH}/configuration/
   COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${LIBRARY_OUTPUT_PATH}/configuration/"
 ) 
 

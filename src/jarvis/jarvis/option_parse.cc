@@ -239,7 +239,9 @@ void ParseYAMLOption(const std::string &file,
 
     option->fail_detect_option.zero_odo_win_size =
         fsSettings["zero_odo_win_size"];
-    
+    option->fail_detect_option.zero_odo_pose_size =
+        fsSettings["zero_odo_pose_size"];
+
     int t = fsSettings["UpdataZeroVelocityOption"]["enable"];
 
 

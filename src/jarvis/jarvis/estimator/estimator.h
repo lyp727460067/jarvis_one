@@ -65,6 +65,7 @@ struct FailureDetectOptoin
   double zero_translation_z_max =0.002;
   double zero_ratation_max =0.001;
   int zero_odo_win_size =10;
+  int zero_odo_pose_size =40;
 };
 
 struct EstimatorOption {
@@ -258,7 +259,9 @@ class Estimator {
   Alignment alignment_;
   std::vector<bool> failuer_track_lost_;
   std::vector<bool> failuer_zero_lost_;
+  std::vector<bool> failuer_zero_feat_lost_;
   std::vector<bool> init_pnp_states_;
+  std::vector<transform::Rigid3d> lost_last_poses_;  
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_=nullptr;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
   int convin_used_num = 4;

@@ -90,7 +90,7 @@ gyr_w: 0.001       # gyroscope bias random work noise standard deviation.
 g_norm: 9.810     # gravity magnitude
 
 use_odom : 1
-odom_optimization_weight: 400
+odom_optimization_weight: 50
 data_base_lenth : 1
 angle_threas_hold : 6
 ##
@@ -107,7 +107,7 @@ UpdataZeroVelocityOption:
     zupt_chi2_multipler: 0.2
   imag_disparity_option:
     min_disparity_num: 20
-    max_disparity: 1
+    max_disparity: 0.5
   que_time_duration: 0.5
 
 
@@ -118,16 +118,18 @@ bgs_norm_max : 0.5
 translation_norm_max : 1
 translation_z_max : 0.5
 ratation_max : 10
-enable_odo_zero_lost_detect : 0
-zero_translation_norm_max : 0.004
-zero_translation_z_max : 0.001
-zero_ratation_max : 0.01
-zero_odo_win_size : 10
+enable_odo_zero_lost_detect : 1
+zero_translation_norm_max : 0.15
+zero_translation_z_max : 0.01
+zero_ratation_max : 40.1
+zero_odo_win_size : 30
+zero_odo_pose_size : 40
+
 
 rejection_points_depth_max_th : 20
-optimazation_outliers_rejection_th : 1
+optimazation_outliers_rejection_th : 3
 #unsynchronization parameters
-estimate_td: 0                     # online estimate time offset between camera and imu
+estimate_td: 1                     # online estimate time offset between camera and imu
 td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
 #optimization parameters
