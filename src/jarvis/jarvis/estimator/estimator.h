@@ -88,6 +88,7 @@ struct EstimatorOption {
   double optimazation_outliers_rejection_th=3;
   double rejection_points_depth_max_th =  30;
   double use_stereo_sample_ration=0.05; 
+  double init_rotation_th = 10;
 };
 
 class Estimator {

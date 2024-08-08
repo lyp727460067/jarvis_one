@@ -77,7 +77,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       return;
     }
     // CHECK(delta_t >= 0) << delta_t;
-    if (delta_t >= 50636) {
+    if (delta_t >= 80636) {
       LOG(WARNING) << "image .. " << frame.time << " " << delta_t
                    << " last: " << frame.time;
     }
@@ -111,7 +111,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       return;
     }
     // CHECK(delta_t >= 0) << delta_t;
-    if (delta_t > 12001) {
+    if (delta_t > 22001) {
       LOG(WARNING) << "imu lost: " << imu.time << " " << delta_t
                    << " last: " << last_time;
     }
@@ -139,7 +139,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       return;
     }
     // CHECK(delta_t >= 0) << delta_t;
-    if (delta_t > 16001) {
+    if (delta_t > 46001) {
       LOG(WARNING) << "odo lost: " << odom.time << " " << delta_t
                    << " last: " << last_time;
     }

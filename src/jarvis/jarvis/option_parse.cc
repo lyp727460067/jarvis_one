@@ -195,7 +195,8 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["odom_optimization_weight"];
     option->odom_factor_option.angle_threas_hold=
         fsSettings["angle_threas_hold"];
-
+    option->init_rotation_th =
+        fsSettings["init_rotation_th"];
 
     option->odom_factor_option.transform_imu_to_robot =
         calib_option.extric_camera_to_robot *

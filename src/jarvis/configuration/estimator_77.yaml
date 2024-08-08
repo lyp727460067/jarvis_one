@@ -113,7 +113,7 @@ UpdataZeroVelocityOption:
 
 track_feat_lost_min_num: 10
 track_feat_lost_win_size :  10
-bas_norm_max : 2.0
+bas_norm_max : 0.6
 bgs_norm_max : 0.5
 translation_norm_max : 1
 translation_z_max : 0.5
@@ -124,7 +124,7 @@ zero_translation_z_max : 0.01
 zero_ratation_max : 40.1
 zero_odo_win_size : 30
 zero_odo_pose_size : 40
-
+init_rotation_th : 1.5
 
 rejection_points_depth_max_th : 20
 optimazation_outliers_rejection_th : 3

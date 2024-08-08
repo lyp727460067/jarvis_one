@@ -166,7 +166,8 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
   // jarvis::transform::Rigid3d read_pose(
   //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
   //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  // LOG(INFO) << "Read pose: " << mpc_data.imu_timestamp << " " << read_pose << " "
-  //           << "state "<<int(mpc_data.state);
+  // LOG_EVERY_N(INFO, 10) << "Read pose: " << mpc_data.timestamp << " "
+  //                        << read_pose << " "
+  //                        << "state " << int(mpc_data.state);
 }
 }  // namespace jarvis_pic

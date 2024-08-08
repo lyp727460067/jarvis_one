@@ -80,28 +80,28 @@ class JarvisBuilder {
       // "<<imu.angular_velocity.transpose();
       jarvis::estimator::ImuState state;
       {
-        if (imu_extrapolator_) {
-          std::lock_guard<std::mutex> lock(mutex_);
-          imu_extrapolator_->AddImu(jarvis::sensor::ImuData{
-              jarvis::common::FromUniversal(imu.time * 10),
-              imu.linear_acceleration,
-              imu.angular_velocity,
-          });
-          state = imu_extrapolator_->Exrapolate(
-              jarvis::common::FromUniversal(imu.time * 10) +
-              common::FromSeconds(0.001));
-        }
+        // if (imu_extrapolator_) {
+        //   std::lock_guard<std::mutex> lock(mutex_);
+        //   imu_extrapolator_->AddImu(jarvis::sensor::ImuData{
+        //       jarvis::common::FromUniversal(imu.time * 10),
+        //       imu.linear_acceleration,
+        //       imu.angular_velocity,
+        //   });
+        //   state = imu_extrapolator_->Exrapolate(
+        //       jarvis::common::FromUniversal(imu.time * 10) +
+        //       common::FromSeconds(0.001));
+        // }
       }
       if (slip_detect_) {
-        jarvis::TrackingData data{
-            std::make_shared<jarvis::TrackingData::Data>(
-                jarvis::TrackingData::Data{
-                    jarvis::common::FromUniversal(imu.time * 10), state}),
-            kVioState};
-        transform::Rigid3d slipe_alignment_pose =
-            slip_detect_->ToPoseInOdom(state.pose);
-        mpc_.Write(slipe_alignment_pose, data,
-                   GetDataCapture()->GetOrigImuTime(imu.time), kSlipeState);
+        // jarvis::TrackingData data{
+        //     std::make_shared<jarvis::TrackingData::Data>(
+        //         jarvis::TrackingData::Data{
+        //             jarvis::common::FromUniversal(imu.time * 10), state}),
+        //     kVioState};
+        // transform::Rigid3d slipe_alignment_pose =
+        //     slip_detect_->ToPoseInOdom(state.pose);
+        // mpc_.Write(slipe_alignment_pose, data,
+        //            GetDataCapture()->GetOrigImuTime(imu.time), kSlipeState);
       }
       // auto pose = jarvis::GetGlobleImuExtrapolatorPose();
     });
@@ -184,23 +184,24 @@ class JarvisBuilder {
               slip_detect_->AddPose(slip_detect::TimePose{
                   data.data->time, data.data->imu_state.pose});
               slip_flag = slip_detect_->Detect(data.data->time);
-
-              // transform::Rigid3d slipe_alignment_pose =
-              //     slip_detect_->ToPoseInOdom(data.data->imu_state.pose);
-              // mpc_.Write(slipe_alignment_pose, data,
-              //            0,
-              //            kSlipeState);
             }
+
+            transform::Rigid3d slipe_alignment_pose =
+                slip_detect_->ToPoseInOdom(data.data->imu_state.pose);
+            mpc_.Write(slipe_alignment_pose, data, 0,slip_flag);
           }
+          //
+
           kSlipeState = slip_flag;
           kVioState = data.status;
           {
             std::lock_guard<std::mutex> lock(mutex_);
-            imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
+            // imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
           }
           call_back_(jarvis_pic_call_back_data{slip_flag, data});
         });
   }
+  jarvis::slip_detect::SlipDetect* GetSlipDect() { return slip_detect_.get(); }
 
  private:
   const std::string config_path_;
@@ -284,9 +285,12 @@ int main(int argc, char* argv[]) {
     //     tracking_data,
     //     jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
     //         jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
-    //
+    
 #ifdef __ZMQ_ENABLAE__
     if (tracking_data.status == 2) {
+      tracking_data.data->imu_state.pose =
+          jarvis_slam->GetSlipDect()->ToPoseInOdom(
+              tracking_data.data->imu_state.pose);
       zmq.PubLocalData(tracking_data, flag);
     }
 #endif

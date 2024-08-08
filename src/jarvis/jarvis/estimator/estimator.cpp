@@ -424,7 +424,10 @@ int Estimator::processMeasurements() {
         LOG(ERROR) << "Imu data invalid!!!";
         if (initFirstPoseFlag) {
           prevTime = curTime;
-          LOG(ERROR) << "return Lost  q!!!";
+          LOG(ERROR) << "return Lost  q!!!"
+                     << "curr: " << common::Time(common::FromSeconds(curTime))
+                     << "last : "
+                     << common::Time(common::FromSeconds(prevTime));
           LOG(INFO) << accVector.size();
           return TrackState::LOST;
         }
@@ -795,7 +798,7 @@ bool Estimator::InitialImuIsValida(int type) {
   // delta_yaw = delta_yaw / ((int)all_image_frame.size() - 1);
   if (type != 0) {
     LOG(ERROR) << "IMU ration" << delta_yaw;
-    if (delta_yaw > 2   || (var < 0.25 && var > 0.01)) {
+    if (delta_yaw > options_.init_rotation_th || (var < 0.25 && var > 0.01)) {
       LOG(ERROR) << "IMU ratation not <1! " << delta_yaw;
       return false;
     }
@@ -1247,7 +1250,7 @@ bool Estimator::failureDetection() {
                            options_.fail_detect_option.zero_odo_win_size);
   //
   //
-  LOG_IF(WARNING, is_zero_velocity) << "feat detect zero velocity.. ";
+  // LOG_IF(WARNING, is_zero_velocity) << "feat detect zero velocity.. ";
   //
   if (options_.fail_detect_option.enable_odo_zero_lost_detect == 1) {
     is_zero_velocity |=
