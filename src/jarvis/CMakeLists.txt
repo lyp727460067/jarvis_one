@@ -17,100 +17,79 @@ add_compile_options(#-Werror#-Wpedantic #minor error
 set(BUILD_TYPE Release)
 
 if(PLATFORM_mr527)
-add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
-add_definitions(-D__ARM_NEON__)
-add_definitions(-D__ARM_PLATFORM__)
-##
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
-option(build_test "build test" OFF)
+  add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
+  add_definitions(-D__ARM_NEON__)
+  add_definitions(-D__ARM_PLATFORM__)
+  ##
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
+  option(build_test "build test" OFF)
 
-set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
-set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
-set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
-set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
-set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
-set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include/)
-set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
+  set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
+  set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
+  set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
+  set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
+  set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
+  set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include/)
+  set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
 
 
-set(OpenCV_LIBS
-    ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
-    ${Opencv_lib_dir}/libopencv_imgcodecs.so
-    ${Opencv_lib_dir}/libopencv_imgproc.so
-    ${Opencv_lib_dir}/libopencv_features2d.so
-    ${Opencv_lib_dir}/libopencv_calib3d.so
-    # /home/lyp/project/mowerpack/mowerpack_all/ld_third_part/lib/libopencv_video.a
-    ${Opencv_lib_dir}/libopencv_video.so
-)
-set(SUTE_LIB_DIR "/home/lyp/project/mowerpack/mowerpack_all/third_party/clangarm64/lib")
-set(SUTI_LIBS
- ${SUTE_LIB_DIR}/libamd.a  
- ${SUTE_LIB_DIR}/libcxsparse.a
-#  ${SUTE_LIB_DIR}/libbtf.a 
-#  ${SUTE_LIB_DIR}/libcamd.a
- ${SUTE_LIB_DIR}/libccolamd.a 
-#  ${SUTE_LIB_DIR}/libcholmod.a
- ${SUTE_LIB_DIR}/libcolamd.a  
-#  ${SUTE_LIB_DIR}/libcxsparse.a 
-#  ${SUTE_LIB_DIR}/libklu.a      
-#  ${SUTE_LIB_DIR}/libldl.a
-#  ${SUTE_LIB_DIR}/librbio.a              
-#  ${SUTE_LIB_DIR}/libspqr.a
-#  ${SUTE_LIB_DIR}/libumfpack.a
-#  ${TOP_CMAKE_DIR}/third_party/lapack/lib/liblapack.a
-#  ${SUTE_LIB_DIR}/libsuitesparseconfig.so
+  set(OpenCV_LIBS
+      ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
+      ${Opencv_lib_dir}/libopencv_imgcodecs.so
+      ${Opencv_lib_dir}/libopencv_imgproc.so
+      ${Opencv_lib_dir}/libopencv_features2d.so
+      ${Opencv_lib_dir}/libopencv_calib3d.so
+      # /home/lyp/project/mowerpack/mowerpack_all/ld_third_part/lib/libopencv_video.a
+      ${Opencv_lib_dir}/libopencv_video.so
+  )
+  set(SUTE_LIB_DIR "/home/lyp/project/mowerpack/mowerpack_all/third_party/clangarm64/lib")
+  set(SUTI_LIBS
+   ${SUTE_LIB_DIR}/libamd.a  
+   ${SUTE_LIB_DIR}/libcxsparse.a
+  #  ${SUTE_LIB_DIR}/libbtf.a 
+  #  ${SUTE_LIB_DIR}/libcamd.a
+   ${SUTE_LIB_DIR}/libccolamd.a 
+  #  ${SUTE_LIB_DIR}/libcholmod.a
+   ${SUTE_LIB_DIR}/libcolamd.a  
+  #  ${SUTE_LIB_DIR}/libcxsparse.a 
+  #  ${SUTE_LIB_DIR}/libklu.a      
+  #  ${SUTE_LIB_DIR}/libldl.a
+  #  ${SUTE_LIB_DIR}/librbio.a              
+  #  ${SUTE_LIB_DIR}/libspqr.a
+  #  ${SUTE_LIB_DIR}/libumfpack.a
+  #  ${TOP_CMAKE_DIR}/third_party/lapack/lib/liblapack.a
+  #  ${SUTE_LIB_DIR}/libsuitesparseconfig.so
 
-)
-set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
-set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
-add_library(
-        glog::glog
-        STATIC
-        IMPORTED
-        GLOBAL
-)
-set_target_properties(
-        glog::glog
-        PROPERTIES IMPORTED_LOCATION
-        ${glog_binary_dir}
-)
-add_library(
-        yaml-cpp
-        STATIC
-        IMPORTED
-        GLOBAL
-)
-set_target_properties(
-        yaml-cpp
-        PROPERTIES IMPORTED_LOCATION
-        ${yaml_lib}
-)
-get_directory_property(out_var INCLUDE_DIRECTORIES)
-string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
-set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
-get_directory_property(out_var INCLUDE_DIRECTORIES)
-message(${LIBRARY_OUTPUT_PATH})
-add_custom_target(COPY_COFIG ALL
-  VERBATIM 
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${LIBRARY_OUTPUT_PATH}/configuration/
-  COMMAND ${CMAKE_COMMAND} -E copy_directory 
-  ${PROJECT_SOURCE_DIR}/configuration/ ${LIBRARY_OUTPUT_PATH}/configuration/
-  COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${LIBRARY_OUTPUT_PATH}/configuration/"
-) 
-
-INCLUDE_DIRECTORIES(
-  ${TOP_CMAKE_DIR}/vslam/
-)
+  )
+  set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
+  set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
+  add_library(glog::glog STATIC IMPORTED GLOBAL)
+  set_target_properties( glog::glog PROPERTIES IMPORTED_LOCATION  ${glog_binary_dir})
+  add_library(yaml-cpp STATIC IMPORTED GLOBAL)
+  set_target_properties( yaml-cpp PROPERTIES IMPORTED_LOCATION ${yaml_lib})
+  get_directory_property(out_var INCLUDE_DIRECTORIES)
+  string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
+  set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
+  get_directory_property(out_var INCLUDE_DIRECTORIES)
+  message(${LIBRARY_OUTPUT_PATH})
+  add_custom_target(COPY_COFIG ALL
+    VERBATIM 
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${LIBRARY_OUTPUT_PATH}/configuration/
+    COMMAND ${CMAKE_COMMAND} -E copy_directory 
+    ${PROJECT_SOURCE_DIR}/configuration/ ${LIBRARY_OUTPUT_PATH}/configuration/
+    COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${LIBRARY_OUTPUT_PATH}/configuration/"
+  ) 
+  INCLUDE_DIRECTORIES(
+    ${TOP_CMAKE_DIR}/vslam/
+  )
 else()
-
-add_definitions(-D__SSE2__)
-find_package(Eigen3 3.4.0 EXACT)
-find_package(OpenCV REQUIRED)
-find_package(Ceres REQUIRED)
-find_package(Glog REQUIRED) 
-find_package(yaml-cpp  REQUIRED) #version 0.7.0
-find_package(GTest  REQUIRED) #version 1.12.0
-
+  add_definitions(-D__SSE2__)
+  find_package(Eigen3 3.4.0 EXACT)
+  find_package(OpenCV REQUIRED)
+  find_package(Ceres REQUIRED)
+  find_package(Glog REQUIRED) 
+  find_package(yaml-cpp  REQUIRED) #version 0.7.0
+  find_package(GTest  REQUIRED) #version 1.12.0
 endif()
 
 INCLUDE_DIRECTORIES(
@@ -120,7 +99,6 @@ INCLUDE_DIRECTORIES(
   ${YAML_INCLUDE_DIRS}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
-   
 )
 ##copy config
 
