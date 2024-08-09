@@ -226,8 +226,9 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   P_initial = -(R_initial * P);
 
   // printf("pnp size %d \n",(int)pts2D.size() );
-  if (int(pts2D.size()) < 10) {
-    LOG(ERROR) << "feature tracking not enough, please slowly move you device!";
+  if (int(pts2D.size()) < options_.init_pnp_inlier_num) {
+    LOG(ERROR) << "feature tracking not enough, please slowly move you device! "
+               << pts2D.size() << " < "<< options_.init_pnp_inlier_num;
     return false;
   }
   cv::Mat r, rvec, t, D, tmp_r;
@@ -238,14 +239,15 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   bool pnp_succ;
   // pnp_succ = cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1);
   cv::Mat inliers;
-  pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 8.0 /377, 0.99, inliers);
+  pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 4.0 / 377,
+                            0.999, inliers);
   int n = 0;
   for (int i = 0; i < inliers.rows; i++) {
     if (inliers.at<int>(i)) {
       n++;
     }
   }
-  if (!pnp_succ && n >= 8) {
+  if (!pnp_succ && n >= options_.init_pnp_inlier_num) {
     LOG(ERROR) << "pnp failed ! ";
     return false;
   }
@@ -287,8 +289,8 @@ bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
       }
     }
   }
-  Eigen::Matrix3d RCam;
-  Eigen::Vector3d PCam;
+  Eigen::Matrix3d RCam = Eigen::Matrix3d::Identity();
+  Eigen::Vector3d PCam = Eigen::Vector3d::Zero();
   // trans to w_T_cam
   RCam = Rs[frameCnt - 1] * ric[0];
   PCam = Rs[frameCnt - 1] * tic[0] + Ps[frameCnt - 1];
@@ -300,7 +302,8 @@ bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
 
   Eigen::Quaterniond Q(Rs[frameCnt]);
   LOG(INFO) << "frameCnt: " << frameCnt << " pnp Q " << Q.w() << " "
-            << Q.vec().transpose();
+            << Q.vec().transpose()
+            << "yaw: " << common::RadToDeg(transform::GetYaw(Q));
   LOG(INFO) << "frameCnt: " << frameCnt << " pnp P "
             << Ps[frameCnt].transpose();
   return true;
@@ -327,7 +330,6 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       rightPose.leftCols<3>() = R1.transpose();
       rightPose.rightCols<1>() = -R1.transpose() * t1;
       // cout << "right pose " << rightPose << endl;
-
       Eigen::Vector2d point0, point1;
       Eigen::Vector3d point3d;
       point0 = it_per_id.feature_per_frame[0].point.head(2);
@@ -341,7 +343,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       const Eigen::Vector3d  localPoint_r =
           rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
       LOG(INFO)<<depth;
-      if (depth > 0.5 &&localPoint_r.z()>0.5)
+      if (depth > 0.5 && localPoint_r.z() > 0.5 && depth < 30 &&
+          localPoint_r.z() < 30)
         it_per_id.estimated_depth = depth;
       else{
         remove_index.insert(it_per_id.feature_id);

@@ -75,6 +75,7 @@ struct FeatureManagerOption {
   bool use_stereo =true;
   double init_depth = -5.0;
   double min_parallax = 1. / 377;
+  int init_pnp_inlier_num =15;
 
 };
 

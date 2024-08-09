@@ -13,14 +13,13 @@
 namespace jarvis {
 namespace estimator {
 
-
-
-
 FeatureDetect::FeatureDetect(const FeatureDetectOption& options)
     : options_(options),
       grid_width_((options.imag_size.x()) / options.grid_size.x()),
       grid_height_((options.imag_size.y()) / options.grid_size.y()),
-      min_distance_(options_.min_distance * options_.min_distance * 4) {}
+      min_distance_(options_.min_distance * options_.min_distance ) {
+  LOG(INFO) << options_.min_distance;
+}
 
 //
 void FeatureDetect::Convolution(const cv::Mat& image,

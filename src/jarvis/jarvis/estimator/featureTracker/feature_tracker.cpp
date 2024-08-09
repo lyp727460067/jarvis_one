@@ -79,6 +79,7 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
       std::make_unique<FeatureDetect>(option.feature_detect_option);
   LOG(INFO)<<option.pyrmid_option.image_size;
   LOG(INFO)<<option.pyrmid_option.layer;
+  LOG(INFO)<<options_.feature_detect_option.mask_min_dist;
 }
 //
 void FeatureTracker::setMask() {
@@ -107,7 +108,7 @@ void FeatureTracker::setMask() {
       ids.push_back(it.second.second);
       track_cnt.push_back(it.first);
       cv::circle(mask, it.second.first,
-                 options_.feature_detect_option.min_distance, 0, -1);
+                 options_.feature_detect_option.mask_min_dist, 0, -1);
     }
   }
 }
@@ -287,8 +288,10 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       // cv::goodFeaturesToTrack(cur_img, n_pts, options_.max_feat_cnt - cur_pts.size(), 0.01,
       //                         MIN_DIST, mask);
       // std::vector<cv::Point2f> forw_pts;
+      // LOG(INFO)<<n_max_cnt;
       n_pts = feature_detect_->Detect(cur_img, n_max_cnt,
                                       pyramid_image_->PrePyram()[1], mask);
+      // LOG(INFO)<<n_pts.size();
     } else {
       n_pts.clear();
     }
@@ -331,14 +334,14 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       std::vector<float> err;
       // cur left ---- cur right
       cv::calcOpticalFlowPyrLK(cur_img, _img1, cur_pts, cur_right_pts, status,
-                               err, cv::Size(7, 7), 3);
+                               err, cv::Size(21, 21), 3);
       // reverse check cur right ---- cur left
       if (1) {
         cv::calcOpticalFlowPyrLK(_img1, cur_img, cur_right_pts, reverseLeftPts,
-                                 statusRightLeft, err, cv::Size(7, 7), 3);
+                                 statusRightLeft, err, cv::Size(21, 21), 3);
         for (size_t i = 0; i < status.size(); i++) {
           if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
-              distance(cur_pts[i], reverseLeftPts[i]) <= 0.1)
+              distance(cur_pts[i], reverseLeftPts[i]) <= 0.3)
             status[i] = 1;
           else
             status[i] = 0;

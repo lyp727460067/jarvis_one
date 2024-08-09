@@ -128,7 +128,7 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
 
   static uint64_t last_time = time;
   if ((time - last_time) > 10000000) {
-    LOG(INFO) << "   " << time - last_time;
+    // LOG(INFO) << "   " << time - last_time;
   }
   last_time = time;
 #ifdef CHECK_DATA
@@ -208,7 +208,7 @@ uint64_t GetTimeFromName(const std::string& name) {
   const std::string file_name =
       name.substr(it + 1, name.size() - outdir.size());
   auto it1 = file_name.find_last_of('.') ;
-    LOG(INFO)<<std::stol(file_name.substr(0, it1));
+    // LOG(INFO)<<std::stol(file_name.substr(0, it1));
   return std::stol(file_name.substr(0, it1));
 }
 //
@@ -277,11 +277,11 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   for (const auto& image : images_datas) {
     //
     time = image.second.time;
-    LOG(INFO) << "image time : " << image.second.time
-              << " start imu t: " << imu_datas.begin()->first
-              << ", end imu t: " << imu_datas.upper_bound(time)->first
-              << " size:"
-              << std::distance(imu_datas.begin(), imu_datas.upper_bound(time));
+    // LOG(INFO) << "image time : " << image.second.time
+    //           << " start imu t: " << imu_datas.begin()->first
+    //           << ", end imu t: " << imu_datas.upper_bound(time)->first
+    //           << " size:"
+    //           << std::distance(imu_datas.begin(), imu_datas.upper_bound(time));
 
     // if(i++<120){
     //   time+=100*1000*1000;
@@ -317,8 +317,8 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + ".png", cv::IMREAD_GRAYSCALE);
 
     // cv::imshow("l_image",lr_image);
-    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    cv::waitKey(0);
+    // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    // cv::waitKey(0);
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
@@ -424,7 +424,7 @@ int main(int argc, char* argv[]) {
           slipe_alignment_pose =
               slip_detect->ToPoseInOdom((tracking_data.data->imu_state.pose));
         }
-        LOG(INFO) << tracking_data.data->imu_state.pose;
+        // LOG(INFO) << tracking_data.data->imu_state.pose;
         if (kRecordFlag) {
           const auto& pose = tracking_data.data->imu_state.pose;
           std::stringstream info;
@@ -471,15 +471,15 @@ int main(int argc, char* argv[]) {
     // if(imag_data.time<common::FromUniversal(530343438350))return;
     auto start = std::chrono::high_resolution_clock::now();
     builder_->AddImageData(imag_data);
-    LOG(INFO) << "One frame cost: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(
-                     std::chrono::high_resolution_clock::now() - start)
-                     .count();
-    // cv::imshow("show", *imag_data.image[0]);
-    // cv::waitKey(0);
-    // if(cv::waitKey()=='c'){
-    //   jarvis::restart =true;
-    // }
+    // LOG(INFO) << "One frame cost: "
+              // << std::chrono::duration_cast<std::chrono::milliseconds>(
+                    //  std::chrono::high_resolution_clock::now() - start)
+                    //  .count();
+    cv::imshow("show", *imag_data.image[0]);
+    cv::waitKey(0);
+    if(cv::waitKey()=='c'){
+      jarvis::restart =true;
+    }
   });
   order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
     builder_->AddImuData(jarvis::sensor::ImuData{

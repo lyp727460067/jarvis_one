@@ -70,10 +70,11 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   data_capture_->Rigister(class_name_, [&](const Frame& frame) {
     if (frame.time == 0) return;
     static uint64_t last_time = frame.time;
-    int64_t delta_t = frame.time-   last_time;
+    int64_t delta_t = frame.time - last_time;
     if (delta_t <= 0) {
       LOG(WARNING) << "image time reorde.." << delta_t << " cur: " << frame.time
                    << " last: " << last_time;
+      last_time = frame.time;
       return;
     }
     // CHECK(delta_t >= 0) << delta_t;

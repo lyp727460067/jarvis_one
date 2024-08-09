@@ -43,8 +43,9 @@ Estimator::Estimator(const EstimatorOption &options)
   estimate_extrinsic_ = options_.estimate_extrinsic;
   LOG(INFO) << options_.calibrate_option.extric_camera_to_imu[0];
   //
-  f_manager = std::make_unique<FeatureManager>(
-      FeatureManagerOption{options.calibrate_option.extric_camera_to_imu});
+
+//
+  f_manager = std::make_unique<FeatureManager>(options_.feature_manager_option);
   //
 
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
@@ -394,7 +395,6 @@ int Estimator::processMeasurements() {
   // printf("process measurments\n");
   std::pair<double, ImageFeatureTrackerData> feature;
   std::vector<std::pair<double, Eigen::Vector3d>> accVector, gyrVector;
-
   if (!featureBuf.empty()) {
     feature = featureBuf.front();
     curTime = feature.first + td;
@@ -557,15 +557,21 @@ void Estimator::InitFailureRestart() {
     Bgs[i] = Eigen::Vector3d::Zero();
     Bas[i] = Eigen::Vector3d::Zero();
   }
+
   for (int i = 0; i <= WINDOW_SIZE; i++) {
+    CHECK(pre_integrations[i]);
     pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
   }
   std::map<double, ImageFrame>::iterator frame_it;
   for (frame_it = all_image_frame.begin(); frame_it != all_image_frame.end();
        ++frame_it) {
-    frame_it->second.pre_integration->repropagate(Eigen::Vector3d::Zero(),
+    if(frame_it->second.pre_integration!=nullptr){
+      frame_it->second.pre_integration->repropagate(Eigen::Vector3d::Zero(),
                                                   Eigen::Vector3d::Zero());
+    }
+
   }
+  td=0.0;
   slideWindow();
 }
 int Estimator::processImage(const ImageFeatureTrackerData &image,
@@ -593,22 +599,22 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
   tmp_pre_integration = new IntegrationBase{options_.imu_option, acc_0, gyr_0,
                                             Bas[frame_count], Bgs[frame_count]};
 
-  // if (estimate_extrinsic_ == 2) {
-  //   LOG(INFO) << "calibrating extrinsic param, rotation movement is needed";
-  //   if (frame_count != 0) {
-  //     std::vector<pair<Eigen::Vector3d, Eigen::Vector3d>> corres =
-  //         f_manager->getCorresponding(frame_count - 1, frame_count);
-  //     Eigen::Matrix3d calib_ric;
-  //     if (initial_ex_rotation.CalibrationExRotation(
-  //             corres, pre_integrations[frame_count]->delta_q, calib_ric)) {
-  //       LOG(WARNING) << "initial extrinsic rotation calib success";
-  //       LOG(WARNING) << "initial extrinsic rotation: " << calib_ric;
-  //       ric[0] = calib_ric;
-  //       RIC[0] = calib_ric;
-  //       estimate_extrinsic_ = 1;
-  //     }
-  //   }
-  // }
+  if (estimate_extrinsic_ == 2) {
+    LOG(INFO) << "calibrating extrinsic param, rotation movement is needed";
+    if (frame_count != 0) {
+      std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> corres =
+          f_manager->getCorresponding(frame_count - 1, frame_count);
+      Eigen::Matrix3d calib_ric;
+      if (initial_ex_rotation.CalibrationExRotation(
+              corres, pre_integrations[frame_count]->delta_q, calib_ric)) {
+        LOG(WARNING) << "initial extrinsic rotation calib success";
+        LOG(WARNING) << "initial extrinsic rotation: " << calib_ric;
+        ric[0] = calib_ric;
+        // RIC[0] = calib_ric;
+        estimate_extrinsic_ = 1;
+      }
+    }
+  }
   if (solver_flag == INITIAL) {
     // monocular + IMU initilization
     if (options_.use_cam_num == 1 && options_.use_imu) {
@@ -673,7 +679,8 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
             }
             LOG(INFO) << "Initialization finish!";
           } else {
-            // InitFailureReseart();
+            LOG(ERROR)<<"bias arr....,reinit...";
+            // InitFailureRestart();
             return TrackState::LOST;
           }
         } else {
@@ -798,7 +805,7 @@ bool Estimator::InitialImuIsValida(int type) {
   // delta_yaw = delta_yaw / ((int)all_image_frame.size() - 1);
   if (type != 0) {
     LOG(ERROR) << "IMU ration" << delta_yaw;
-    if (delta_yaw > options_.init_rotation_th || (var < 0.25 && var > 0.01)) {
+    if (delta_yaw > options_.init_rotation_th /*|| (var < 0.25 && var > 0.01)*/) {
       LOG(ERROR) << "IMU ratation not <1! " << delta_yaw;
       return false;
     }
@@ -1407,8 +1414,8 @@ void Estimator::optimization() {
                                       para_SpeedBias[i]});
         }
       }
-      if (options_.use_odom) {
-        odometry_factor_[i]->AddToProblem(
+      if (options_.use_odom ) {
+        odometry_factor_[j]->AddToProblem(
             &problem, nullptr,
             std::array<double *, 3>{para_Pose[i], para_Pose[j],
                                     para_Ex_Pose_Odom[0]});
@@ -1856,10 +1863,15 @@ void Estimator::slideWindow() {
         // for(int i  =0;i< WINDOW_SIZE; i++){
         //   Bgs[i] = Eigen::Vector3d::Zero();
         // }
-
         it_0 = all_image_frame.find(t_0);
-        delete it_0->second.pre_integration;
-        all_image_frame.erase(all_image_frame.begin(), it_0);
+        if (it_0 != all_image_frame.end()) {
+          if (it_0->second.pre_integration != nullptr) {
+            delete it_0->second.pre_integration;
+            it_0->second.pre_integration = nullptr;
+          }
+          all_image_frame.erase(all_image_frame.begin(), it_0);    
+        }
+  
       }
       slideWindowOld();
     }

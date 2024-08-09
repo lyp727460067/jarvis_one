@@ -164,7 +164,7 @@ class Estimator {
   std::queue<std::pair<double, Eigen::Vector3d>> accBuf;
   std::queue<std::pair<double, Eigen::Vector3d>> gyrBuf;
   std::queue<std::pair<double, ImageFeatureTrackerData>> featureBuf;
-  double prevTime = 0, curTime = 0;
+  double prevTime = -1, curTime = 0;
   double prev_time_ = 0;
   bool openExEstimation = false;
   

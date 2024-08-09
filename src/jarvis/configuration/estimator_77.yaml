@@ -70,6 +70,7 @@ multiple_thread: 0
 
 max_cnt: 80          # max feature number in feature tracking
 min_dist: 50            # min distance between two features 
+mask_min_dist:  45    
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
 fast_th:  15
@@ -124,8 +125,8 @@ zero_translation_z_max : 0.01
 zero_ratation_max : 40.1
 zero_odo_win_size : 30
 zero_odo_pose_size : 40
-init_rotation_th : 1.5
-
+init_rotation_th : 2
+init_pnp_inlier_num : 15
 rejection_points_depth_max_th : 20
 optimazation_outliers_rejection_th : 3
 #unsynchronization parameters

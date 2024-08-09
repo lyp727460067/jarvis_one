@@ -133,6 +133,7 @@ void ParseYAMLOptionFetureOption(
   feature_option->track_back = fsSettings["flow_back"];
   feature_option->max_feat_cnt = fsSettings["max_cnt"];
   feature_option->feature_detect_option.min_distance = fsSettings["min_dist"];
+  feature_option->feature_detect_option.mask_min_dist = fsSettings["mask_min_dist"];
   feature_option->feature_detect_option.fast_thresh_hold =
       fsSettings["fast_th"];
   feature_option->feature_detect_option.imag_size =
@@ -183,7 +184,12 @@ void ParseYAMLOption(const std::string &file,
     option->feature_manager_option.extric_camera_to_imu =
         calib_option.extric_camera_to_imu;
     //
+
+
     option->calibrate_option = calib_option;
+    option->feature_manager_option.init_pnp_inlier_num =
+        fsSettings["init_pnp_inlier_num"];
+    
 
     option->use_cam_num = fsSettings["num_of_cam"];
     option->use_imu =fsSettings["imu"];
@@ -204,6 +210,8 @@ void ParseYAMLOption(const std::string &file,
     // option->use_stereo_sample_ration =
     // fsSettings["use_stereo_sample_ration"];
     //
+   
+
     option->rejection_points_depth_max_th =
         fsSettings["rejection_points_depth_max_th"];
     option->optimazation_outliers_rejection_th =
