@@ -141,7 +141,7 @@ class Estimator {
   void getPoseInWorldFrame(Eigen::Matrix4d &T);
   void getPoseInWorldFrame(int index, Eigen::Matrix4d &T);
   void predictPtsInNextFrame();
-  void outliersRejection(std::set<int> &removeIndex);
+  void outliersRejection(std::set<int> &removeIndex, const int convin_used_num);
   double reprojectionError(Eigen::Matrix3d &Ri, Eigen::Vector3d &Pi,
                            Eigen::Matrix3d &rici, Eigen::Vector3d &tici,
                            Eigen::Matrix3d &Rj, Eigen::Vector3d &Pj,
@@ -265,11 +265,12 @@ class Estimator {
   std::vector<transform::Rigid3d> lost_last_poses_;  
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_=nullptr;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
-  int convin_used_num = 4;
+  const int convin_used_num_ = 4;
   std::unique_ptr<DataBase> data_base_=nullptr;
   jarvis::transform::Rigid3d transform_imu_to_robot_;
   int stable_init_cout =0 ;
   int optimization_max_num_iterations_ =1;
+  double optimizaion_cam_weight_= FOCAL_LENGTH / 1.5;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

@@ -610,6 +610,9 @@ void RosCompont::PushMark(
     const std::map<std::string, jarvis::transform::Rigid3d> &makes,bool emd) {
   for (const auto &p : makes) {
     poses_[p.first].push_back(p.second.translation());
+    if(poses_[p.first].size()>10){
+poses_[p.first].erase(poses_[p.first].begin());
+    }
   }
   if(emd){
     PubPoseWithMark(poses_);

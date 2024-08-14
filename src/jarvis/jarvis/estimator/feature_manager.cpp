@@ -11,6 +11,7 @@
 #include "feature_manager.h"
 #include "opencv2/core/eigen.hpp"
 #include "glog/logging.h"
+#include "pnp_solver.h"
 namespace jarvis {
 namespace estimator {
 namespace {
@@ -33,8 +34,10 @@ int FeaturePerId::endFrame() {
 // }
 FeatureManager::FeatureManager(const FeatureManagerOption &options)
     : options_(options) {
-      LOG(INFO)<< options_.min_parallax;
-      LOG(INFO)<< options_.init_depth;
+  transform_cam1_to_cam0_ = options_.extric_camera_to_imu[0].inverse() *
+                            options_.extric_camera_to_imu[1];
+  LOG(INFO) << options_.min_parallax;
+  LOG(INFO) << options_.init_depth;
     }
 //
 void FeatureManager::clearState() { feature.clear(); }
@@ -214,7 +217,6 @@ void FeatureManager::triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
   point_3d(1) = triangulated_point(1) / triangulated_point(3);
   point_3d(2) = triangulated_point(2) / triangulated_point(3);
 }
-
 bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
                                     vector<cv::Point2f> &pts2D,
                                     vector<cv::Point3f> &pts3D) {
@@ -225,7 +227,7 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   R_initial = R.inverse();
   P_initial = -(R_initial * P);
 
-  // printf("pnp size %d \n",(int)pts2D.size() );
+  // // printf("pnp size %d \n",(int)pts2D.size() );
   if (int(pts2D.size()) < options_.init_pnp_inlier_num) {
     LOG(ERROR) << "feature tracking not enough, please slowly move you device! "
                << pts2D.size() << " < "<< options_.init_pnp_inlier_num;
@@ -263,6 +265,30 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
   P = R * (-T_pnp);
 
   return true;
+
+  // PnpSolver pnp_solver(PnpSolverOption{});
+  // //
+  // std::vector<Eigen::Vector2d> normal_2d_temp;
+  // std::vector<Eigen::Vector3d> map_points_temp;
+  // for (int i = 0; i < pts3D.size(); i++) {
+  //   map_points_temp.push_back(
+  //       Eigen::Vector3d(pts3D[i].x, pts3D[i].y, pts3D[i].z));
+  //   normal_2d_temp.push_back(Eigen::Vector2d(pts2D[i].x, pts2D[i].y));
+  // }
+  // auto result = pnp_solver.Solve(map_points_temp, normal_2d_temp,
+  //                                transform::Rigid3d::Identity());
+  // std::pair<transform::Rigid3d, std::vector<bool>> pnp_pose;
+  // if (result && !result->extend) {
+  //   pnp_pose = std::make_pair<transform::Rigid3d, std::vector<bool>>(
+  //       std::move(result->pose), std::move(result->inliers));
+  // } else {
+  //   LOG(ERROR) << "pnp failed ! ";
+  //   return false;
+  // }
+  // transform::Rigid3d pose = pnp_pose.first.inverse();
+  // R = pose.rotation().toRotationMatrix();
+  // P = pose.translation();
+  // return true;
 }
 
 bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
@@ -270,6 +296,7 @@ bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
                                         Matrix3d ric[]) {
   if (frameCnt <= 0) return true;
   vector<cv::Point2f> pts2D;
+  vector<cv::Point2f> pts2D_r;
   vector<cv::Point3f> pts3D;
   for (auto &it_per_id : feature) {
     if (it_per_id.estimated_depth > 0) {
@@ -284,8 +311,13 @@ bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
         cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
         cv::Point2f point2d(it_per_id.feature_per_frame[index].point.x(),
                             it_per_id.feature_per_frame[index].point.y());
+
+        cv::Point2f point2d_r(it_per_id.feature_per_frame[index].pointRight.x(),
+                            it_per_id.feature_per_frame[index].pointRight.y());
+
         pts3D.push_back(point3d);
         pts2D.push_back(point2d);
+        pts2D_r.push_back(point2d_r);
       }
     }
   }
@@ -296,6 +328,25 @@ bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
   PCam = Rs[frameCnt - 1] * tic[0] + Ps[frameCnt - 1];
 
   if (!solvePoseByPnP(RCam, PCam, pts2D, pts3D)) return false;
+
+  // transform::Rigid3d r_pose =
+  //     transform::Rigid3d(PCam, Eigen::Quaterniond(RCam)) *
+  //     transform_cam1_to_cam0_;
+
+  // int out_reprejct_outlier_num = 0;
+  // for (int i = 0; i < pts3D.size(); i++) {
+  //   Eigen::Vector3d p =
+  //       r_pose.inverse() * Eigen::Vector3d(pts3D[i].x, pts3D[i].y, pts3D[i].z);
+  //   p = p / p.z();
+  //   double err =(p - Eigen::Vector3d(pts2D_r[i].x, pts2D_r[i].y, 1)).squaredNorm();
+  //   LOG(INFO) << err;
+  //   if (err < 3.0/FOCAL_LENGTH ) {
+  //     out_reprejct_outlier_num++;
+  //   }
+  // }
+  // LOG(INFO)<<out_reprejct_outlier_num<<" "<<pts3D.size();
+  // // if(out_reprejct_outlier_num<=pts3D.size()*0.90)return false;
+
   // trans to w_T_imu
   Rs[frameCnt] = RCam * ric[0].transpose();
   Ps[frameCnt] = -RCam * ric[0].transpose() * tic[0] + PCam;
@@ -342,9 +393,9 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       double depth = localPoint.z();
       const Eigen::Vector3d  localPoint_r =
           rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
-      LOG(INFO)<<depth;
-      if (depth > 0.5 && localPoint_r.z() > 0.5 && depth < 30 &&
-          localPoint_r.z() < 30)
+      // LOG(INFO)<<depth;
+      if (depth > 0.5 && localPoint_r.z() > 0.5 && depth < 20 &&
+          localPoint_r.z() < 20)
         it_per_id.estimated_depth = depth;
       else{
         remove_index.insert(it_per_id.feature_id);

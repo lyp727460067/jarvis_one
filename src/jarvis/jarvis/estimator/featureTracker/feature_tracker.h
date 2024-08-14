@@ -62,10 +62,11 @@ struct FeatureTrackerOption {
   PyramidImageOption pyrmid_option;
   FeatureDetectOption feature_detect_option;
   std::vector<camera_models::CameraPtr> cameras;
+  CalibrateOption calibrate_option;
   cv::Mat mask;
   int track_back=0;
   int max_feat_cnt=100;
-  double ransac_threshold =1.0;
+  double ransac_threshold =1;
 };
 
 class FeatureTracker {
@@ -77,7 +78,10 @@ class FeatureTracker {
   void setMask();
   void readIntrinsicParameter(const std::vector<std::string> &calib_file);
   void showUndistortion(const std::string &name);
-  void rejectWithF();
+  //
+  std::vector<uchar> rejectWithF(std::vector<cv::Point2f> &cur_pts,
+                                 std::vector<cv::Point2f> &prev_pts);
+  //
   void undistortedPoints();
   std::vector<cv::Point2f> undistortedPts(std::vector<cv::Point2f> &pts,
                                           camera_models::CameraPtr cam);

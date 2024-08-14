@@ -118,7 +118,7 @@ class FeatureManager {
   double last_average_parallax = 0.0;
   int new_feature_num = 0;
   int long_track_num = 0;
-
+  transform::Rigid3d transform_cam1_to_cam0_;
  private:
   double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
   // const Eigen::Matrix3d *Rs = nullptr;

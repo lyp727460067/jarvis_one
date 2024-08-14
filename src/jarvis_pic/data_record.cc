@@ -55,8 +55,8 @@ void DataRecord::CreateDataDir() {
 DataRecord::DataRecord(const std::string& data_path, bool record)
     : record_(record),data_path_(data_path) {
   LOG(INFO)<< record_;
+  CreateDataDir();
   if (record_) {
-    CreateDataDir();
     thread_ = std::thread([this]() {
       while (!kill_thread_) {
         Run();

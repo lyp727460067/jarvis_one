@@ -40,12 +40,14 @@ uint8_t kRecordFlag = 0;
 uint8_t kEnableSlipDetect = 0;
 uint8_t kDataCaputureType = 0;
 
+std::string test_ip;
 
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["record"] >> kRecordFlag;
   fsSettings["slip_detect"] >> kEnableSlipDetect;
   fsSettings["GLOG_v"] >> kGLOG_v;
+  fsSettings["test_ip"] >>test_ip;
 }
 }  // namespace
 //
@@ -224,28 +226,30 @@ std::string kDataDir = "/mnt/UDISK/jarvis/";
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging("jarvis");
   //
-  if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
-    mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
-  }
-  if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
-    mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
-  }
+ 
   //
   //
   const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
   //
   //
   //
-  FLAGS_alsologtostderr = true;
-  FLAGS_colorlogtostderr = true;
-  //
-
   ParseOption(config_file);
   FLAGS_v = kGLOG_v;
   //
   if (kGLOG_v >= 0) {
     FLAGS_log_dir = kDataDir+"/log/";
   }
+ if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
+    mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+  }
+  if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
+    mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+  }
+  FLAGS_alsologtostderr = true;
+  FLAGS_colorlogtostderr = true;
+  //
+
+
   //
   data_record_ =
       std::make_unique<jarvis_pic::DataRecord>(kDataDir, kRecordFlag);
@@ -276,10 +280,10 @@ int main(int argc, char* argv[]) {
       tracking_data = tracking_data_temp;
       flag = slip_flag;
     }
-    data_record_->AddVioData(tracking_data.data->time,
-                             tracking_data.data->imu_state.pose,
-                             flag);
-
+    if (kGLOG_v >= 0) {
+      data_record_->AddVioData(tracking_data.data->time,
+                               tracking_data.data->imu_state.pose, flag);
+    }
     LOG_EVERY_N(WARNING, 60) << tracking_data.data->imu_state.pose;
     // mpc.Write(
     //     tracking_data,

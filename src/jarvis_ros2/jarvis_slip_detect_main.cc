@@ -438,7 +438,8 @@ int main(int argc, char* argv[]) {
           kOPoseFile << info.str() << std::endl;
         }
 
-        ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
+        // ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
+        ros_compont->PushMark({{"vo", tracking_data.data->imu_state.pose}}, true);
         ros_compont->OnLocalTrackingResultCallback(
             tracking_data, nullptr, transform::Rigid3d::Identity());
         ros_compont->PosePub(tracking_data.data->imu_state.pose,
@@ -475,7 +476,7 @@ int main(int argc, char* argv[]) {
               // << std::chrono::duration_cast<std::chrono::milliseconds>(
                     //  std::chrono::high_resolution_clock::now() - start)
                     //  .count();
-    cv::imshow("show", *imag_data.image[0]);
+    // cv::imshow("show", *imag_data.image[0]);
     cv::waitKey(0);
     if(cv::waitKey()=='c'){
       jarvis::restart =true;

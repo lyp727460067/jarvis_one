@@ -19,6 +19,7 @@
 #include <opencv2/imgproc/types_c.h>
 #include "jarvis/estimator/featureTracker/xppyramid.hpp"
 #include "glog/logging.h"
+#include "random"
 namespace jarvis {
 namespace estimator {
 namespace {
@@ -121,7 +122,78 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2) {
 }
 
 
+#if 0
+cv::Mat GenerateImageWithKeyPoint(
+    const cv::Mat &l_img,  std::vector<cv::Point2f> l_key_points,const cv::Mat &r_img,
+     std::vector<cv::Point2f> r_key_points,std::vector<uchar> status
+  ) {
+  int col = l_img.cols;
+  int row = l_img.rows;
+  cv::Mat l_img_tmp;
+  cv::Mat r_img_tmp;
 
+  // cv::Mat l_img_feat;
+  // cv::cvtColor(l_img, l_img_feat, cv::COLOR_GRAY2RGB);
+  // cv::Mat r_img_feat;
+  // cv::cvtColor(r_img, r_img_feat, cv::COLOR_GRAY2RGB);
+  // //
+  const int gap = 10;
+  const int v_gap = 40;
+
+  cv::Mat gap_image(row+v_gap, gap, CV_8UC1, cv::Scalar(255, 255, 255));
+  cv::Mat v_gap_image(v_gap,col, CV_8UC1, cv::Scalar(0,0,0));
+  cv::vconcat(v_gap_image,l_img,l_img_tmp);
+  for(int i =0;i<l_key_points.size();i++){
+    l_key_points[i].y+=v_gap;
+  }
+  cv::vconcat(r_img,v_gap_image,r_img_tmp);
+
+  
+  cv::Mat gray_img, loop_match_img;
+  cv::hconcat(l_img_tmp, gap_image, gap_image);
+  cv::hconcat(gap_image, r_img_tmp, gray_img);
+  
+  // common::FixedRatioSampler sampler(0.1);
+  cvtColor(gray_img, loop_match_img, cv::COLOR_GRAY2RGB);
+  std::mt19937 rng(42);
+  std::uniform_int_distribution r_bound_distribution(1, 255);
+  std::uniform_int_distribution b_bound_distribution(1, 255);
+  std::uniform_int_distribution g_ound_distribution(1, 255);
+
+  //
+  for (auto &&keypoint : (l_key_points)) {
+    cv::Scalar color = cv::Scalar(255, 0, 0);
+    // if (class_id.count(keypoint.class_id)) {
+    //   cv::circle(loop_match_img, keypoint.pt, 2 ,cv::Scalar(0, 0, 255), 2);
+    // } else {
+    cv::circle(loop_match_img, keypoint, 2,color , 2);
+    // }
+    // cv::putText(loop_match_img, std::to_string(keypoint.class_id),
+    // keypoint.pt,
+    //             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
+  }
+  for (auto &&keypoint : r_key_points) {
+    cv::circle(loop_match_img, {(int)keypoint.x + (col + gap), (int)keypoint.y}, 1, cv::Scalar(0, 255, 0), 2);
+  }
+
+  for (size_t j = 0; j < r_key_points.size(); j++) {
+    if(!status[j])continue;
+    cv::Point2f old_pt = r_key_points[j];
+    old_pt.x += (col + gap);
+    cv::line(loop_match_img, l_key_points[j], old_pt,
+             cv::Scalar(r_bound_distribution(rng), b_bound_distribution(rng),
+                        g_ound_distribution(rng)),
+             1, 8, 0);
+  }
+  // cv::Mat notation(50, col + gap + col, CV_8UC3, cv::Scalar(255, 255, 255));
+  // putText(notation, l_name, cv::Point2f(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1,
+  //         cv::Scalar(255), 3);
+  // putText(notation, r_name, cv::Point2f(20 + col + gap, 30),
+  //         cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255), 3);
+  // cv::vconcat(notation, loop_match_img, loop_match_img);
+  return loop_match_img;
+}
+#endif
 ImageFeatureTrackerData
 FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
                            const cv::Mat &_img1,std::map<int,int>* track_num ,const double angle ) {
@@ -334,29 +406,29 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       std::vector<float> err;
       // cur left ---- cur right
       cv::calcOpticalFlowPyrLK(cur_img, _img1, cur_pts, cur_right_pts, status,
-                               err, cv::Size(21, 21), 3);
+                               err, cv::Size(21, 21), 3,criteria);
       // reverse check cur right ---- cur left
+
+      // auto f_state  = rejectWithF(cur_pts,cur_right_pts);
       if (1) {
         cv::calcOpticalFlowPyrLK(_img1, cur_img, cur_right_pts, reverseLeftPts,
-                                 statusRightLeft, err, cv::Size(21, 21), 3);
+                                 statusRightLeft, err, cv::Size(21, 21), 2,
+                                 criteria);
         for (size_t i = 0; i < status.size(); i++) {
-          if (status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
-              distance(cur_pts[i], reverseLeftPts[i]) <= 0.3)
+          if (status[i]/*&& f_state[i]*/ && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
+              distance(cur_pts[i], reverseLeftPts[i]) <= 0.3  )
             status[i] = 1;
           else
             status[i] = 0;
         }
       }
       ids_right = ids;
+      // cv::Mat gray_img = GenerateImageWithKeyPoint(cur_img,cur_pts,_img1,cur_right_pts,status);     
       reduceVector(cur_right_pts, status);
       reduceVector(ids_right, status);
       LOG(INFO)<<"Right points track size : "<<cur_right_pts.size();
-      // cv::Mat gray_img, loop_match_img;
-      // cvtColor(_img1, loop_match_img, cv::COLOR_GRAY2RGB);
-      // for (auto &&keypoint : cur_right_pts) {
-      //   cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-      // }
-      // cv::imshow("rit",loop_match_img);
+     
+      // cv::imshow("rit",gray_img);
       // cv::waitKey(0);
       // only keep left-right pts
       /*
@@ -452,7 +524,8 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   // return featureFrame;
 }
 
-void FeatureTracker::rejectWithF() {
+ std::vector<uchar> FeatureTracker::rejectWithF(std::vector<cv::Point2f> &cur_pts,
+                                 std::vector<cv::Point2f> &prev_pts) {
   if (cur_pts.size() >= 8) {
     VLOG(kGlogLevel) << "FM ransac begins";
     TicToc t_f;
@@ -460,16 +533,23 @@ void FeatureTracker::rejectWithF() {
         un_prev_pts(prev_pts.size());
     for (unsigned int i = 0; i < cur_pts.size(); i++) {
       Eigen::Vector3d tmp_p;
+      const std::vector<double> &cam0_intric =
+          options_.calibrate_option.camera_options[0].intrinsics;
+
       m_camera[0]->liftProjective(Eigen::Vector2d(cur_pts[i].x, cur_pts[i].y),
                                   tmp_p);
-      tmp_p.x() = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() + col / 2.0;
-      tmp_p.y() = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() + row / 2.0;
+      //
+      tmp_p.x() = cam0_intric[0] * tmp_p.x() / tmp_p.z() + cam0_intric[2];
+      tmp_p.y() = cam0_intric[1] * tmp_p.y() / tmp_p.z() + cam0_intric[3];
       un_cur_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
 
-      m_camera[0]->liftProjective(Eigen::Vector2d(prev_pts[i].x, prev_pts[i].y),
+      const std::vector<double> &cam1_intric =
+          options_.calibrate_option.camera_options[1].intrinsics;
+
+      m_camera[1]->liftProjective(Eigen::Vector2d(prev_pts[i].x, prev_pts[i].y),
                                   tmp_p);
-      tmp_p.x() = FOCAL_LENGTH * tmp_p.x() / tmp_p.z() + col / 2.0;
-      tmp_p.y() = FOCAL_LENGTH * tmp_p.y() / tmp_p.z() + row / 2.0;
+      tmp_p.x() = cam1_intric[0] * tmp_p.x() / tmp_p.z() + cam1_intric[2];
+      tmp_p.y() = cam1_intric[1] * tmp_p.y() / tmp_p.z() + cam1_intric[3];
       un_prev_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
     }
 
@@ -477,15 +557,18 @@ void FeatureTracker::rejectWithF() {
     cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC,
                            options_.ransac_threshold, 0.99, status);
     int size_a = cur_pts.size();
-    reduceVector(prev_pts, status);
-    reduceVector(cur_pts, status);
-    reduceVector(cur_un_pts, status);
-    reduceVector(ids, status);
-    reduceVector(track_cnt, status);
-    VLOG(kGlogLevel) << "FM ransac: " << size_a << " -> " << cur_pts.size()
-                     << " " << 1.0 * cur_pts.size() / size_a;
-    VLOG(kGlogCostTimeLevel) << "FM ransac costs: " << t_f.toc() << " ms";
+    
+    // reduceVector(prev_pts, status);
+    // reduceVector(cur_pts, status);
+    // reduceVector(cur_un_pts, status);
+    // reduceVector(ids, status);
+    // reduceVector(track_cnt, status);
+    const int ransac_inli_cnt = std::count(status.begin(), status.end(), 1);
+    VLOG(kGlogLevel) << "FM ransac: " << size_a << " -> " << ransac_inli_cnt
+                     << " " << 1.0 * ransac_inli_cnt / size_a;
+    return status;
   }
+  return {};
 }
 
 void FeatureTracker::readIntrinsicParameter(

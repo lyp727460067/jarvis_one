@@ -142,7 +142,7 @@ void ParseYAMLOptionFetureOption(
   // feature_option->feature_detect_option.grid_size=
   //     camera_option.camera_options[0].resolution;
 
-
+  feature_option->calibrate_option = camera_option;
   std::string mask_id;
   fsSettings["mask_id"] >> mask_id;
   int pn = file.find_last_of('/');
@@ -185,11 +185,10 @@ void ParseYAMLOption(const std::string &file,
         calib_option.extric_camera_to_imu;
     //
 
-
     option->calibrate_option = calib_option;
     option->feature_manager_option.init_pnp_inlier_num =
         fsSettings["init_pnp_inlier_num"];
-    
+    option->feature_manager_option.use_stereo =( int(fsSettings["num_of_cam"]) == 2);
 
     option->use_cam_num = fsSettings["num_of_cam"];
     option->use_imu =fsSettings["imu"];

@@ -39,6 +39,7 @@ std::ofstream kOImuFile;
 std::ofstream kOPoseFile;
 std::ofstream kSlipFile;
 std::string image_dir;
+std::string test_ip;
 std::unique_ptr<jarvis::estimator::ImuExtrapolator> KImuExtrapolator;
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
@@ -46,6 +47,8 @@ void ParseOption(const std::string& config) {
   LOG(INFO) << imu_cam_time_offset;
   fsSettings["image_sample"] >> image_sample;
   fsSettings["start_image_time"] >> KStartImageTime;
+  fsSettings["start_image_time"] >> KStartImageTime;
+  fsSettings["test_ip"] >>test_ip;
   // fsSettings["record"] >> kRecordFlag;
   // fsSettings["data_capture"] >> kDataCaputureType;
 }

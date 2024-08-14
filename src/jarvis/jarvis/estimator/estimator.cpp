@@ -175,17 +175,13 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
       tracking_data->status = TrackState::INIT;
     }
     LOG(INFO) << Eigen::Quaterniond(Rs[frame_count]);
-    ImuState imu_state_data = ImuState{
-        transform::Rigid3d({0, 0, 0}, Eigen::Quaterniond(Rs[frame_count]))};
-    //
-    tracking_data->data->imu_state = ImuState{imu_state_data};
+    // ImuState imu_state_data = ImuState{
+    //     transform::Rigid3d({0, 0, 0}, Eigen::Quaterniond(Rs[frame_count]))};
+    // //
+    // tracking_data->data->imu_state = ImuState{imu_state_data};
   } else {
     // auto odom_temp =   data_base_->InterpolateOdometry(images.time);
-    auto imu_state_data =
-        ImuState{transform::Rigid3d(Ps[frame_count],
-                                    Eigen::Quaterniond(Rs[frame_count])),
-                 Vs[frame_count], Bas[frame_count], Bgs[frame_count], g};
-    tracking_data->data->imu_state = ImuState{imu_state_data};
+
     if (TrackState(state) == TrackState::LOST) {
       tracking_data->status = TrackState(state);
     } else {
@@ -197,6 +193,11 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
       }
     }
   }
+  auto imu_state_data = ImuState{
+      transform::Rigid3d(Ps[frame_count], Eigen::Quaterniond(Rs[frame_count])),
+      Vs[frame_count], Bas[frame_count], Bgs[frame_count], g};
+  tracking_data->data->imu_state = ImuState{imu_state_data};
+
   data_base_->TrimData(images.time);
   return tracking_data;
 }
@@ -646,8 +647,11 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
       init_pnp_states_.push_back(pnp_state);
       LOG(INFO) << std::count(init_pnp_states_.begin(), init_pnp_states_.end(),
                               true);
+
+
+      if(f_manager)
       if (frame_count == WINDOW_SIZE) {
-        if (InitialImuIsValida(1)&&
+        if (/*InitialImuIsValida(1)&&*/
             (std::count(init_pnp_states_.begin(), init_pnp_states_.end(),
                         true) == WINDOW_SIZE + 1)) {
           std::map<double, ImageFrame>::iterator frame_it;
@@ -659,24 +663,41 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
             i++;
           }
           alignment_.solveGyroscopeBias(all_image_frame, Bgs);
-          if( Bgs[WINDOW_SIZE].norm()<options_.fail_detect_option.bgs_norm_max){
-          // if (!failureDetection()) {
+
+          if (Bgs[WINDOW_SIZE].norm() <
+                  options_.fail_detect_option.bgs_norm_max) {
+            // if (!failureDetection()) {
             for (int i = 0; i <= WINDOW_SIZE; i++) {
               pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
             }
             
             optimization_max_num_iterations_=10;
+            optimizaion_cam_weight_ = FOCAL_LENGTH*2;
+            //
+            // std::set<int> removeIndex;
+            // outliersRejection(removeIndex, 2);
+            // f_manager->removeOutlier(removeIndex);
+            // feature_tracker_->removeOutliers(removeIndex);
+            //
             optimization();
             optimization_max_num_iterations_=1;
+            optimizaion_cam_weight_ = FOCAL_LENGTH / 1.5;
             updateLatestStates();
-            solver_flag = NON_LINEAR;
-            slideWindow();
             for (int i = 0; i <= WINDOW_SIZE; i++) {
               LOG(INFO) << "init  " << i << " bas :" << Bas[i].transpose()
                         << " bgs :" << Bgs[i].transpose() << " ps "
                         << Ps[i].transpose() << " rs "
                         << Eigen::Quaterniond(Rs[i]);
             }
+            if (Bas[WINDOW_SIZE].norm() > 0.2 ||
+                Bgs[WINDOW_SIZE].norm() >
+                    options_.fail_detect_option.bgs_norm_max) {
+              LOG(ERROR) << "init optimization bias err";
+              return TrackState::LOST;
+            }
+            solver_flag = NON_LINEAR;
+            slideWindow();
+          
             LOG(INFO) << "Initialization finish!";
           } else {
             LOG(ERROR)<<"bias arr....,reinit...";
@@ -728,7 +749,7 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
     f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
     optimization();
     std::set<int> removeIndex;
-    outliersRejection(removeIndex);
+    outliersRejection(removeIndex,convin_used_num_);
     f_manager->removeOutlier(removeIndex);
     feature_tracker_->removeOutliers(removeIndex);
     predictPtsInNextFrame();
@@ -818,7 +839,7 @@ bool Estimator::InitialImuIsValida(int type) {
   return true;
 }
 bool Estimator::initialStructure() {
-  if (!InitialImuIsValida()) return false;
+  InitialImuIsValida() ;
   TicToc t_sfm;
   // check imu observibility
   LOG(INFO) << frame_count;
@@ -1011,7 +1032,7 @@ bool Estimator::relativePose(Eigen::Matrix3d &relative_R,
       }
       average_parallax = 1.0 * sum_parallax / int(corres.size());
       LOG(INFO) << average_parallax * 460;
-      if (average_parallax * 460 > 30 &&
+      if (average_parallax * 460 > 10 &&
           m_estimator.solveRelativeRT(corres, relative_R, relative_T)) {
         l = i;
         VLOG(kGlogLevel)
@@ -1385,8 +1406,8 @@ void Estimator::optimization() {
   }
   ordering->AddElementToGroup(para_Td[0], 1);
   problem.AddParameterBlock(para_Td[0], 1);
-
-  if (!options_.estimate_td || Vs[0].norm() < 0.2) {
+  //
+  if (!options_.estimate_td || Vs[0].norm() < 0.2 || solver_flag == INITIAL) {
     problem.SetParameterBlockConstant(para_Td[0]);
   }
 
@@ -1451,10 +1472,10 @@ void Estimator::optimization() {
   int f_m_cnt = 0;
   int feature_index = -1;
 
-  const double cam_weight = FOCAL_LENGTH / 1.5;
+  const double cam_weight = optimizaion_cam_weight_;
   for (auto &it_per_id : f_manager->feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
-    if (it_per_id.used_num < convin_used_num) continue;
+    if (it_per_id.used_num < convin_used_num_) continue;
 
     ++feature_index;
 
@@ -1635,7 +1656,7 @@ void Estimator::optimization() {
       int feature_index = -1;
       for (auto &it_per_id : f_manager->feature) {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < convin_used_num) continue;
+        if (it_per_id.used_num < convin_used_num_) continue;
 
         ++feature_index;
 
@@ -2005,7 +2026,7 @@ double Estimator::reprojectionError(Eigen::Matrix3d &Ri, Eigen::Vector3d &Pi,
   return sqrt(rx * rx + ry * ry);
 }
 
-void Estimator::outliersRejection(std::set<int> &removeIndex) {
+void Estimator::outliersRejection(std::set<int> &removeIndex,const int convin_used_num) {
   // return;
   int feature_index = -1;
   for (auto &it_per_id : f_manager->feature) {
@@ -2028,25 +2049,25 @@ void Estimator::outliersRejection(std::set<int> &removeIndex) {
         errCnt++;
         // printf("tmp_error %f\n", FOCAL_LENGTH / 1.5 * tmp_error);
       }
-      //   // need to rewrite projecton factor.........
-      //   if (IsStereo() && it_per_frame.is_stereo) {
-      //     Eigen::Vector3d pts_j_right = it_per_frame.pointRight;
-      //     if (imu_i != imu_j) {
-      //       double tmp_error = reprojectionError(
-      //           Rs[imu_i], Ps[imu_i], ric[0], tic[0], Rs[imu_j], Ps[imu_j],
-      //           ric[1], tic[1], depth, pts_i, pts_j_right);
-      //       err += tmp_error;
-      //       errCnt++;
-      //       // printf("tmp_error %f\n", FOCAL_LENGTH / 1.5 * tmp_error);
-      //     } else {
-      //       double tmp_error = reprojectionError(
-      //           Rs[imu_i], Ps[imu_i], ric[0], tic[0], Rs[imu_j], Ps[imu_j],
-      //           ric[1], tic[1], depth, pts_i, pts_j_right);
-      //       err += tmp_error;
-      //       errCnt++;
-      //       // printf("tmp_error %f\n", FOCAL_LENGTH / 1.5 * tmp_error);
-      //     }
-      //   }
+        // need to rewrite projecton factor.........
+        if (it_per_frame.is_stereo) {
+          Eigen::Vector3d pts_j_right = it_per_frame.pointRight;
+          if (imu_i != imu_j) {
+            double tmp_error = reprojectionError(
+                Rs[imu_i], Ps[imu_i], ric[0], tic[0], Rs[imu_j], Ps[imu_j],
+                ric[1], tic[1], depth, pts_i, pts_j_right);
+            err += tmp_error;
+            errCnt++;
+            // LOG(INFO)<<"tmp_error "<< FOCAL_LENGTH / 1.5 * tmp_error;
+          } else {
+            double tmp_error = reprojectionError(
+                Rs[imu_i], Ps[imu_i], ric[0], tic[0], Rs[imu_j], Ps[imu_j],
+                ric[1], tic[1], depth, pts_i, pts_j_right);
+            err += tmp_error;
+            errCnt++;
+            // LOG(INFO)<<"tmp_error "<< FOCAL_LENGTH / 1.5 * tmp_error;
+          }
+        }
     }
     double ave_err = err / errCnt;
     if (ave_err * FOCAL_LENGTH > options_.optimazation_outliers_rejection_th ||
