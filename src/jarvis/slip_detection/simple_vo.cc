@@ -275,7 +275,6 @@ transform::Rigid3d StereoOptimizationPose(
   //     rotation[2]});
 }
 
-constexpr uint8_t kGlogLevel = 6;
 Eigen::Vector3d TriangulatePoint(
     const std::vector<transform::Rigid3d>& poses,
     const std::vector<Eigen::Vector3d>& key_point_normal) {

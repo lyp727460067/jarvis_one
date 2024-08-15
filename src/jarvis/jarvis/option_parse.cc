@@ -234,10 +234,8 @@ void ParseYAMLOption(const std::string &file,
     option->fail_detect_option.ratation_max = fsSettings["ratation_max"];
     option->fail_detect_option.zero_translation_norm_max =
         fsSettings["zero_translation_norm_max"];
-    LOG(INFO)<<option->fail_detect_option.zero_translation_norm_max ;
     option->fail_detect_option.zero_translation_z_max =
         fsSettings["zero_translation_z_max"];
-    LOG(INFO)<<option->fail_detect_option.zero_translation_z_max ;
     option->fail_detect_option.zero_ratation_max =
         fsSettings["zero_ratation_max"];
     //
@@ -255,10 +253,7 @@ void ParseYAMLOption(const std::string &file,
 
     
     option->enable_zero_velocity = bool(t);
-    LOG(INFO)<<t;
     option->updata_zerovelocity_option.optimize_weight =
-        fsSettings["UpdataZeroVelocityOption"]["optimize_weight"];
-    LOG(INFO) << option->updata_zerovelocity_option.optimize_weight;
     option->updata_zerovelocity_option.optimize_bias_weight =
         fsSettings["UpdataZeroVelocityOption"]["optimize_bias_weight"];
     option->updata_zerovelocity_option.outlier_max_disparity =
@@ -286,6 +281,7 @@ void ParseYAMLOption(const std::string &file,
     option->updata_zerovelocity_option.imag_disparity_option.max_disparity =
         fsSettings["UpdataZeroVelocityOption"]["imag_disparity_option"]
                   ["max_disparity"];
+    
   }
 }
 

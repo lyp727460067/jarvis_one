@@ -8,10 +8,14 @@
 #include <vector>
 
 #include "../utility/utility.h"
+
+constexpr uint8_t kGlogLevel = 0;
+constexpr uint8_t kGlogCostTimeLevel = 1;
+constexpr uint8_t kGlogCeresLevel = 0;
 namespace jarvis {
 namespace estimator {
-constexpr uint8_t kGlogCostTimeLevel = 11;
-constexpr uint8_t kGlogCeresLevel = 12;
+
+
 constexpr double FOCAL_LENGTH = 377.0;
 constexpr int WINDOW_SIZE = 6;
 constexpr int NUM_OF_F = 1000;

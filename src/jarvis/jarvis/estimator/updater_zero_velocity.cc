@@ -11,7 +11,6 @@ namespace estimator {
 //
 namespace {
 //
-constexpr int kGlogLevel = 1;
 inline Eigen::Matrix<double, 3, 3> Skew(const Eigen::Matrix<double, 3, 1>& w) {
   Eigen::Matrix<double, 3, 3> w_x;
   w_x << 0, -w(2), w(1), w(2), 0, -w(0), -w(1), w(0), 0;

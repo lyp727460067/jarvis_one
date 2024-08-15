@@ -17,7 +17,6 @@ namespace estimator {
 namespace {
 using namespace std;
 using namespace Eigen;
-constexpr uint8_t kGlogLevel = 1;
 }
 int FeaturePerId::endFrame() {
   return start_frame + feature_per_frame.size() - 1;
@@ -36,9 +35,7 @@ FeatureManager::FeatureManager(const FeatureManagerOption &options)
     : options_(options) {
   transform_cam1_to_cam0_ = options_.extric_camera_to_imu[0].inverse() *
                             options_.extric_camera_to_imu[1];
-  LOG(INFO) << options_.min_parallax;
-  LOG(INFO) << options_.init_depth;
-    }
+}
 //
 void FeatureManager::clearState() { feature.clear(); }
 
@@ -57,7 +54,6 @@ int FeatureManager::getFeatureCount() {
 bool FeatureManager::addFeatureCheckParallax(
     int frame_count, const ImageFeatureTrackerData &image, double td) {
   //
-  VLOG(kGlogLevel) << "input feature: " << image.data->features.size();
   VLOG(kGlogLevel) << " num of feature: : " << getFeatureCount();
   //
   double parallax_sum = 0;
@@ -352,11 +348,10 @@ bool FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[],
   Ps[frameCnt] = -RCam * ric[0].transpose() * tic[0] + PCam;
 
   Eigen::Quaterniond Q(Rs[frameCnt]);
-  LOG(INFO) << "frameCnt: " << frameCnt << " pnp Q " << Q.w() << " "
-            << Q.vec().transpose()
+  LOG(INFO) << " pnp Q " << Q.w() << " "
+            << Q.vec().transpose()<<" Pnp P "<<Ps[frameCnt].transpose()
             << "yaw: " << common::RadToDeg(transform::GetYaw(Q));
-  LOG(INFO) << "frameCnt: " << frameCnt << " pnp P "
-            << Ps[frameCnt].transpose();
+
   return true;
 }
 

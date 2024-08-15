@@ -10,7 +10,7 @@ imu_cam_time_offset : 0.000
 slip_detect : 1
 # test_ip : 127.0.0.1
 slip_option: simple_vo.yaml
-calibrate_path : /home/lyp/calibrate_file2
-# calibrate_path : /data/bin/sys_data/calibrate_file
+# calibrate_path : /home/lyp/calibrate_file2
+calibrate_path : /data/bin/sys_data/calibrate_file
 estimator : estimator_77.yaml
 

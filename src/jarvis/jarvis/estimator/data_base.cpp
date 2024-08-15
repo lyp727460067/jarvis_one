@@ -85,7 +85,8 @@ std::vector<sensor::ImuData> DataBase::GetImuIntervalData(
     const common::Time &first_time, const common::Time &end_time) {
   //
   if (!HasImuData(first_time)) {
-    LOG(WARNING) << "start _time not in deque" << first_time<<imu_data_.front().time;
+    LOG(WARNING) << "came start time  "<<first_time <<" imu front time:  "
+                 << imu_data_.front().time;
     return {};
   }
   auto data = std::upper_bound(

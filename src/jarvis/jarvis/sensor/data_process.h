@@ -5,15 +5,17 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
-#include <optional>
+#include <thread>
+
 #include "Eigen/Core"
 #include "glog/logging.h"
-#include "opencv2/opencv.hpp"
 #include "jarvis/sensor/image_data.h"
 #include "jarvis/sensor/imu_data.h"
 #include "jarvis/sensor/odometry_data.h"
+#include "opencv2/opencv.hpp"
 namespace jarvis {
 namespace sensor {
 

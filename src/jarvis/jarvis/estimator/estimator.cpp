@@ -29,7 +29,6 @@ std::pair<double, transform::Rigid3d> GetGlobleImuExtrapolatorPose() {
 
 namespace estimator {
 namespace {
-constexpr uint8_t kGlogLevel = 1;
 }
 // ofstream cam_time_babg("/tmp/cam_time_babg.txt");
 //
@@ -163,6 +162,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   TicToc processTime;
   auto state = processMeasurements();
   LOG_EVERY_N(WARNING, 60) << "one frame cost : " << add_image_data_cost.toc();
+  
   auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
   tracking_data->data->time = images.time;
 
@@ -174,7 +174,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     } else {
       tracking_data->status = TrackState::INIT;
     }
-    LOG(INFO) << Eigen::Quaterniond(Rs[frame_count]);
+    // LOG(INFO) << Eigen::Quaterniond(Rs[frame_count]);
     // ImuState imu_state_data = ImuState{
     //     transform::Rigid3d({0, 0, 0}, Eigen::Quaterniond(Rs[frame_count]))};
     // //
@@ -577,9 +577,7 @@ void Estimator::InitFailureRestart() {
 }
 int Estimator::processImage(const ImageFeatureTrackerData &image,
                             const double header) {
-  VLOG(kGlogLevel)
-      << "new image coming ------------------------------------------";
-  VLOG(kGlogLevel) << "Adding feature points " << image.data->features.size();
+  // /
 
   // LOG(INFO) << "delta_time" <<  header - last_time;
   if (f_manager->addFeatureCheckParallax(frame_count, image, td)) {
@@ -587,11 +585,12 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
   } else {
     marginalization_flag = MARGIN_SECOND_NEW;
   }
-
-  VLOG(kGlogLevel) << (marginalization_flag ? "Non-keyframe" : "Keyframe");
-  VLOG(kGlogLevel) << "Solving " << frame_count;
-  VLOG(kGlogLevel) << "number of feature: " << f_manager->getFeatureCount();
-
+  std::stringstream info;
+  info << "new image coming  Adding feature points "
+       << image.data->features.size() << "\n";
+  info << (marginalization_flag ? "Non-keyframe" : "Keyframe")
+       << "number of feature: " << f_manager->getFeatureCount() << "\n";
+  VLOG(kGlogLevel)<<info.str();
   images_[frame_count] = {image.data->time, image};
   Headers[frame_count] = header;
   ImageFrame imageframe(ToStruct(image), header);
@@ -640,15 +639,14 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
 
     // stereo + IMU initilization
     if (options_.use_cam_num == 2 && options_.use_imu) {
-      LOG(INFO) << "Init with Stereo...";
+      LOG(INFO) << "Init with Stereo. frame count: " << frame_count
+                <<" time: "<<common::Time(common::FromSeconds(header));
       bool pnp_state =
           f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
       f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
       init_pnp_states_.push_back(pnp_state);
-      LOG(INFO) << std::count(init_pnp_states_.begin(), init_pnp_states_.end(),
-                              true);
-
-
+      // LOG(INFO) << std::count(init_pnp_states_.begin(), init_pnp_states_.end(),
+      //                         true);
       if(f_manager)
       if (frame_count == WINDOW_SIZE) {
         if (/*InitialImuIsValida(1)&&*/
@@ -685,7 +683,7 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
             updateLatestStates();
             for (int i = 0; i <= WINDOW_SIZE; i++) {
               LOG(INFO) << "init  " << i << " bas :" << Bas[i].transpose()
-                        << " bgs :" << Bgs[i].transpose() << " ps "
+                        << " bgs :" << Bgs[i].transpose() << " \nps "
                         << Ps[i].transpose() << " rs "
                         << Eigen::Quaterniond(Rs[i]);
             }
@@ -729,7 +727,6 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
 
     if (frame_count < WINDOW_SIZE) {
       frame_count++;
-      LOG(INFO) << std::to_string(header) << " Frame count : " << frame_count;
       int prev_frame = frame_count - 1;
       Ps[frame_count] = Ps[prev_frame];
       Vs[frame_count] = Vs[prev_frame];
@@ -788,6 +785,7 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
   last_R0 = Rs[0];
   last_P0 = Ps[0];
   updateLatestStates();
+
   return TrackState::TRACKING;
 }
 bool Estimator::InitialImuIsValida(int type) {
@@ -1550,7 +1548,7 @@ void Estimator::optimization() {
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  // VLOG(kGlogCeresLevel) << "\n" << summary.FullReport();
+  VLOG(kGlogCeresLevel) << "\n" << summary.BriefReport();
   // LOG(INFO) << int(summary.termination_type == ceres::CONVERGENCE) << " "
             // << summary.final_cost;
   // LOG(INFO) << "\n" << summary.FullReport();

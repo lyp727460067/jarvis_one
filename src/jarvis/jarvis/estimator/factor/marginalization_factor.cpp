@@ -15,7 +15,6 @@
 namespace jarvis {
 namespace estimator {
 namespace {
-constexpr uint8_t kGlogLevel = 10;
 }
 
 void ResidualBlockInfo::Evaluate() {

@@ -18,7 +18,7 @@ class ZmqComponent {
   ~ZmqComponent();
 
  private:
-  // 有内存安全
+  // 有内存安全int 
   std::vector<std::unique_ptr<DevInterface>> device_;
 };
 class MpcComponent {

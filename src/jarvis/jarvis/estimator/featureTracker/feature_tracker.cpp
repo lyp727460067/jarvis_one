@@ -23,7 +23,6 @@
 namespace jarvis {
 namespace estimator {
 namespace {
-constexpr uint8_t kGlogLevel = 1;
 
 }
 
@@ -78,9 +77,6 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
   r_pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
   feature_detect_ =
       std::make_unique<FeatureDetect>(option.feature_detect_option);
-  LOG(INFO)<<option.pyrmid_option.image_size;
-  LOG(INFO)<<option.pyrmid_option.layer;
-  LOG(INFO)<<options_.feature_detect_option.mask_min_dist;
 }
 //
 void FeatureTracker::setMask() {

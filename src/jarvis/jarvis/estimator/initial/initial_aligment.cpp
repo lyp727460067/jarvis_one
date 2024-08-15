@@ -15,7 +15,6 @@ namespace jarvis {
 namespace estimator {
 namespace {
 using namespace std;
-constexpr uint8_t kGlogLevel = 1;
 }  // namespace
 void Alignment::solveGyroscopeBias(map<double, ImageFrame> &all_image_frame,
                                    Eigen::Vector3d *Bgs) {

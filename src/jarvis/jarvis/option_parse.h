@@ -30,6 +30,7 @@ struct CheckNode : public YAML::Node {
       LOG(FATAL) << "[" << key_ << "]"
                  << " not in the yaml_file or check key whitespace";
     }
+    return Node::as<T>();
   }
   mutable std::string key_;
 };

@@ -5,8 +5,8 @@
 #include "jarvis/estimator/featureTracker/feature_tracker.h"
 #include "option_parse.h"
 #include "slip_detection/simple_vo.h"
+#include "jarvis/estimator/parameters.h"
 namespace jarvis {
-constexpr uint8_t kGlogLevel = 6;
 namespace slip_detect {
 
 //
@@ -89,6 +89,7 @@ bool SlipDetect::Detect(const jarvis::common::Time& time) {
   } else {
     LOG(FATAL) << "Not support type.";
   }
+  return false;
 }
 template <typename T>
 double SlipDetect::ComputePosesS(std::deque<T>* datas,

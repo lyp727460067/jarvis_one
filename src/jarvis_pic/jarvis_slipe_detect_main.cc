@@ -24,6 +24,7 @@
 #include "unistd.h"
 #include "zmq_component.h"
 #include "data_record.h"
+#include "glog_sink.h"
 //
 namespace {
 jarvis::TrackingData tracking_data_temp;
@@ -226,7 +227,9 @@ std::string kDataDir = "/mnt/UDISK/jarvis/";
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging("jarvis");
   //
- 
+  
+  LocalGlogSink glog_sink;
+  google::AddLogSink(&glog_sink);
   //
   //
   const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
@@ -245,8 +248,8 @@ int main(int argc, char* argv[]) {
   if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
     mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
   }
-  FLAGS_alsologtostderr = true;
-  FLAGS_colorlogtostderr = true;
+  // FLAGS_alsologtostderr = true;
+  // FLAGS_colorlogtostderr = true;
   //
 
 
@@ -284,7 +287,11 @@ int main(int argc, char* argv[]) {
       data_record_->AddVioData(tracking_data.data->time,
                                tracking_data.data->imu_state.pose, flag);
     }
-    LOG_EVERY_N(WARNING, 60) << tracking_data.data->imu_state.pose;
+    LOG(INFO)
+        << "pose: "<<tracking_data.data->imu_state.pose << " bas: "
+        << tracking_data.data->imu_state.linear_acceleration_bias.transpose()
+        << " bgs: "
+        << tracking_data.data->imu_state.angular_velocity_bias.transpose()<<"\n vio status: "<<tracking_data.status<<"slip status: "<<int(flag);
     // mpc.Write(
     //     tracking_data,
     //     jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(

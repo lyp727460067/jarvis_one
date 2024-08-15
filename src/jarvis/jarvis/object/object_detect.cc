@@ -23,7 +23,6 @@ std::vector<cv::Point2f> Normalize(const std::vector<cv::Point2f>& points,
   return result;
 }
 
-constexpr uint8_t kGlogLevel = 1;
 const std::map<std::string, int> kDict{
     {"DICT_4X4_50", 0},   {"DICT_4X4_100", 1},  {"DICT_4X4_250", 2},
     {"DICT_4X4_1000", 3}, {"DICT_5X5_50", 4},   {"DICT_5X5_100", 5},

@@ -60,7 +60,8 @@ ${OpenCV_INCLUDE_DIRS}
 add_executable(${PROJECT_NAME}_main  jarvis_main.cc ros_component.cc
 )
 add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc)
-add_executable(ld_${PROJECT_NAME}_slip_main   jarvis_slip_detect_main.cc ros_component.cc)
+add_executable(ld_${PROJECT_NAME}_slip_main   jarvis_slip_detect_main.cc ros_component.cc
+)
 add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare.cc pose_optimization.cc
 )
 ## Rename C++ executable without prefix

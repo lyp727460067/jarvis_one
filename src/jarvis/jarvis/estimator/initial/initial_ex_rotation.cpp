@@ -18,7 +18,6 @@ namespace estimator {
 namespace {
 using namespace std;
 using namespace Eigen;
-constexpr uint8_t kGlogLevel = 1;
 }
 InitialEXRotation::InitialEXRotation() {
   frame_count = 0;

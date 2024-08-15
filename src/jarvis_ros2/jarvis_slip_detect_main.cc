@@ -353,7 +353,8 @@ bool kill_thread = false;
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   //
-
+  // LocalGlogSink glog_sink;
+  // google::AddLogSink(&glog_sink);
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("jarvis_ros2");
   if (kRecordFlag) {

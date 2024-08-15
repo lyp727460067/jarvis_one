@@ -41,8 +41,8 @@ using namespace jarvis;
 
 }  // namespace
 #define SERVER_PORT		97555    //
-// #define SERVER_IP		"192.168.78.1"	//服务器IP地址
-#define SERVER_IP		"192.168.3.6"	//服务器IP地址
+#define SERVER_IP		"192.168.78.1"	//服务器IP地址
+// #define SERVER_IP		"192.168.3.6"	//服务器IP地址
 #define recv_Buf_Size  1500
 struct PoseData {
   double x;

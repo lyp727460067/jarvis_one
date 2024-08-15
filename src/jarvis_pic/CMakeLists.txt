@@ -66,7 +66,9 @@ endif()
 add_executable(mpslam  jarvis_slipe_detect_main.cc  
  data_capture.cc zmq_component.cc dev_socket.cc 
  data_record.cc
- socket_wrapper.cc jarvis_brige.cc)
+ socket_wrapper.cc jarvis_brige.cc
+ glog_sink.cc
+ )
 # add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
 # socket_wrapper.cc 
 

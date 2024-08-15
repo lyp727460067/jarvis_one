@@ -18,7 +18,6 @@ FeatureDetect::FeatureDetect(const FeatureDetectOption& options)
       grid_width_((options.imag_size.x()) / options.grid_size.x()),
       grid_height_((options.imag_size.y()) / options.grid_size.y()),
       min_distance_(options_.min_distance * options_.min_distance ) {
-  LOG(INFO) << options_.min_distance;
 }
 
 //
@@ -184,7 +183,6 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
     for (int i = 0; i < options_.num_thread_; i++) {
       TicToc t_t;
       threads[i].join();
-      VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
     }
     // LOG(INFO) << point_collection.size();
     return point_collection;

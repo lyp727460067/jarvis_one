@@ -91,13 +91,13 @@ gyr_w: 0.001       # gyroscope bias random work noise standard deviation.
 g_norm: 9.810     # gravity magnitude
 
 use_odom : 1
-odom_optimization_weight: 50
+odom_optimization_weight: 100
 data_base_lenth : 1
 angle_threas_hold : 6
 ##
 UpdataZeroVelocityOption:
   enable: 1
-  optimize_weight: 1e5
+  optimize_weight: 3e6
   optimize_bias_weight: 1e1
   outlier_max_disparity: 1
   zupt_max_velocity: 1.0
@@ -122,7 +122,7 @@ ratation_max : 10
 enable_odo_zero_lost_detect : 1
 zero_translation_norm_max : 0.15
 zero_translation_z_max : 0.01
-zero_ratation_max : 40.1
+zero_ratation_max : 20.1
 zero_odo_win_size : 30
 zero_odo_pose_size : 40
 init_rotation_th : 20
