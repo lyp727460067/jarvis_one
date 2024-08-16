@@ -55,8 +55,8 @@ void DataRecord::CreateDataDir() {
 DataRecord::DataRecord(const std::string& data_path, bool record)
     : record_(record),data_path_(data_path) {
   LOG(INFO)<< record_;
-  CreateDataDir();
   if (record_) {
+  CreateDataDir();
     thread_ = std::thread([this]() {
       while (!kill_thread_) {
         Run();
@@ -69,10 +69,10 @@ DataRecord::DataRecord(const std::string& data_path, bool record)
 //
 void DataRecord::AddFrame(const Frame& frame) {
   if (!record_) return;
-  static int i = 0;
-  if ((++i) % 2) {
-    return;
-  }
+  // static int i = 0;
+  // if ((++i) % 2) {
+  //   return;
+  // }
   std::lock_guard<std::mutex> lock(mutex_);
 
   tasks_.push([=]() {
@@ -124,6 +124,7 @@ void DataRecord::AddVioData(jarvis::common::Time& time,
                             bool flag) {
   // std::lock_guard<std::mutex> lock(mutex_);
   // tasks_.push([=]() {
+  if (!record_) return;
     std::stringstream info;
     info << std::to_string(uint64_t(jarvis::common::ToUniversal(time) * 1e2))
          << " " <<pose.translation().x() << " " << pose.translation().y()

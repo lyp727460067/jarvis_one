@@ -54,7 +54,7 @@ int FeatureManager::getFeatureCount() {
 bool FeatureManager::addFeatureCheckParallax(
     int frame_count, const ImageFeatureTrackerData &image, double td) {
   //
-  VLOG(kGlogLevel) << " num of feature: : " << getFeatureCount();
+  VLOG(kGlogLevel) << " num of feature:" << getFeatureCount();
   //
   double parallax_sum = 0;
   int parallax_num = 0;

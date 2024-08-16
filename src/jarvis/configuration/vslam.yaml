@@ -2,7 +2,7 @@
 
 data_capture: 0
 image_sample : 0.4
-record : 0
+record : 1
 GLOG_v :  0
 offline_play_bag_duration : 0.001 
 mask_id: mask.png

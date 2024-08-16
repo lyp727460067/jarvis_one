@@ -221,15 +221,26 @@ class JarvisBuilder {
   std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_;  //=
 };
 }  // namespace jarvis_pic
-std::string kDataDir = "/mnt/UDISK/jarvis/";
+std::string kDataDir = "/mnt/mower_udisk/jarvis/";
 
 //
 int main(int argc, char* argv[]) {
+  //
+  auto CreateDir = [](const std::string& dir) {
+    if (access(dir.c_str(), F_OK) == -1) {
+      mkdir(dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    }
+    if (access(dir.c_str(), F_OK) == -1) {
+      mkdir(dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    }
+    return true;
+  };
   google::InitGoogleLogging("jarvis");
   //
-  
+
   LocalGlogSink glog_sink;
   google::AddLogSink(&glog_sink);
+  CreateDir(kDataDir);
   //
   //
   const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
@@ -240,13 +251,8 @@ int main(int argc, char* argv[]) {
   FLAGS_v = kGLOG_v;
   //
   if (kGLOG_v >= 0) {
-    FLAGS_log_dir = kDataDir+"/log/";
-  }
- if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
-    mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
-  }
-  if (access(FLAGS_log_dir.c_str(), F_OK) == -1) {
-    mkdir(FLAGS_log_dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    FLAGS_log_dir = kDataDir + "/log/";
+    CreateDir(FLAGS_log_dir);
   }
   // FLAGS_alsologtostderr = true;
   // FLAGS_colorlogtostderr = true;
@@ -288,10 +294,12 @@ int main(int argc, char* argv[]) {
                                tracking_data.data->imu_state.pose, flag);
     }
     LOG(INFO)
-        << "pose: "<<tracking_data.data->imu_state.pose << " bas: "
+        << "\npose: " << tracking_data.data->imu_state.pose << "\nbas: "
         << tracking_data.data->imu_state.linear_acceleration_bias.transpose()
         << " bgs: "
-        << tracking_data.data->imu_state.angular_velocity_bias.transpose()<<"\n vio status: "<<tracking_data.status<<"slip status: "<<int(flag);
+        << tracking_data.data->imu_state.angular_velocity_bias.transpose()
+        << "\nvio status: " << tracking_data.status
+        << ".slip status: " << int(flag);
     // mpc.Write(
     //     tracking_data,
     //     jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(

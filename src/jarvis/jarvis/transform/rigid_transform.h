@@ -148,9 +148,9 @@ class Rigid3 {
   std::string DebugString() const {
     std::stringstream info;
     info << "{ t: [" << translation().x() << " " << translation().y() << " "
-         << translation().z() << " ]"
-         << "q : [ q: " << rotation().w() << " " << rotation().x() << " "
-         << rotation().y() << " " << rotation().z() << " ]";
+         << translation().z() << "]"
+         << "q: [" << rotation().w() << " " << rotation().x() << " "
+         << rotation().y() << " " << rotation().z() << "] }";
     return info.str();
     // return absl::Substitute("{ t: [$0, $1, $2], q: [$3, $4, $5, $6] }",
     //                         translation().x(), translation().y(),

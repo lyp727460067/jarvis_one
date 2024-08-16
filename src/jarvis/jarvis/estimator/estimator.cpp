@@ -1211,7 +1211,7 @@ bool Estimator::failureDetection() {
   if (std::count(failuer_track_lost_.begin(), failuer_track_lost_.end(),
                  true) >=
       options_.fail_detect_option.track_feat_lost_win_size) {
-    LOG(ERROR) << " Feat lost. ";
+    LOG(ERROR) << " Feat lost! ";
     return true;
   }
   if (Bas[WINDOW_SIZE].norm() > options_.fail_detect_option.bas_norm_max) {
@@ -1288,15 +1288,19 @@ bool Estimator::failureDetection() {
   if (is_zero_velocity) {
     if (translation_distance >=
         options_.fail_detect_option.zero_translation_norm_max) {
-      LOG(ERROR) << "zero velocity  translation > " << translation_distance;
+      LOG(ERROR) << "Zero velocity translation detect: " << translation_distance
+                 << " > "
+                 << options_.fail_detect_option.zero_translation_norm_max;
       return true;
     }
     if (fabs(z_distance) >= options_.fail_detect_option.translation_z_max) {
-      LOG(ERROR) << "zero velocity  z " << z_distance;
+      LOG(ERROR) << "Zero velocity z: " << z_distance << " > "
+                 << options_.fail_detect_option.translation_z_max;
       return true;
     }
     if (fabs(yaw_distance) >= options_.fail_detect_option.zero_ratation_max) {
-      LOG(ERROR) << "zero velocity  angle" << yaw_distance;
+      LOG(ERROR) << "Zero velocity yaw: " << yaw_distance << " > "
+                 << options_.fail_detect_option.zero_ratation_max;
       return true;
     }
   }
@@ -1310,14 +1314,8 @@ bool Estimator::failureDetection() {
       options_.fail_detect_option.translation_norm_max;
   //
 
-  Eigen::Vector3d tmp_P0 = Ps[0];
-  if ((tmp_P - tmp_P0).norm() > 0.5) {
-    LOG(ERROR) << "big translation !! " << (tmp_P - tmp_P0).norm();
-    return true;
-  }
-
   if ((tmp_P - last_P).norm() > translation_threash_hold) {
-    LOG(ERROR) << "big translation !! " << (tmp_P - last_P).norm();
+    LOG(ERROR) << "Big translation !! " << (tmp_P - last_P).norm();
     return true;
   }
   //
@@ -1325,7 +1323,7 @@ bool Estimator::failureDetection() {
       options_.fail_detect_option.translation_z_max;
   //
   if (abs(tmp_P.z() - last_P.z()) > translation_z_threash_hold) {
-    LOG(ERROR) << " big z translation" << tmp_P.z() - last_P.z();
+    LOG(ERROR) << " Big z translation" << tmp_P.z() - last_P.z();
     return true;
   }
 
@@ -1336,7 +1334,7 @@ bool Estimator::failureDetection() {
   double delta_angle =
       common::RadToDeg(transform::GetYaw(Eigen::Quaterniond(delta_R)));
   if (delta_angle > rotaion_threash_hold) {
-    LOG(ERROR) << " big delta_angle " << delta_angle;
+    LOG(ERROR) << " Big delta_angle " << delta_angle;
     return true;
   }
   return false;
@@ -1549,11 +1547,7 @@ void Estimator::optimization() {
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   VLOG(kGlogCeresLevel) << "\n" << summary.BriefReport();
-  // LOG(INFO) << int(summary.termination_type == ceres::CONVERGENCE) << " "
-            // << summary.final_cost;
-  // LOG(INFO) << "\n" << summary.FullReport();
-  
-
+  LOG_EVERY_N(INFO, 200) << "\n" << summary.FullReport();
   //
 
   //
