@@ -144,6 +144,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       LOG(WARNING) << "odo lost: " << odom.time << " " << delta_t
                    << " last: " << last_time;
       if (delta_t > 3600000000) {
+        LOG(WARNING)<<"odo jump too big..";
+        last_time = odom.time;
         return;
       }
     }
