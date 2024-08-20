@@ -251,8 +251,8 @@ int main(int argc, char* argv[]) {
   FLAGS_v = kGLOG_v;
   //
   if (kGLOG_v >= 0) {
-    FLAGS_log_dir = kDataDir + "/log/";
-    CreateDir(FLAGS_log_dir);
+    // FLAGS_log_dir = kDataDir + "/log/";
+    // CreateDir(FLAGS_log_dir);
   }
   // FLAGS_alsologtostderr = true;
   // FLAGS_colorlogtostderr = true;
@@ -294,12 +294,12 @@ int main(int argc, char* argv[]) {
                                tracking_data.data->imu_state.pose, flag);
     }
     LOG(INFO)
-        << "\npose: " << tracking_data.data->imu_state.pose << "\nbas: "
+        << "pose:" << tracking_data.data->imu_state.pose << "bas: "
         << tracking_data.data->imu_state.linear_acceleration_bias.transpose()
-        << " bgs: "
+        << ",bgs: "
         << tracking_data.data->imu_state.angular_velocity_bias.transpose()
-        << "\nvio status: " << tracking_data.status
-        << ".slip status: " << int(flag);
+        << "vio status: " << tracking_data.status
+        << ",slip status: " << int(flag);
     // mpc.Write(
     //     tracking_data,
     //     jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(

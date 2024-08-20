@@ -16,6 +16,7 @@
 #include "jarvis/sensor/imu_data.h"
 #include "jarvis/sensor/odometry_data.h"
 #include "opencv2/opencv.hpp"
+#include "jarvis/common/rate_timer.h"
 namespace jarvis {
 namespace sensor {
 
@@ -59,6 +60,8 @@ class OrderedMultiQueue {
 
   void Stop() ;
  protected:
+  void RateCompute(const std::string &sensor_id,
+                   std::unique_ptr<sensor::Data> &data);
   bool kill_thread = false;
   std::mutex  mutex_;
   std::thread  dispath_thead_;
@@ -69,6 +72,8 @@ class OrderedMultiQueue {
   std::unordered_map<std::string, Queue> queues_;
   int sensor_cout = 0;
   bool circle_done = false;
+  std::map<std::string, common::RateTimer<>> rate_timers_;
+  std::chrono::steady_clock::time_point last_logging_time_;
 };
 }  // namespace sensor
 }  // namespace jarvis
