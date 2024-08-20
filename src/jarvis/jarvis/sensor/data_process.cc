@@ -2,6 +2,8 @@
 // /
 namespace jarvis {
 namespace sensor {
+constexpr double kSensorDataRatesLoggingPeriodSeconds = 15.;
+
 //
 void OrderedMultiQueue::AddQueue(std::string name, ImageFuction call_back) {
   queues_.emplace(
@@ -32,6 +34,30 @@ void OrderedMultiQueue::AddQueue(std::string name, OdomFuction call_back) {
                   }});
 }
 //
+
+void OrderedMultiQueue::RateCompute(const std::string &sensor_id,
+                                    std::unique_ptr<sensor::Data>& data) {
+  auto it = rate_timers_.find(sensor_id);
+  if (it == rate_timers_.end()) {
+    it = rate_timers_
+             .emplace(
+                 std::piecewise_construct, std::forward_as_tuple(sensor_id),
+                 std::forward_as_tuple(
+                     common::FromSeconds(kSensorDataRatesLoggingPeriodSeconds)))
+             .first;
+  }
+  it->second.Pulse(data->GetTime());
+
+  if (std::chrono::steady_clock::now() - last_logging_time_ >
+      common::FromSeconds(kSensorDataRatesLoggingPeriodSeconds)) {
+    for (const auto &pair : rate_timers_) {
+      LOG(INFO) << pair.first << " rate: " << pair.second.DebugString();
+    }
+    last_logging_time_ = std::chrono::steady_clock::now();
+  }
+
+}
+
 void OrderedMultiQueue::AddData(const std::string &name,
                                 std::unique_ptr<Data> data) {
   CHECK(queues_.count(name)) << name;
@@ -40,6 +66,7 @@ void OrderedMultiQueue::AddData(const std::string &name,
     queues_[name].queue.push(std::move(data));
   }
 #ifndef __ARM_PLATFORM__
+
   Dispathch();
 #endif
 }
@@ -78,6 +105,7 @@ void OrderedMultiQueue::Dispathch() {
         for (auto &entry : queues_) {
           if (entry.second.queue.size() > 400) {
             LOG_EVERY_N(WARNING, 60) << "Queue waiting for data: " << it->first;
+            entry.second.queue.pop();
           }
         }
         return;
@@ -111,6 +139,7 @@ void OrderedMultiQueue::Dispathch() {
         next_queue->queue.pop();
       }
       sensor_cout = 0;
+      RateCompute(next_queue_key,data);
       next_queue->callback(std::move(data));
 
     } else if (next_queue_size < 2) {

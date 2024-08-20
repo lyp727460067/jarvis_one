@@ -78,10 +78,29 @@ Estimator::Estimator(const EstimatorOption &options)
 }
 
 Estimator::~Estimator() {
-  // if (MULTIPLE_THREAD) {
-  //   processThread.join();
-  //   printf("join thread \n");
-  // }
+  for (int i = 0; i < WINDOW_SIZE + 1; i++) {
+    //
+    if (pre_integrations[i] != nullptr) {
+      delete pre_integrations[i];
+    }
+    if (odometry_factor_[i] != nullptr) {
+      delete odometry_factor_[i];
+    }
+  }
+  if (tmp_pre_integration != nullptr) {
+    delete tmp_pre_integration;
+  }
+  if (last_marginalization_info != nullptr) {
+    delete last_marginalization_info;
+  }
+  //
+  for (auto frame_it = all_image_frame.begin();
+       frame_it != all_image_frame.end(); ++frame_it) {
+    if (frame_it->second.pre_integration != nullptr) {
+      delete frame_it->second.pre_integration;
+    }
+  }
+  //
 }
 //
 cv::KeyPoint EigenToCv(const Eigen::Vector2d &p) {
@@ -161,7 +180,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   featureBuf.push(std::make_pair(d_time, featureFrame));
   TicToc processTime;
   auto state = processMeasurements();
-  LOG_EVERY_N(WARNING, 60) << "one frame cost : " << add_image_data_cost.toc();
+  LOG_EVERY_N(WARNING, 60) << "One frame cost : " << add_image_data_cost.toc();
   
   auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
   tracking_data->data->time = images.time;
@@ -446,6 +465,12 @@ int Estimator::processMeasurements() {
 
     featureBuf.pop();
     if (options_.use_imu && !accVector.empty()) {
+      LOG(INFO) << "image interval ["
+                << common::Time(common::FromSeconds(prevTime)) << ","
+                << common::Time(common::FromSeconds(curTime))
+                << ",peri: " << curTime - prevTime
+                << "],imu num: " << accVector.size();
+
       if (!initFirstPoseFlag) initFirstIMUPose(accVector);
       for (size_t i = 0; i < accVector.size(); i++) {
         double dt;
@@ -586,11 +611,11 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
     marginalization_flag = MARGIN_SECOND_NEW;
   }
   std::stringstream info;
-  info << "new image coming  Adding feature points "
-       << image.data->features.size() << "\n";
-  info << (marginalization_flag ? "Non-keyframe" : "Keyframe")
-       << "number of feature: " << f_manager->getFeatureCount() << "\n";
-  VLOG(kGlogLevel)<<info.str();
+  info << "New image " << (marginalization_flag ? "Non-keyframe" : "Keyframe")
+       << "(" << common::Time(common::FromSeconds(header)) << ")"
+       << " coming, Adding feature points " << image.data->features.size()
+       << "," << "number of feature: " << f_manager->getFeatureCount();
+  VLOG(kGlogLevel) << info.str();
   images_[frame_count] = {image.data->time, image};
   Headers[frame_count] = header;
   ImageFrame imageframe(ToStruct(image), header);
@@ -751,8 +776,8 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
     feature_tracker_->removeOutliers(removeIndex);
     predictPtsInNextFrame();
 
-    VLOG(kGlogLevel) << "solver costs: " << t_solve.toc() << " ms";
-
+    VLOG(kGlogLevel) << "solver costs: " << t_solve.toc() << " ms"
+                     << ",remove outlier: " << removeIndex.size();
     if (failureDetection()) {
       // LOG(ERROR) << "failure detection!";
       // failure_occur = 1;
@@ -1376,6 +1401,8 @@ void Estimator::optimization() {
   } else {
     is_velocity_updates_[frame_count] = false;
   }
+
+  // is_velocity_updates_[frame_count] =true;
   problem.AddParameterBlock(para_Ex_Pose_Odom[0], SIZE_POSE,
                             new PoseLocalParameterization());
   // /
@@ -1406,7 +1433,6 @@ void Estimator::optimization() {
   if (!options_.estimate_td || Vs[0].norm() < 0.2 || solver_flag == INITIAL) {
     problem.SetParameterBlockConstant(para_Td[0]);
   }
-
   if (last_marginalization_info && last_marginalization_info->valid) {
     // construct new marginlization_factor
     MarginalizationFactor *marginalization_factor =
@@ -1414,6 +1440,7 @@ void Estimator::optimization() {
     problem.AddResidualBlock(marginalization_factor, NULL,
                              last_marginalization_parameter_blocks);
   }
+
   std::vector<ceres::ResidualBlockId> residual_block_id;
   if (options_.use_imu) {
     for (int i = 0; i < frame_count; i++) {
@@ -1546,7 +1573,7 @@ void Estimator::optimization() {
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  VLOG(kGlogCeresLevel) << "\n" << summary.BriefReport();
+  VLOG(kGlogCeresLevel) <<summary.BriefReport();
   LOG_EVERY_N(INFO, 200) << "\n" << summary.FullReport();
   //
 
@@ -1617,7 +1644,7 @@ void Estimator::optimization() {
             update_zero_velocity_->CostFunction(), NULL,
             std::vector<double *>{para_Pose[0], para_Pose[1],
                                   para_SpeedBias[0]},
-            std::vector<int>{0});
+            std::vector<int>{0,2});
         marginalization_info->addResidualBlockInfo(residual_block_info);
       }
     }

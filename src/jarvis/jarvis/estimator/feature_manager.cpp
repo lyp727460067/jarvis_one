@@ -54,7 +54,8 @@ int FeatureManager::getFeatureCount() {
 bool FeatureManager::addFeatureCheckParallax(
     int frame_count, const ImageFeatureTrackerData &image, double td) {
   //
-  VLOG(kGlogLevel) << " num of feature:" << getFeatureCount();
+  VLOG(kGlogLevel) << "Continuously track feature points greater than 4-->"
+                   << getFeatureCount();
   //
   double parallax_sum = 0;
   int parallax_num = 0;
@@ -123,8 +124,8 @@ bool FeatureManager::addFeatureCheckParallax(
     return true;
   } else {
     VLOG(kGlogLevel) << "parallax_sum: " << parallax_sum
-                     << "parallax_num: " << parallax_num;
-    VLOG(kGlogLevel) << "current parallax: "
+                     << ",parallax_num: " << parallax_num
+                     << ",current parallax: "
                      << parallax_sum / parallax_num * FOCAL_LENGTH;
     // LOG(INFO)<< parallax_sum / parallax_num<<" " << options_.min_parallax;
     last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
