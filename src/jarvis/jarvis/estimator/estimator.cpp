@@ -712,7 +712,7 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
                         << Ps[i].transpose() << " rs "
                         << Eigen::Quaterniond(Rs[i]);
             }
-            if (Bas[WINDOW_SIZE].norm() > 0.2 ||
+            if (Bas[WINDOW_SIZE].norm() > options_.init_bas_normal_max ||
                 Bgs[WINDOW_SIZE].norm() >
                     options_.fail_detect_option.bgs_norm_max) {
               LOG(ERROR) << "init optimization bias err";
