@@ -200,12 +200,14 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["odom_optimization_weight"];
     option->odom_factor_option.angle_threas_hold=
         fsSettings["angle_threas_hold"];
-    option->init_rotation_th =
-        fsSettings["init_rotation_th"];
+    option->init_rotation_th = fsSettings["init_rotation_th"];
+    option->init_bas_normal_max = fsSettings["init_bas_normal_max"];
 
     option->odom_factor_option.transform_imu_to_robot =
         calib_option.extric_camera_to_robot *
         calib_option.extric_camera_to_imu[0].inverse();
+    LOG(INFO) << "transform_imu_to_robot: "
+              << option->odom_factor_option.transform_imu_to_robot;
     // option->use_stereo_sample_ration =
     // fsSettings["use_stereo_sample_ration"];
     //

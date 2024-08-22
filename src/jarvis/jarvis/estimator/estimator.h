@@ -89,6 +89,7 @@ struct EstimatorOption {
   double rejection_points_depth_max_th =  30;
   double use_stereo_sample_ration=0.05; 
   double init_rotation_th = 10;
+  double init_bas_normal_max =0.3;
 };
 
 class Estimator {
