@@ -73,10 +73,10 @@ class FeaturePerId {
 struct FeatureManagerOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   bool use_stereo =true;
-  double init_depth = -5.0;
+  double init_depth = -1.0;
   double min_parallax = 1. / 377;
   int init_pnp_inlier_num =15;
-
+  int convin_used_num = 4;
 };
 
 class FeatureManager {

@@ -130,6 +130,10 @@ class DevSocket::Socket {
     }
     std::cout << "close ok" << std::endl;
   }
+  size_t Connections() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return connections_.size();
+  }
 
  private:
   int fd = -1;
@@ -145,6 +149,9 @@ DevSocket::DevSocket() {
   std::pair<std::string, int> par{"127.0.0.1", 8555};
   SocketImpl = std::unique_ptr<Socket>(new Socket(par, nullptr));
 }
+
+bool DevSocket::HasConnect() { return SocketImpl->Connections() != 0; }
+
 DevSocket::DevSocket(const CallBack& callback) {
   std::pair<std::string, int> par{"127.0.0.1", 8555};
   SocketImpl = std::unique_ptr<Socket>(new Socket(par, callback));

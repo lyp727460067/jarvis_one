@@ -7,6 +7,7 @@ class DevInterface {
  public:
   virtual bool tx(const std::vector<uint8_t> &data) const = 0;
   virtual std::vector<uint8_t> rx() const = 0;
+  virtual bool HasConnect()=0;
   virtual ~DevInterface(){};
 };
 

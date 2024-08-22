@@ -129,14 +129,14 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       
       // #ifdef __ARM_NEON__
       // GoodFeaturesToTrack_neon(img(img_roi), pts_new,1000,0.001,0);
-      // #else 
+      // #else
       cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
       // FastNeon(img(img_roi), pts_new, options_.fast_thresh_hold, false);
-      // if( pts_new.empty()){
-      //   cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
-      // }
+      if (pts_new.empty()) {
+        cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold / 2, false);
+      }
       // cv::FAST(img(img_roi), pts_new, options_.fast_thresh_hold, false);
-      
+      // int i =0; 
       // #endif
       for (size_t i = 0; i < pts_new.size(); i++) {
         cv::KeyPoint pt_cor = pts_new.at(i);
@@ -229,6 +229,7 @@ bool FeatureDetect::CheckGridValid(
   return true;
 }
 std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
+const std::vector<cv::Point2f>&cur_points,
                                                int max_corners,
                                                const cv::Mat& derive,
                                                const cv::Mat& mask) {
@@ -239,7 +240,7 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
   // cv::FAST(image, keypoints, options_.fast_thresh_hold, false);
   // GoodFeaturesToTrack_neon(image, keypoints,max_corners,0.001,0);
 // #ifdef __ARM_NEON__
-//   FastNeon(image,keypoints,options_.fast_thresh_hold,mask, false);
+//   FastNeon(image,keypoints,options_.fast_thresh_hold/2,mask, false);
 // #else 
  keypoints = keypoints = ExtractFastWithGrid(image, mask);
 // #endif
@@ -248,7 +249,7 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
   VLOG(kGlogCostTimeLevel) << "detect feature fast costs: " << t_t.toc() << " ms";
 
 
-
+  // LOG(INFO)<<keypoints.size();
   // VLOG(10) << "detect feature fast costs: " << t_t.toc() << " ms";
   std::sort(
       eigens.begin(), eigens.end(),
@@ -265,6 +266,17 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
   int h = image.rows;
   std::vector<cv::Point2f> corners;
   std::vector<std::vector<cv::Point2f>> grid(grid_width_ * grid_height_);
+  
+  for (size_t i = 0; i < cur_points.size(); i++) {
+    int y = (int)(cur_points[i].y);
+    int x = (int)(cur_points[i].x);
+    int x_cell = x / options_.grid_size.x();
+    int y_cell = y / options_.grid_size.y();
+
+    grid[y_cell * grid_width_ + x_cell].push_back(
+        cv::Point2f((float)x, (float)y));
+  }
+
   for (size_t i = 0; i < keypoints_.size(); i++) {
     if (!CheckGridValid(grid, keypoints_[i].pt,mask)) continue;
     int y = (int)(keypoints_[i].pt.y);

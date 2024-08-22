@@ -28,6 +28,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   order_queue_ = std::make_unique<jarvis::sensor::OrderedMultiQueue>();
   image_sample_ =
       std::make_unique<jarvis::common::FixedRatioSampler>(image_sample);
+  low_image_sample_ =
+      std::make_unique<jarvis::common::FixedRatioSampler>(image_sample / 2);
   builder_ = std::make_unique<jarvis::TrajectorBuilder>(std::string(config),
                                                         std::move(call_back));
   
@@ -69,6 +71,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 
   data_capture_->Rigister(class_name_, [&](const Frame& frame) {
     if (frame.time == 0) return;
+    newst_frame_time_ = frame.time;
     static uint64_t last_time = frame.time;
     int64_t delta_t = frame.time - last_time;
     if (delta_t <= 0) {
@@ -104,6 +107,25 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 
   data_capture_->Rigister(class_name_, [&](const ImuData& imu) {
     static uint64_t last_time = imu.time;
+    newst_imu_time_ = imu.time;
+    //
+
+    if (newst_frame_time_.has_value() && newst_imu_time_.has_value()) {
+      const int64_t delta_time =
+          newst_frame_time_.value() - newst_imu_time_.value();
+      LOG_EVERY_N(WARNING, 10) << "Frame behind imu " << delta_time
+                             << " frame: " << newst_frame_time_.value()
+                             << " imu:" << newst_imu_time_.value();
+        CHECK(abs(delta_time) < 2000000)
+            << "The camera is too delayed IMU " << delta_time
+            << "frame: " << newst_frame_time_.value()
+            << "imu: " << newst_imu_time_.value();
+
+      //
+    }
+
+    // /
+    //
     int64_t  delta_t = imu.time-   last_time;
     if (delta_t <= 0) {
       LOG(WARNING) << "imu time reorde.." << delta_t << " cur: " << imu.time

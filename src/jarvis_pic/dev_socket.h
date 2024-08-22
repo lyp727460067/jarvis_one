@@ -17,7 +17,7 @@ class DevSocket : public DevInterface {
   DevSocket();
   DevSocket(const CallBack& callback);
   DevSocket(const std::pair<std::string, int> id, const CallBack& callback);
-
+  bool HasConnect();
   virtual bool tx(const std::vector<uint8_t>& data) const override;
   virtual std::vector<uint8_t> rx() const override;
   ~DevSocket();

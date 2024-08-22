@@ -67,6 +67,45 @@ DataRecord::DataRecord(const std::string& data_path, bool record)
   }
 }
 //
+
+//
+void DataRecord::AddAtTimeFram(const uint64_t& time) {
+  //
+  if (!record_) return;
+  std::lock_guard<std::mutex> lock(mutex_);
+  while (!frames_.empty() && frames_.front().time * 10 < time) {
+    frames_.pop_front();
+  }
+  if (!frames_.empty() && frames_.front().time * 10 == time) {
+    auto frame = frames_.front();
+    tasks_.push([=]() {
+      //
+      cv::Mat merge_image;
+      cv::hconcat(frame.images[0], frame.images[1], merge_image);
+      // LDCV::Mat image(merge_image.rows, merge_image.cols, merge_image.ptr());
+      // LDCV::imwrite(
+      //     image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) +
+      //     ".bmp", image);
+      std::vector<int> params;
+      params.resize(9, 0);
+      params[0] = cv::IMWRITE_JPEG_QUALITY;
+      params[1] = 90;
+      params[2] = cv::IMWRITE_JPEG_PROGRESSIVE;
+      params[3] = 0;
+      params[4] = cv::IMWRITE_JPEG_OPTIMIZE;
+      params[5] = 0;
+      params[6] = cv::IMWRITE_JPEG_RST_INTERVAL;
+      params[7] = 0;
+
+      cv::imwrite(
+          image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".jpg",
+          merge_image,params);
+    });
+  } else {
+    LOG(WARNING) << "Not find " << time << "image..";
+  }
+}
+//
 void DataRecord::AddFrame(const Frame& frame) {
   if (!record_) return;
   // static int i = 0;
@@ -74,19 +113,32 @@ void DataRecord::AddFrame(const Frame& frame) {
   //   return;
   // }
   std::lock_guard<std::mutex> lock(mutex_);
+  frames_.push_back(frame);
+  if (frames_.size() > 100) {
+    LOG(ERROR) << "Frame size more than 100";
+    frames_.pop_front();
+  }
+  // //
+  // if (record_frames_time_.empty()) return;
+  // const auto record_time = record_frames_time_.front();
+  // //
 
-  tasks_.push([=]() {
-    //
-    cv::Mat merge_image;
-    cv::hconcat(frame.images[0], frame.images[1], merge_image);
-    // LDCV::Mat image(merge_image.rows, merge_image.cols, merge_image.ptr());
-    // LDCV::imwrite(
-    //     image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".bmp",
-    //     image);
-    cv::imwrite(
-        image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".png",
-        merge_image);
-  });
+
+  // tasks_.push([this,=]() {
+  //   //
+
+
+  //   if(record_frames_time_.)
+  //   cv::Mat merge_image;
+  //   cv::hconcat(frame.images[0], frame.images[1], merge_image);
+  //   // LDCV::Mat image(merge_image.rows, merge_image.cols, merge_image.ptr());
+  //   // LDCV::imwrite(
+  //   //     image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".bmp",
+  //   //     image);
+  //   cv::imwrite(
+  //       image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".png",
+  //       merge_image);
+  // });
 
 
 }
@@ -118,7 +170,20 @@ void DataRecord::AddOdom(const OdomData& odom) {
     imu_file_ << info.str() << std::endl;
   // });
 }
+//
 
+void DataRecord::AddRtk(const RtkData& rtk) {
+  if (!record_) return;
+  // std::lock_guard<std::mutex> lock(mutex_);
+  // tasks_.push([=]() {
+  std::stringstream info;
+  info << "rtk " << std::to_string(uint64_t(rtk.time * 1e3)) << " " << rtk.lat
+       << " " << std::to_string(rtk.lon) << " " << std::to_string(rtk.alt)
+       << " " << std::to_string(rtk.qual) << " " << rtk.sats << " " << rtk.age
+       << " " << rtk.speed << " " << rtk.track;
+  imu_file_ << info.str() << std::endl;
+}
+//
 void DataRecord::AddVioData(jarvis::common::Time& time,
                             const jarvis::transform::Rigid3d& pose,
                             bool flag) {

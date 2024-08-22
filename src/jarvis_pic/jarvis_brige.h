@@ -21,8 +21,12 @@ class JarvisBrige {
   std::unique_ptr<jarvis::TrajectorBuilder> builder_;
   std::unique_ptr<jarvis::sensor::OrderedMultiQueue> order_queue_;
   std::unique_ptr<jarvis::common::FixedRatioSampler> image_sample_;
+  std::unique_ptr<jarvis::common::FixedRatioSampler> low_image_sample_;
   std::mutex mutex_;
   std::string  class_name_ =  "JarvisBrige";
+  std::optional<uint64_t > newst_imu_time_;
+  std::optional<uint64_t> newst_frame_time_ ;
+  bool image_sample_selection = false;
 };
 
 }

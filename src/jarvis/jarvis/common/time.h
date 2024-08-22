@@ -6,7 +6,12 @@
 #include <chrono>
 #include <ostream>
 #include <ratio>
-
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <vector>
+#include <cmath>
 #include "jarvis/common/port.h"
 namespace jarvis {
 namespace common {
@@ -47,7 +52,39 @@ std::ostream& operator<<(std::ostream& os, Time time);
 
 // CPU time consumed by the thread so far, in seconds.
 double GetThreadCpuTimeSeconds();
+template <int Height = 5, int BarWidth = 1, int Padding = 1, int Offset = 0>
+std::string DrawVbars(const std::vector<float>&s, const bool DrawMinMax = true) {
+  std::stringstream info;
+  static_assert(0 < Height and 0 < BarWidth and 0 <= Padding and 0 <= Offset);
 
+  auto cout_n = [&](auto&& v, int n = 1) {
+    while (n-- > 0) info << v;
+  };
+  auto lerp = [](float a, float b, float t) { return a + t * (b - a); };
+
+  const auto [min, max] = std::minmax_element(std::cbegin(s), std::cend(s));
+
+  std::vector<std::div_t> qr;
+  for (const auto& e : s) {
+    qr.push_back(std::div(lerp(0, 8 * Height, (e - *min) / (*max - *min)), 8));
+  }
+  for (auto h{Height}; h-- > 0; cout_n('\n')) {
+    cout_n(' ', Offset);
+
+    for (auto dv : qr) {
+      const auto q{dv.quot}, r{dv.rem};
+      unsigned char d[]{0xe2, 0x96, 0x88, 0};  // Full Block: '█'
+      q < h ? d[0] = ' ', d[1] = 0 : q == h ? d[2] -= (7 - r) : 0;
+      cout_n(d, BarWidth), cout_n(' ', Padding);
+    }
+
+    if (DrawMinMax && Height > 1)
+      Height - 1 == h ? info << "┬ " << *max
+      : h             ? info << "│ "
+                      : info << "┴ " << *min;
+  }
+  return info.str();
+}
 }  // namespace common
 }  // namespace loopdetection
 

@@ -5,6 +5,7 @@
 #include "jarvis/sensor/imu_data.h"
 #include <deque>
 #include  <optional>
+#include <mutex>
 namespace jarvis {
 namespace estimator {
 //
@@ -30,13 +31,15 @@ class ImuExtrapolator {
   void AddState(const common::Time& t, const ImuState& state);
   void AddImu(const sensor::ImuData& imu_data);
   ImuState Exrapolate(const common::Time& time);
-
+  int GetImuNum(){
+    return imu_datas_.size();
+  }
  private:
   constexpr static double kImuDuration = 0.005;
   void TrimImuData(const common::Time &t);
   class ImuIntegral;
   std::unique_ptr<ImuIntegral> imu_intergral_;
-  
+  std::mutex mutex_;   
   std::deque<sensor::ImuData> imu_datas_;
   std::deque<ImuState> imu_state_;
   ImuState imu_intergral_state_;
