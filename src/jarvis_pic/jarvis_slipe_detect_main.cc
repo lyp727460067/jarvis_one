@@ -221,7 +221,7 @@ class JarvisBuilder {
   std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_;  //=
 };
 }  // namespace jarvis_pic
-std::string kDataDir = "/mnt/mower_udisk/jarvis/";
+std::string kDataDir = "/mnt/UDISK/jarvis/";
 
 //
 int main(int argc, char* argv[]) {
@@ -248,16 +248,16 @@ int main(int argc, char* argv[]) {
   //
   //
   ParseOption(config_file);
-  FLAGS_v = kGLOG_v;
-  //
   if (kGLOG_v >= 0) {
-    // FLAGS_log_dir = kDataDir + "/log/";
-    // CreateDir(FLAGS_log_dir);
+    FLAGS_log_dir = kDataDir + "/log/";
+    CreateDir(FLAGS_log_dir);
+    FLAGS_v = kGLOG_v;
+  } else {
+    google::SetLogDestination(google::LogSeverity::GLOG_INFO, "");
+    google::SetLogDestination(google::LogSeverity::GLOG_WARNING, "");
+    google::SetLogDestination(google::LogSeverity::GLOG_ERROR, "");
+    google::SetLogDestination(google::LogSeverity::FATAL, "");
   }
-  // FLAGS_alsologtostderr = true;
-  // FLAGS_colorlogtostderr = true;
-  //
-
 
   //
   data_record_ =
@@ -289,10 +289,8 @@ int main(int argc, char* argv[]) {
       tracking_data = tracking_data_temp;
       flag = slip_flag;
     }
-    if (kGLOG_v >= 0) {
-      data_record_->AddVioData(tracking_data.data->time,
+    data_record_->AddVioData(tracking_data.data->time,
                                tracking_data.data->imu_state.pose, flag);
-    }
     LOG(INFO)
         << "pose:" << tracking_data.data->imu_state.pose << "bas: "
         << tracking_data.data->imu_state.linear_acceleration_bias.transpose()
