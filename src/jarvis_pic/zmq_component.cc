@@ -73,7 +73,7 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
   std::vector<int> params;
   params.resize(9, 0);
   params[0] = cv::IMWRITE_JPEG_QUALITY;
-  params[1] = 60;
+  params[1] = 20;
   params[2] = cv::IMWRITE_JPEG_PROGRESSIVE;
   params[3] = 0;
   params[4] = cv::IMWRITE_JPEG_OPTIMIZE;
@@ -120,7 +120,13 @@ ZmqComponent::ZmqComponent() {
   try {
     device_.emplace_back(
         new internal::DevSocket(host_ip, [](std::vector<uint8_t> &&d) {}));
-
+    thread_ = std::thread([this]() {
+      while (!kill_thread_) {
+        Run();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        // usleep(1000);
+      }
+    });
   } catch (const std::string s) {
     LOG(INFO) << "Devive creat err" << s;
   }
@@ -131,12 +137,39 @@ ZmqComponent::ZmqComponent() {
 void ZmqComponent::PubLocalData(const jarvis::TrackingData &data,
                                 uint8_t slip_data) {
   //
-  for (auto &dev : device_) {
-    dev->tx(ToCData(data, slip_data));
+  std::lock_guard<std::mutex> lock(mutex_);
+  tasks_.push([=]() {
+    for (auto &dev : device_) {
+      if (dev->HasConnect()) {
+        dev->tx(ToCData(data, slip_data));
+      }
+    }
+  });
+};
+void ZmqComponent::Run() {
+  size_t task_size = 0;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    task_size = tasks_.size();
+  }
+  std::function<void(void)> f;
+  while (task_size != 0) {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      while (!tasks_.empty()) {
+        f = std::move(tasks_.front());
+        tasks_.pop();
+        task_size = tasks_.size();
+      }
+    }
+    LOG_EVERY_N(INFO,100) << "send task size " << task_size;
+    f();
   }
 };
 
-ZmqComponent::~ZmqComponent() {}
+ZmqComponent::~ZmqComponent() {
+
+}
 //
 MpcComponent::MpcComponent() : shm_mod_(new ShmMod()) {}
 //
@@ -156,8 +189,20 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
       pose.rotation().w(),
       slip?uint8_t(9):uint8_t(0),
       static_cast<uint8_t>(data.status)};
-
+  auto start = std::chrono::high_resolution_clock::now();
   shm_mod_->SetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
+  int titic = std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::high_resolution_clock::now() - start)
+                  .count();
+  if(titic >500){
+    LOG(ERROR)<<"SetModByID cost: "<<titic<<" "<<mpc_data.timestamp;
+  }
+  // CHECK(titic<3000)<titic;
+  // LOG(INFO) << "SetModByID cost: "
+  //           << std::chrono::duration_cast<std::chrono::microseconds>(
+  //                  std::chrono::high_resolution_clock::now() - start)
+  //                  .count();
+
   //
   // // //
   // memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
@@ -166,7 +211,7 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
   // jarvis::transform::Rigid3d read_pose(
   //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
   //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  // LOG_EVERY_N(INFO, 10) << "Read pose: " << mpc_data.timestamp << " "
+  // LOG_EVERY_N(INFO, 1) << "Read pose: " << mpc_data.timestamp << " "
   //                        << read_pose << " "
   //                        << "state " << int(mpc_data.state);
 }

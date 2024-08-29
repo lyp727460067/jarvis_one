@@ -34,7 +34,10 @@ class Grid {
 class FeatureDetect {
  public:
   FeatureDetect(const FeatureDetectOption& options);
-  std::vector<cv::Point2f> Detect(const cv::Mat& image, int max_corners,
+  std::vector<cv::Point2f> Detect(const cv::Mat& image,
+  
+const std::vector<cv::Point2f>&cur_points,
+   int max_corners,
                                   const cv::Mat& derive, const cv::Mat& mask);
 
   void FastNeon(const cv::Mat& mage, std::vector<cv::KeyPoint>& out,

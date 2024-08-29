@@ -5,7 +5,7 @@
 #include "glog/logging.h"
 #include "transform/rigid_transform.h"
 #include "transform/transform.h"
-
+#include <random>
 namespace jarvis {
 namespace estimator {
 //
@@ -111,18 +111,19 @@ class ZeroVelocityCostFuction
     // LOG(INFO)<<delta_t.transpose();
     Eigen::Map<const Eigen::Vector3d> acc_bias(parameters[2] + 3);
     Eigen::Map<const Eigen::Vector3d> gry_bias(parameters[2] + 6);
-    const Eigen::Vector3d gravity = Eigen::Vector3d::UnitZ() * 9.81;
+    const Eigen::Vector3d gravity = Eigen::Vector3d::UnitZ() *  average_acc_.norm();
     Eigen::Vector3d acc_bias_err =
-        average_acc_ - q_a.conjugate() * gravity - acc_bias;
-    Eigen::Vector3d gry_bias_err = average_gry_ - gry_bias;
+        acc_bias - q_a.conjugate() * gravity - average_acc_;
+    Eigen::Vector3d gry_bias_err =  gry_bias- average_gry_;
     //
-    Eigen::Matrix<double, 9, 9> sqrt_info =
-        weight_[0] * Eigen::Matrix<double, 9, 9>::Identity();
-    //  (weight_[1]) * acc_bias_err,
-    // (weight_[1]) * gry_bias_err;
+    Eigen::Matrix<double, residuals_block_size, residuals_block_size>
+        sqrt_info =
+            weight_[0] * Eigen::Matrix<double, residuals_block_size,
+                                       residuals_block_size>::Identity();
     Eigen::Map<Eigen::Matrix<double, residuals_block_size, 1>> residual(
         residuals);
-    residual << delta_t, 2 * delta_q.vec(), -v_a;
+    residual << delta_t, 2 * delta_q.vec(), -v_a;/*,-acc_bias_err,-gry_bias_err*/;
+    // LOG(INFO)<<residual;
     // LOG(INFO)<<v_a;
 
     residual = sqrt_info * residual;
@@ -136,9 +137,11 @@ class ZeroVelocityCostFuction
         jacobians_.setZero();
         jacobians_.block<3, 3>(0, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_.block<3, 3>(3, 3) = -Eigen::Matrix<double, 3, 3>::Identity();
-        jacobians_ = sqrt_info *jacobians_;
+        //
         // jacobians_.block<3, 3>(9, 3) =
-        //     -weight_[1] * Skew(q_a.conjugate() * gravity);
+        //     q_a.conjugate().toRotationMatrix() * Skew(gravity);
+        jacobians_ = sqrt_info *jacobians_;
+
       }
       if (jacobians[1]) {
         Eigen::Map<
@@ -156,9 +159,9 @@ class ZeroVelocityCostFuction
             jacobians_(jacobians[2]);
         jacobians_.setZero();
         jacobians_.block<3, 3>(6, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
+        // jacobians_.block<3, 3>(9, 3) = -Eigen::Matrix<double, 3, 3>::Identity();
+        // jacobians_.block<3, 3>(12, 6) = -Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_ = sqrt_info * jacobians_;
-        // jacobians_.block<3, 3>(12, 0) =
-        //     -weight_[1] * Eigen::Matrix<double, 3, 3>::Identity();
       }
     }
     return true;
@@ -202,108 +205,105 @@ bool ImuZeroVelocityDetect::IsZeroVelocity() {
 
 bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
   // Large final matrices used for update
-  // if (data_base_.size() < 2) {
-  //   VLOG(kGlogLevel)
-  //       << "zupt failed - OpenVINS Inertial-based Detection
-  //       (data_base_.size() "
-  //       << data_base_.size() << " < 2 )";
-  //   return false;
-  // }
-  // if (state_.linear_velocity.norm() > options_.zupt_max_velocity) {
-  //   VLOG(kGlogLevel) << "zupt failed - OpenVINS Inertial-based Detection (vel
-  //   "
-  //                    << state_.linear_velocity.norm() << " > max zupt vel "
-  //                    << options_.zupt_max_velocity << ")";
-  //   return false;
-  // }
-  // int h_size = (options_.integrated_accel_constraint) ? 12 : 9;
-  // int m_size = 6 * ((int)data_base_.size() - 1);
-  // Eigen::MatrixXd H = Eigen::MatrixXd::Zero(m_size, h_size);
-  // Eigen::VectorXd res = Eigen::VectorXd::Zero(m_size);
-  // Eigen::MatrixXd R = Eigen::MatrixXd::Identity(m_size, m_size);
+  if (data_base_.size() < 2) {
+    VLOG(kGlogLevel)
+        << "zupt failed - OpenVINS Inertial-based Detection(data_base_.size() "
+        << data_base_.size() << " < 2 )";
+    return false;
+  }
+  if (state_.linear_velocity.norm() > options_.zupt_max_velocity) {
+    VLOG(kGlogLevel) << "zupt failed - OpenVINS Inertial-based Detection (vel"
+                     << state_.linear_velocity.norm() << " > max zupt vel "
+                     << options_.zupt_max_velocity << ")";
+    return false;
+  }
+  int h_size = (options_.integrated_accel_constraint) ? 12 : 9;
+  int m_size = 6 * ((int)data_base_.size() - 1);
+  Eigen::MatrixXd H = Eigen::MatrixXd::Zero(m_size, h_size);
+  Eigen::VectorXd res = Eigen::VectorXd::Zero(m_size);
+  Eigen::MatrixXd R = Eigen::MatrixXd::Identity(m_size, m_size);
 
-  // // Loop through all our IMU and construct the residual and Jacobian
-  // // State order is: [q_GtoI, bg, ba, v_IinG]
-  // // Measurement order is: [w_true = 0, a_true = 0 or v_k+1 = 0]
-  // // w_true = w_m - bw - nw
-  // // a_true = a_m - ba - R*g - na
-  // // v_true = v_k - g*dt + R^T*(a_m - ba - na)*dt
-  // double dt_summed = 0;
-  // for (size_t i = 0; i < data_base_.size() - 1; i++) {
-  //   // Precomputed values
-  //   double dt =
-  //       common::ToSeconds(data_base_.at(i + 1).time - data_base_.at(i).time);
-  //   Eigen::Vector3d a_hat =
-  //       data_base_.at(i).linear_acceleration -
-  //       state_.linear_acceleration_bias;
-  //   // LOG(INFO)<<a_hat.transpose();
-  //   // Measurement residual (true value is zero)
-  //   res.block(6 * i + 0, 0, 3, 1) =
-  //       -(data_base_.at(i).angular_velocity - state_.angular_velocity_bias);
+  // Loop through all our IMU and construct the residual and Jacobian
+  // State order is: [q_GtoI, bg, ba, v_IinG]
+  // Measurement order is: [w_true = 0, a_true = 0 or v_k+1 = 0]
+  // w_true = w_m - bw - nw
+  // a_true = a_m - ba - R*g - na
+  // v_true = v_k - g*dt + R^T*(a_m - ba - na)*dt
+  double dt_summed = 0;
+  for (size_t i = 0; i < data_base_.size() - 1; i++) {
+    // Precomputed values
+    double dt =
+        common::ToSeconds(data_base_.at(i + 1).time - data_base_.at(i).time);
+    Eigen::Vector3d a_hat =
+        data_base_.at(i).linear_acceleration -
+        state_.linear_acceleration_bias;
+    // LOG(INFO)<<a_hat.transpose();
+    // Measurement residual (true value is zero)
+    res.block(6 * i + 0, 0, 3, 1) =
+        -(data_base_.at(i).angular_velocity - state_.angular_velocity_bias);
 
-  //   if (!options_.integrated_accel_constraint) {
-  //     res.block(6 * i + 3, 0, 3, 1) =
-  //         -(a_hat - state_.pose.inverse().rotation() *
-  //                       (options_.const_gravity * Eigen::Vector3d::UnitZ()));
-  //   } else {
-  //     res.block(6 * i + 3, 0, 3, 1) =
-  //         -(state_.linear_velocity -
-  //           (options_.const_gravity * Eigen::Vector3d::UnitZ() * dt) +
-  //           state_.pose.rotation() * a_hat * dt);
-  //   }
+    if (!options_.integrated_accel_constraint) {
+      res.block(6 * i + 3, 0, 3, 1) =
+          -(a_hat - state_.pose.inverse().rotation() *
+                        (options_.const_gravity * Eigen::Vector3d::UnitZ()));
+    } else {
+      res.block(6 * i + 3, 0, 3, 1) =
+          -(state_.linear_velocity -
+            (options_.const_gravity * Eigen::Vector3d::UnitZ() * dt) +
+            state_.pose.rotation() * a_hat * dt);
+    }
 
-  //   // Measurement Jacobian
-  //   Eigen::Matrix3d R_GtoI_jacob =
-  //       state_.pose.rotation().toRotationMatrix().transpose();
-  //   H.block(6 * i + 0, 3, 3, 3) = -Eigen::Matrix3d::Identity();
-  //   if (!options_.integrated_accel_constraint) {
-  //     H.block(6 * i + 3, 0, 3, 3) = Skew(R_GtoI_jacob *
-  //     options_.const_gravity *
-  //                                        Eigen::Vector3d::UnitZ());
-  //     H.block(6 * i + 3, 6, 3, 3) = -Eigen::Matrix3d::Identity();
-  //   } else {
-  //     H.block(6 * i + 3, 0, 3, 3) =
-  //         -R_GtoI_jacob.transpose() * Skew(a_hat) * dt;
-  //     H.block(6 * i + 3, 6, 3, 3) = -R_GtoI_jacob.transpose() * dt;
-  //     H.block(6 * i + 3, 9, 3, 3) = Eigen::Matrix3d::Identity();
-  //   }
-  //   // Measurement noise (convert from continuous to discrete)
-  //   // Note the dt time might be different if we have "cut" any imu
-  //   measurements R.block(6 * i + 0, 6 * i + 0, 3, 3) *=
-  //   options_.angular_velocity_wnc / dt; if
-  //   (!options_.integrated_accel_constraint) {
-  //     R.block(6 * i + 3, 6 * i + 3, 3, 3) *= options_.accelerometer_wnc / dt;
-  //   } else {
-  //     R.block(6 * i + 3, 6 * i + 3, 3, 3) *= options_.accelerometer_wnc * dt;
-  //   }
-  //   dt_summed += dt;
-  // }
+    // Measurement Jacobian
+    Eigen::Matrix3d R_GtoI_jacob =
+        state_.pose.rotation().toRotationMatrix().transpose();
+    H.block(6 * i + 0, 3, 3, 3) = -Eigen::Matrix3d::Identity();
+    if (!options_.integrated_accel_constraint) {
+      H.block(6 * i + 3, 0, 3, 3) = Skew(R_GtoI_jacob *
+      options_.const_gravity *
+                                         Eigen::Vector3d::UnitZ());
+      H.block(6 * i + 3, 6, 3, 3) = -Eigen::Matrix3d::Identity();
+    } else {
+      H.block(6 * i + 3, 0, 3, 3) =
+          -R_GtoI_jacob.transpose() * Skew(a_hat) * dt;
+      H.block(6 * i + 3, 6, 3, 3) = -R_GtoI_jacob.transpose() * dt;
+      H.block(6 * i + 3, 9, 3, 3) = Eigen::Matrix3d::Identity();
+    }
+    // Measurement noise (convert from continuous to discrete)
+    // Note the dt time might be different if we have "cut" any imu measurements
+    R.block(6 * i + 0, 6 * i + 0, 3, 3) *= options_.angular_velocity_wnc / dt;
+    if (!options_.integrated_accel_constraint) {
+      R.block(6 * i + 3, 6 * i + 3, 3, 3) *= options_.accelerometer_wnc / dt;
+    } else {
+      R.block(6 * i + 3, 6 * i + 3, 3, 3) *= options_.accelerometer_wnc * dt;
+    }
+    dt_summed += dt;
+  }
 
-  // // Multiply our noise matrix by a fixed amount
-  // // We typically need to treat the IMU as being "worst" to detect / not
+  // Multiply our noise matrix by a fixed amount
+  // We typically need to treat the IMU as being "worst" to detect / not
   // become
-  // // over confident
-  // R *= options_.zupt_noise_multiplier;
+  // over confident
+  R *= options_.zupt_noise_multiplier;
 
-  // // Next propagate the biases forward in time
-  // // NOTE: G*Qd*G^t = dt*Qd*dt = dt*Qc
-  // Eigen::MatrixXd Q_bias = Eigen::MatrixXd::Identity(6, 6);
-  // Q_bias.block(0, 0, 3, 3) *= dt_summed *
-  // options_.angular_velocity_random_walk; Q_bias.block(3, 3, 3, 3) *=
-  // dt_summed * options_.accelerometer_random_walk;
+  // Next propagate the biases forward in time
+  // NOTE: G*Qd*G^t = dt*Qd*dt = dt*Qc
+  Eigen::MatrixXd Q_bias = Eigen::MatrixXd::Identity(6, 6);
+  Q_bias.block(0, 0, 3, 3) *= dt_summed *
+  options_.angular_velocity_random_walk; Q_bias.block(3, 3, 3, 3) *=
+  dt_summed * options_.accelerometer_random_walk;
 
-  // // Chi2 distance check
-  // // NOTE: we also append the propagation we "would do before the update" if
-  // // this was to be accepted NOTE: we don't propagate first since if we fail
+  // Chi2 distance check
+  // NOTE: we also append the propagation we "would do before the update" if
+  // this was to be accepted NOTE: we don't propagate first since if we fail
   // the
-  // // chi2 then we just want to return and do normal logic
-  // Eigen::MatrixXd P_marg = Eigen::MatrixXd::Identity(h_size, h_size);
-  // //
+  // chi2 then we just want to return and do normal logic
+  Eigen::MatrixXd P_marg = Eigen::MatrixXd::Identity(h_size, h_size);
+  //
 
-  // P_marg.block(3, 3, 6, 6) += Q_bias;
-  // Eigen::MatrixXd S = H * P_marg * H.transpose() + R;
-  // double chi2 = res.dot(S.llt().solve(res));
-  // boost::math::chi_squared chi_squared_dist(res.rows());
+  P_marg.block(3, 3, 6, 6) += Q_bias;
+  Eigen::MatrixXd S = H * P_marg * H.transpose() + R;
+  double chi2 = res.dot(S.llt().solve(res));
+  // std::chi_squared_distribution<float> chi_squared_dist(res.rows());
   // auto chi2_check = boost::math::quantile(chi_squared_dist, 0.95);
   // if (chi2 < chi2_check * options_.zupt_chi2_multipler) {
   //   VLOG(kGlogLevel)
@@ -489,6 +489,8 @@ ceres::CostFunction* UpdataZeroVelocity::CostFunction() const {
   // return AutoZeroVelocityCostFuction::Create(
       // {options_.optimize_weight, options_.optimize_bias_weight},
       // last_average_acc_, last_average_gry_);
+  // LOG(INFO) << last_average_acc_.transpose() << " "
+  //           << last_average_gry_.transpose();
   return new ZeroVelocityCostFuction(
       {options_.optimize_weight, options_.optimize_bias_weight},
       last_average_acc_, last_average_gry_);
@@ -498,7 +500,7 @@ ceres::CostFunction* UpdataZeroVelocity::CostFunction() const {
 void UpdataZeroVelocity::AddToProblem(ceres::Problem* problem,
                                       ceres::LossFunction* loss_function,
                                       std::array<double*, 3> pqv) const {
-  // LOG(INFO) << "Add ZeroVelocity factor.";
+  LOG(INFO) << "Add ZeroVelocity factor.";
   gravity_ = options_.imu_velocity_option.const_gravity;
   problem->AddResidualBlock(CostFunction(), loss_function, pqv[0], pqv[1],
                             pqv[2]);

@@ -3,6 +3,9 @@
 namespace jarvis {
 
 namespace estimator {
+namespace {
+constexpr int kMaxDataNum = 1024 * 5;
+}
 inline sensor::OdometryData Interpolate(const sensor::OdometryData &start,
                                         const sensor::OdometryData &end,
                                         const common::Time &time) {
@@ -128,9 +131,17 @@ void DataBase::TrimData(const common::Time &time) {
 
 void DataBase::AddOdometry(const sensor::OdometryData &odom) {
   odometry_data_.push_back(odom);
+  if (odometry_data_.size() > kMaxDataNum) {
+    LOG_EVERY_N(WARNING, 10) << "Odom data size too big.";
+    odometry_data_.pop_front();
+  }
 }
 void DataBase::AddImu(const sensor::ImuData &imu) {
   imu_data_.push_back(imu);
+  if (imu_data_.size() > kMaxDataNum) {
+    imu_data_.pop_front();
+    LOG_EVERY_N(WARNING, 10) << "imu data size too big.";
+  }
 }
 
 }  // namespace estimator

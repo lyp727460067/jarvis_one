@@ -38,6 +38,20 @@ struct OdomData {
   Eigen::Vector3d translation;
   Eigen::Quaterniond  rotaion;
 };
+//
+struct RtkData {
+  uint64_t time;
+  double lat;  ///< 纬度
+  double lon;  ///< 经度
+  double alt;  ///< 海拔高度
+  int qual;    ///< 定位模式
+  int sats;    ///< 使用的卫星个数
+  int age;     ///< 差分龄期
+  /* RMC协议 */
+  float speed;  ///< 速率
+  float track;  ///< 航迹角（单位度）
+};
+
 struct SystmeInfo {
   uint8_t state;
 };
@@ -52,6 +66,12 @@ class DataCapture {
   void Rigister(const std::string& id, std::function<void(const ImuData&)> f) {
     imu_call_backs_.emplace(id, std::move(f));
   }
+  void Rigister(const std::string& id, std::function<void(const RtkData&)> f) {
+    rtk_call_backs_.emplace(id, std::move(f));
+  }
+
+
+
   void Rigister(const std::string& id,
                 std::function<void(const OdomData&)> f) {
     encoder_call_backs_.emplace(id, std::move(f));
@@ -73,11 +93,13 @@ class DataCapture {
   void ProcessImu(const ModSyncImuFb& imu);
   void ProcessImag(const CameraFrame& frame);
   void ProcessOdom(const ModSyncChassisPosFb& frame);
+  void ProcessRtk(const ModRTKFB& frame);
   std::function<void(const SystmeInfo&)> system_info_call_backs_;
   //
   std::mutex mutex_;
   std::map<std::string, std::function<void(const ImuData&)>> imu_call_backs_;
   std::map<std::string, std::function<void(const Frame&)>> frame_call_backs_;
+  std::map<std::string, std::function<void(const RtkData&)>> rtk_call_backs_;
   std::map<std::string, std::function<void(const OdomData&)>>
       encoder_call_backs_;
   //
@@ -94,6 +116,7 @@ class DataCapture {
   uint32_t last_frame_sys_count_ = 0;
   uint64_t last_imu_time_stamp_ = 0;
   uint64_t last_odom_time_stamp_ = 0;
+  uint64_t last_rtk_time_stamp_ = 0;
   bool stop_ = false;
   std::array<pthread_t,2> threads_;
 };

@@ -67,27 +67,43 @@ void DataCapture::ReadImu() {
       // std::lock_guard<std::mutex> lock(mutex_);
       system_info_call_backs_({mower_status.MowerStatus});
     }
-
-    ModSyncImuFb imudata;
-    int32_t res = mem_ssq_->PopImuData(&imudata);
-    while (res > 0) {
-      if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
-        last_imu_time_stamp_ = imudata.time_stamp;
-        std::lock_guard<std::mutex> lock(mutex_);
-        ProcessImu(imudata);
+    {
+      ModSyncImuFb imudata;
+      int res = 1;
+      while (res > 0) {
+        res = mem_ssq_->PopImuData(&imudata);
+        if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
+          last_imu_time_stamp_ = imudata.time_stamp;
+          std::lock_guard<std::mutex> lock(mutex_);
+          ProcessImu(imudata);
+        }
       }
-      res = mem_ssq_->PopImuData(&imudata);
     }
+
     ModSyncChassisPosFb odom_data;
-    int ret_len = mem_ssq_->PopEncodeData(&odom_data);
+    int ret_len = 1;
     while (ret_len > 0) {
-      if (last_odom_time_stamp_ != odom_data.time_stamp) {
+      ret_len = mem_ssq_->PopEncodeData(&odom_data);
+      if (ret_len > 0 && last_odom_time_stamp_ != odom_data.time_stamp) {
         last_odom_time_stamp_ = odom_data.time_stamp;
         std::lock_guard<std::mutex> lock(mutex_);
         ProcessOdom(odom_data);
       }
-      ret_len = mem_ssq_->PopEncodeData(&odom_data);
     }
+    {
+      ModRTKFB rtk_data;
+      int ret_len = 1;
+      while (ret_len > 0) {
+        ret_len = mem_ssq_->PopRtkData(&rtk_data);
+        if (ret_len && last_rtk_time_stamp_ != rtk_data.timestamp) {
+          last_rtk_time_stamp_ = rtk_data.timestamp;
+          std::lock_guard<std::mutex> lock(mutex_);
+          ProcessRtk(rtk_data);
+        }
+      }
+    }
+
+    //
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   };
 }
@@ -193,6 +209,15 @@ ImuData ToImuData(const ModSyncImuFb& imu,
 #endif
 }
 //
+//
+void DataCapture::ProcessRtk(const ModRTKFB& rtk) {
+  RtkData rtk_data{rtk.timestamp, rtk.lat, rtk.lon,   rtk.alt,  rtk.qual,
+                   rtk.sats,      rtk.age, rtk.speed, rtk.track};
+  for (const auto& f : rtk_call_backs_) {
+    f.second(rtk_data);
+  }
+}
+
 void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
 #ifdef NEED_SYNC
   imu_catch_.push_back(imu);

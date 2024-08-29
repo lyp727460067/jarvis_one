@@ -9,7 +9,7 @@
  *******************************************************/
 
 #include "jarvis/estimator/estimator.h"
-
+#include "jarvis/common/time.h"
 #include "ceres/tiny_solver.h"
 #include "ceres/tiny_solver_autodiff_function.h"
 #include "glog/logging.h"
@@ -180,8 +180,15 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   featureBuf.push(std::make_pair(d_time, featureFrame));
   TicToc processTime;
   auto state = processMeasurements();
-  LOG_EVERY_N(WARNING, 60) << "One frame cost : " << add_image_data_cost.toc();
-  
+  LOG_EVERY_N(INFO, 100) << "One frame cost: " << add_image_data_cost.toc();
+  // cost_time_hisgram_.push_back(add_image_data_cost.toc());
+  // if (cost_time_hisgram_.size() >= 100) {
+  //   cost_time_hisgram_.erase(cost_time_hisgram_.begin());
+  // }
+  // LOG_EVERY_N(INFO, 100) << "One frame costcost:"
+  //                        << " " << cost_time_hisgram_.back() << "\n"
+  //                        << common::DrawVbars(cost_time_hisgram_);
+  //
   auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
   tracking_data->data->time = images.time;
 
@@ -443,12 +450,12 @@ int Estimator::processMeasurements() {
       if (!getIMUInterval(prevTime, curTime, accVector, gyrVector)) {
         LOG(ERROR) << "Imu data invalid!!!";
         if (initFirstPoseFlag) {
-          prevTime = curTime;
           LOG(ERROR) << "return Lost  q!!!"
                      << "curr: " << common::Time(common::FromSeconds(curTime))
                      << "last : "
-                     << common::Time(common::FromSeconds(prevTime));
-          LOG(INFO) << accVector.size();
+                     << common::Time(common::FromSeconds(prevTime))<<"imu size: "<<accVector.size();
+
+          prevTime = curTime;
           return TrackState::LOST;
         }
       }
@@ -605,17 +612,35 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
   // /
 
   // LOG(INFO) << "delta_time" <<  header - last_time;
+  const bool feature_margin_flag = f_manager->getFeatureCount()<15;
   if (f_manager->addFeatureCheckParallax(frame_count, image, td)) {
     marginalization_flag = MARGIN_OLD;
   } else {
     marginalization_flag = MARGIN_SECOND_NEW;
   }
+  if (solver_flag != INITIAL) {
+    if (update_zero_velocity_ &&
+        update_zero_velocity_->AtState({})->IsZeroVelocity()) {
+      is_velocity_updates_[frame_count] = true;
+    } else {
+      is_velocity_updates_[frame_count] = false;
+    }
+
+    // if (is_velocity_updates_[frame_count]) {
+    //   marginalization_flag = MARGIN_SECOND_NEW;
+    // }
+
+  }
+  // if(feature_margin_flag){
+  //   marginalization_flag = MARGIN_OLD;
+  // }
   std::stringstream info;
   info << "New image " << (marginalization_flag ? "Non-keyframe" : "Keyframe")
        << "(" << common::Time(common::FromSeconds(header)) << ")"
        << " coming, Adding feature points " << image.data->features.size()
        << "," << "number of feature: " << f_manager->getFeatureCount();
   VLOG(kGlogLevel) << info.str();
+ 
   images_[frame_count] = {image.data->time, image};
   Headers[frame_count] = header;
   ImageFrame imageframe(ToStruct(image), header);
@@ -771,11 +796,12 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
     f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
     optimization();
     std::set<int> removeIndex;
-    outliersRejection(removeIndex,convin_used_num_);
-    f_manager->removeOutlier(removeIndex);
-    feature_tracker_->removeOutliers(removeIndex);
+    if (!is_velocity_updates_[frame_count]) {
+      outliersRejection(removeIndex, options_.convin_used_num);
+      f_manager->removeOutlier(removeIndex);
+      feature_tracker_->removeOutliers(removeIndex);
+    }
     predictPtsInNextFrame();
-
     VLOG(kGlogLevel) << "solver costs: " << t_solve.toc() << " ms"
                      << ",remove outlier: " << removeIndex.size();
     if (failureDetection()) {
@@ -1291,6 +1317,8 @@ bool Estimator::failureDetection() {
   //
   //
   failuer_zero_feat_lost_.push_back(is_velocity_updates_[frame_count]);
+  // 
+
   if (int(failuer_zero_feat_lost_.size()) >
       options_.fail_detect_option.zero_odo_win_size) {
     failuer_zero_feat_lost_.erase(failuer_zero_feat_lost_.begin());
@@ -1301,6 +1329,8 @@ bool Estimator::failureDetection() {
                            options_.fail_detect_option.zero_odo_win_size);
   //
   //
+
+
   // LOG_IF(WARNING, is_zero_velocity) << "feat detect zero velocity.. ";
   //
   if (options_.fail_detect_option.enable_odo_zero_lost_detect == 1) {
@@ -1308,6 +1338,11 @@ bool Estimator::failureDetection() {
         (std::count(failuer_zero_lost_.begin(), failuer_zero_lost_.end(),
                     true) == options_.fail_detect_option.zero_odo_win_size);
   }
+
+  if (!is_zero_velocity) {
+    lost_last_poses_.clear();
+  }
+
   //
   //
   if (is_zero_velocity) {
@@ -1321,11 +1356,13 @@ bool Estimator::failureDetection() {
     if (fabs(z_distance) >= options_.fail_detect_option.translation_z_max) {
       LOG(ERROR) << "Zero velocity z: " << z_distance << " > "
                  << options_.fail_detect_option.translation_z_max;
+
       return true;
     }
     if (fabs(yaw_distance) >= options_.fail_detect_option.zero_ratation_max) {
       LOG(ERROR) << "Zero velocity yaw: " << yaw_distance << " > "
                  << options_.fail_detect_option.zero_ratation_max;
+
       return true;
     }
   }
@@ -1393,14 +1430,9 @@ void Estimator::optimization() {
   }
   if (!options_.use_imu) {
     problem.SetParameterBlockConstant(para_Pose[0]);
-  }  // problem.SetParameterBlockConstant(para_Pose[0]);
-  if (update_zero_velocity_ &&
-      update_zero_velocity_->AtState({})->IsZeroVelocity()) {
-    is_velocity_updates_[frame_count] = true;
-    // problem.SetParameterBlockConstant(para_Pose[frame_count - 1]);
-  } else {
-    is_velocity_updates_[frame_count] = false;
-  }
+  }  
+  // problem.SetParameterBlockConstant(para_Pose[0]);
+
 
   // is_velocity_updates_[frame_count] =true;
   problem.AddParameterBlock(para_Ex_Pose_Odom[0], SIZE_POSE,
@@ -1429,10 +1461,15 @@ void Estimator::optimization() {
   }
   ordering->AddElementToGroup(para_Td[0], 1);
   problem.AddParameterBlock(para_Td[0], 1);
+  problem.SetParameterLowerBound(para_Td[0], 0, -0.02);
+  problem.SetParameterUpperBound(para_Td[0], 0,  0.02);
   //
   if (!options_.estimate_td || Vs[0].norm() < 0.2 || solver_flag == INITIAL) {
     problem.SetParameterBlockConstant(para_Td[0]);
   }
+  LOG_IF(ERROR, fabs(para_Td[0][0]) > 0.020)
+      << "Td estimate to large: " << para_Td[0][0];
+
   if (last_marginalization_info && last_marginalization_info->valid) {
     // construct new marginlization_factor
     MarginalizationFactor *marginalization_factor =
@@ -1450,12 +1487,18 @@ void Estimator::optimization() {
       // LOG(INFO)<<para_SpeedBias[j][2];
       // if (abs(Headers[i] - Headers[j]) > 4.0) {
       // }
-      if (update_zero_velocity_) {
-        if (is_velocity_updates_[j]) {
-          update_zero_velocity_->AddToProblem(
-              &problem, nullptr,
-              std::array<double *, 3>{para_Pose[i], para_Pose[j],
-                                      para_SpeedBias[i]});
+      if (j == frame_count) {
+        if (update_zero_velocity_) {
+          if (is_velocity_updates_[j]) {
+            //
+            for (int k = 0; k < 7; k++) {
+              para_Pose[j][k] = para_Pose[i][k];
+            }
+            update_zero_velocity_->AddToProblem(
+                &problem, nullptr,
+                std::array<double *, 3>{para_Pose[i], para_Pose[j],
+                                        para_SpeedBias[i]});
+          }
         }
       }
       if (options_.use_odom ) {
@@ -1494,20 +1537,21 @@ void Estimator::optimization() {
 
   int f_m_cnt = 0;
   int feature_index = -1;
-
+  std::stringstream info;
   const double cam_weight = optimizaion_cam_weight_;
   for (auto &it_per_id : f_manager->feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
-    if (it_per_id.used_num < convin_used_num_) continue;
+    if (it_per_id.used_num < options_.convin_used_num) continue;
 
     ++feature_index;
-
+    if(para_Feature[feature_index][0]<0)continue;
+    info << 1.0/para_Feature[feature_index][0] << " ";
     int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
 
     Eigen::Vector3d pts_i = it_per_id.feature_per_frame[0].point;
-
     for (auto &it_per_frame : it_per_id.feature_per_frame) {
       imu_j++;
+
       if (imu_i != imu_j) {
         Eigen::Vector3d pts_j = it_per_frame.point;
         ProjectionTwoFrameOneCamFactor *f_td =
@@ -1553,7 +1597,7 @@ void Estimator::optimization() {
 
   VLOG(kGlogCostTimeLevel) << "visual measurement count: " << f_m_cnt;
   // printf("prepare for ceres: %f \n", t_prepare.toc());
-
+  // LOG(INFO)<<info.str();
   ceres::Solver::Options options;
   options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -1594,7 +1638,7 @@ void Estimator::optimization() {
 
   // static int count= 0;
   // CHECK(count++ <100);
-  std::stringstream info;
+  // std::stringstream info;
   auto tmp_Q = Eigen::Quaterniond(Rs[WINDOW_SIZE]);
   // info << std::setprecision(5) << std::fixed;
   // info << Headers[frame_count] << " cost_time " << t_solver.toc() << " T ";
@@ -1638,16 +1682,16 @@ void Estimator::optimization() {
           drop_set);
       marginalization_info->addResidualBlockInfo(residual_block_info);
     }
-    if (update_zero_velocity_) {
-      if (is_velocity_updates_[1]) {
-        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-            update_zero_velocity_->CostFunction(), NULL,
-            std::vector<double *>{para_Pose[0], para_Pose[1],
-                                  para_SpeedBias[0]},
-            std::vector<int>{0,2});
-        marginalization_info->addResidualBlockInfo(residual_block_info);
-      }
-    }
+    // if (update_zero_velocity_) {
+    //   if (is_velocity_updates_[1]) {
+    //     ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+    //         update_zero_velocity_->CostFunction(), NULL,
+    //         std::vector<double *>{para_Pose[0], para_Pose[1],
+    //                               para_SpeedBias[0]},
+    //         std::vector<int>{0,2});
+    //     marginalization_info->addResidualBlockInfo(residual_block_info);
+    //   }
+    // }
     if (options_.use_odom) {
       ceres::CostFunction *cost_function = odometry_factor_[1]->CostFunction();
       if (cost_function) {
@@ -1675,7 +1719,7 @@ void Estimator::optimization() {
       int feature_index = -1;
       for (auto &it_per_id : f_manager->feature) {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < convin_used_num_) continue;
+        if (it_per_id.used_num < options_.convin_used_num) continue;
 
         ++feature_index;
 

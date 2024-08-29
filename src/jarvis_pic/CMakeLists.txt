@@ -69,6 +69,14 @@ add_executable(mpslam  jarvis_slipe_detect_main.cc
  socket_wrapper.cc jarvis_brige.cc
  glog_sink.cc
  )
+add_executable(thread_test  jarvis_thread_test.cc
+ )
+
+
+target_link_libraries(thread_test PUBLIC
+  -ldl
+)
+
 # add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
 # socket_wrapper.cc 
 

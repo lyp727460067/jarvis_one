@@ -5,7 +5,7 @@
 #include <zmq.h>
 #include "data_protocol.h"
 #include <memory>
-
+#include <queue>
 #include "shm_mod.h"
 //
 namespace jarvis_pic {
@@ -18,7 +18,13 @@ class ZmqComponent {
   ~ZmqComponent();
 
  private:
+  void Run();
   // 有内存安全int 
+ 
+  std::thread thread_;
+  std::queue<std::function<void(void)>> tasks_;
+  bool kill_thread_ = false;
+  std::mutex mutex_;
   std::vector<std::unique_ptr<DevInterface>> device_;
 };
 class MpcComponent {

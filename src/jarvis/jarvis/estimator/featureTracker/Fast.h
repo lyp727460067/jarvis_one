@@ -219,7 +219,7 @@ uint8x16_t u0x80u = vdupq_n_u8(0x80u);
 /// Running time is < ms for a 640x480 VGA image and bucket overhead is about
 /// .1 ms.
 ///
-template <int border = 3, int logBucketSize = 6, int bucketLimit = 2>
+template <int border = 3, int logBucketSize = 6, int bucketLimit = 4>
 void fastExtract(const int width, const int height,
                  std::vector<std::vector<uint8_t>> &out,
                  std::vector<uint32_t> &results, const cv::Mat &mask) {

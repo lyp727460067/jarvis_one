@@ -90,6 +90,7 @@ struct EstimatorOption {
   double use_stereo_sample_ration=0.05; 
   double init_rotation_th = 10;
   double init_bas_normal_max =0.3;
+  int convin_used_num = 4;
 };
 
 class Estimator {
@@ -266,12 +267,12 @@ class Estimator {
   std::vector<transform::Rigid3d> lost_last_poses_;  
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_=nullptr;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
-  const int convin_used_num_ = 4;
   std::unique_ptr<DataBase> data_base_=nullptr;
   jarvis::transform::Rigid3d transform_imu_to_robot_;
   int stable_init_cout =0 ;
   int optimization_max_num_iterations_ =1;
   double optimizaion_cam_weight_= FOCAL_LENGTH / 1.5;
+  std::vector<float>cost_time_hisgram_;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

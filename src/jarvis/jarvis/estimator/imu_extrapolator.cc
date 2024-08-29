@@ -2,6 +2,9 @@
 
 namespace jarvis {
 namespace estimator {
+namespace {
+constexpr int KmaxImuNum = 1000;
+}
 
 class ImuExtrapolator::ImuIntegral {
  public:
@@ -116,7 +119,15 @@ void ImuExtrapolator::TrimImuData(const common::Time& t) {
 //
 void ImuExtrapolator::AddImu(const sensor::ImuData& imu_data) {
   imu_datas_.push_back(imu_data);
+  if (imu_datas_.size() > KmaxImuNum) {
+    imu_datas_.erase(imu_datas_.begin());
+    LOG_EVERY_N(WARNING, 10)
+        << "Imu data too big,maby need add state..[" << imu_datas_.begin()->time
+        << "-" << imu_datas_.back().time << "]";
+  }
 }
+
+
 //
 //
 void ImuExtrapolator::AddState(const common::Time& time,
@@ -134,12 +145,12 @@ void ImuExtrapolator::AddState(const common::Time& time,
   //
   //
   TrimImuData(time);
-  LOG_EVERY_N(WARNING, 60) <<"imu date behind .. "<<imu_datas_.size();
+  LOG_EVERY_N(WARNING, 1) <<"imu date behind .. "<<imu_datas_.size();
 }
 
 void ImuExtrapolator::Rest() {
   imu_datas_.clear();
-  imu_state_.clear();
+  imu_intergral_=nullptr;
 }
 ImuExtrapolator::~ImuExtrapolator() {}
 //

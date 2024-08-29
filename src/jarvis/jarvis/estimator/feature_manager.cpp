@@ -43,7 +43,7 @@ int FeatureManager::getFeatureCount() {
   int cnt = 0;
   for (auto &it : feature) {
     it.used_num = it.feature_per_frame.size();
-    if (it.used_num >= 4) {
+    if (it.used_num >= options_.convin_used_num) {
       cnt++;
     }
   }
@@ -63,6 +63,7 @@ bool FeatureManager::addFeatureCheckParallax(
   last_average_parallax = 0;
   new_feature_num = 0;
   long_track_num = 0;
+  // std::stringstream info;
   for (auto &id_pts : image.data->features) {
     Eigen::Matrix<double, 7, 1> f;
     f << id_pts.second.camera_features[0].normal_points.x(),
@@ -99,15 +100,18 @@ bool FeatureManager::addFeatureCheckParallax(
       new_feature_num++;
     } else if (it->feature_id == feature_id) {
       it->feature_per_frame.push_back(f_per_fra);
+      // info<<feature_id<<"->"<<it->feature_per_frame.size()<<" ";      
       last_track_num++;
-      if (it->feature_per_frame.size() >= 4) long_track_num++;
+      if (it->feature_per_frame.size() >= size_t(options_.convin_used_num))
+        long_track_num++;
     }
   }
-
+  // info<<"  num "<<long_track_num;
+  // LOG(INFO)<<info.str();
   // if (frame_count < 2 || last_track_num < 20)
   // if (frame_count < 2 || last_track_num < 20 || new_feature_num > 0.5 *
   // last_track_num)
-  if (frame_count < 2 || last_track_num < 20 || long_track_num < 40 ||
+  if (frame_count < 2 || last_track_num < 40 || long_track_num <  20||
       new_feature_num > 0.5 * last_track_num)
     return true;
 
@@ -157,7 +161,7 @@ void FeatureManager::setDepth(const VectorXd &x) {
   int feature_index = -1;
   for (auto &it_per_id : feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
-    if (it_per_id.used_num < 4) continue;
+    if (it_per_id.used_num < options_.convin_used_num) continue;
 
     it_per_id.estimated_depth = 1.0 / x(++feature_index);
     // ROS_INFO("feature id %d , start_frame %d, depth %f ",
@@ -187,7 +191,7 @@ VectorXd FeatureManager::getDepthVector() {
   int feature_index = -1;
   for (auto &it_per_id : feature) {
     it_per_id.used_num = it_per_id.feature_per_frame.size();
-    if (it_per_id.used_num < 4) continue;
+    if (it_per_id.used_num < options_.convin_used_num) continue;
 #if 1
     dep_vec(++feature_index) = 1. / it_per_id.estimated_depth;
 #else
@@ -439,7 +443,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[],
       continue;
     }
     it_per_id.used_num = it_per_id.feature_per_frame.size();
-    if (it_per_id.used_num < 4) continue;
+    if (it_per_id.used_num < options_.convin_used_num) continue;
     int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
 
     Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
