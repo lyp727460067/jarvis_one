@@ -463,10 +463,11 @@ int Estimator::processMeasurements() {
 
     if (initFirstPoseFlag) {
       double delta_time = curTime - prevTime;
-      if (abs(delta_time) > 0.3) {
+      if (abs(delta_time) > 0.8) {
         LOG(ERROR) << "Image data lost!!  " << delta_time;
+        // CHECK(false);
         prevTime = curTime;
-        return TrackState::LOST;
+        // return TrackState::LOST;
       }
     }
 
@@ -1397,7 +1398,7 @@ bool Estimator::failureDetection() {
       common::RadToDeg(transform::GetYaw(Eigen::Quaterniond(delta_R)));
   if (delta_angle > rotaion_threash_hold) {
     LOG(ERROR) << " Big delta_angle " << delta_angle;
-    return true;
+    // return true;
   }
   return false;
 }

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(jarvis VERSION 1.0.0)
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 # set(BUILD_TYPE Debug)
+set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 set(CMAKE_CXX_STANDARD 17)
@@ -14,7 +15,7 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   # -Wshadow # shadow local variable
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
-set(BUILD_TYPE Release)
+
 
 if(PLATFORM_mr527)
   add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
@@ -83,10 +84,13 @@ if(PLATFORM_mr527)
     ${TOP_CMAKE_DIR}/vslam/
   )
 else()
+
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
-  find_package(Eigen3 3.4.0 EXACT)
+  find_package(Eigen3 3.4.0)
   find_package(OpenCV REQUIRED)
   find_package(Ceres REQUIRED)
+  # set(CERES_LIBRARIES /usr/local/lib/libceres.a)
   find_package(Glog REQUIRED) 
   find_package(yaml-cpp  REQUIRED) #version 0.7.0
   find_package(GTest  REQUIRED) #version 1.12.0

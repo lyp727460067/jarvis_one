@@ -312,9 +312,9 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     //                 temp2,
 
     //             }}));
-    // if(time>1064339798000)
+    if(time>61026293733000){
     const cv::Mat lr_image =
-        cv::imread(image.second.image_name + ".png", cv::IMREAD_GRAYSCALE);
+        cv::imread(image.second.image_name + ".jpg", cv::IMREAD_GRAYSCALE);
 
     // cv::imshow("l_image",lr_image);
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
@@ -332,6 +332,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                         lr_image(cv::Rect(640,0, 640, 544)).clone()),
                 }}));
     // time+=100*1000*1000;
+  }
   }
   if (!imu_datas.empty()) {
     WriteImuData(UINT64_MAX, imu_datas);
@@ -391,23 +392,85 @@ int main(int argc, char* argv[]) {
   std::vector<bool> slip_states;
   builder_ = std::make_unique<TrajectorBuilder>(
       std::string(argv[1]), [&](const TrackingData& data) {
-        std::lock_guard<std::mutex> lock(mutex);
         //
-        auto tracking_data = data;
-        Eigen::Matrix3d rotaion;
-        rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
-        // LOG(INFO) << rotaion;
-        // auto extric =
-        // transform::Rigid3d::Rotation(Eigen::Quaterniond(rotaion));
-        // tracking_data_temp.data->imu_state.data->pose =
-        //     extric * tracking_data_temp.data->imu_state.data->pose;
-        // {
-        //   std::unique_lock<std::mutex> lock(mutex);
-        //   cond.wait(lock);
-        //   tracking_data = tracking_data_temp;
-        // }
-        if(tracking_data.status==2){
-          KImuExtrapolator->AddState(data.data->time, data.data->imu_state);
+        std::lock_guard<std::mutex> lock(mutex);
+        LOG(INFO) << data.data->imu_state.pose;
+        //
+        tracking_data_temp = data;
+        cond.notify_one();
+      });
+
+  //
+  order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
+  order_queue_->AddQueue(kOdomTopic,
+                         [&](const sensor::OdometryData& odom_data) {
+                           // LOG(INFO)<<odom_data.pose<<odom_data.time;;
+                           ros_compont->PushMark({{"odom", odom_data.pose}});
+                           builder_->AddOdometryData(
+                               jarvis::sensor::OdometryData{
+                                   odom_data.time + common::FromSeconds(0.1),
+                                   odom_data.pose});
+                           slip_detect->AddOdometry(odom_data);
+                         });
+  //
+  order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
+    // slip_detect->AddImage(imag_data);
+    // auto flag = slip_detect->Detect(imag_data.time);
+    // ros_compont->PubBoolMsg(flag);
+    if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
+      LOG(WARNING) << "Input Image empty..";
+      return;
+    }
+    // if(imag_data.time<common::FromUniversal(530343438350))return;
+    auto start = std::chrono::high_resolution_clock::now();
+    builder_->AddImageData(imag_data);
+    // LOG(INFO) << "One frame cost: "
+              // << std::chrono::duration_cast<std::chrono::milliseconds>(
+                    //  std::chrono::high_resolution_clock::now() - start)
+                    //  .count();
+    // cv::imshow("show", *imag_data.image[1]);
+    // cv::waitKey(0);
+    // if(cv::waitKey()=='c'){
+    //   jarvis::restart =true;
+    // }
+  });
+  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
+    builder_->AddImuData(jarvis::sensor::ImuData{
+        imu.time + common::FromSeconds(0.1),
+        imu.linear_acceleration,
+        imu.angular_velocity,
+    });
+  });
+  LOG(INFO) << "Parse image dir: " << image_file;
+  LOG(INFO) << "Parse imu dir: " << odom_file;
+  auto image_datas = ImageData::Parse(image_file);
+  auto odom_datas = SesorDataParse<OdomData>(odom_file);
+  auto imu_datas = SesorDataParse<ImuData>(odom_file);
+  //
+  //
+  LOG(INFO) << "Start run...";
+  std::thread pub_map_points([&]() {
+    while (!kill_thread) {
+      TrackingData tracking_data;
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      {
+        std::unique_lock<std::mutex> lock(mutex);
+        cond.wait(lock);
+        tracking_data = tracking_data_temp;
+      }
+      //
+      rclcpp::spin_some(node);
+      static uint8_t count = 0;
+      // if (kReciveTempGoal)
+      // if (++count > 30) {
+      //   count = 0;
+      //   std::map<int, std::map<KeyFrameId, transform::TimestampedTransform>>
+      //       poses;
+      // }
+
+
+       if(tracking_data.status==2){
+          KImuExtrapolator->AddState(tracking_data.data->time, tracking_data.data->imu_state);
         }
 
         auto start = std::chrono::high_resolution_clock::now();
@@ -445,72 +508,8 @@ int main(int argc, char* argv[]) {
             tracking_data, nullptr, transform::Rigid3d::Identity());
         ros_compont->PosePub(tracking_data.data->imu_state.pose,
                              transform::Rigid3d::Identity());
-        rclcpp::spin_some(node);
-        cond.notify_one();
-      });
 
-  //
-  order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
-  order_queue_->AddQueue(kOdomTopic,
-                         [&](const sensor::OdometryData& odom_data) {
-                           // LOG(INFO)<<odom_data.pose<<odom_data.time;;
-                           ros_compont->PushMark({{"odom", odom_data.pose}});
-                           builder_->AddOdometryData(
-                               jarvis::sensor::OdometryData{
-                                   odom_data.time + common::FromSeconds(0.1),
-                                   odom_data.pose});
-                           slip_detect->AddOdometry(odom_data);
-                         });
-  //
-  order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
-    // slip_detect->AddImage(imag_data);
-    // auto flag = slip_detect->Detect(imag_data.time);
-    // ros_compont->PubBoolMsg(flag);
-    if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
-      LOG(WARNING) << "Input Image empty..";
-      return;
-    }
-    // if(imag_data.time<common::FromUniversal(530343438350))return;
-    auto start = std::chrono::high_resolution_clock::now();
-    builder_->AddImageData(imag_data);
-    // LOG(INFO) << "One frame cost: "
-              // << std::chrono::duration_cast<std::chrono::milliseconds>(
-                    //  std::chrono::high_resolution_clock::now() - start)
-                    //  .count();
-    cv::imshow("show", *imag_data.image[1]);
-    cv::waitKey(0);
-    if(cv::waitKey()=='c'){
-      jarvis::restart =true;
-    }
-  });
-  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
-    builder_->AddImuData(jarvis::sensor::ImuData{
-        imu.time + common::FromSeconds(0.1),
-        imu.linear_acceleration,
-        imu.angular_velocity,
-    });
-  });
-  LOG(INFO) << "Parse image dir: " << image_file;
-  LOG(INFO) << "Parse imu dir: " << odom_file;
-  auto image_datas = ImageData::Parse(image_file);
-  auto odom_datas = SesorDataParse<OdomData>(odom_file);
-  auto imu_datas = SesorDataParse<ImuData>(odom_file);
-  //
-  //
-  LOG(INFO) << "Start run...";
-  std::thread pub_map_points([&]() {
-    while (!kill_thread) {
-      TrackingData tracking_data;
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-      //
-      static uint8_t count = 0;
-      // if (kReciveTempGoal)
-      if (++count > 30) {
-        count = 0;
-        std::map<int, std::map<KeyFrameId, transform::TimestampedTransform>>
-            poses;
-      }
       // {
       //   std::unique_lock<std::mutex> lock(mutex);
       //   cond.wait(lock);

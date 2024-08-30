@@ -86,7 +86,7 @@ class JarvisBuilder {
       // LOG(INFO)<<imu.linear_acceleration.transpose()<<"
       // "<<imu.angular_velocity.transpose();
       jarvis::estimator::ImuState state;
-      if (imu_extrapolator_ && kWriteMpcPoseType) {
+      if (kWriteMpcPoseType&& imu_extrapolator_) {
         {
           std::lock_guard<std::mutex> lock(mutex_);
 
@@ -196,7 +196,7 @@ class JarvisBuilder {
   //
   void AddStateToImuExtrapolator(const jarvis::TrackingData& data) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!imu_extrapolator_ || kWriteMpcPoseType == 0) {
+    if (  kWriteMpcPoseType == 0  ||!imu_extrapolator_) {
       return;
     }
     if (data.status != 2) {

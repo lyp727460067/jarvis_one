@@ -38,6 +38,7 @@ class OdomCostFuction
     Eigen::Vector3d temp = q_e * translation_observe_;
     Eigen::Vector3d delta_t = p_b - p_a - q_a * (temp);
     //
+    LOG(INFO)<<delta_t.transpose();
     // LOG(INFO) <<( p_b - p_a).transpose();
 
     Eigen::Matrix<double, residuals_block_size, residuals_block_size>
@@ -140,9 +141,18 @@ ceres::CostFunction* OdomFactor::CostFunction() const {
       (option_.transform_imu_to_robot.inverse() * odom_observe_.value() *
        option_.transform_imu_to_robot)
           .translation();
+
+  // translation_observe =
+  //     transform::Rigid3d::Rotation(
+  //         transform::RollPitchYaw(
+  //             0, 0,
+  //             transform::GetYaw(option_.transform_imu_to_robot.rotation())))
+  //         .inverse() *
+  //     translation_observe;
+
   // Eigen::Vector3d translation_observe =
   //     (odom_observe_.value() * option_.transform_imu_to_robot).translation();
-
+  LOG(INFO)<<translation_observe.transpose();
   // translation_observe.x() *= 1.1;
   return new OdomCostFuction(option_.optimize_weight, translation_observe);
 }
@@ -153,7 +163,8 @@ std::optional<double> OdomFactor::GetObserveDistance() {
     return std::optional<double>();
   }
   Eigen::Vector3d translation_observe =
-      (option_.transform_imu_to_robot.inverse() * odom_observe_.value() *
+      (       transform::Rigid3d::Rotation(transform::RollPitchYaw(
+          0, 0, transform::GetYaw(option_.transform_imu_to_robot.rotation()))).inverse() * odom_observe_.value() *
        option_.transform_imu_to_robot)
           .translation();
 
