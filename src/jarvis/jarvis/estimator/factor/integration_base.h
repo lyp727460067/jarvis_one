@@ -214,15 +214,16 @@ class IntegrationBase {
 
     Eigen::Matrix3d dv_dba = jacobian.block<3, 3>(O_V, O_BA);
     Eigen::Matrix3d dv_dbg = jacobian.block<3, 3>(O_V, O_BG);
-
+    LOG(INFO)<<jacobian;
     Eigen::Vector3d dba = Bai - linearized_ba;
     Eigen::Vector3d dbg = Bgi - linearized_bg;
 
     Eigen::Quaterniond corrected_delta_q =
         delta_q * Utility::deltaQ(dq_dbg * dbg);
+    
     Eigen::Vector3d corrected_delta_v = delta_v + dv_dba * dba + dv_dbg * dbg;
     Eigen::Vector3d corrected_delta_p = delta_p + dp_dba * dba + dp_dbg * dbg;
-
+    LOG(INFO)<<corrected_delta_q<<corrected_delta_v<<corrected_delta_p;
     residuals.block<3, 1>(O_P, 0) =
         Qi.inverse() * (0.5 *G  * sum_dt * sum_dt + Pj - Pi - Vi * sum_dt) -
         corrected_delta_p;

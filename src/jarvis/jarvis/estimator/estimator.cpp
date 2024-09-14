@@ -701,7 +701,6 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
         }
         if (result) {
           optimization();
-
           updateLatestStates();
           solver_flag = NON_LINEAR;
           slideWindow();
@@ -1173,6 +1172,7 @@ void Estimator::vector2double() {
     para_Ex_Pose[i][4] = q.y();
     para_Ex_Pose[i][5] = q.z();
     para_Ex_Pose[i][6] = q.w();
+
     // if (IsStereo()) break;
   }
 
@@ -1255,6 +1255,7 @@ void Estimator::double2vector() {
                                   para_Ex_Pose[i][4], para_Ex_Pose[i][5])
                    .normalized()
                    .toRotationMatrix();
+      LOG(INFO)<<tic[i].transpose();
     }
   }
 
