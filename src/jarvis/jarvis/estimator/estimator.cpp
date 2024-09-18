@@ -739,11 +739,11 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
                   options_.fail_detect_option.bgs_norm_max) {
             // if (!failureDetection()) {
             for (int i = 0; i <= WINDOW_SIZE; i++) {
-              pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
+              // pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
             }
             
-            optimization_max_num_iterations_=10;
-            optimizaion_cam_weight_ = FOCAL_LENGTH*2;
+            optimization_max_num_iterations_=2;
+            optimizaion_cam_weight_ = 200;
             //
             // std::set<int> removeIndex;
             // outliersRejection(removeIndex, 2);
@@ -751,9 +751,10 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
             // feature_tracker_->removeOutliers(removeIndex);
             //
             optimization();
-            optimization_max_num_iterations_=10;
-            optimizaion_cam_weight_ = FOCAL_LENGTH / 1.5;
+            optimization_max_num_iterations_=1;
+            optimizaion_cam_weight_ = 200;
             updateLatestStates();
+            CHECK(false);
             for (int i = 0; i <= WINDOW_SIZE; i++) {
               LOG(INFO) << "init  " << i << " bas :" << Bas[i].transpose()
                         << " bgs :" << Bgs[i].transpose() << " \nps "
@@ -1597,8 +1598,8 @@ void Estimator::optimization() {
     if (it_per_id.used_num < options_.convin_used_num) continue;
 
     ++feature_index;
-    if(para_Feature[feature_index][0]<0)continue;
-    info << 1.0/para_Feature[feature_index][0] << " ";
+    // if(para_Feature[feature_index][0]<0)continue;
+    info <<"["<<it_per_id.feature_id<<"]"<< para_Feature[feature_index][0] << " ";
     int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
 
     Eigen::Vector3d pts_i = it_per_id.feature_per_frame[0].point;
@@ -1620,39 +1621,39 @@ void Estimator::optimization() {
         residual_block_id.push_back(id);
       }
 
-      if (IsStereo() && it_per_frame.is_stereo) {
-        // LOG(INFO)<<"Use Stero optimizatin..";
-        Eigen::Vector3d pts_j_right = it_per_frame.pointRight;
-        if (imu_i != imu_j) {
-          ProjectionTwoFrameTwoCamFactor *f =
-              new ProjectionTwoFrameTwoCamFactor(
-                  pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity,
-                  it_per_frame.velocityRight,
-                  it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-          problem.AddResidualBlock(f, loss_function, para_Pose[imu_i],
-                                   para_Pose[imu_j], para_Ex_Pose[0],
-                                   para_Ex_Pose[1], para_Feature[feature_index],
-                                   para_Td[0]);
-        } else {
-          ProjectionOneFrameTwoCamFactor *f =
-              new ProjectionOneFrameTwoCamFactor(
-                  pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity,
-                  it_per_frame.velocityRight,
-                  it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-          problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0],
-                                   para_Ex_Pose[1], para_Feature[feature_index],
-                                   para_Td[0]);
-        }
-      }
+      // if (IsStereo() && it_per_frame.is_stereo) {
+      //   // LOG(INFO)<<"Use Stero optimizatin..";
+      //   Eigen::Vector3d pts_j_right = it_per_frame.pointRight;
+      //   if (imu_i != imu_j) {
+      //     ProjectionTwoFrameTwoCamFactor *f =
+      //         new ProjectionTwoFrameTwoCamFactor(
+      //             pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity,
+      //             it_per_frame.velocityRight,
+      //             it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+      //     problem.AddResidualBlock(f, loss_function, para_Pose[imu_i],
+      //                              para_Pose[imu_j], para_Ex_Pose[0],
+      //                              para_Ex_Pose[1], para_Feature[feature_index],
+      //                              para_Td[0]);
+      //   } else {
+      //     ProjectionOneFrameTwoCamFactor *f =
+      //         new ProjectionOneFrameTwoCamFactor(
+      //             pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity,
+      //             it_per_frame.velocityRight,
+      //             it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+      //     problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0],
+      //                              para_Ex_Pose[1], para_Feature[feature_index],
+      //                              para_Td[0]);
+      //   }
+      // }
       f_m_cnt++;
     }
   }
-
+  LOG(INFO)<<info.str();
   VLOG(kGlogCostTimeLevel) << "visual measurement count: " << f_m_cnt;
   // printf("prepare for ceres: %f \n", t_prepare.toc());
   // LOG(INFO)<<info.str();
   ceres::Solver::Options options;
-  options.linear_solver_ordering.reset(ordering);
+  // options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
   options.num_threads = 1;
   options.trust_region_strategy_type = ceres::DOGLEG;
