@@ -727,7 +727,7 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
             // feature_tracker_->removeOutliers(removeIndex);
             //
             optimization();
-            optimization_max_num_iterations_=1;
+            optimization_max_num_iterations_=10;
             optimizaion_cam_weight_ = FOCAL_LENGTH / 1.5;
             updateLatestStates();
             for (int i = 0; i <= WINDOW_SIZE; i++) {
@@ -1490,23 +1490,23 @@ void Estimator::optimization() {
       // }
       if (j == frame_count) {
         if (update_zero_velocity_) {
-          if (is_velocity_updates_[j]) {
-            //
-            for (int k = 0; k < 7; k++) {
-              para_Pose[j][k] = para_Pose[i][k];
-            }
-            update_zero_velocity_->AddToProblem(
-                &problem, nullptr,
-                std::array<double *, 3>{para_Pose[i], para_Pose[j],
-                                        para_SpeedBias[i]});
-          }
+          // if (is_velocity_updates_[j]) {
+          //   //
+          //   for (int k = 0; k < 7; k++) {
+          //     para_Pose[j][k] = para_Pose[i][k];
+          //   }
+          //   update_zero_velocity_->AddToProblem(
+          //       &problem, nullptr,
+          //       std::array<double *, 3>{para_Pose[i], para_Pose[j],
+          //                               para_SpeedBias[i]});
+          // }
         }
       }
       if (options_.use_odom ) {
-        odometry_factor_[j]->AddToProblem(
-            &problem, nullptr,
-            std::array<double *, 3>{para_Pose[i], para_Pose[j],
-                                    para_Ex_Pose_Odom[0]});
+        // odometry_factor_[j]->AddToProblem(
+        //     &problem, nullptr,
+        //     std::array<double *, 3>{para_Pose[i], para_Pose[j],
+        //                             para_Ex_Pose_Odom[0]});
       }
 
       //
@@ -1520,11 +1520,11 @@ void Estimator::optimization() {
         continue;
       }
 
-      IMUFactor *imu_factor = new IMUFactor(pre_integrations[j]);
-      auto id = problem.AddResidualBlock(imu_factor, NULL, para_Pose[i],
-                                         para_SpeedBias[i], para_Pose[j],
-                                         para_SpeedBias[j]);
-      residual_block_id.push_back(id);
+      // IMUFactor *imu_factor = new IMUFactor(pre_integrations[j]);
+      // auto id = problem.AddResidualBlock(imu_factor, NULL, para_Pose[i],
+      //                                    para_SpeedBias[i], para_Pose[j],
+      //                                    para_SpeedBias[j]);
+      // residual_block_id.push_back(id);
     }
     // stringstream info;
     // info << "time: " << pre_integrations[frame_count - 1]->sum_dt

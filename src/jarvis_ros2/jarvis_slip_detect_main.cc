@@ -314,7 +314,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     //             }}));
     // if(time>1064339798000)
     const cv::Mat lr_image =
-        cv::imread(image.second.image_name + ".jpg", cv::IMREAD_GRAYSCALE);
+        cv::imread(image.second.image_name + ".png", cv::IMREAD_GRAYSCALE);
 
     // cv::imshow("l_image",lr_image);
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
