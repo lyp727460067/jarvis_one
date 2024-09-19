@@ -477,11 +477,11 @@ int main(int argc, char* argv[]) {
               // << std::chrono::duration_cast<std::chrono::milliseconds>(
                     //  std::chrono::high_resolution_clock::now() - start)
                     //  .count();
-    cv::imshow("show", *imag_data.image[1]);
-    cv::waitKey(0);
-    if(cv::waitKey()=='c'){
-      jarvis::restart =true;
-    }
+    // cv::imshow("show", *imag_data.image[1]);
+    // cv::waitKey(0);
+    // if(cv::waitKey()=='c'){
+    //   jarvis::restart =true;
+    // }
   });
   order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
     builder_->AddImuData(jarvis::sensor::ImuData{

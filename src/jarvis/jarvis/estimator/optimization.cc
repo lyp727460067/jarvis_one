@@ -14,12 +14,12 @@ namespace estimator {
 namespace {
 
 constexpr int kMaxFeatureNum = 1000;
-// #define para_Pose (data_.pose)
-// #define para_SpeedBias (data_.speed_bias)
-// #define para_Ex_Pose (data_.ex_pose)
-// #define para_Ex_Pose_Odom (data_.ex_pose_odom)
-// #define para_Td (data_.td)
-// #define para_Feature (data_.feature)
+#define para_Pose (data_.pose)
+#define para_SpeedBias (data_.speed_bias)
+#define para_Ex_Pose (data_.ex_pose)
+#define para_Ex_Pose_Odom (data_.ex_pose_odom)
+#define para_Td (data_.td)
+#define para_Feature (data_.feature)
 
 }  // namespace
 Optimization::Optimization(int win_size1, const OptimizationOption &option)
@@ -61,12 +61,12 @@ Optimization::Optimization(int win_size1, const OptimizationOption &option)
   data_.td[0] = new double[1];
   data_.td[0][0] = 0;
 
-  para_Pose = data_.pose;
-  para_SpeedBias = data_.speed_bias;
-  para_Ex_Pose = data_.ex_pose;
-  para_Ex_Pose_Odom = data_.ex_pose_odom;
-  para_Td = data_.td;
-  para_Feature = data_.feature;
+  // para_Pose = data_.pose;
+  // para_SpeedBias = data_.speed_bias;
+  // para_Ex_Pose = data_.ex_pose;
+  // para_Ex_Pose_Odom = data_.ex_pose_odom;
+  // para_Td = data_.td;
+  // para_Feature = data_.feature;
 
   //
 }
@@ -331,80 +331,10 @@ OptimizationStateData *Optimization::Solve(
   } else {
     problem.SetParameterBlockConstant(para_Pose[0]);
   }
+  AddFrameFactor(&problem, nullptr, ordering, frames_data);
 
-
-for (int i = 0; i < win_size_; i++) {
-      int j = i + 1;
-      LOG(INFO)<<para_SpeedBias[i][0];
-      LOG(INFO)<<para_SpeedBias[i][1];
-      LOG(INFO)<<para_SpeedBias[i][2];
-      LOG(INFO)<<para_Pose[i][0];
-      LOG(INFO)<<para_Pose[i][1];
-      LOG(INFO)<<para_Pose[i][2];
-      
-      // if (abs(Headers[i] - Headers[j]) > 4.0) {
-      // }
-      if (j == win_size_) {
-        // if (update_zero_velocity_) {
-          // if (is_velocity_updates_[j]) {
-          //   //
-          //   for (int k = 0; k < 7; k++) {
-          //     para_Pose[j][k] = para_Pose[i][k];
-          //   }
-          //   update_zero_velocity_->AddToProblem(
-          //       &problem, nullptr,
-          //       std::array<double *, 3>{para_Pose[i], para_Pose[j],
-          //                               para_SpeedBias[i]});
-          // }
-        }
-      
-      if (options_.use_odom ) {
-        // odometry_factor_[j]->AddToProblem(
-        //     &problem, nullptr,
-        //     std::array<double *, 3>{para_Pose[i], para_Pose[j],
-        //                             para_Ex_Pose_Odom[0]});
-      }
-      auto pre_integration = frames_data->imu_factors[j];
-      //
-      if (pre_integration&&!pre_integration->IsValid()) {
-        // problem.SetParameterBlockConstant(para_SpeedBias[i]);
-        // problem.SetParameterBlockConstant(para_SpeedBias[j]);
-        // problem.SetParameterBlockConstant(para_Ex_Pose[0]);
-        // problem.SetParameterBlockConstant(para_Ex_Pose[1]);
-
-        LOG(WARNING) << j << " Imu avalid..";
-        continue;
-      }
-      IMUFactor *imu_factor = new IMUFactor(pre_integration);
-       problem.AddResidualBlock(imu_factor, NULL, para_Pose[i],
-                                         para_SpeedBias[i], para_Pose[j],
-                                         para_SpeedBias[j]);
-    }
-  LOG(INFO)<<"1";
-
-//   AddFrameFactor(&problem, nullptr, ordering, frames_data);
-    const double cam_weight = options_.camera_weight;
-  frames_data->feat_manager_factor->CreateFactor([&](const Eigen::Vector3d &pts_i,
-                              const Eigen::Vector3d &pts_j,
-                              const Eigen::Vector2d &imu_i_velocity,
-                              const Eigen::Vector2d &imu_j_velocity,
-                              const double td_i, const double td_j,
-                              const std::tuple<int, int, int> &index) {
-    //
-    ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
-        pts_i, pts_j, imu_i_velocity, imu_j_velocity, td_i, td_j, cam_weight);
-    //
-    problem.AddResidualBlock(f_td, loss_function, para_Pose[std::get<0>(index)],
-                             para_Pose[std::get<1>(index)], para_Ex_Pose[0],
-                             para_Feature[std::get<2>(index)], para_Td[0]);
-    // problem->SetParameterBlockConstant(para_Feature[feature_index]);
-  }
-  );
-
-  LOG(INFO)<<"1";
-
-  // AddCameraFactor(&problem, loss_function, ordering,
-  //                 frames_data->feat_manager_factor);
+  AddCameraFactor(&problem, loss_function, ordering,
+                  frames_data->feat_manager_factor);
 
   ceres::Solver::Options options;
   // options.linear_solver_ordering.reset(ordering);
