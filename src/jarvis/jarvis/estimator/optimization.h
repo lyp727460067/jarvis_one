@@ -69,12 +69,12 @@ class Optimization {
   const int win_size_;
   
 
-  double** para_Pose = data_.pose;
-  double** para_SpeedBias = data_.speed_bias;
-  double** para_Ex_Pose = data_.ex_pose;
-  double **para_Ex_Pose_Odom = data_.ex_pose_odom;
-  double** para_Td = data_.td;
-  double **para_Feature = data_.feature;
+  // double** para_Pose = data_.pose;
+  // double** para_SpeedBias = data_.speed_bias;
+  // double** para_Ex_Pose = data_.ex_pose;
+  // double **para_Ex_Pose_Odom = data_.ex_pose_odom;
+  // double** para_Td = data_.td;
+  // double **para_Feature = data_.feature;
 
 
 };
