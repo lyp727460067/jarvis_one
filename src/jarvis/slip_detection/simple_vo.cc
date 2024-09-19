@@ -398,8 +398,8 @@ TrackingData ExtractKeyFrameMapPoints(
     const estimator::ImageFeatureTrackerData& feature_result) {
   TrackingData result;
   result.data = std::make_shared<TrackingData::Data>();
-  result.data->time =
-      common::Time(common::FromSeconds(feature_result.data->time));
+  // result.data->time =
+      // common::Time(common::FromSeconds(feature_result.data->time));
   for (const auto& p : feature_result.data->features) {
     result.data->key_points.push_back(
         EigenToCv(p.second.camera_features[0].uv));
@@ -409,10 +409,10 @@ TrackingData ExtractKeyFrameMapPoints(
   }
   result.status = 0;
   auto imu_state_data = 
-      estimator::ImuState{transform::Rigid3d::Identity()};
+      estimator::ImuState{};
   result.data->imu_state = estimator::ImuState{imu_state_data};
-  result.data->image =
-      std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
+  // result.data->image =
+  //     std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
 
   LOG(INFO) << "1";
   return result;
@@ -439,7 +439,7 @@ TrackingData SimpleVo::TrakcerImpl::AddImageData(
     }
   }
   reference_frame_ = std::make_unique<Frame>(
-      Frame{common::Time(common::FromSeconds(frame.data->time)),
+      Frame{frame.data->time,
             transform::Rigid3d::Identity(), frame, std::move(new_depths)});
   return ExtractKeyFrameMapPoints(frame);
   //
@@ -521,9 +521,9 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
     LOG(WARNING) << "map_points.size:  " << map_points.size()
                  << " < options_.min_track_num " << options_.min_track_num;
     reference_frame_ = std::make_unique<Frame>(
-        Frame{common::Time(common::FromSeconds(frame.data->time)),
+        Frame{frame.data->time,
               reference_frame_->pose, frame, std::move(new_depths)});
-    result.data->imu_state.pose = reference_frame_->pose;
+    // result.data->imu_state.pose = reference_frame_->pose;
     return result;
   }
   const auto init_pose =
@@ -550,7 +550,7 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
   // last_pose_ = new_pose;
   const auto new_pose = reference_frame_->pose * relative_pose.inverse();
   //
-  result.data->imu_state.pose = new_pose;
+  // result.data->imu_state.pose = new_pose;
   if (IsKeyFrame(frame) || inli_coutn < options_.min_pnp_inlier_num) {
     if (inli_coutn < options_.min_pnp_inlier_num) {
       LOG(WARNING) << "Pnp Ilie " << inli_coutn
@@ -559,7 +559,7 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
     }
     LOG(INFO) << "New Key frame.";
     reference_frame_ = std::make_unique<Frame>(
-        Frame{common::Time(common::FromSeconds(frame.data->time)), new_pose,
+        Frame{frame.data->time, new_pose,
               frame, std::move(new_depths)});
   }
   result.status = 1;
@@ -575,10 +575,9 @@ SimpleVo::SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back) {
 }
 
 void SimpleVo::AddImageData(const jarvis::sensor::ImageData& images) {
-  double d_time = common::ToSeconds(images.time - common::FromUniversal(0));
   std::map<int, int> track_num;
-  auto feature_frame = feature_tracker_->trackImage(
-      d_time, *images.image[0], *images.image[1], &track_num, 0);
+  auto feature_frame = feature_tracker_->TrackImage(
+      images.time, *images.image[0], *images.image[1], &track_num, 0);
   auto data = tracker_->AddImageData(feature_frame);
   if (call_back_) {
     call_back_(data);

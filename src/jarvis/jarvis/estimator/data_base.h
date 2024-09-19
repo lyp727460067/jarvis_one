@@ -67,7 +67,7 @@ class DataBase {
   // std::vector<sensor::OdometryData> GetOdomeIntervalData(
   //     const common::Time &first_time, const common::Time &end_time);
   //
-
+  std::vector<sensor::ImuData> GetEarlyImuData(const common::Time &time);
  private:
   const double data_duration_;
   common::Time start_time_;

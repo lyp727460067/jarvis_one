@@ -31,7 +31,6 @@
 #include "jarvis/estimator/featureTracker/feature_tracker.h"
 #include "jarvis/estimator/initial/initial_alignment.h"
 #include "jarvis/estimator/initial/initial_ex_rotation.h"
-#include "jarvis/estimator/initial/initial_sfm.h"
 #include "jarvis/estimator/initial/solve_5pts.h"
 #include "jarvis/key_frame_data.h"
 #include "jarvis/option_parse.h"
@@ -44,12 +43,16 @@
 #include "jarvis/common/fixed_ratio_sampler.h"
 #include "jarvis/sensor/odometry_data.h"
 #include "jarvis/estimator/factor/odometry_factor.h"
+#include "jarvis/estimator/marginalization.h"
+#include "jarvis/estimator/optimization.h"
+#include "jarvis/estimator/initialization_interface.h"
+#include "jarvis/estimator/pose_predict.h"
+#include "jarvis/estimator/slide_window.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
 namespace jarvis {
 namespace estimator {
 //
-class ImuExtrapolator;
 
 struct FailureDetectOptoin
 {
@@ -217,7 +220,8 @@ class Estimator {
   int sum_of_outlier = 0, sum_of_back = 0, sum_of_front = 0, sum_of_invalid = 0;
   int inputImageCnt = 0;
   
-  std::unique_ptr<FeatureManager> f_manager = nullptr;
+  std::shared_ptr<FeatureManager> f_manager = nullptr;
+  std::unique_ptr<Optimization> optimization_ = nullptr;
   MotionEstimator m_estimator;
   InitialEXRotation initial_ex_rotation;
 
@@ -230,21 +234,14 @@ class Estimator {
   std::vector<Eigen::Vector3d> key_poses;
   double initial_timestamp = 0.0;
 
-  double para_Pose[WINDOW_SIZE + 1][SIZE_POSE];
-  double para_SpeedBias[WINDOW_SIZE + 1][SIZE_SPEEDBIAS];
-  double para_Feature[NUM_OF_F][SIZE_FEATURE];
-  double para_Ex_Pose[2][SIZE_POSE];
-  double para_Ex_Pose_Odom[1][SIZE_POSE];
-  double para_Retrive_Pose[SIZE_POSE];
-  double para_Td[1][1];
-  double para_Tr[1][1];
+  OptimizationStateData data_;
   double angle_ = 0.0;
   int loop_window_index = 0;
-  std::unique_ptr<ImuExtrapolator> imu_extrapolator_;
   MarginalizationInfo *last_marginalization_info = nullptr;
+  
   std::vector<double *> last_marginalization_parameter_blocks;
 
-  std::map<double, ImageFrame> all_image_frame;
+  std::vector< ImageFrame> all_image_frame;
   IntegrationBase *tmp_pre_integration = nullptr;
   
   Eigen::Vector3d initP;
@@ -259,7 +256,7 @@ class Estimator {
   bool initThreadFlag = false;
   const EstimatorOption options_;
   int estimate_extrinsic_ = 2;
-  Alignment alignment_;
+  InitialAlignment alignment_;
   std::vector<bool> failuer_track_lost_;
   std::vector<bool> failuer_zero_lost_;
   std::vector<bool> failuer_zero_feat_lost_;
@@ -276,7 +273,21 @@ class Estimator {
   int optimization_max_num_iterations_ =1;
   double optimizaion_cam_weight_= FOCAL_LENGTH / 1.5;
   std::vector<float>cost_time_hisgram_;
-  double final_cost_=10;
+  std::unique_ptr<Marginalization> marginalizer_;
+   std::unique_ptr<PosePredit> pose_predit_;
+
+  double** para_Pose = data_.pose;
+  double** para_SpeedBias = data_.speed_bias;
+  double** para_Ex_Pose = data_.ex_pose;
+  double **para_Ex_Pose_Odom = data_.ex_pose_odom;
+  double** para_Td = data_.td;
+  double **para_Feature = data_.feature;
+  common::Time last_time_;
+  std::unique_ptr<SlideWindow> slide_wondows_;
+   ImuState imu_state_;
+  std::unique_ptr<InitializationInterface> initializer_;
+  double estimator_td_ = 0;
+  uint64_t frame_id_ = 0;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

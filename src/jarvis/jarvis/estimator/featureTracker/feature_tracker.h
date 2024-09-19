@@ -13,7 +13,7 @@
 #define JARVIS_ESTIMATOR_FEATURE_TRACKER_H
 
 #include <execinfo.h>
-
+#include <map>
 #include <csignal>
 #include <cstdio>
 #include <iostream>
@@ -28,28 +28,28 @@
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/tic_toc.h"
 #include "opencv2/opencv.hpp"
-
+#include "jarvis/common/time.h"
 namespace jarvis {
 namespace estimator {
 
 //
+using TrackFeatureId =  uint64_t;
+//
+struct FeatureData {
+  TrackFeatureId id;
+  struct CameraFeature {
+    Eigen::Vector3d normal_points;
+    Eigen::Vector2d uv;
+    Eigen::Vector2d uv_velocity;
+  };
+  std::vector<CameraFeature> camera_features;  // 只在双目当中
+};
 
 struct ImageFeatureTrackerData {
-  struct FeatureTrackerData {
-    int id;
-    struct CameraFeature {
-      int id;
-      Eigen::Vector3d normal_points;
-      Eigen::Vector2d uv;
-      Eigen::Vector2d uv_velocity;
-    };
-    std::vector<CameraFeature> camera_features;//多个相机的ID
-  };
   struct Data {
-    double time;
-    std::map<uint64_t, FeatureTrackerData> features;//feature_id
-    std::map<int, int> tracker_features_num;
-    std::map<int, cv::Mat> images;  // camera_id,image
+    common::Time time;
+    std::map<TrackFeatureId, FeatureData> features;//feature_id
+    std::map<TrackFeatureId, int> tracker_features_num;
   };
   std::shared_ptr<Data> data;
 };
@@ -62,7 +62,6 @@ struct FeatureTrackerOption {
   PyramidImageOption pyrmid_option;
   FeatureDetectOption feature_detect_option;
   std::vector<camera_models::CameraPtr> cameras;
-  CalibrateOption calibrate_option;
   cv::Mat mask;
   int track_back=0;
   int max_feat_cnt=100;
@@ -72,7 +71,7 @@ struct FeatureTrackerOption {
 class FeatureTracker {
  public:
   explicit FeatureTracker(const FeatureTrackerOption&option);
-  ImageFeatureTrackerData trackImage(double _cur_time, const cv::Mat &_img,
+  ImageFeatureTrackerData TrackImage(const common::Time &, const cv::Mat &_img,
                                        const cv::Mat &_img1 = cv::Mat(),
                                        std::map<int, int> *track_cnt = nullptr,const double angle=0);
   void setMask();
@@ -120,8 +119,8 @@ class FeatureTracker {
   std::map<int, cv::Point2f> cur_un_right_pts_map, prev_un_right_pts_map;
   std::map<int, cv::Point2f> prevLeftPtsMap;
   std::vector<camera_models::CameraPtr> m_camera;
-  double cur_time = 0.0;
-  double prev_time = 0;
+  common::Time  cur_time ;
+  common::Time  prev_time ;
   bool stereo_cam = 0;
   int n_id = 0;
   bool hasPrediction = false;

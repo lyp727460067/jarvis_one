@@ -1,0 +1,34 @@
+#ifndef  JARVIS_MONO_IMU_INITIALIZATION_H
+#define   JARVIS_MONO_IMU_INITIALIZATION_H
+namespace jarvis {
+namespace estimator {
+class SteroImuInitialization {
+f_manager->initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
+      f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
+      optimization();
+
+      if (frame_count == WINDOW_SIZE) {
+        optimization();
+        updateLatestStates();
+        solver_flag = NON_LINEAR;
+        slideWindow();
+        LOG(INFO) << "Initialization finish!";
+      }
+    }
+
+    if (frame_count < WINDOW_SIZE) {
+      frame_count++;
+      int prev_frame = frame_count - 1;
+      Ps[frame_count] = Ps[prev_frame];
+      Vs[frame_count] = Vs[prev_frame];
+      Rs[frame_count] = Rs[prev_frame];
+      Bas[frame_count] = Bas[prev_frame];
+      Bgs[frame_count] = Bgs[prev_frame];
+    }
+
+
+};
+}
+}  // namespace jarvis
+
+#endif
