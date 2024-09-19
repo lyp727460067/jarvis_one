@@ -4,7 +4,7 @@
 #include <memory>
 #include "opencv2/core/core.hpp"
 
-#include "camera_models/camera_models/camera.h"
+#include "jarvis/camera_models/camera_models/camera.h"
 #include "jarvis/option_parse.h"
 namespace jarvis {
 namespace camera_models {

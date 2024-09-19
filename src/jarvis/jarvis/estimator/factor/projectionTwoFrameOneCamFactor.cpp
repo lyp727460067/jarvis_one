@@ -104,16 +104,16 @@ bool ProjectionTwoFrameOneCamFactor::EvaluateNormal(double const *const *paramet
   Eigen::Quaterniond qic(parameters[2][6], parameters[2][3], parameters[2][4],
                          parameters[2][5]);
   const double inv_dep_i = parameters[3][0];
-  LOG(INFO)<<inv_dep_i;
+  // LOG(INFO)<<inv_dep_i;
   const double td = parameters[4][0];
   
-  LOG(INFO)<<transform::Rigid3d(Pi,Qi);
-  LOG(INFO)<<transform::Rigid3d(Pj,Qj);
-  LOG(INFO)<<transform::Rigid3d(tic,qic);
+  // LOG(INFO)<<transform::Rigid3d(Pi,Qi);
+  // LOG(INFO)<<transform::Rigid3d(Pj,Qj);
+  // LOG(INFO)<<transform::Rigid3d(tic,qic);
   Eigen::Vector3d pts_i_td = pts_i - (td - td_i) * velocity_i; 
   Eigen::Vector3d pts_j_td = pts_j - (td - td_j) * velocity_j;
-   LOG(INFO)<<pts_i_td.transpose();
-   LOG(INFO)<<pts_j_td.transpose();
+  //  LOG(INFO)<<pts_i_td.transpose();
+  //  LOG(INFO)<<pts_j_td.transpose();
   Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
   Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
   Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
@@ -188,7 +188,7 @@ bool ProjectionTwoFrameOneCamFactor::EvaluateNormal(double const *const *paramet
                                  (Rj.transpose() * (Ri * tic + Pi - Pj) - tic));
       jacobian_ex_pose.leftCols<6>() = reduce * jaco_ex;
       jacobian_ex_pose.rightCols<1>().setZero();
-      LOG(INFO)<<jacobian_ex_pose;
+      // LOG(INFO)<<jacobian_ex_pose;
     }
     if (jacobians[3]) {
       Eigen::Map<Eigen::Vector2d> jacobian_feature(jacobians[3]);

@@ -1,0 +1,461 @@
+#include "optimization.h"
+
+#include "jarvis/estimator/factor/imu_factor.h"
+#include "jarvis/estimator/factor/integration_base.h"
+#include "jarvis/estimator/factor/marginalization_factor.h"
+#include "jarvis/estimator/factor/pose_local_parameterization.h"
+#include "jarvis/estimator/factor/projectionOneFrameTwoCamFactor.h"
+#include "jarvis/estimator/factor/projectionTwoFrameOneCamFactor.h"
+#include "jarvis/estimator/factor/projectionTwoFrameTwoCamFactor.h"
+#include "marginalization.h"
+namespace jarvis {
+namespace estimator {
+//
+namespace {
+
+constexpr int kMaxFeatureNum = 1000;
+// #define para_Pose (data_.pose)
+// #define para_SpeedBias (data_.speed_bias)
+// #define para_Ex_Pose (data_.ex_pose)
+// #define para_Ex_Pose_Odom (data_.ex_pose_odom)
+// #define para_Td (data_.td)
+// #define para_Feature (data_.feature)
+
+}  // namespace
+Optimization::Optimization(int win_size1, const OptimizationOption &option)
+    : win_size_(win_size1), options_(option) {
+  //
+  LOG(INFO) << "Optimizaiton init ,w_size :" << win_size_;
+  int win_size = win_size1 + 1;
+  data_.pose = new double *[win_size];
+  data_.speed_bias = new double *[win_size];
+
+  //
+  for (int i = 0; i < win_size; i++) {
+    data_.pose[i] = new double[SIZE_POSE];
+    memset(data_.pose[i], 0, sizeof(double) * SIZE_POSE);
+    data_.speed_bias[i] = new double[SIZE_SPEEDBIAS];
+    memset(data_.speed_bias[i], 0, sizeof(double) * SIZE_SPEEDBIAS);
+  }
+  CHECK_LE(option.camera_num, 4);
+  data_.ex_pose = new double *[option.camera_num];
+  for (int i = 0; i < option.camera_num; i++) {
+    data_.ex_pose[i] = new double[SIZE_POSE];
+    memset(data_.ex_pose[i], 0, sizeof(double) * SIZE_POSE);
+  }
+  //
+
+  data_.feature = new double *[kMaxFeatureNum];
+  for (int i = 0; i < kMaxFeatureNum; i++) {
+    data_.feature[i] = new double[1];
+    data_.feature[i][0] = 0;
+  }
+  //
+
+  data_.ex_pose_odom = new double *[1];
+  data_.ex_pose_odom[0] = new double[SIZE_POSE];
+  memset(data_.ex_pose_odom[0], 0, sizeof(double) * SIZE_POSE);
+  //
+
+  data_.td = new double *[1];
+  data_.td[0] = new double[1];
+  data_.td[0][0] = 0;
+
+  para_Pose = data_.pose;
+  para_SpeedBias = data_.speed_bias;
+  para_Ex_Pose = data_.ex_pose;
+  para_Ex_Pose_Odom = data_.ex_pose_odom;
+  para_Td = data_.td;
+  para_Feature = data_.feature;
+
+  //
+}
+
+void Optimization::AddCameraFactor(ceres::Problem *problem,
+                                   ceres::LossFunction *loss_function,
+                                   ceres::ParameterBlockOrdering *ordering,
+                                   FeatureManager *feature_managers) {
+  //
+  // for (int i = 0; i < options_.camera_num; i++) {
+  //   ceres::LocalParameterization *local_parameterization =
+  //       new PoseLocalParameterization();
+
+  //   problem->AddParameterBlock(para_Ex_Pose[i], SIZE_POSE,
+  //                              local_parameterization);
+  //   ordering->AddElementToGroup(para_Ex_Pose[i], 1);
+  //   if (options_.estimate_extrinsic == 0) {
+  //     problem->SetParameterBlockConstant(para_Ex_Pose[i]);
+  //   }
+  // }
+  // problem->SetParameterBlockConstant(para_Ex_Pose[1]);
+  //
+  // const auto &f_managers = feature_managers->GetFeatureManagers();
+  //
+  auto feature_manager = feature_managers;
+  int f_m_cnt = 0;
+  std::stringstream info;
+  // for (const auto &feature_manager : f_managers) {
+
+  const double cam_weight = options_.camera_weight;
+  std::stringstream info1;
+  //
+  feature_manager->CreateFactor([&](const Eigen::Vector3d &pts_i,
+                                    const Eigen::Vector3d &pts_j,
+                                    const Eigen::Vector2d &imu_i_velocity,
+                                    const Eigen::Vector2d &imu_j_velocity,
+                                    const double td_i, const double td_j,
+                                    const std::tuple<int, int, int> &index) {
+    //
+    ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
+        pts_i, pts_j, imu_i_velocity, imu_j_velocity, td_i, td_j, cam_weight);
+    //
+  
+  info1 <<"["<<std::get<0>(index)<<  std::get<1>(index) <<std::get<2>(index)<< "]"<< pts_i.transpose() << " " << pts_j.transpose()
+         << imu_i_velocity.transpose() << imu_j_velocity.transpose() << td_i
+         << td_j << cam_weight << "\n";
+    ///
+    for (int i = 0; i < 7; i++) {
+      info1 << para_Pose[std::get<0>(index)][i] << " ";
+      info1 << para_Pose[std::get<1>(index)][i] << " ";
+      info1 << para_Ex_Pose[0][i] << "\n";
+    }
+    info1 << para_Feature[std::get<2>(index)][0] << "\n";
+
+    problem->AddResidualBlock(f_td, loss_function,
+                              para_Pose[std::get<0>(index)],
+                              para_Pose[std::get<1>(index)], para_Ex_Pose[0],
+                              para_Feature[std::get<2>(index)], para_Td[0]);
+    // problem->SetParameterBlockConstant(para_Feature[feature_index]);
+  });
+  // std::cout<<info1.str()<<std::endl;
+  // const auto& features = feature_manager->Features();
+  // for (const auto &pair_it_per_id : features) {
+  //   //
+  //   const FeaturePerId it_per_id = pair_it_per_id.second;
+
+  //   if (it_per_id.UsedNum() < options_.convin_used_num) continue;
+  //   ++feature_index;
+  //   // if(para_Feature[feature_index][0]<0)continue;
+  //   info << "[" << pair_it_per_id.first << "]"
+  //             <<  para_Feature[feature_index][0]<<" ,";
+  //   // if (para_Feature[feature_index][0] < 0) continue;
+  //   // info << 1.0 / para_Feature[feature_index][0] << " ";
+  //   // LOG(INFO)<<1.0 / para_Feature[feature_index][0];
+  //   int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+
+  //   const Eigen::Vector3d &pts_i = it_per_id.feature_per_frame[0]
+  //                                      .feature.camera_features[0]
+  //                                      .normal_points;
+  //   //
+  //   // info<<pts_i.transpose()<<" ";
+  //   const Eigen::Vector2d imu_i_velocity =
+  //       it_per_id.feature_per_frame[0].feature.camera_features[0].uv_velocity;
+  //   //
+  //     info<<"{"<<imu_i<<"}"<<" "<<it_per_id.feature_per_frame.size()<<" ";
+  //   for (auto it_per_frame : it_per_id.feature_per_frame) {
+  //     imu_j++;
+
+  //   //  LOG(INFO)<<imu_i<<" "<<imu_j;
+  //     if (imu_i != imu_j) {
+  //       Eigen::Vector3d pts_j =
+  //           it_per_frame.feature.camera_features[0].normal_points;
+  //       //
+  //       // info<<pts_j.transpose()<<" ";
+  //       // LOG(INFO)<<pts_i.transpose()<<" "<<pts_j.transpose();
+  //       const Eigen::Vector2d imu_j_velocity =
+  //           it_per_frame.feature.camera_features[0].uv_velocity;
+  //       //
+  //       ProjectionTwoFrameOneCamFactor *f_td =
+  //           new ProjectionTwoFrameOneCamFactor(
+  //               pts_i, pts_j, imu_i_velocity, imu_j_velocity,
+  //               it_per_id.feature_per_frame[0].td, it_per_frame.td,
+  //               cam_weight);
+  //       //
+  //       problem->AddResidualBlock(
+  //           f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j],
+  //           para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
+  //       problem->SetParameterBlockConstant(para_Feature[feature_index]);
+  //     }
+
+  //     if (it_per_frame.IsStereo()) {
+  //       // // /
+  //       Eigen::Vector3d pts_j_right =
+  //           it_per_frame.feature.camera_features[1].normal_points;
+  //       //
+  //       const Eigen::Vector2d imu_j_velocity =
+  //           it_per_id.feature_per_frame[0]
+  //               .feature.camera_features[1]
+  //               .uv_velocity;
+
+  //       // if (imu_i != imu_j) {
+  //       //   ProjectionTwoFrameTwoCamFactor *f =
+  //       //       new ProjectionTwoFrameTwoCamFactor(
+  //       //           pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
+  //       //           it_per_id.feature_per_frame[0].td,
+  //       it_per_frame.td,cam_weight);
+  //       //   //
+  //       //   problem->AddResidualBlock(f, loss_function, para_Pose[imu_i],
+  //       //                             para_Pose[imu_j], para_Ex_Pose[0],
+  //       //                             para_Ex_Pose[1],
+  //       //                             para_Feature[feature_index],
+  //       para_Td[0]);
+  //       // } else {
+  //       //   ProjectionOneFrameTwoCamFactor *f =
+  //       //       new ProjectionOneFrameTwoCamFactor(
+  //       //           pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
+  //       //           it_per_id.feature_per_frame[0].td,
+  //       it_per_frame.td,cam_weight);
+  //       //   problem->AddResidualBlock(f, loss_function, para_Ex_Pose[0],
+  //       //                             para_Ex_Pose[1],
+  //       //                             para_Feature[feature_index],
+  //       para_Td[0]);
+  //       // }
+
+  //     }
+
+  //     f_m_cnt++;
+  //   }
+
+  //     // problem->SetParameterBlockConstant(para_Feature[feature_index]);
+  //     ordering->AddElementToGroup(para_Feature[feature_index], 0);
+
+  // }
+  // }
+  LOG(INFO) << info.str();
+  LOG(INFO) << "Adding factor feature size " << f_m_cnt;
+}
+
+void Optimization::AddFrameFactor(ceres::Problem *problem,
+                                  ceres::LossFunction *loss_function,
+                                  ceres::ParameterBlockOrdering *ordering,
+                                  OptimizationData *sw_data) {
+  //
+
+
+  //
+
+  //
+  for (int i = 0; i < win_size_; i++) {
+    int j = i + 1;
+    // if (j == win_size_ + 1) {
+    //   auto &update_zero_velocity =
+    //       sw_data->frame_data[j].data->update_zero_velocity_data;
+    //   if (update_zero_velocity) {
+    //     LOG(INFO)<<"add velocity";
+    //     if (update_zero_velocity->IsZeroVelocity()) {
+    //       //
+    //       for (int k = 0; k < 7; k++) {
+    //         para_Pose[j][k] = para_Pose[i][k];
+    //       }
+    //       update_zero_velocity->AddToProblem(
+    //           problem, nullptr,
+    //           std::array<double *, 3>{para_Pose[i], para_Pose[j],
+    //                                   para_SpeedBias[i]});
+    //     }
+    //   }
+    // }
+    // if (options_.use_odom && sw_data->frame_data[j].data->odom_data) {
+    //   sw_data->frame_data[j].data->odom_data->AddToProblem(
+    //       problem, nullptr,
+    //       std::array<double *, 3>{para_Pose[i], para_Pose[j],
+    //                               para_Ex_Pose_Odom[0]});
+    // }
+    auto pre_integration = sw_data->imu_factors[j];
+    //
+    if (!pre_integration || !pre_integration->IsValid()) {
+      LOG(WARNING) << j << " Imu avalid..";
+      continue;
+    }
+
+    IMUFactor *imu_factor = new IMUFactor(pre_integration);
+    problem->AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i],
+                              para_Pose[j], para_SpeedBias[j]);
+  }
+}
+
+OptimizationStateData *Optimization::Solve(
+    Marginalization *marg, OptimizationData *frames_data) {
+  //
+  //
+  std::stringstream info;
+  //   FrameDataToState(frames_data);
+  ceres::Problem problem;
+  ceres::LossFunction *loss_function =
+      new ceres::HuberLoss(1.0);
+  ceres::ParameterBlockOrdering *ordering = new ceres::ParameterBlockOrdering();
+  for (int i = 0; i < win_size_ + 1; i++) {
+    // LOG(INFO)<<frames_data->frame_data[i].data->imu_state;
+    // LOG(INFO)<<frames_data->frame_data[i].data->imu_data->State();
+
+    ceres::LocalParameterization *local_parameterization =
+        new PoseLocalParameterization();
+    ordering->AddElementToGroup(para_Pose[i], 1);
+    problem.AddParameterBlock(para_Pose[i], SIZE_POSE, local_parameterization);
+    problem.AddParameterBlock(para_SpeedBias[i], SIZE_SPEEDBIAS);
+    for (int j = 0; j < 6; j++) {
+      problem.SetParameterLowerBound(para_SpeedBias[i], j + 3, -1);
+      problem.SetParameterUpperBound(para_SpeedBias[i], j + 3, 1);
+    }
+    ordering->AddElementToGroup(para_SpeedBias[i], 1);
+  }
+
+  problem.AddParameterBlock(para_Ex_Pose_Odom[0], SIZE_POSE,
+                            new PoseLocalParameterization());
+  // /
+  ordering->AddElementToGroup(para_Ex_Pose_Odom[0], 1);
+
+  //
+  Eigen::Vector3d vs(para_SpeedBias[0][0], para_SpeedBias[0][1],
+                     para_SpeedBias[0][2]);
+  for (int i = 0; i < options_.camera_num; i++) {
+    ceres::LocalParameterization *local_parameterization =
+        new PoseLocalParameterization();
+
+    problem.AddParameterBlock(para_Ex_Pose[i], SIZE_POSE,
+                              local_parameterization);
+
+    ordering->AddElementToGroup(para_Ex_Pose[i], 1);
+    if (options_.estimate_extrinsic == 0 || vs.norm() < 0.2) {
+      problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+    }
+  }
+   problem.AddParameterBlock(para_Td[0], 1);
+
+   if (options_.estimate_td == 0) {
+     problem.SetParameterBlockConstant(para_Td[0]);
+   }
+
+  //
+  if (marg) {
+    marg->AddToProblem(&problem, nullptr);
+  } else {
+    problem.SetParameterBlockConstant(para_Pose[0]);
+  }
+
+
+for (int i = 0; i < win_size_; i++) {
+      int j = i + 1;
+      LOG(INFO)<<para_SpeedBias[i][0];
+      LOG(INFO)<<para_SpeedBias[i][1];
+      LOG(INFO)<<para_SpeedBias[i][2];
+      LOG(INFO)<<para_Pose[i][0];
+      LOG(INFO)<<para_Pose[i][1];
+      LOG(INFO)<<para_Pose[i][2];
+      
+      // if (abs(Headers[i] - Headers[j]) > 4.0) {
+      // }
+      if (j == win_size_) {
+        // if (update_zero_velocity_) {
+          // if (is_velocity_updates_[j]) {
+          //   //
+          //   for (int k = 0; k < 7; k++) {
+          //     para_Pose[j][k] = para_Pose[i][k];
+          //   }
+          //   update_zero_velocity_->AddToProblem(
+          //       &problem, nullptr,
+          //       std::array<double *, 3>{para_Pose[i], para_Pose[j],
+          //                               para_SpeedBias[i]});
+          // }
+        }
+      
+      if (options_.use_odom ) {
+        // odometry_factor_[j]->AddToProblem(
+        //     &problem, nullptr,
+        //     std::array<double *, 3>{para_Pose[i], para_Pose[j],
+        //                             para_Ex_Pose_Odom[0]});
+      }
+      auto pre_integration = frames_data->imu_factors[j];
+      //
+      if (pre_integration&&!pre_integration->IsValid()) {
+        // problem.SetParameterBlockConstant(para_SpeedBias[i]);
+        // problem.SetParameterBlockConstant(para_SpeedBias[j]);
+        // problem.SetParameterBlockConstant(para_Ex_Pose[0]);
+        // problem.SetParameterBlockConstant(para_Ex_Pose[1]);
+
+        LOG(WARNING) << j << " Imu avalid..";
+        continue;
+      }
+      IMUFactor *imu_factor = new IMUFactor(pre_integration);
+       problem.AddResidualBlock(imu_factor, NULL, para_Pose[i],
+                                         para_SpeedBias[i], para_Pose[j],
+                                         para_SpeedBias[j]);
+    }
+  LOG(INFO)<<"1";
+
+//   AddFrameFactor(&problem, nullptr, ordering, frames_data);
+    const double cam_weight = options_.camera_weight;
+  frames_data->feat_manager_factor->CreateFactor([&](const Eigen::Vector3d &pts_i,
+                              const Eigen::Vector3d &pts_j,
+                              const Eigen::Vector2d &imu_i_velocity,
+                              const Eigen::Vector2d &imu_j_velocity,
+                              const double td_i, const double td_j,
+                              const std::tuple<int, int, int> &index) {
+    //
+    ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
+        pts_i, pts_j, imu_i_velocity, imu_j_velocity, td_i, td_j, cam_weight);
+    //
+    problem.AddResidualBlock(f_td, loss_function, para_Pose[std::get<0>(index)],
+                             para_Pose[std::get<1>(index)], para_Ex_Pose[0],
+                             para_Feature[std::get<2>(index)], para_Td[0]);
+    // problem->SetParameterBlockConstant(para_Feature[feature_index]);
+  }
+  );
+
+  LOG(INFO)<<"1";
+
+  // AddCameraFactor(&problem, loss_function, ordering,
+  //                 frames_data->feat_manager_factor);
+
+  ceres::Solver::Options options;
+  // options.linear_solver_ordering.reset(ordering);
+  options.linear_solver_type = ceres::DENSE_SCHUR;
+  options.num_threads = 1;
+  options.trust_region_strategy_type = ceres::DOGLEG;
+  options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  // options.dynamic_sparsity =true;
+  options.use_explicit_schur_complement = true;
+  // options.minimizer_progress_to_stdout = true;
+  options.use_nonmonotonic_steps = true;
+
+  // if (marginalization_flag == MARGIN_OLD)
+  //   options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
+  // else
+  //   options.max_solver_time_in_seconds = SOLVER_TIME;
+  options.max_num_iterations = 1;
+  TicToc t_solver;
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+  VLOG(kGlogCeresLevel) << summary.BriefReport();
+  // LOG_EVERY_N(INFO, 1) << "\n" << summary.FullReport();
+  //   StateToFrameData(frames_data);
+  return &data_;
+}
+Optimization::~Optimization() {
+  int win_size = win_size_ + 1;
+  //
+  for (int i = 0; i < win_size; i++) {
+    delete[] data_.pose[i];
+    delete[] data_.speed_bias[i];
+  }
+  delete[] data_.pose;
+  delete[] data_.speed_bias;
+  for (int i = 0; i < options_.camera_num; i++) {
+    delete[] data_.ex_pose[i];
+  }
+  delete[] data_.ex_pose;
+  //
+  for (int i = 0; i < kMaxFeatureNum; i++) {
+    delete[] data_.feature[i];
+  }
+  delete[] data_.feature;
+  //
+
+  delete[] data_.ex_pose_odom[0];
+  delete[] data_.ex_pose_odom;
+  //
+
+  delete[] data_.td[0];
+  delete data_.td;
+}
+}  // namespace estimator
+}  // namespace jarvis

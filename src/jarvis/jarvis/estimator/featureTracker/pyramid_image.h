@@ -12,9 +12,9 @@
 #include <opencv2/opencv.hpp>
 #include <queue>
 
-#include "camera_models/camera_models/CataCamera.h"
-#include "camera_models/camera_models/PinholeCamera.h"
-#include "camera_models/camera_models/camera_factory.h"
+#include "jarvis/camera_models/camera_models/CataCamera.h"
+#include "jarvis/camera_models/camera_models/PinholeCamera.h"
+#include "jarvis/camera_models/camera_models/camera_factory.h"
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/tic_toc.h"
 namespace jarvis {

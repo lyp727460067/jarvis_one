@@ -70,7 +70,7 @@ class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9> {
             .transpose();
     // sqrt_info.setIdentity();
     residual = sqrt_info * residual;
-
+    // LOG(INFO)<<residual;
     if (jacobians) {
       double sum_dt = pre_integration->sum_dt;
       Eigen::Matrix3d dp_dba =
