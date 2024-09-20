@@ -397,22 +397,22 @@ class SimpleVo::TrakcerImpl {
 TrackingData ExtractKeyFrameMapPoints(
     const estimator::ImageFeatureTrackerData& feature_result) {
   TrackingData result;
-  result.data = std::make_shared<TrackingData::Data>();
-  // result.data->time =
-      // common::Time(common::FromSeconds(feature_result.data->time));
-  for (const auto& p : feature_result.data->features) {
-    result.data->key_points.push_back(
-        EigenToCv(p.second.camera_features[0].uv));
-    result.data->key_points.back().class_id = p.first;
-    result.data->key_points.back().octave =
-        feature_result.data->tracker_features_num[p.first];
-  }
-  result.status = 0;
-  auto imu_state_data = 
-      estimator::ImuState{};
-  result.data->imu_state = estimator::ImuState{imu_state_data};
-  // result.data->image =
-  //     std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
+  // result.data = std::make_shared<TrackingData::Data>();
+  // // result.data->time =
+  //     // common::Time(common::FromSeconds(feature_result.data->time));
+  // for (const auto& p : feature_result.data->features) {
+  //   result.data->key_points.push_back(
+  //       EigenToCv(p.second.camera_features[0].uv));
+  //   result.data->key_points.back().class_id = p.first;
+  //   result.data->key_points.back().octave =
+  //       feature_result.data->tracker_features_num[p.first];
+  // }
+  // result.status = 0;
+  // auto imu_state_data = 
+  //     estimator::ImuState{};
+  // result.data->imu_state = estimator::ImuState{imu_state_data};
+  // // result.data->image =
+  // //     std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
 
   LOG(INFO) << "1";
   return result;
@@ -492,12 +492,12 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
     //   new_depths[p.first] = reference_frame_->depths[p.first];
     // }
   }
-  for (auto const p : result.data->key_points) {
-    result.data->tracking_map_points.emplace_back(Eigen::Vector3d(0, 0, 0));
-    if (new_depths.count(p.class_id) == 1) {
-      result.data->tracking_map_points.back() = map_depths[p.class_id];
-    }
-  }
+  // for (auto const p : result.data->key_points) {
+  //   result.data->tracking_map_points.emplace_back(Eigen::Vector3d(0, 0, 0));
+  //   if (new_depths.count(p.class_id) == 1) {
+  //     result.data->tracking_map_points.back() = map_depths[p.class_id];
+  //   }
+  // }
   std::vector<Eigen::Vector3d> map_points;
   std::vector<Eigen::Vector2d> normal_2d;
   std::map<int, Eigen::Vector2d> rnormal_2d;
@@ -577,7 +577,7 @@ SimpleVo::SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back) {
 void SimpleVo::AddImageData(const jarvis::sensor::ImageData& images) {
   std::map<int, int> track_num;
   auto feature_frame = feature_tracker_->TrackImage(
-      images.time, *images.image[0], *images.image[1], &track_num, 0);
+      images.time, images.image[0], images.image[1], &track_num, 0);
   auto data = tracker_->AddImageData(feature_frame);
   if (call_back_) {
     call_back_(data);

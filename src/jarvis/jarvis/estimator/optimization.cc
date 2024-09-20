@@ -14,12 +14,14 @@ namespace estimator {
 namespace {
 
 constexpr int kMaxFeatureNum = 1000;
+
 #define para_Pose (data_.pose)
 #define para_SpeedBias (data_.speed_bias)
 #define para_Ex_Pose (data_.ex_pose)
 #define para_Ex_Pose_Odom (data_.ex_pose_odom)
 #define para_Td (data_.td)
 #define para_Feature (data_.feature)
+std::array<int,3> ParaExPoseIndex { 0, 2, 3 };
 
 }  // namespace
 Optimization::Optimization(int win_size1, const OptimizationOption &option)
@@ -44,12 +46,16 @@ Optimization::Optimization(int win_size1, const OptimizationOption &option)
     memset(data_.ex_pose[i], 0, sizeof(double) * SIZE_POSE);
   }
   //
-
-  data_.feature = new double *[kMaxFeatureNum];
-  for (int i = 0; i < kMaxFeatureNum; i++) {
-    data_.feature[i] = new double[1];
-    data_.feature[i][0] = 0;
+  //
+  data_.feature = new double **[options_.track_cam_num];
+  for (int i = 0; i < options_.track_cam_num; i++) {
+    data_.feature[i] = new double *[kMaxFeatureNum];
+    for (int j = 0; j < kMaxFeatureNum; j++) {
+      data_.feature[i][j] = new double[1];
+      data_.feature[i][j][0] = 0;
+    }
   }
+
   //
 
   data_.ex_pose_odom = new double *[1];
@@ -71,23 +77,10 @@ Optimization::Optimization(int win_size1, const OptimizationOption &option)
   //
 }
 
-void Optimization::AddCameraFactor(ceres::Problem *problem,
+void Optimization::AddCameraFactor(int id,ceres::Problem *problem,
                                    ceres::LossFunction *loss_function,
                                    ceres::ParameterBlockOrdering *ordering,
                                    FeatureManager *feature_managers) {
-  //
-  // for (int i = 0; i < options_.camera_num; i++) {
-  //   ceres::LocalParameterization *local_parameterization =
-  //       new PoseLocalParameterization();
-
-  //   problem->AddParameterBlock(para_Ex_Pose[i], SIZE_POSE,
-  //                              local_parameterization);
-  //   ordering->AddElementToGroup(para_Ex_Pose[i], 1);
-  //   if (options_.estimate_extrinsic == 0) {
-  //     problem->SetParameterBlockConstant(para_Ex_Pose[i]);
-  //   }
-  // }
-  // problem->SetParameterBlockConstant(para_Ex_Pose[1]);
   //
   // const auto &f_managers = feature_managers->GetFeatureManagers();
   //
@@ -109,22 +102,24 @@ void Optimization::AddCameraFactor(ceres::Problem *problem,
     ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
         pts_i, pts_j, imu_i_velocity, imu_j_velocity, td_i, td_j, cam_weight);
     //
-  
-  info1 <<"["<<std::get<0>(index)<<  std::get<1>(index) <<std::get<2>(index)<< "]"<< pts_i.transpose() << " " << pts_j.transpose()
-         << imu_i_velocity.transpose() << imu_j_velocity.transpose() << td_i
-         << td_j << cam_weight << "\n";
+
+    // info1 << "[" << std::get<0>(index) << std::get<1>(index)
+    //       << std::get<2>(index) << "]" << pts_i.transpose() << " "
+    //       << pts_j.transpose() << imu_i_velocity.transpose()
+    //       << imu_j_velocity.transpose() << td_i << td_j << cam_weight << "\n";
     ///
     for (int i = 0; i < 7; i++) {
       info1 << para_Pose[std::get<0>(index)][i] << " ";
       info1 << para_Pose[std::get<1>(index)][i] << " ";
       info1 << para_Ex_Pose[0][i] << "\n";
     }
-    info1 << para_Feature[std::get<2>(index)][0] << "\n";
+    // info1 << para_Feature[std::get<2>(index)][0] << "\n";
 
-    problem->AddResidualBlock(f_td, loss_function,
-                              para_Pose[std::get<0>(index)],
-                              para_Pose[std::get<1>(index)], para_Ex_Pose[0],
-                              para_Feature[std::get<2>(index)], para_Td[0]);
+    problem->AddResidualBlock(
+        f_td, loss_function, para_Pose[std::get<0>(index)],
+        para_Pose[std::get<1>(index)], para_Ex_Pose[ParaExPoseIndex[id]],
+        para_Feature[id][std::get<2>(index)], para_Td[0]);
+    f_m_cnt++;
     // problem->SetParameterBlockConstant(para_Feature[feature_index]);
   });
   // std::cout<<info1.str()<<std::endl;
@@ -221,7 +216,7 @@ void Optimization::AddCameraFactor(ceres::Problem *problem,
 
   // }
   // }
-  LOG(INFO) << info.str();
+  // LOG(INFO) << info.str();
   LOG(INFO) << "Adding factor feature size " << f_m_cnt;
 }
 
@@ -332,9 +327,16 @@ OptimizationStateData *Optimization::Solve(
     problem.SetParameterBlockConstant(para_Pose[0]);
   }
   AddFrameFactor(&problem, nullptr, ordering, frames_data);
-
-  AddCameraFactor(&problem, loss_function, ordering,
-                  frames_data->feat_manager_factor);
+  //
+  for (int i = 0; i < options_.track_cam_num; i++) {
+    if (frames_data->feat_manager_factors->Exist(i)) {
+      AddCameraFactor(
+          i, &problem, loss_function, ordering,
+          frames_data->feat_manager_factors->MutableFeatureManager(i).get());
+    } else {
+      problem.SetParameterBlockConstant(para_Ex_Pose[ParaExPoseIndex[i]]);
+    }
+  }
 
   ceres::Solver::Options options;
   // options.linear_solver_ordering.reset(ordering);
@@ -374,8 +376,11 @@ Optimization::~Optimization() {
   }
   delete[] data_.ex_pose;
   //
-  for (int i = 0; i < kMaxFeatureNum; i++) {
-    delete[] data_.feature[i];
+  for (int j = 0; j = options_.track_cam_num; j++) {
+    for (int i = 0; i < kMaxFeatureNum; i++) {
+      delete[] data_.feature[j][i];
+    }
+    delete[] data_.feature[j];
   }
   delete[] data_.feature;
   //

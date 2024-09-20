@@ -487,6 +487,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
                                     Eigen::Vector2d{velocity_x, velocity_y}}},
     };
     result_data.tracker_features_num[feature_id] = track_cnt[i];
+    result_data.images.push_back(cur_img);
     // featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
     // if (track_num) {
     //   (*track_num)[feature_id] = track_cnt[i];
@@ -515,6 +516,9 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
           FeatureData::CameraFeature{Eigen::Vector3d{x, y, z},
                                      Eigen::Vector2d{p_u, p_v},
                                      Eigen::Vector2d{velocity_x, velocity_y}});
+
+      //
+      result_data.images.push_back(rightImg);
       // featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
     }
     // LOG(INFO)<<info.str();

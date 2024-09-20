@@ -53,7 +53,7 @@ struct ImuOption {
     double nba2;
     double nbg2;
   } imu_noise;
-  std::string DebugInfo() {
+  std::string DebugInfo()const {
     std::stringstream info;
     info << "\n"
          << "imu " << " frequency: " << frequency

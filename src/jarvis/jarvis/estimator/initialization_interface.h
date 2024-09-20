@@ -16,6 +16,7 @@ struct InitializationOption {
 
 //
 struct InitializationResult {
+  int cam_id;
   std::vector<ImuState> states;
   std::shared_ptr<FeatureManager> feat_manager;
   std::vector<transform::Rigid3d> extric_camera_to_imu;

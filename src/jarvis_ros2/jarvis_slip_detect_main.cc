@@ -208,15 +208,15 @@ uint64_t GetTimeFromName(const std::string& name) {
   const std::string file_name =
       name.substr(it + 1, name.size() - outdir.size());
   auto it1 = file_name.find_last_of('.') ;
-    // LOG(INFO)<<std::stol(file_name.substr(0, it1));
-  return std::stol(file_name.substr(0, it1));
+    // LOG(INFO)<<std::stol(file_name.substr(0, it1-2));
+  return std::stol(file_name.substr(0, it1-2));
 }
 //
 std::string GetFromName(const std::string& name) {
   CHECK(!name.empty());
   auto it1 = name.find_last_of('.') ;
-  //   LOG(INFO)<<std::stol(file_name.substr(0, it1));
-  return name.substr(0, it1);
+    // LOG(INFO)<<(name.substr(0, it1-2));
+  return name.substr(0, it1-2);
 }
 //
 struct ImageData {
@@ -314,11 +314,14 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     //             }}));
     // if(time>1064339798000)
     const cv::Mat lr_image =
-        cv::imread(image.second.image_name + ".jpg", cv::IMREAD_GRAYSCALE);
+        cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
+    const cv::Mat vr_image =
+        cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
 
     // cv::imshow("l_image",lr_image);
-    // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    // // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
     // cv::waitKey(0);
+    if(lr_image.empty()||vr_image.empty() )continue;
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
@@ -326,10 +329,10 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                 common::FromUniversal(time / 100) +
                     common::FromSeconds(imu_cam_time_offset),
                 {
-                    std::make_shared<cv::Mat>(
-                        lr_image(cv::Rect(0, 0, 640, 544)).clone()),
-                    std::make_shared<cv::Mat>(
-                        lr_image(cv::Rect(640,0, 640, 544)).clone()),
+                    lr_image(cv::Rect(0, 0, 640, 544)).clone(),
+                    lr_image(cv::Rect(640, 0, 640, 544)).clone(),
+                    vr_image(cv::Rect(0, 0, 544, 640)).clone(),
+                    vr_image(cv::Rect(544, 0, 544, 640)).clone()
                 }}));
     // time+=100*1000*1000;
   }
@@ -466,7 +469,8 @@ int main(int argc, char* argv[]) {
     // slip_detect->AddImage(imag_data);
     // auto flag = slip_detect->Detect(imag_data.time);
     // ros_compont->PubBoolMsg(flag);
-    if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
+    if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
+        imag_data.image[2].empty() || imag_data.image[3].empty()) {
       LOG(WARNING) << "Input Image empty..";
       return;
     }

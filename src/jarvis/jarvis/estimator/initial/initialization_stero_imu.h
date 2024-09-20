@@ -14,9 +14,7 @@ struct SteroImuInitializationOption {
   ImuOption imu_option;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   FeatureManagerOption feature_manager_option;
-  OptimizationOption opti_option{2,  0,   377 / 1.5, 4,  0, 0,
-                                 10, 0.5, 1,         1.0
-  };
+  OptimizationOption opti_option;
   double init_bg_th = 0.2;
   double init_ba_th = 0.2;
 };

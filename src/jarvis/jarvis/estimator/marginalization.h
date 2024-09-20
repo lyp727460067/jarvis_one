@@ -11,9 +11,9 @@ namespace jarvis {
 namespace estimator {
 //
 struct MarginalizationOption {
-  int camera_num = 2;
   int win_size = 6;
-  int convin_used_num = 4;
+  int camera_num = 2;
+  int track_cam_num=1;
   double camera_weight = 200;
 };
 
@@ -22,7 +22,8 @@ struct MarginalizationOption {
 struct MarginalizationFactorData {
   std::vector<OdomFactor*> odom_factors;
   std::vector<IntegrationBase*> imu_factors;
-  FeatureManager* feat_manager_factor;
+  FeatureManagers* feat_manager_factors;
+  // std::vector<FeatureManager*> feat_manager_factors;
 };
 //
 class Marginalization {
@@ -43,7 +44,7 @@ class Marginalization {
                       MarginalizationFactorData* sw_data,
                       MarginalizationInfo* margina_info);
 
-  void MergeCameraData(const OptimizationStateData* opt_data,
+  void MergeCameraData(int id,const OptimizationStateData* opt_data,
                         FeatureManager*  feature_manager,
                        MarginalizationInfo* margina_info,
                        ceres::LossFunction*loss_function);

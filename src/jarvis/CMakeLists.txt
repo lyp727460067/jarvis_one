@@ -21,7 +21,7 @@ if(PLATFORM_mr527)
   add_definitions(-D__ARM_NEON__)
   add_definitions(-D__ARM_PLATFORM__)
   ##
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -Ofast  -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s  -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
   option(build_test "build test" OFF)
 
   set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
@@ -83,6 +83,7 @@ if(PLATFORM_mr527)
     ${TOP_CMAKE_DIR}/vslam/
   )
 else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)
   find_package(OpenCV REQUIRED)

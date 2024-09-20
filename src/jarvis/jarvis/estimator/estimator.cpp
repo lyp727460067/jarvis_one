@@ -11,50 +11,37 @@
 #include "jarvis/option_parse.h"
 namespace jarvis {
 bool restart = false;
-std::vector<Eigen::Vector3d> kGlobleImuPose;
-std::pair<double, transform::Rigid3d> kGlobleImuExtrapolatorPose;
-
-std::vector<Eigen::Vector3d> GetGlobleImuPose() { return kGlobleImuPose; }
-std::pair<double, transform::Rigid3d> GetGlobleImuExtrapolatorPose() {
-  return kGlobleImuExtrapolatorPose;
-}
-
 namespace estimator {
-namespace {}
+namespace {
+std::array<int,3> KimageIndex{0, 2, 3};
+}
 // ofstream cam_time_babg("/tmp/cam_time_babg.txt");
 //
 // Estimator(const EstimatorOption &options);
 
 Estimator::Estimator(const EstimatorOption &options) : options_(options) {
-  LOG(INFO) << options_.calibrate_option.extric_camera_to_imu[0];
-
-  //
-  f_manager = std::make_shared<FeatureManager>(options_.feature_manager_option);
-  //
-
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
-
+  for (int i = 0; i < options_.track_cam_num; i++) {
+    LOG(INFO)
+        << options_.feature_track_options[i].feature_detect_option.imag_size;
+    feature_trackers_.emplace(
+        i, std::make_unique<FeatureTracker>(options_.feature_track_options[i]));
+  }
+  if (options_.use_stero) {
+    LOG(INFO)<<options_.stero_imu_init_option.imu_option.DebugInfo();
+    initials_.emplace(0, std::make_unique<SteroImuInitialization>(
+                             options_.stero_imu_init_option, data_base_.get()));
+  } else {
+    CHECK(false) << "not construct code.";
+  }
   //
   //
-  initializer_ = std::make_unique<SteroImuInitialization>(
-      SteroImuInitializationOption{
-          WINDOW_SIZE, options_.imu_option,
-          options_.calibrate_option.extric_camera_to_imu,
-          options_.feature_manager_option},
-      data_base_.get());
   //
+  // CHECK(false);
   stereo_sample_ = std::make_unique<common::FixedRatioSampler>(
       options_.use_stereo_sample_ration);
 
   pose_predit_ = std::make_unique<PosePredit>();
-  // options_.calibrate_option.extric_camera_to_imu[0] *
-  // options_.calibrate_option.extric_camera_to_robot.inverse();
-
-  // imu_extrapolator_ = std::make_unique<ImuExtrapolator>();
-
-  feature_tracker_ =
-      std::make_unique<FeatureTracker>(options_.feature_track_option);
-  //
 }
 
 Estimator::~Estimator() {
@@ -66,23 +53,31 @@ cv::KeyPoint EigenToCv(const Eigen::Vector2d &p) {
 }
 
 namespace {
-std::map<int, int> track_num;
-std::unique_ptr<TrackingData> ExtractKeyFrameMapPoints(
-    const Estimator &estimator, const ImageFeatureTrackerData &feature_result) {
-  TrackingData result{};
-  result.data = std::make_shared<TrackingData::Data>();
-  for (const auto &p : feature_result.data->features) {
-    result.data->key_points.push_back(
-        EigenToCv(p.second.camera_features[0].uv));
-    result.data->key_points.back().class_id = p.first;
-    CHECK(feature_result.data->tracker_features_num.count(p.first));
-    result.data->key_points.back().octave =
-        feature_result.data->tracker_features_num[p.first];
-  }
+//
+// 填充地图点，cv::Keypoints
+//
+void FillFrameData(const int cam_id,
+                   const ImageFeatureTrackerData &feature_result,
+                   FrameData *frame_data) {
+  auto &cam_fature = frame_data->data->features_datas[cam_id];
+  // cv::imshow("tes",
+  //            frame_data->data->features_datas[cam_id].features.data->images[0]);
+  // cv::waitKey(0);
+  if (cam_fature.key_points.empty()) {
+    for (auto feat : cam_fature.features.data->features) {
+      cam_fature.key_points[feat.first] =
+          cv::KeyPoint(feat.second.camera_features[0].uv.x(),
+                       feat.second.camera_features[0].uv.y(), 2);
+      cam_fature.key_points[feat.first].octave =
+          cam_fature.features.data->tracker_features_num[feat.first];
+    }
 
-  // result.data->image =
-  //     std::make_shared<cv::Mat>(feature_result.data->images[0].clone());
-  return std::make_unique<TrackingData>(result);
+  } else {
+    for (auto &feature : cam_fature.key_points) {
+      feature.second.octave =
+          feature_result.data->tracker_features_num[feature.first];
+    }
+  }
 }
 }  // namespace
 //
@@ -90,52 +85,60 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     const sensor::ImageData &images) {
   TicToc add_image_data_cost;
   //
-  ImageFeatureTrackerData featureFrame;
+
   std::map<int, int> track_num;
   //  FrameData::FeatureData featureFrame;
   common::Time cur_time = images.time + common::FromSeconds(estimator_td_);
   TrackState state = TrackState::INIT;
-  if (slide_wondows_) {
-    featureFrame = feature_tracker_->TrackImage(images.time, *images.image[0],
-                                                cv::Mat(), &track_num);
+  FrameData frame_data;
 
+  if (slide_wondows_) {
     imu_state_ = pose_predit_->PreditDataBase(imu_state_, data_base_.get(),
                                               last_time_, images.time);
+    frame_data = FrameData{std::make_shared<FrameData::Data>(FrameData::Data{
+        images.time,
+        frame_id_,
+        imu_state_,
+    })};
 
-    FrameData frame_data = FrameData{std::make_shared<FrameData::Data>(
+    for (int i = 0; i < options_.track_cam_num; i++) {
+      ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
+          images.time, images.image[KimageIndex[i]], cv::Mat(), &track_num);
+      frame_data.data->features_datas.emplace(
+          i, FrameData::FeatureData{featureFrame});
+    }
+    slide_wondows_->AddFeatureData(frame_data);
+    imu_state_ = frame_data.data->imu_state;
+    frame_data.status = TrackState::TRACKING;
+  } else {
+    ImageFeatureTrackerData featureFrame = feature_trackers_[0]->TrackImage(
+        images.time, images.image[0], images.image[1], &track_num);
+    auto init_result = initials_[0]->AddFeatureData(featureFrame);
+    if (init_result) {
+      slide_wondows_ = std::make_unique<SlideWindow>(
+          options_.slide_windows_option, data_base_.get(),
+          std::move(init_result));
+      //
+      imu_state_ = init_result->states.back();
+    }
+    frame_data = FrameData{std::make_shared<FrameData::Data>(
         FrameData::Data{images.time,
                         frame_id_,
                         imu_state_,
                         {{0, FrameData::FeatureData{featureFrame}}}})};
 
-    frame_data = slide_wondows_->AddFeatureData(frame_data);
-    imu_state_ = frame_data.data->imu_state;
-    state = TrackState::TRACKING;
-  } else {
-    featureFrame = feature_tracker_->TrackImage(images.time, *images.image[0],
-                                                *images.image[1], &track_num);
-    auto init_result = initializer_->AddFeatureData(featureFrame);
-    if (init_result) {
-      SlideWindowOption option;
-      option.extric_camera_to_imu =
-          options_.calibrate_option.extric_camera_to_imu;
-      //
-      option.imu_option = options_.imu_option;
-      slide_wondows_ = std::make_unique<SlideWindow>(option, data_base_.get(),
-                                                     std::move(init_result));
-      //
-      imu_state_ = init_result->states.back();
-    }
-    state = TrackState::INIT;
+    frame_data.status = TrackState::INIT;
   }
+  //
   last_time_ = cur_time;
   frame_id_++;
-  auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
-  tracking_data->data->imu_state = imu_state_;
-  tracking_data->status = state;
-  tracking_data->data->image =
-      std::make_shared<cv::Mat>(images.image[0]->clone());
-  return tracking_data;
+  for (auto &frame : frame_data.data->features_datas) {
+    LOG(INFO)<<frame.first;
+    FillFrameData(frame.first, frame.second.features, &frame_data);
+  }
+  data_base_->TrimData(cur_time);
+
+  return std::make_unique<FrameData>(frame_data);
 }
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {

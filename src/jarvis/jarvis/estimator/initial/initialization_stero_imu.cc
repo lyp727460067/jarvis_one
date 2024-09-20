@@ -12,6 +12,7 @@ SteroImuInitialization::SteroImuInitialization(
     const SteroImuInitializationOption& option, DataBase* data_base)
     : InitializationImu(data_base), options_(option) {
   //
+  init_bgs_.setZero();
   CHECK_EQ(option.extric_camera_to_imu.size(),2);
   feature_manager_ =
       std::make_shared<FeatureManager>(options_.feature_manager_option);
@@ -58,6 +59,7 @@ SteroImuInitialization::OptimizationResult() {
       options_.extric_camera_to_imu.size()];
   //
   //
+  LOG(INFO)<< init_bgs_.transpose();
   for (int i = 0; i <= options_.sw_size; i++) {
     para_pose[i] = (std::array<double, 7>{PoseToAarr(sw_pose_[i])});
     para_speed[i] = std::array<double, 9>(
@@ -99,9 +101,9 @@ SteroImuInitialization::OptimizationResult() {
 
     problem.AddParameterBlock(para_ex_pose[i].data(), SIZE_POSE,
                               local_parameterization);
-    // if (options_.opti_option.estimate_extrinsic == 0){
-    problem.SetParameterBlockConstant(para_ex_pose[i].data());
-    // }
+    if (options_.opti_option.estimate_extrinsic == 0) {
+      problem.SetParameterBlockConstant(para_ex_pose[i].data());
+    }
   }
   //
   problem.AddParameterBlock(&para_dt, 1);
@@ -167,7 +169,7 @@ SteroImuInitialization::OptimizationResult() {
   options.use_nonmonotonic_steps = true;
   // options.max_solver_time_in_seconds =
   //     options_.opti_option.max_solver_time * 4.0 / 5.0;
-  options.max_num_iterations = 10;//options_.opti_option.max_num_iterations;
+  options.max_num_iterations = options_.opti_option.max_num_iterations;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 
@@ -214,8 +216,8 @@ SteroImuInitialization::OptimizationResult() {
   //
   // RemoveBack();
   // imu_state.erase(imu_state.begin());
-  return std::make_unique<InitializationResult>(InitializationResult{
-      std::move(imu_state), feature_manager_, extric_camera_to_imu});
+   return std::make_unique<InitializationResult>(InitializationResult{
+       0, std::move(imu_state), feature_manager_, extric_camera_to_imu});
 };
 
 std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
@@ -255,7 +257,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   }
   //
   bool pnp_state = feature_manager_->InitFramePoseByPnP(
-                       frame_count, options_.extric_camera_to_imu, sw_pose_)||
+                       frame_count, options_.extric_camera_to_imu, sw_pose_)&
                    (feature_manager_->GetFeatureCount() > 10);
   //
   init_pnp_states_.push_back(pnp_state);
