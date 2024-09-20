@@ -16,21 +16,21 @@
 namespace jarvis {
 namespace estimator {
 struct SlideWindowOption {
-  int track_cam_num=1;
   ImuOption imu_option;
   OdomFactorOption odom_factor_option;
+  bool use_stereo  =true;
   FeatureManagerOption feature_manager_option;
   UpdataZeroVelocityOption updata_zerovelocity_option;
   OptimizationOption opti_option;
-  bool enable_zero_velocity = 0;
-  int use_odom = 0;
-  int win_size=6;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
+  int track_cam_num=1;
+  bool enable_zero_velocity = 0;
+  int win_size=6;
   double optimazation_outliers_rejection_th = 0.3;
   double rejection_points_depth_max_th = 30;
-};
 
 //
+};
 //
 // 
 
@@ -49,13 +49,16 @@ class SlideWindow {
   //
   std::vector<std::shared_ptr<IntegrationBase>> integration_base_;
   std::vector<std::shared_ptr<OdomFactor>>odoms_factor_;
-  std::shared_ptr<FeatureManager> feature_manager_;
   //
+  std::unique_ptr<FeatureManagers> feature_managers_;
+  //
+  std::map<CameraId, std::shared_ptr<FeatureManager>> init_feature_managers_;
+
   //
   std::unique_ptr<Optimization> optimization_;
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
   std::unique_ptr<Marginalization> marginalizer_;
-  
+  void SlideNew(); 
   DataBase* data_base_;
   //
   void StateToFrameData();
@@ -63,7 +66,6 @@ class SlideWindow {
   OptimizationStateData* opt_data_=nullptr;
   std::vector<transform::Rigid3d> extric_camera_to_imu_;
   transform::Rigid3d odo_to_imu_extric_;
-  std::vector<double> opt_inv_depths_;
   double camera_imu_time_offset_ = 0;
   //
   //

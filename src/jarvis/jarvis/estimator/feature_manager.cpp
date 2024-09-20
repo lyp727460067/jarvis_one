@@ -97,6 +97,7 @@ bool FeatureManager::IsParallax(int frame_count,
 bool FeatureManager::AddFeatureCheckParallax(
     int frame_count, const ImageFeatureTrackerData &image, double td) {
   //
+  frame_count_= frame_count;
   VLOG(kGlogLevel) << "Continuously track feature points greater than 4-->"
                    << GetFeatureCount();
   //
@@ -182,7 +183,7 @@ void FeatureManager::SetDepth(const std::vector<double> &x) {
     } else
       it_per_id.solve_flag = 1;
   }
-  LOG(INFO)<<info.str();
+  // LOG(INFO)<<info.str();
   CHECK_EQ(feature_index,x.size()-1);
 }
 //
@@ -506,7 +507,7 @@ void FeatureManager::CreateFactor(
         sw_pose[imu_i] * ex_came_to_imu[0];
     const int next_imu_i = imu_i + 1;
 
-    // LOG(INFO) << imu_i << " " << next_imu_i;
+    LOG(INFO) << imu_i << " " << next_imu_i;
     CHECK_LE(next_imu_i, sw_pose.size() - 1);
     const transform::Rigid3d &frame_right_pose =
         sw_pose[next_imu_i] * ex_came_to_imu[0];
@@ -524,7 +525,7 @@ void FeatureManager::CreateFactor(
     Eigen::Vector3d localPoint = frame_left_pose.inverse() * point3d;
     //
     double depth = localPoint.z();
-    // LOG(INFO) << localPoint.transpose();
+    LOG(INFO) << localPoint.transpose();
     const Eigen::Vector3d localPoint_r = frame_right_pose.inverse() * point3d;
     if (depth > 0.5 && localPoint_r.z() > 0.5 && depth < 20 &&
         localPoint_r.z() < 20)
@@ -726,45 +727,46 @@ void FeatureManager::CreateFactor(
     return ans;
   }
 
-  std::vector<double> FeatureManagers::GetDepthVector() {
-    std::vector<double> result;
-    for (auto &f_m : feature_managers_) {
-      const auto depths = f_m.second.GetDepthVector();
-      result.insert(result.end(), depths.begin(), depths.end());
-    }
-    return result;
-  }
-  //
+  // std::vector<double> FeatureManagers::GetDepthVector() {
+  //   std::vector<double> result;
+  //   for (auto &f_m : feature_managers_) {
+  //     const auto depths = f_m.second.GetDepthVector();
+  //     result.insert(result.end(), depths.begin(), depths.end());
+  //   }
+  //   return result;
+  // }
+  // //
 
-  void FeatureManagers::AddFeaturesWithData(
-      int id, const std::map<TrackFeatureId, FeaturePerId> &features) {
-    CHECK(feature_managers_.count(id));
-    feature_managers_.erase(id);
-    feature_managers_.emplace(id, FeatureManager(feat_option_, features));
-  }
+  // void FeatureManagers::AddFeaturesWithData(
+  //     int id, const std::map<TrackFeatureId, FeaturePerId> &features) {
+  //   CHECK(feature_managers_.count(id));
+  //   feature_managers_.erase(id);
+  //   feature_managers_.emplace(id, FeatureManager(feat_option_, features));
+  // }
+
+  // //
+  // void FeatureManagers::SetDepth(const std::vector<double> &x) {
+  //   auto it = x.begin();
+  //   for (auto &f_m : feature_managers_) {
+  //     int index = f_m.second.GetFeatureCount();
+  //     f_m.second.SetDepth(std::vector<double>(it, it + index));
+  //     it = it + index;
+  //   }
+  // }
 
   //
-  void FeatureManagers::SetDepth(const std::vector<double> &x) {
-    auto it = x.begin();
-    for (auto &f_m : feature_managers_) {
-      int index = f_m.second.GetFeatureCount();
-      f_m.second.SetDepth(std::vector<double>(it, it + index));
-      it = it + index;
-    }
-  }
+  // FeatureManagers::FeatureManagers(int cam_trajector,
+  //                                  FeatureManagerOption &feat_option)
+  //     : feat_option_(feat_option) {
+  //   for (int i = 0; i < cam_trajector; i++) {
+  //     feature_managers_.emplace(i, feat_option);
+  //   }
+  // }
 
   //
-  FeatureManagers::FeatureManagers(int cam_trajector,
-                                   FeatureManagerOption &feat_option)
-      : feat_option_(feat_option) {
-    for (int i = 0; i < cam_trajector; i++) {
-      feature_managers_.emplace(i, feat_option);
-    }
-  }
-  int index = 0;
   bool FeatureManagers::CheckParallax() const {
     for (const auto &f_m : feature_managers_) {
-      if (f_m.second.IsParallax()) {
+      if (f_m.second->IsParallax()) {
         return true;
       }
     }
@@ -772,27 +774,50 @@ void FeatureManager::CreateFactor(
   }
   //
 
+  void FeatureManagers::Triangulate(
+      int fram_cout, const std::vector<transform::Rigid3d> &sw_pose,
+      const std::vector<transform::Rigid3d> &ex_came_to_imu) {
+    std::array<std::vector<int>, 3> ParaExPoseIndex{
+        std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};
+
+    for (auto &f_m : feature_managers_) {
+       std::vector<transform::Rigid3d> ex_came_to_imu_tmp;
+      for (int i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
+        ex_came_to_imu_tmp.push_back(
+            ex_came_to_imu[ParaExPoseIndex[f_m.first][i]]);
+        LOG(INFO)<<ex_came_to_imu_tmp.back();
+      }
+      f_m.second->Triangulate(fram_cout, sw_pose,ex_came_to_imu_tmp );
+    }
+  }
+
+  //
+  void FeatureManagers::AddFeatureManger(int cam_track_id,
+                                         std::shared_ptr<FeatureManager> fm) {
+    feature_managers_.emplace(cam_track_id, fm);
+  }
+
   void FeatureManagers::RemoveBackShiftDepth(const transform::Rigid3d &marg_p,
                                              const transform::Rigid3d &new_p) {
     for (auto &f_m : feature_managers_) {
-      f_m.second.RemoveBackShiftDepth(marg_p, new_p);
+      f_m.second->RemoveBackShiftDepth(marg_p, new_p);
     }
   }
 
   void FeatureManagers::RemoveBack() {
     for (auto &f_m : feature_managers_) {
-      f_m.second.RemoveBack();
+      f_m.second->RemoveBack();
     }
   }
 
   void FeatureManagers::RemoveFront(int frame_count) {
     for (auto &f_m : feature_managers_) {
-      f_m.second.RemoveFront(frame_count);
+      f_m.second->RemoveFront(frame_count);
     }
   }
   void FeatureManagers::RemoveFailures() {
     for (auto &f_m : feature_managers_) {
-      f_m.second.RemoveFailures();
+      f_m.second->RemoveFailures();
     }
   }
 }  // namespace estimator

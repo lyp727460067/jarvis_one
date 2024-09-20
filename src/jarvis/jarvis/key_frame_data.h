@@ -42,43 +42,44 @@ inline std::ostream &operator<<(std::ostream &os, const ImuState state) {
     return os;
 }
 }
-struct TrackingData {
-  struct Data {
-    common::Time time;
-    estimator::ImuState imu_state;
-    std::vector<cv::KeyPoint> key_points;
-    std::vector<Eigen::Vector3d> tracking_map_points;
-    std::shared_ptr<cv::Mat> image;
-    transform::Rigid3d transform_cam_to_imu;
-  };
-  std::shared_ptr<Data> data;
-  int status = -1;
-};
+// struct TrackingData {
+//   struct Data {
+//     common::Time time;
+//     estimator::ImuState imu_state;
+//     std::vector<cv::KeyPoint> key_points;
+//     std::vector<Eigen::Vector3d> tracking_map_points;
+//     std::shared_ptr<cv::Mat> image;
+//     transform::Rigid3d transform_cam_to_imu;
+//   };
+//   std::shared_ptr<Data> data;
+//   int status = -1;
+// };
 using  CameraId  =int;
+using TrackingId = uint64_t;
 struct FrameData {
-  using TrackingId = uint64_t;
   struct FeatureData {
     estimator::ImageFeatureTrackerData features;
     std::map<TrackingId, double> depths;
+    std::map<TrackingId,cv::KeyPoint> key_points;//for display
   };  
   struct Data {
     common::Time time;
     uint64_t id;
     estimator::ImuState imu_state;
     std::map<CameraId, FeatureData> features_datas;
+    
     std::vector<transform::Rigid3d> extric_camera_to_imu;
     transform::Rigid3d odo_to_imu_extric;
     double opt_dt;
 
-    std::map<CameraId, cv::Mat> images;  // camera_id,image
-    
     bool  is_key_frame=false;
   };
   std::shared_ptr<Data> data;
+  int status = -1;
 };
 //
 
-
+using TrackingData = FrameData;
 
 // struct OptimizationStateData {
 //   double **pose;
@@ -89,9 +90,6 @@ struct FrameData {
 //   // double** retrive_pose;
 //   double **td;
 // };
-
-std::vector<Eigen::Vector3d> GetGlobleImuPose();
-std::pair<double, jarvis::transform::Rigid3d> GetGlobleImuExtrapolatorPose();
 extern bool restart ;
 //
 }  // namespace jarvis

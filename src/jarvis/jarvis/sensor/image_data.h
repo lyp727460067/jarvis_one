@@ -8,7 +8,7 @@ namespace jarvis {
 namespace sensor {
 struct ImageData {
   common::Time time;
-  std::vector<std::shared_ptr<cv::Mat>> image;
+  std::vector<cv::Mat> image;
   static std::string TypeName() { return "image"; }
   // std::vector<std::unique_ptr<cv::Mat>> images_;
 };

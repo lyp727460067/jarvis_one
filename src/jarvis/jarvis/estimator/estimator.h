@@ -25,6 +25,7 @@
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/utility/tic_toc.h"
 #include "jarvis/utility/utility.h"
+#include "jarvis/estimator/initial/initialization_stero_imu.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
 namespace jarvis {
@@ -48,29 +49,21 @@ struct FailureDetectOptoin {
 };
 
 struct EstimatorOption {
-  // SlideWindowOption slide_windows_option;
-  FeatureManagerOption feature_manager_option;
-  FeatureTrackerOption feature_track_option;
-  CalibrateOption calibrate_option;
+  SlideWindowOption slide_windows_option;
+  std::vector<FeatureTrackerOption> feature_track_options;
   ImuOption imu_option;
   FailureDetectOptoin fail_detect_option;
-  UpdataZeroVelocityOption updata_zerovelocity_option;
-  OdomFactorOption odom_factor_option;
-  bool enable_zero_velocity = 0;
-  ;
-  int use_imu = 1;
-  int use_odom = 1;
+  //
+  SteroImuInitializationOption stero_imu_init_option;
+
+  int use_stero = 0;
+  //
   double data_base_lenth = 1;
-  int use_cam_num = 1;
-  int estimate_td = 1;
-  int estimate_extrinsic = 1;
-  double init_td = 0;
-  double optimazation_outliers_rejection_th = 3;
-  double rejection_points_depth_max_th = 30;
+
   double use_stereo_sample_ration = 0.05;
-  double init_rotation_th = 10;
-  double init_bas_normal_max = 0.3;
-  int convin_used_num = 4;
+  //
+  int track_cam_num = 1;
+  int win_size=6;
 };
 
 class Estimator {
@@ -86,9 +79,8 @@ class Estimator {
   // std::thread trackThread;
   // std::thread processThread;
   private:
-  std::unique_ptr<FeatureTracker> feature_tracker_ = nullptr;
-
-  std::shared_ptr<FeatureManager> f_manager = nullptr;
+  std::map<int, std::unique_ptr<FeatureTracker>> feature_trackers_;
+  std::map<int, std::unique_ptr<InitializationInterface>> initials_;
   
   const EstimatorOption options_;
 
@@ -100,7 +92,6 @@ class Estimator {
   common::Time last_time_;
   std::unique_ptr<SlideWindow> slide_wondows_;
   ImuState imu_state_;
-  std::unique_ptr<InitializationInterface> initializer_;
   double estimator_td_ = 0;
   uint64_t frame_id_ = 0;
 };

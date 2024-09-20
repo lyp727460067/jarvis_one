@@ -86,7 +86,7 @@ ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
 bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
                                               double *residuals,
                                               double **jacobians) const {
-  return EvaluateNormal(parameters, residuals, jacobians);
+  return EvaluateSIMD(parameters, residuals, jacobians);
 }
 bool ProjectionTwoFrameOneCamFactor::EvaluateNormal(double const *const *parameters,
                                               double *residuals,
@@ -396,7 +396,6 @@ bool ProjectionTwoFrameOneCamFactor::EvaluateSIMD(double const *const *parameter
        //                            tic));
        jacobian_ex_pose.leftCols<6>() = reduce * jaco_ex;
        jacobian_ex_pose.rightCols<1>().setZero();
-        LOG(INFO)<<jacobian_ex_pose;
     }
     if (jacobians[3]) {
       Eigen::Map<Eigen::Vector2d> jacobian_feature(jacobians[3]);

@@ -11,9 +11,9 @@ namespace estimator {
 
 struct OptimizationOption {
   int camera_num=2;
+  int track_cam_num=1;
   int use_odom=0;
   double camera_weight = 377 / 1.5;
-  int convin_used_num=4;
   int estimate_td=0;
   double init_td=0;
   int max_num_iterations = 1;
@@ -26,18 +26,18 @@ class Marginalization;
 struct OptimizationStateData {
   double** pose;
   double** speed_bias;
-  double** feature;
+  double*** feature;
   double** ex_pose;
   double** ex_pose_odom;
   // double** retrive_pose;
+  //后期扩展多个相机有多个dt
   double** td;
 };
 
-struct OptimizationData
-{
+struct OptimizationData {
   std::vector<OdomFactor*> odom_factors;
   std::vector<IntegrationBase*> imu_factors;
-  FeatureManager* feat_manager_factor;
+  FeatureManagers* feat_manager_factors;
 };
 //
 
@@ -52,7 +52,7 @@ class Optimization {
   ~Optimization();
 
  private:
-  void AddCameraFactor(ceres::Problem* Problem,
+  void AddCameraFactor(int id,ceres::Problem* Problem,
                        ceres::LossFunction* loss_function,
                        ceres::ParameterBlockOrdering* ordering,
                        FeatureManager* feature_managers);

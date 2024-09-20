@@ -70,7 +70,17 @@ class IntegrationBase {
     gyr_buf.push_back(gyr);
     propagate(dt, acc, gyr);
   }
-
+  //
+  void Merge(const IntegrationBase &rhs) {
+    //
+    for (int i = 0; i < static_cast<int>(rhs.acc_buf.size()); i++) {
+      dt_buf.push_back(dt);
+      acc_buf.push_back(rhs.acc_buf[i]);
+      gyr_buf.push_back(rhs.gyr_buf[i]);
+      propagate(rhs.dt_buf[i], rhs.acc_buf[i], rhs.gyr_buf[i]);
+    }
+  }
+  //
   void repropagate(const Eigen::Vector3d &_linearized_ba,
                    const Eigen::Vector3d &_linearized_bg) {
     sum_dt = 0.0;

@@ -21,6 +21,7 @@
 #include "jarvis/estimator/featureTracker/feature_tracker.h"
 #include "jarvis/utility/tic_toc.h"
 #include "parameters.h"
+#include "jarvis/key_frame_data.h"
 namespace jarvis {
 namespace estimator {
 //
@@ -65,8 +66,9 @@ class FeatureManager {
                  const std::map<TrackFeatureId, FeaturePerId>& features)
       : options_(options), features_(features){}
 
-  int GetFeatureCount();
+  int FrameCount() { return frame_count_; }
   //
+  int GetFeatureCount();
   bool AddFeatureCheckParallax(int frame_count,
                                const ImageFeatureTrackerData &image, double td);
 
@@ -113,10 +115,10 @@ class FeatureManager {
   }
   bool IsParallax() const { return parallax_; }
   //
-  double FeatDepth(const TrackFeatureId &id) {
+  double GetDepth(const TrackFeatureId &id) {
     if (!features_.count(id)) {
-      LOG(WARNING) << "Feat id " << id << "not exist.";
-      return 0.0;
+      // LOG(WARNING) << "Feat id " << id << "not exist.";
+      return -1;
     }
     return features_[id].estimated_depth;
   }
@@ -145,40 +147,51 @@ class FeatureManager {
   // Eigen::Matrix3d ric[2];
   FeatureManagerOption options_;
   bool parallax_ = false;
+  int frame_count_ =-1;
 };
 
 //
 class FeatureManagers {
  public:
   //
-  FeatureManagers(int cam_trajector, FeatureManagerOption &feat_option);
-  FeatureManagers(const std::map<uint64_t, FeatureManager> &feat_ms)
-      : feature_managers_(feat_ms) {}
+
+  // FeatureManagers(int cam_trajector, FeatureManagerOption &feat_option);
+  // FeatureManagers(const std::map<uint64_t, FeatureManager> &feat_ms)
+  //     : feature_managers_(feat_ms) {}
   //
-  void AddFeaturesWithData(int id,
-                           const std::map<TrackFeatureId, FeaturePerId>& features);
+  //
+  //
+  void AddFeatureManger(int cam_track_id, std::shared_ptr<FeatureManager> fm);
+  std::shared_ptr<FeatureManager> MutableFeatureManager(int cam_id) {
+    //
+    if (feature_managers_.count(cam_id)) {
+      return feature_managers_.at(cam_id);
+    }
+    LOG(INFO) << "Featuremanger not construct." << cam_id;
+    return nullptr;
+    // CHECK(feature_managers_.count(cam_id))
+    //     << "Featuremanger not construct." << cam_id;
+    // //
+  }
+  //
+  //
+  bool Exist(CameraId id) { return feature_managers_.count(id) != 0; }
+  void Triangulate(int fram_cout,
+                   const std::vector<transform::Rigid3d> &sw_pose,
+                   const std::vector<transform::Rigid3d> &ex_came_to_imu);
+  //
+
   void RemoveFailures();
   void RemoveBack();
   void RemoveBackShiftDepth(const transform::Rigid3d &marg_p,
                             const transform::Rigid3d &new_p);
   void RemoveFront(int frame_count);
-  std::vector<double> GetDepthVector();
-  void SetDepth(const std::vector<double> &x);
-  FeatureManager *MutableFeatureManager(int cam_id) {
-    //
-    CHECK(feature_managers_.count(cam_id))
-        << "Featuremanger not construct." << cam_id;
-    //
-    return &feature_managers_.at(cam_id);
-  }
+  // std::vector<double> GetDepthVector();
+  // void SetDepth(const std::vector<double> &x);
   bool CheckParallax() const;
-  const std::map<uint64_t, FeatureManager> &GetFeatureManagers() const {
-    return feature_managers_;
-  }
-
  private:
    FeatureManagerOption feat_option_;
-  std::map<uint64_t, FeatureManager> feature_managers_;
+   std::map<uint64_t, std::shared_ptr<FeatureManager>> feature_managers_;
 };
 
 }  // namespace estimator

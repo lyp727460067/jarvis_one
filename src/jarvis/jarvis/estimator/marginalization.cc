@@ -15,6 +15,7 @@ namespace {
 #define para_Ex_Pose_Odom opt_data->ex_pose_odom
 #define para_Td opt_data->td
 #define para_Feature opt_data->feature
+std::array<int,3> ParaExPoseIndex { 0, 2, 3 };
 }  // namespace
 //
 void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
@@ -63,7 +64,7 @@ void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
   // }
 }
 
-void Marginalization::MergeCameraData(const OptimizationStateData *opt_data,
+void Marginalization::MergeCameraData(int id,const OptimizationStateData *opt_data,
                                       FeatureManager *feature_manager,
                                       MarginalizationInfo *margina_info,
                                       ceres::LossFunction *loss_function) {
@@ -82,9 +83,10 @@ void Marginalization::MergeCameraData(const OptimizationStateData *opt_data,
 
       ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
           f_td, loss_function,
-          std::vector<double *>{para_Pose[std::get<0>(index)],
-                                para_Pose[std::get<1>(index)], para_Ex_Pose[0],
-                                para_Feature[std::get<2>(index)], para_Td[0]},
+          std::vector<double *>{
+              para_Pose[std::get<0>(index)], para_Pose[std::get<1>(index)],
+              para_Ex_Pose[ParaExPoseIndex[id]],
+              para_Feature[id][std::get<2>(index)], para_Td[0]},
           std::vector<int>{0, 3});
       margina_info->addResidualBlockInfo(residual_block_info);
     }
@@ -247,9 +249,21 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
           drop_set);
       marginalization_info->addResidualBlockInfo(residual_block_info);
     }
-    LOG(INFO)<<"!";
-    MergeCameraData(opt_data, data->feat_manager_factor,
-                    marginalization_info.get(), loss_function.get());
+    LOG(INFO) << "!";
+
+      for (int i = 0; i < options_.track_cam_num; i++) {
+        if (data->feat_manager_factors->Exist(i)) {
+          MergeCameraData(
+              i, opt_data,
+              data->feat_manager_factors->MutableFeatureManager(i).get(),
+              marginalization_info.get(), loss_function.get());
+        }
+      }
+
+     for (int i = 0; i < options_.track_cam_num; i++) {
+  
+    }
+
     MergeFrameData(opt_data, data, marginalization_info.get());
 
   } else {
@@ -305,7 +319,6 @@ void Marginalization::AddToProblem(ceres::Problem *problem,
                                    ceres::LossFunction *loss_function) const {
   if (last_marginalization_info_ && last_marginalization_info_->valid) {
     // construct new marginlization_factor
-    LOG(INFO)<<"!";
 
     MarginalizationFactor *marginalization_factor =
         new MarginalizationFactor(last_marginalization_info_.get());
