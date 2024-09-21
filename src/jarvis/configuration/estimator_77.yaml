@@ -4,7 +4,7 @@
 #support: 1 imu 1 cam; 1 imu 2 cam: 2 cam; 
 
 use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
-track_cam_num  : 2
+track_cam_num  : 3
 win_size : 6
 data_base_lenth : 1
 
@@ -25,7 +25,7 @@ feattrack0:
   mask : mask.png
 ####
 feattrack1:
-  max_cnt: 30          # max feature number in feature tracking
+  max_cnt: 20          # max feature number in feature tracking
   min_dist:  45           # min distance between two features 
   mask_min_dist:  30  
   F_threshold: 1.0        # ransac threshold (pixel)
@@ -36,7 +36,18 @@ feattrack1:
   grid_size_x : 68
   grid_size_y : 64
   mask : mask0.png
-
+feattrack2:
+  max_cnt: 20          # max feature number in feature tracking
+  min_dist:  45           # min distance between two features 
+  mask_min_dist:  30  
+  F_threshold: 1.0        # ransac threshold (pixel)
+  fast_th:  15
+  flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
+  lk_win_size : 7
+  lk_pre_max_layer : 4
+  grid_size_x : 68
+  grid_size_y : 64
+  mask : mask0.png
 
 slide_window:
   optimazation_outliers_rejection_th : 3
