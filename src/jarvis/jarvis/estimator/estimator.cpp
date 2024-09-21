@@ -10,14 +10,10 @@
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/option_parse.h"
 namespace jarvis {
-bool restart = false;
 namespace estimator {
 namespace {
 std::array<int,3> KimageIndex{0, 2, 3};
 }
-// ofstream cam_time_babg("/tmp/cam_time_babg.txt");
-//
-// Estimator(const EstimatorOption &options);
 
 Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
@@ -40,7 +36,7 @@ Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   // CHECK(false);
   stereo_sample_ = std::make_unique<common::FixedRatioSampler>(
       options_.use_stereo_sample_ration);
-
+  failure_detect_ = std::make_unique<FailureDetect>(FailureDetectOptoin{});
   pose_predit_ = std::make_unique<PosePredit>();
 }
 
@@ -109,7 +105,11 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     }
     slide_wondows_->AddFeatureData(frame_data);
     imu_state_ = frame_data.data->imu_state;
-    frame_data.status = TrackState::TRACKING;
+    if (failure_detect_->Detect(frame_data)) {
+      frame_data.status = TrackState::LOST;
+    } else {
+      frame_data.status = TrackState::TRACKING;
+    }
   } else {
     ImageFeatureTrackerData featureFrame = feature_trackers_[0]->TrackImage(
         images.time, images.image[0], images.image[1], &track_num);

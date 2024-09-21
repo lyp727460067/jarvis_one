@@ -28,25 +28,10 @@
 #include "jarvis/estimator/initial/initialization_stero_imu.h"
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
+#include "jarvis/estimator/failure_detect.h"
 namespace jarvis {
 namespace estimator {
 //
-
-struct FailureDetectOptoin {
-  int track_feat_lost_min_num = 2;
-  int track_feat_lost_win_size = 10;
-  double bas_norm_max = 0.5;
-  double bgs_norm_max = 0.5;
-  double translation_norm_max = 0.2;
-  double translation_z_max = 0.2;
-  double ratation_max = 20;
-  int enable_odo_zero_lost_detect = 0;
-  double zero_translation_norm_max = 0.002;
-  double zero_translation_z_max = 0.002;
-  double zero_ratation_max = 0.001;
-  int zero_odo_win_size = 10;
-  int zero_odo_pose_size = 40;
-};
 
 struct EstimatorOption {
   SlideWindowOption slide_windows_option;
@@ -88,7 +73,7 @@ class Estimator {
   std::unique_ptr<DataBase> data_base_ = nullptr;
   jarvis::transform::Rigid3d transform_imu_to_robot_;
   std::unique_ptr<PosePredit> pose_predit_;
-
+  std::unique_ptr<FailureDetect> failure_detect_;
   common::Time last_time_;
   std::unique_ptr<SlideWindow> slide_wondows_;
   ImuState imu_state_;

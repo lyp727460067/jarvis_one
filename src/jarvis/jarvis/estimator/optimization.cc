@@ -371,17 +371,22 @@ Optimization::~Optimization() {
   }
   delete[] data_.pose;
   delete[] data_.speed_bias;
+
+  LOG(INFO)<<"1";
   for (int i = 0; i < options_.camera_num; i++) {
     delete[] data_.ex_pose[i];
   }
   delete[] data_.ex_pose;
   //
+  LOG(INFO)<<"1";
   for (int j = 0; j = options_.track_cam_num; j++) {
     for (int i = 0; i < kMaxFeatureNum; i++) {
       delete[] data_.feature[j][i];
     }
     delete[] data_.feature[j];
   }
+
+  LOG(INFO)<<"1";
   delete[] data_.feature;
   //
 
@@ -389,6 +394,7 @@ Optimization::~Optimization() {
   delete[] data_.ex_pose_odom;
   //
 
+  LOG(INFO)<<"1";
   delete[] data_.td[0];
   delete data_.td;
 }
