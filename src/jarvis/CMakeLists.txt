@@ -29,9 +29,8 @@ if(PLATFORM_mr527)
   set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
   set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
   set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
-  set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include/)
+  set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include)
   set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
-
 
   set(OpenCV_LIBS
       ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}

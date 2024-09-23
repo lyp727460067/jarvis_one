@@ -159,11 +159,11 @@ class FeatureManager {
       uint64_t it_per_id, const std::vector<transform::Rigid3d> &sw_pose,
       const std::vector<transform::Rigid3d> &ex_came_to_imu);
 
+  FeatureManagerOption options_;
   std::map<TrackFeatureId, FeaturePerId> features_;
   double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
   // const Eigen::Matrix3d *Rs = nullptr;
   // Eigen::Matrix3d ric[2];
-  FeatureManagerOption options_;
   bool parallax_ = false;
   int frame_count_ =-1;
 };

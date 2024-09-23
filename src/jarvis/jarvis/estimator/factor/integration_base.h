@@ -17,7 +17,7 @@ class IntegrationBase {
                   const std::vector<sensor::ImuData> &imu_datas)
       : IntegrationBase(options, imu_datas[0].linear_acceleration,
                         imu_datas[0].angular_velocity, state.ba, state.bg) {
-    for (int i = 1; i < imu_datas.size(); i++) {
+    for (size_t i = 1; i < imu_datas.size(); i++) {
       double dt = common::ToSeconds(imu_datas[i].time - imu_datas[i - 1].time);
       push_back(dt, imu_datas[i].linear_acceleration,
                 imu_datas[i].angular_velocity);

@@ -17,7 +17,7 @@ std::array<int, 3> KimageIndex{0, 2, 3};
 
 Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
-  for (int i = 0; i < options_.track_sequence.size(); i++) {
+  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     feature_trackers_.emplace(
         i, std::make_unique<FeatureTracker>(options_.feature_track_options[i]));
   }
@@ -95,7 +95,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
         imu_state_,
     })};
 
-    for (int i = 0; i < options_.track_sequence.size(); i++) {
+    for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
           images.time, images.image[options_.track_sequence[i][0]], cv::Mat(),
           &track_num);
@@ -106,7 +106,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     imu_state_ = frame_data.data->imu_state;
     frame_data.status = TrackState::TRACKING;
     auto rejection_outliers = slide_wondows_->RejectionOutliers();
-    for (int i = 0; i < options_.track_sequence.size(); i++) {
+    for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       feature_trackers_[i]->removeOutliers(rejection_outliers[i]);
     }
 

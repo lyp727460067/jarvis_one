@@ -3,7 +3,7 @@
 
 #include <jarvis/estimator/featureTracker/feature_tracker.h>
 
-#include <strstream>
+#include <sstream>
 
 #include "jarvis/estimator/estimator.h"
 #include "jarvis/estimator/initial/initialization_stero_imu.h"
@@ -226,7 +226,7 @@ void ParseYAMLOption(const std::string &file,
     // fsSettings["trace_sequence"]; CHECK_EQ(trace_sequence.size(), 3);
     std::string track_sequence_str = fsSettings["track_sequence"];
     std::vector<std::vector<int>> track_sequence;
-    for (int i = 0; i < track_sequence_str.size(); i++) {
+    for (size_t i = 0; i < track_sequence_str.size(); i++) {
       if (track_sequence_str[i] == '{') {
         track_sequence.push_back(std::vector<int>{});
       } else if (track_sequence_str[i] != ',' && track_sequence_str[i] != '}') {

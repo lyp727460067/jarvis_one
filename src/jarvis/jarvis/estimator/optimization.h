@@ -22,7 +22,7 @@ struct OptimizationOption {
   inline int TrackNum() const { return int(trace_sequence.size()); }
   int CamNum()const {
     int camera_num  =0;
-    for (int i = 0; i <trace_sequence.size(); i++) {
+    for (size_t i = 0; i <trace_sequence.size(); i++) {
       camera_num += trace_sequence[i].size();
     }
     return camera_num;
@@ -72,8 +72,9 @@ class Optimization {
 //   void FrameDataToState(SlideWindowLocalData* frames_data);
 //   void StateToFrameData(SlideWindowLocalData* frames_data);
   OptimizationStateData data_;
-  const OptimizationOption options_;
+
   const int win_size_;
+  const OptimizationOption options_;
   
 
   // double** para_Pose = data_.pose;

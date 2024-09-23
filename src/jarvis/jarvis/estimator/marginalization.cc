@@ -24,8 +24,8 @@ void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
   //
   //
   //
-  CHECK_EQ(frame_data->odom_factors.size(), options_.win_size + 1);
-  CHECK_EQ(frame_data->imu_factors.size(), options_.win_size + 1);
+  CHECK_EQ(int(frame_data->odom_factors.size()), options_.win_size + 1);
+  CHECK_EQ(int(frame_data->imu_factors.size()), options_.win_size + 1);
   if (options_.use_odom && frame_data->odom_factors[1]) {
     ceres::CostFunction *cost_function =
         frame_data->odom_factors[1]->CostFunction();
@@ -204,7 +204,7 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
           drop_set);
       marginalization_info->addResidualBlockInfo(residual_block_info);
     }
-    for (int i = 0; i < options_.trace_sequence.size(); i++) {
+    for (size_t i = 0; i < options_.trace_sequence.size(); i++) {
       if (data->feat_manager_factors->Exist(i)) {
         MergeCameraData(
             i, opt_data,

@@ -131,7 +131,7 @@ void DataBase::TrimData(const common::Time &time) {
 std::vector<sensor::ImuData> DataBase::GetEarlyImuData(
     const common::Time &time) {
   std::vector<sensor::ImuData> data;
-  for (int i = 0; i < imu_data_.size(); i++) {
+  for (size_t i = 0; i < imu_data_.size(); i++) {
     if (imu_data_[i].time > time) break;
     data.push_back(imu_data_[i]);
   }

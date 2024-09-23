@@ -18,7 +18,7 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
     : options_(option), data_base_(data_base) {
   //
   CHECK(init_data);
-  CHECK_EQ(options_.win_size + 1, init_data->states.size());
+  CHECK_EQ(options_.win_size + 1, int(init_data->states.size()));
   extric_camera_to_imu_ = option.extric_camera_to_imu;
   imu_states_ = init_data->states;
   feature_managers_ = std::make_unique<FeatureManagers>();
@@ -44,7 +44,7 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
 
   //
   // for init...
-  for (int i = 0; i < options_.track_sequence.size(); i++) {
+  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     init_feature_managers_.emplace(
         i, std::make_shared<FeatureManager>(options_.feature_manager_option));
   }
@@ -65,7 +65,7 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
       options_.opti_option.use_odom});
   // /
   last_feature_time_ = init_data->time;
-  CHECK_EQ(imu_states_.size(), options_.win_size + 1);
+  CHECK_EQ(int(imu_states_.size()), options_.win_size + 1);
   SlideData(true);
 }
 
@@ -99,7 +99,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
         if (init_feature_managers_[f.first]->FrameCount() ==
             options_.win_size) {
           std::vector<transform::Rigid3d> triang_pose;
-          for (int i = 0; i < imu_states_.size(); i++) {
+          for (size_t i = 0; i < imu_states_.size(); i++) {
             triang_pose.push_back(imu_states_[i].Pose());
           }
           //
@@ -147,7 +147,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
   // sw_data_.frame_data.emplace_back(mute_frame_data);
   //
   std::vector<transform::Rigid3d> triang_pose;
-  for (int i = 0; i < imu_states_.size(); i++) {
+  for (size_t i = 0; i < imu_states_.size(); i++) {
     triang_pose.push_back(imu_states_[i].Pose());
   }
   //
@@ -177,7 +177,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
   }
 
   //
-  for (int i = 0; i < extric_camera_to_imu_.size(); i++) {
+  for (size_t i = 0; i < extric_camera_to_imu_.size(); i++) {
     LOG(INFO) << "extric_camera_to_imu_ " << i << " "
               << extric_camera_to_imu_[i];
   }
@@ -250,7 +250,7 @@ void SlideWindow::SlideNew() {
 
 void SlideWindow::SlideData(bool is_keyframe) {
   //
-  CHECK_EQ(imu_states_.size() - 1, options_.win_size);
+  CHECK_EQ(int(imu_states_.size() - 1), options_.win_size);
   //
   if (is_keyframe) {
     //
@@ -381,7 +381,7 @@ void SlideWindow::StateToFrameData() {
 
 void SlideWindow::FrameDataToState() {
   //
-  CHECK_EQ(imu_states_.size() - 1, options_.win_size);
+  CHECK_EQ(int(imu_states_.size() - 1), options_.win_size);
   for (int i = 0; i <= options_.win_size; i++) {
     ImuState& imu_state = imu_states_[i];
     for (int j = 0; j < 3; j++) {
@@ -430,7 +430,7 @@ void SlideWindow::FrameDataToState() {
     if (feature_managers_->Exist(i)) {
       std::vector<double> dephts =
           feature_managers_->MutableFeatureManager(i)->GetDepthVector();
-      for (int j = 0; j < dephts.size(); j++) {
+      for (size_t j = 0; j < dephts.size(); j++) {
         para_Feature[i][j][0] = dephts[j];
       }
     }

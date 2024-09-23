@@ -20,7 +20,7 @@ Eigen::Vector3d InitialAlignment::SolveGyroscopeBias(
   //
   Eigen::Matrix3d A = Eigen::Matrix3d::Zero();
   Eigen::Vector3d b = Eigen::Vector3d::Zero();
-  for (int i = 1; i < all_image_frame.size(); i++) {
+  for (size_t i = 1; i < all_image_frame.size(); i++) {
     Eigen::Quaterniond q_ij(all_image_frame[i - 1].p.rotation().conjugate() *
                             all_image_frame[i].p.rotation());
     if(!all_image_frame[i].pre_integration)continue;
@@ -207,7 +207,7 @@ bool InitialAlignment::LinearAlignment(const std::vector<ImageFrame> &all_image_
   // if (s < 0.0)
   //   return false;
   // else
-  //   return true;
+    return true;
 }
 
 bool InitialAlignment::VisualIMUAlignment(

@@ -14,12 +14,11 @@ constexpr int KDataBaseLenth = 2;
 
 SteroImuInitialization::SteroImuInitialization(
     const SteroImuInitializationOption& option, DataBase* data_base)
-    : InitializationImu(data_base), options_(option) {
+    : InitializationImu(data_base), options_(option),init_bgs_(0,0,0) {
   //
-  init_bgs_.setZero();
-  CHECK_EQ(option.extric_camera_to_imu.size(), 2);
+  CHECK_EQ(option.extric_camera_to_imu.size(), size_t(2));
   //
-  for (int i = 0; i < options_.extric_camera_to_imu.size(); i++) {
+  for (size_t i = 0; i < options_.extric_camera_to_imu.size(); i++) {
     LOG(INFO) << "cam to imu " << options_.extric_camera_to_imu[i];
   }
   //
@@ -96,7 +95,7 @@ SteroImuInitialization::OptimizationResult() {
   //   LOG(INFO)<<para_depth[i];
   // }
   //
-  for (int i = 0; i < options_.extric_camera_to_imu.size(); i++) {
+  for (size_t i = 0; i < options_.extric_camera_to_imu.size(); i++) {
     para_ex_pose[i] = (PoseToAarr(options_.extric_camera_to_imu[i]));
     LOG(INFO) << para_ex_pose[i][0] << " " << para_ex_pose[i][1]
               << para_ex_pose[i][2];
@@ -119,7 +118,7 @@ SteroImuInitialization::OptimizationResult() {
     }
   }
   //
-  for (int i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
+  for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     ceres::LocalParameterization* local_parameterization =
         new PoseLocalParameterization();
 
@@ -248,7 +247,7 @@ SteroImuInitialization::OptimizationResult() {
         Eigen::Vector3d(para_speed[i][3], para_speed[i][4], para_speed[i][5]),
         Eigen::Vector3d(para_speed[i][6], para_speed[i][7], para_speed[i][8])});
   }
-  for (int i = 0; i < imu_state.size(); i++) {
+  for (size_t i = 0; i < imu_state.size(); i++) {
     info << "staste " << std::to_string(i) << imu_state[i] << "\n";
   }
   for (int i = 0; i < camera_num_; i++) {
@@ -344,7 +343,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
 
       if (bgs.norm() < options_.init_bg_th) {
         init_bgs_ += bgs;  ///??????
-        for (int i = 0; i < image_frames_.size(); i++) {
+        for (size_t i = 0; i < image_frames_.size(); i++) {
           if (image_frames_[i].pre_integration) {
             image_frames_[i].pre_integration->repropagate(
                 Eigen::Vector3d::Zero(), init_bgs_);
@@ -356,7 +355,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
         if (resut) {
           resut->time = track_frame.data->time;
           //
-          for (int i = 0; i < integration_bases_.size(); i++) {
+          for (size_t i = 0; i < integration_bases_.size(); i++) {
             if (integration_bases_[i]) {
               integration_bases_[i]->repropagate(resut->states.back().ba,
                                                  resut->states.back().bg);
@@ -364,7 +363,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
           }
           resut->integration_base = std::move(integration_bases_);
           LOG(INFO) << "optimization done.";
-          return std::move(resut);
+          return resut;
         }
       }
 

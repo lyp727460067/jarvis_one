@@ -21,7 +21,7 @@ struct ImageFrame {
 };
 struct InitialAlignmentOption {
   transform::Rigid3d cam_to_imu;
-  Eigen::Vector3d gravity;
+  Eigen::Vector3d gravity{0,0,9.8};
 };
 class InitialAlignment {
  public:

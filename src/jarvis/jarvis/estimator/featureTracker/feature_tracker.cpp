@@ -140,7 +140,7 @@ cv::Mat GenerateImageWithKeyPoint(
   cv::Mat gap_image(row+v_gap, gap, CV_8UC1, cv::Scalar(255, 255, 255));
   cv::Mat v_gap_image(v_gap,col, CV_8UC1, cv::Scalar(0,0,0));
   cv::vconcat(v_gap_image,l_img,l_img_tmp);
-  for(int i =0;i<l_key_points.size();i++){
+  for(size_t i =0;i<l_key_points.size();i++){
     l_key_points[i].y+=v_gap;
   }
   cv::vconcat(r_img,v_gap_image,r_img_tmp);
@@ -575,7 +575,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   //                    << " " << 1.0 * ransac_inli_cnt / size_a;
   //   return status;
   // }
-  // return {};
+  return {};
 }
 
 void FeatureTracker::readIntrinsicParameter(

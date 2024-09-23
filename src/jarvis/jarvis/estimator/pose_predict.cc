@@ -108,7 +108,7 @@ ImuState PosePredit::PreditDataBase(const ImuState& imu_stat,
   }
   IntegratorImpl imu_integer(imu_data.begin()->time);
   imu_integer.AddLastImuObservation(*imu_data.begin());
-  for (int i = 1; i < imu_data.size(); i++) {
+  for (size_t i = 1; i < imu_data.size(); i++) {
     imu_integer.AddImuObservation(imu_data[i]);
     imu_integer.Advance(&state, imu_data[i].time);
   }
@@ -155,7 +155,7 @@ ImuState PosePredit::Predit(const common::Time& time) {
   //   ++it;
   // }
 
-  // return imu_intergral_->State();
+  return  ImuState{};
 }
 //
 void PosePredit::AddOdomData(const sensor::OdometryData& odom) {

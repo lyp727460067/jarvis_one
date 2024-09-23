@@ -182,7 +182,7 @@ void FeatureManager::SetDepth(const std::vector<double> &x) {
       it_per_id.solve_flag = 1;
   }
   // LOG(INFO)<<info.str();
-  CHECK_EQ(feature_index,x.size()-1);
+  CHECK_EQ(feature_index,int(x.size()-1));
 }
 //
 //
@@ -359,7 +359,7 @@ void FeatureManager::CreateFactor(
 
     // CHECK_EQ(poses.size(), 2) << "Function Just adoptor 2 size pose";
     // Eigen::MatrixXd H;
-    for (int i = 0; i < poses.size(); i++) {
+    for (size_t i = 0; i < poses.size(); i++) {
       Eigen::Matrix<double, 3, 4> pose_matrix;
       pose_matrix.block<3, 3>(0, 0) = poses[i].rotation().toRotationMatrix();
       pose_matrix.block<3, 1>(0, 3) = poses[i].translation();
@@ -464,7 +464,7 @@ void FeatureManager::CreateFactor(
                                              .normal_points;
           //
 
-          CHECK_LE(it_per_id.start_frame, sw_pose.size() - 1);
+          CHECK_LE(it_per_id.start_frame, int(sw_pose.size() - 1));
           Eigen::Vector3d ptsInWorld = sw_pose[it_per_id.start_frame] *
                                        ex_came_to_imu[0] *
                                        (point * it_per_id.estimated_depth);
@@ -537,7 +537,7 @@ void FeatureManager::CreateFactor(
 
     LOG(INFO) << point0.transpose() << point1.transpose();
     int imu_i = features_id.start_frame;
-    CHECK_LE(imu_i, sw_pose.size() - 1);
+    CHECK_LE(imu_i, int(sw_pose.size() - 1));
     const transform::Rigid3d &frame_left_pose =
         sw_pose[imu_i] * ex_came_to_imu[0];
 
@@ -567,13 +567,13 @@ void FeatureManager::CreateFactor(
     auto &feature = features_[it_per_id];
     //
     int imu_i = feature.start_frame;
-    CHECK_LE(imu_i, sw_pose.size() - 1);
+    CHECK_LE(imu_i, int(sw_pose.size() - 1));
     const transform::Rigid3d &frame_left_pose =
         sw_pose[imu_i] * ex_came_to_imu[0];
     const int next_imu_i = imu_i + 1;
 
     // LOG(INFO) << imu_i << " " << next_imu_i;
-    CHECK_LE(next_imu_i, sw_pose.size() - 1);
+    CHECK_LE(next_imu_i, int(sw_pose.size() - 1));
     const transform::Rigid3d &frame_right_pose =
         sw_pose[next_imu_i] * ex_came_to_imu[0];
 
@@ -637,7 +637,7 @@ void FeatureManager::CreateFactor(
       int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
       Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
       //
-      CHECK_LE(imu_i, sw_pose.size() - 1);
+      CHECK_LE(imu_i, int(sw_pose.size() - 1));
       //
       const transform::Rigid3d &frame_pose0 =
           sw_pose[imu_i] * ex_came_to_imu[0];
@@ -849,7 +849,7 @@ void FeatureManager::CreateFactor(
     std::map<CameraId, std::set<TrackFeatureId>> result;
     for (auto &f_m : feature_managers_) {
       std::vector<transform::Rigid3d> ex_came_to_imu_tmp;
-      for (int i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
+      for (size_t i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
         ex_came_to_imu_tmp.push_back(ex[ParaExPoseIndex[f_m.first][i]]);
       }
       result[f_m.first] =
@@ -868,7 +868,7 @@ void FeatureManager::CreateFactor(
 
     for (auto &f_m : feature_managers_) {
        std::vector<transform::Rigid3d> ex_came_to_imu_tmp;
-      for (int i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
+      for (size_t i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
         ex_came_to_imu_tmp.push_back(
             ex_came_to_imu[ParaExPoseIndex[f_m.first][i]]);
       }
