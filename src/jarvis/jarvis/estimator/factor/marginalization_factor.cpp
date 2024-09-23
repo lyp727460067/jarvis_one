@@ -121,6 +121,8 @@ void MarginalizationInfo::addResidualBlockInfo(
   for (int i = 0; i < static_cast<int>(residual_block_info->drop_set.size());
        i++) {
     double *addr = parameter_blocks[residual_block_info->drop_set[i]];
+
+        LOG(INFO)<<addr;
     parameter_block_idx[reinterpret_cast<long>(addr)] = 0;
   }
 }

@@ -38,9 +38,9 @@ using TrackFeatureId =  uint64_t;
 struct FeatureData {
   TrackFeatureId id;
   struct CameraFeature {
-    Eigen::Vector3d normal_points;
-    Eigen::Vector2d uv;
-    Eigen::Vector2d uv_velocity;
+    Eigen::Vector3d normal_points{0,0,0};
+    Eigen::Vector2d uv{0,0};
+    Eigen::Vector2d uv_velocity{0,0};
   };
   std::vector<CameraFeature> camera_features;  // 只在双目当中
 };
@@ -99,7 +99,7 @@ class FeatureTracker {
                  std::map<int, cv::Point2f> &prevLeftPtsMap);
   void setPrediction(std::map<int, Eigen::Vector3d> &predictPts);
   double distance(cv::Point2f &pt1, cv::Point2f &pt2);
-  void removeOutliers(std::set<int> &removePtsIds);
+  void removeOutliers(std::set<uint64_t> &removePtsIds);
   cv::Mat getTrackImage();
   bool inBorder(const cv::Point2f &pt);
   const FeatureTrackerOption options_; 

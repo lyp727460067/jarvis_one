@@ -35,7 +35,7 @@ struct FeaturePerFrame {
 struct FeaturePerId {
   int start_frame;
   std::vector<FeaturePerFrame> feature_per_frame;
-  double estimated_depth = -1;
+  double estimated_depth = -1.;
   int solve_flag = 0;  // 0 haven't solve yet; 1 solve succ; 2 solve fail;
   int UsedNum() const { return feature_per_frame.size(); }
   int EndFrame() { return start_frame + feature_per_frame.size() - 1; }
@@ -50,10 +50,13 @@ struct FeatureManagerOption {
   int init_pnp_inlier_num = 15;
   int convin_used_num = 4;
   int keyframe_parallax=1;
+
+  double optimazation_outliers_rejection_th = 5.0 / 377;
+  double rejection_points_depth_max_th =30;
   struct ParallaxOption {
     int start_frame = 2;
-    int last_track_num = 30;
-    int long_track_num = 20;
+    int last_track_num = 20;
+    int long_track_num = 10;
     double new_feature_ration = 0.5;
   } parallax_option;
 };
@@ -97,10 +100,23 @@ class FeatureManager {
 
   //
   void CreateFactor(
-      const std::function<void(
-          const Eigen::Vector3d &, const Eigen::Vector3d &,
-          const Eigen::Vector2d &, const Eigen::Vector2d &, double, double,
-          const std::tuple<int, int, int>  &index)> &projection_two_frame_one_cam);
+      const std::function<void(const Eigen::Vector3d &, const Eigen::Vector3d &,
+                               const Eigen::Vector2d &, const Eigen::Vector2d &,
+                               double, double,
+                               const std::tuple<int, int, int> &index)>
+          &projection_two_frame_one_cam,
+      const std::function<
+          void(const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
+               const Eigen::Vector2d &_velocity_i,
+               const Eigen::Vector2d &_velocity_j, const double _td_i,
+               const double _td_j, const std::tuple<int, int, int> &index)>
+          &projection_two_frametwocam = nullptr,
+      const std::function<
+          void(const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
+               const Eigen::Vector2d &_velocity_i,
+               const Eigen::Vector2d &_velocity_j, const double _td_i,
+               const double _td_j, const std::tuple<int, int, int> &index)>
+          &projection_one_frame_twocam = nullptr);
 
   void RemoveBackShiftDepth(const transform::Rigid3d &marg_p,
                             const transform::Rigid3d &new_p);
@@ -108,6 +124,8 @@ class FeatureManager {
   void RemoveBack();
   void RemoveFront(int frame_count);
   void RemoveOutlier(const std::set<TrackFeatureId> &outlierIndex);
+  std::set<TrackFeatureId> OutliersRejection(const std::vector<ImuState> &pose,
+                                  const std::vector<transform::Rigid3d> &ex);
   //
   //
   const std::map<TrackFeatureId, FeaturePerId> &Features() const {
@@ -174,6 +192,9 @@ class FeatureManagers {
     // //
   }
   //
+  std::map<CameraId, std::set<TrackFeatureId>> RemoveOutliersRejection(
+      const std::vector<ImuState> &pose,
+      const std::vector<transform::Rigid3d> &ex);
   //
   bool Exist(CameraId id) { return feature_managers_.count(id) != 0; }
   void Triangulate(int fram_cout,

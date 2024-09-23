@@ -1,19 +1,28 @@
-#include "jarvis/estimator/initial/initialization_stero_imu.h" 
-#include "jarvis/estimator/factor/pose_local_parameterization.h"
-#include "key_frame_data.h"
-#include "jarvis/estimator/factor/imu_factor.h"
+#include "jarvis/estimator/initial/initialization_stero_imu.h"
+#include "jarvis/estimator/factor/projectionOneFrameTwoCamFactor.h"
 #include "jarvis/estimator/factor/projectionTwoFrameOneCamFactor.h"
+#include "jarvis/estimator/factor/projectionTwoFrameTwoCamFactor.h"
 #include "ceres/problem.h"
+#include "jarvis/estimator/factor/imu_factor.h"
+#include "jarvis/estimator/factor/pose_local_parameterization.h"
+#include "jarvis/estimator/factor/projectionTwoFrameOneCamFactor.h"
+#include "key_frame_data.h"
 namespace jarvis {
 namespace estimator {
-constexpr int KDataBaseLenth =2;
+constexpr int KDataBaseLenth = 2;
 //
+
 SteroImuInitialization::SteroImuInitialization(
     const SteroImuInitializationOption& option, DataBase* data_base)
     : InitializationImu(data_base), options_(option) {
   //
   init_bgs_.setZero();
-  CHECK_EQ(option.extric_camera_to_imu.size(),2);
+  CHECK_EQ(option.extric_camera_to_imu.size(), 2);
+  //
+  for (int i = 0; i < options_.extric_camera_to_imu.size(); i++) {
+    LOG(INFO) << "cam to imu " << options_.extric_camera_to_imu[i];
+  }
+  //
   feature_manager_ =
       std::make_shared<FeatureManager>(options_.feature_manager_option);
   // /
@@ -21,17 +30,33 @@ SteroImuInitialization::SteroImuInitialization(
       std::make_unique<InitialAlignment>(InitialAlignmentOption{});
   // OptimizationOption opti_optio = options_.opti_option;
   // opti_optio.camera_num = 2;
-  // opti_optio.convin_used_num = options_.feature_manager_option.convin_used_num;
+  // opti_optio.convin_used_num =
+  // options_.feature_manager_option.convin_used_num;
   // ///
-  // optimization_ = std::make_unique<Optimization>(options_.sw_size, opti_optio);
+  // optimization_ = std::make_unique<Optimization>(options_.sw_size,
+  // opti_optio);
   LOG(INFO) << "Init with Stero";
 }
 //
+
+void SteroImuInitialization::Reset() {
+  feature_manager_ =
+      std::make_shared<FeatureManager>(options_.feature_manager_option);
+  init_pnp_states_.clear();
+  sw_pose_.clear();
+  image_frames_.clear();
+  integration_bases_.clear();
+  frames_continuously_track_num.clear();
+  init_bgs_.setZero();
+  init_imu_rotation_.reset();
+}
+
 //
 void SteroImuInitialization::RemoveBack() {
+  if (image_frames_.empty()) return;
   image_frames_.erase(image_frames_.begin());
   //
-  
+
   transform::Rigid3d marg_pose = sw_pose_[0] * options_.extric_camera_to_imu[0];
   sw_pose_.erase(sw_pose_.begin());
   init_pnp_states_.erase(init_pnp_states_.begin());
@@ -39,7 +64,7 @@ void SteroImuInitialization::RemoveBack() {
   transform::Rigid3d new_pose = sw_pose_[0] * options_.extric_camera_to_imu[0];
   feature_manager_->RemoveBackShiftDepth(marg_pose, new_pose);
   integration_bases_.erase(integration_bases_.begin());
-   
+
   // feature_manager_->RemoveBack();
 }
 //
@@ -55,11 +80,10 @@ SteroImuInitialization::OptimizationResult() {
   //
   std::array<double, 7> para_pose[options_.sw_size + 1];
   std::array<double, 9> para_speed[options_.sw_size + 1];
-  std::array<double, 7> para_ex_pose[
-      options_.extric_camera_to_imu.size()];
+  std::array<double, 7> para_ex_pose[options_.extric_camera_to_imu.size()];
   //
   //
-  LOG(INFO)<< init_bgs_.transpose();
+  LOG(INFO) << init_bgs_.transpose();
   for (int i = 0; i <= options_.sw_size; i++) {
     para_pose[i] = (std::array<double, 7>{PoseToAarr(sw_pose_[i])});
     para_speed[i] = std::array<double, 9>(
@@ -77,7 +101,7 @@ SteroImuInitialization::OptimizationResult() {
     LOG(INFO) << para_ex_pose[i][0] << " " << para_ex_pose[i][1]
               << para_ex_pose[i][2];
   }
-  double para_dt  =0;
+  double para_dt = 0;
   ceres::Problem problem;
   ceres::LossFunction* loss_function;
   // loss_function = NULL;
@@ -95,7 +119,7 @@ SteroImuInitialization::OptimizationResult() {
     }
   }
   //
-  for (int i = 0; i < options_.opti_option.camera_num; i++) {
+  for (int i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     ceres::LocalParameterization* local_parameterization =
         new PoseLocalParameterization();
 
@@ -116,40 +140,67 @@ SteroImuInitialization::OptimizationResult() {
     }
     IMUFactor* imu_factor = new IMUFactor(integration_bases_[j].get());
     //
-    problem.AddResidualBlock(
-        imu_factor, NULL, para_pose[i].data(), para_speed[i].data(),
-        para_pose[j].data(), para_speed[j].data());
+    problem.AddResidualBlock(imu_factor, NULL, para_pose[i].data(),
+                             para_speed[i].data(), para_pose[j].data(),
+                             para_speed[j].data());
   }
   //
   std::stringstream info1;
   const double cam_weight = 200;
-  feature_manager_->CreateFactor([&](const Eigen::Vector3d& pts_i,
-                                     const Eigen::Vector3d& pts_j,
-                                     const Eigen::Vector2d& imu_i_velocity,
-                                     const Eigen::Vector2d& imu_j_velocity,
-                                     const double td_i, const double td_j,
-                                     const std::tuple<int, int, int>& index) {
-    //
-    ProjectionTwoFrameOneCamFactor* f_td = new ProjectionTwoFrameOneCamFactor(
-        pts_i, pts_j, imu_i_velocity, imu_j_velocity, td_i, td_j, cam_weight);
-    //
-    info1 <<"["<<std::get<0>(index)<<  std::get<1>(index) <<std::get<2>(index)<< "]"<< pts_i.transpose() << " " << pts_j.transpose()
-         << imu_i_velocity.transpose() << imu_j_velocity.transpose() << td_i
-         << td_j << cam_weight << "\n";
-    ///
-    for (int i = 0; i < 7; i++) {
-      info1 << para_pose[std::get<0>(index)][i] << " ";
-      info1 << para_pose[std::get<1>(index)][i] << " ";
-      info1 << para_ex_pose[0][i] << "\n";
-    }
-    info1 << para_depth[std::get<2>(index)] << "\n";
+  feature_manager_->CreateFactor(
+      [&](const Eigen::Vector3d& pts_i, const Eigen::Vector3d& pts_j,
+          const Eigen::Vector2d& imu_i_velocity,
+          const Eigen::Vector2d& imu_j_velocity, const double td_i,
+          const double td_j, const std::tuple<int, int, int>& index) {
+        //
+        ProjectionTwoFrameOneCamFactor* f_td =
+            new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, imu_i_velocity,
+                                               imu_j_velocity, td_i, td_j,
+                                               cam_weight);
+        //
+        info1 << "[" << std::get<0>(index) << std::get<1>(index)
+              << std::get<2>(index) << "]" << pts_i.transpose() << " "
+              << pts_j.transpose() << imu_i_velocity.transpose()
+              << imu_j_velocity.transpose() << td_i << td_j << cam_weight
+              << "\n";
+        ///
+        for (int i = 0; i < 7; i++) {
+          info1 << para_pose[std::get<0>(index)][i] << " ";
+          info1 << para_pose[std::get<1>(index)][i] << " ";
+          info1 << para_ex_pose[0][i] << "\n";
+        }
+        info1 << para_depth[std::get<2>(index)] << "\n";
 
-    //
-    problem.AddResidualBlock(
-        f_td, loss_function, para_pose[std::get<0>(index)].data(),
-        para_pose[std::get<1>(index)].data(), para_ex_pose[0].data(),
-        &para_depth[std::get<2>(index)], &para_dt);
-  });
+        //
+        problem.AddResidualBlock(
+            f_td, loss_function, para_pose[std::get<0>(index)].data(),
+            para_pose[std::get<1>(index)].data(), para_ex_pose[0].data(),
+            &para_depth[std::get<2>(index)], &para_dt);
+      },
+      [&](const Eigen::Vector3d& pts_i, const Eigen::Vector3d& pts_j,
+          const Eigen::Vector2d& velocity_i, const Eigen::Vector2d& velocity_j,
+          const double td_i, const double td_j,
+          const std::tuple<int, int, int>& index) {
+        //
+        ProjectionTwoFrameTwoCamFactor* f = new ProjectionTwoFrameTwoCamFactor(
+            pts_i, pts_j, velocity_i, velocity_j, td_i, td_j, cam_weight);
+        problem.AddResidualBlock(
+            f, loss_function, para_pose[std::get<0>(index)].data(),
+            para_pose[std::get<1>(index)].data(), para_ex_pose[0].data(),
+            para_ex_pose[1].data(), &para_depth[std::get<2>(index)], &para_dt);
+      },
+      [&](const Eigen::Vector3d& pts_i, const Eigen::Vector3d& pts_j,
+          const Eigen::Vector2d& velocity_i, const Eigen::Vector2d& velocity_j,
+          const double td_i, const double td_j,
+          const std::tuple<int, int, int>& index) {
+        //
+        ProjectionOneFrameTwoCamFactor* f = new ProjectionOneFrameTwoCamFactor(
+            pts_i, pts_j, velocity_i, velocity_j, td_i, td_j, cam_weight);
+
+        problem.AddResidualBlock(f, loss_function, para_ex_pose[0].data(),
+                                 para_ex_pose[1].data(),
+                                 &para_depth[std::get<2>(index)], &para_dt);
+      });
   //
   // std::cout<<info1.str()<<std::endl;
   Eigen::Vector3d bas =
@@ -173,18 +224,18 @@ SteroImuInitialization::OptimizationResult() {
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
 
-
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   //
-  for (int i = 0; i < options_.opti_option.camera_num; i++) {
-    LOG(INFO)<<para_ex_pose[i][0]<<" "<<para_ex_pose[i][1]<<" "<<para_ex_pose[i][2];
+  for (int i = 0; i < camera_num_; i++) {
+    LOG(INFO) << para_ex_pose[i][0] << " " << para_ex_pose[i][1] << " "
+              << para_ex_pose[i][2];
     extric_camera_to_imu.push_back(transform::Rigid3d(
         Eigen::Vector3d(para_ex_pose[i][0], para_ex_pose[i][1],
                         para_ex_pose[i][2]),
         Eigen::Quaterniond(para_ex_pose[i][6], para_ex_pose[i][3],
                            para_ex_pose[i][4], para_ex_pose[i][5])));
   }
-  
+
   std::stringstream info;
   info << "Init optimization info:\n";
   std::vector<ImuState> imu_state;
@@ -198,9 +249,9 @@ SteroImuInitialization::OptimizationResult() {
         Eigen::Vector3d(para_speed[i][6], para_speed[i][7], para_speed[i][8])});
   }
   for (int i = 0; i < imu_state.size(); i++) {
-    info << "staste " << std::to_string(i) << imu_state[i]<<"\n";
+    info << "staste " << std::to_string(i) << imu_state[i] << "\n";
   }
-  for (int i = 0; i < options_.opti_option.camera_num; i++) {
+  for (int i = 0; i < camera_num_; i++) {
     info << "cam" << std::to_string(i) << extric_camera_to_imu[i] << "\n";
   }
   if (bgs.norm() > options_.init_bg_th || bas.norm() > options_.init_ba_th) {
@@ -210,14 +261,14 @@ SteroImuInitialization::OptimizationResult() {
   }
   feature_manager_->SetDepth(para_depth);
   info << "---------opitimization bias ok--------------";
-  LOG(INFO) << info.str(); 
-   LOG_EVERY_N(INFO, 1) << "\n" << summary.FullReport();
+  LOG(INFO) << info.str();
+  LOG_EVERY_N(INFO, 1) << "\n" << summary.FullReport();
   // feature_manager_->RemoveFailures();
   //
   // RemoveBack();
   // imu_state.erase(imu_state.begin());
-   return std::make_unique<InitializationResult>(InitializationResult{
-       0, std::move(imu_state), feature_manager_, extric_camera_to_imu});
+  return std::make_unique<InitializationResult>(InitializationResult{
+      0, std::move(imu_state), feature_manager_, extric_camera_to_imu});
 };
 
 std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
@@ -225,10 +276,10 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   //
   const common::Time& cur_time = track_frame.data->time;
   if (!init_imu_rotation_.has_value()) {
-    auto init_rotation = InitImuRotaion(last_time,cur_time);
+    auto init_rotation = InitImuRotaion(last_time, cur_time);
     if (init_rotation) {
       init_imu_rotation_ = *init_rotation;
-      LOG(INFO)<<"Init roation imu:"<<*init_imu_rotation_ ;
+      LOG(INFO) << "Init roation imu:" << *init_imu_rotation_;
     } else {
       last_time = cur_time;
       return nullptr;
@@ -257,7 +308,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   }
   //
   bool pnp_state = feature_manager_->InitFramePoseByPnP(
-                       frame_count, options_.extric_camera_to_imu, sw_pose_)&
+                       frame_count, options_.extric_camera_to_imu, sw_pose_) &
                    (feature_manager_->GetFeatureCount() > 10);
   //
   init_pnp_states_.push_back(pnp_state);
@@ -285,14 +336,14 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   //
   //
   if (frame_count == options_.sw_size) {
-
     if ((std::count(init_pnp_states_.begin(), init_pnp_states_.end(), true) ==
          options_.sw_size + 1)) {
       const Eigen::Vector3d bgs =
           initial_alignment_->SolveGyroscopeBias(image_frames_);
       //
-      init_bgs_ += bgs;  ///??????
+
       if (bgs.norm() < options_.init_bg_th) {
+        init_bgs_ += bgs;  ///??????
         for (int i = 0; i < image_frames_.size(); i++) {
           if (image_frames_[i].pre_integration) {
             image_frames_[i].pre_integration->repropagate(
@@ -312,10 +363,12 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
             }
           }
           resut->integration_base = std::move(integration_bases_);
-          LOG(INFO)<<"optimization done.";
+          LOG(INFO) << "optimization done.";
           return std::move(resut);
         }
       }
+
+      Reset();
     }
     RemoveBack();
   }

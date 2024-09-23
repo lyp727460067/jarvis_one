@@ -12,9 +12,10 @@ namespace estimator {
 //
 struct MarginalizationOption {
   int win_size = 6;
-  int camera_num = 2;
-  int track_cam_num=1;
+  std::vector<std::vector<int>> trace_sequence;
   double camera_weight = 200;
+  int camera_num=0; 
+  int use_odom=0;
 };
 
 //

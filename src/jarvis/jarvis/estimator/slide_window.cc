@@ -11,7 +11,7 @@ namespace estimator {
 #define para_Ex_Pose_Odom (opt_data_->ex_pose_odom)
 #define para_Td (opt_data_->td)
 #define para_Feature (opt_data_->feature)
-std::array<int,3> ParaExPoseIndex { 0, 2, 3 };
+// std::array<int,3> ParaExPoseIndex { 0, 2, 3 };
 //
 SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
                          const std::unique_ptr<InitializationResult>& init_data)
@@ -38,24 +38,21 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   }
   //
   //
+  odo_to_imu_extric_ = transform::Rigid3d::Identity();
   //
-  int camera_num = options_.use_stereo ? 1 : 0;
-  camera_num += options_.track_cam_num;
   //
- 
+
   //
-  //for init...
-  for (int i = 0; i < options_.track_cam_num; i++) {
+  // for init...
+  for (int i = 0; i < options_.track_sequence.size(); i++) {
     init_feature_managers_.emplace(
         i, std::make_shared<FeatureManager>(options_.feature_manager_option));
   }
 
   //
   OptimizationOption opti_option = option.opti_option;
-  opti_option.camera_num = camera_num;
-  opti_option.track_cam_num = options_.track_cam_num;
-  //
-  //
+  opti_option.trace_sequence = options_.track_sequence;
+  // opti_option.track_cam_num = options_.track_cam_num;
   optimization_ =
       std::make_unique<Optimization>(options_.win_size, opti_option);
   options_.opti_option = opti_option;
@@ -63,11 +60,12 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   opt_data_ = optimization_->MutableData();
 
   marginalizer_ = std::make_unique<Marginalization>(MarginalizationOption{
-      options_.win_size,     camera_num, options_.track_cam_num, 
-      options_.opti_option.camera_weight});
+      options_.win_size, options_.track_sequence,
+      options_.opti_option.camera_weight, options_.opti_option.CamNum(),
+      options_.opti_option.use_odom});
   // /
   last_feature_time_ = init_data->time;
-  CHECK_EQ(imu_states_.size(),options_.win_size+1);
+  CHECK_EQ(imu_states_.size(), options_.win_size + 1);
   SlideData(true);
 }
 
@@ -83,7 +81,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
   //
   for (auto& f : frame.data->features_datas) {
     if (feature_managers_->Exist(f.first)) {
-      LOG(INFO)<<"feature id: "<<f.first;
+      LOG(INFO) << "feature id: " << f.first;
       feature_managers_->MutableFeatureManager(f.first)
           ->AddFeatureCheckParallax(
               frame_count, frame.data->features_datas[f.first].features, dt);
@@ -105,7 +103,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
             triang_pose.push_back(imu_states_[i].Pose());
           }
           //
-          
+
           // init_feature_managers_[f.first]->Triangulate(
           //     options_.win_size, triang_pose,
           //     {extric_camera_to_imu_[ParaExPoseIndex[f.first]]});
@@ -153,7 +151,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
     triang_pose.push_back(imu_states_[i].Pose());
   }
   //
-  feature_managers_->Triangulate(frame_count,triang_pose,
+  feature_managers_->Triangulate(frame_count, triang_pose,
                                  extric_camera_to_imu_);
   //
   OptimizationData opt_data;
@@ -180,26 +178,42 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
 
   //
   for (int i = 0; i < extric_camera_to_imu_.size(); i++) {
-    LOG(INFO) << "extric_camera_to_imu_ " << i << " " <<
-        extric_camera_to_imu_[i];
+    LOG(INFO) << "extric_camera_to_imu_ " << i << " "
+              << extric_camera_to_imu_[i];
   }
   //
+
+  rejection_outliers_ = feature_managers_->RemoveOutliersRejection(
+      imu_states_, extric_camera_to_imu_);
+  
+  
   SlideData(is_keyframe);
 
   feature_managers_->RemoveFailures();
   //
+  FrameData fram_result = frame;
+
   //
-  for (auto& cam_feature_data : frame.data->features_datas) {
+  for (auto& cam_feature_data : fram_result.data->features_datas) {
     const CameraId cam_id = cam_feature_data.first;
-    FrameData::FeatureData cam_features_data = cam_feature_data.second;
-    if(!feature_managers_->Exist(cam_id))continue;
+    FrameData::FeatureData& cam_features_data = cam_feature_data.second;
+    if (!feature_managers_->Exist(cam_id)) continue;
     auto feat_manager = feature_managers_->MutableFeatureManager(cam_id);
     std::set<TrackingId> remove_id;
     for (auto& features : cam_features_data.features.data->features) {
       TrackingId track_id = features.first;
       const double depth = feat_manager->GetDepth(track_id);
       if (depth > 0) {
-        cam_features_data.depths[track_id] = depth;
+        int start_frame = feat_manager->Features().at(track_id).start_frame;
+        const Eigen::Vector3d cam_map_point =
+            features.second.camera_features[0].normal_points / depth;
+        
+        //
+        cam_features_data.map_points[track_id] =
+            imu_states_[start_frame].Pose() *
+            extric_camera_to_imu_[options_.opti_option
+                                      .trace_sequence[cam_id][0]] *
+            cam_map_point;
         cam_features_data.key_points[track_id] =
             cv::KeyPoint(features.second.camera_features[0].uv.x(),
                          features.second.camera_features[0].uv.y(), 2);
@@ -207,12 +221,12 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
         remove_id.insert(track_id);
       }
     }
+    
   }
   //
   last_feature_time_ = frame.data->time;
-  FrameData fram_result = frame;
+  fram_result.data->extric_camera_to_imu = extric_camera_to_imu_;
   //
-
   fram_result.data->imu_state = imu_states_.back();
   return fram_result;
 }
@@ -242,13 +256,12 @@ void SlideWindow::SlideData(bool is_keyframe) {
     transform::Rigid3d new_pose = imu_states_[0].Pose();
     //
 
-
-    for (size_t i = 0; i < options_.opti_option.track_cam_num; i++) {
+    for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       //
       if (feature_managers_->Exist(i)) {
         feature_managers_->MutableFeatureManager(i)->RemoveBackShiftDepth(
-            marg_pose * extric_camera_to_imu_[ParaExPoseIndex[i]],
-            new_pose * extric_camera_to_imu_[ParaExPoseIndex[i]]);
+            marg_pose * extric_camera_to_imu_[options_.track_sequence[i][0]],
+            new_pose * extric_camera_to_imu_[options_.track_sequence[i][0]]);
       }
     }
 
@@ -256,81 +269,13 @@ void SlideWindow::SlideData(bool is_keyframe) {
     integration_base_.erase(integration_base_.begin());
     // feature_managers_->RemoveBack();
   } else {
-    CHECK(false);
+    // CHECK(false);
     //
     SlideNew();
     feature_managers_->RemoveFront(options_.win_size);
   }
 }
 
-// double Estimator::reprojectionError(Eigen::Matrix3d &Ri, Eigen::Vector3d &Pi,
-//                                     Eigen::Matrix3d &rici,
-//                                     Eigen::Vector3d &tici, Eigen::Matrix3d &Rj,
-//                                     Eigen::Vector3d &Pj, Eigen::Matrix3d &ricj,
-//                                     Eigen::Vector3d &ticj, double depth,
-//                                     Eigen::Vector3d &uvi,
-//                                     Eigen::Vector3d &uvj) {
-//   Eigen::Vector3d pts_w = Ri * (rici * (depth * uvi) + tici) + Pi;
-//   Eigen::Vector3d pts_cj =
-//       ricj.transpose() * (Rj.transpose() * (pts_w - Pj) - ticj);
-//   Eigen::Vector2d residual = (pts_cj / pts_cj.z()).head<2>() - uvj.head<2>();
-//   double rx = residual.x();
-//   double ry = residual.y();
-//   return sqrt(rx * rx + ry * ry);
-// }
-
-// void Estimator::outliersRejection(std::set<int> &removeIndex,const int convin_used_num) {
-//   // return;
-//   int feature_index = -1;
-//   for (auto &it_per_id : f_manager->feature) {
-//     double err = 0;
-//     int errCnt = 0;
-//     it_per_id.used_num = it_per_id.feature_per_frame.size();
-//     if (it_per_id.used_num < convin_used_num) continue;
-//     feature_index++;
-//     int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
-//     Eigen::Vector3d pts_i = it_per_id.feature_per_frame[0].point;
-//     double depth = it_per_id.estimated_depth;
-//     for (auto &it_per_frame : it_per_id.feature_per_frame) {
-//       imu_j++;
-//       if (imu_i != imu_j) {
-//         Eigen::Vector3d pts_j = it_per_frame.point;
-//         double tmp_error =
-//             reprojectionError(Rs[imu_i], Ps[imu_i], ric[0], tic[0], Rs[imu_j],
-//                               Ps[imu_j], ric[0], tic[0], depth, pts_i, pts_j);
-//         err += tmp_error;
-//         errCnt++;
-//         // printf("tmp_error %f\n", FOCAL_LENGTH / 1.5 * tmp_error);
-//       }
-//         // need to rewrite projecton factor.........
-//         if (it_per_frame.is_stereo) {
-//           Eigen::Vector3d pts_j_right = it_per_frame.pointRight;
-//           if (imu_i != imu_j) {
-//             double tmp_error = reprojectionError(
-//                 Rs[imu_i], Ps[imu_i], ric[0], tic[0], Rs[imu_j], Ps[imu_j],
-//                 ric[1], tic[1], depth, pts_i, pts_j_right);
-//             err += tmp_error;
-//             errCnt++;
-//             // LOG(INFO)<<"tmp_error "<< FOCAL_LENGTH / 1.5 * tmp_error;
-//           } else {
-//             double tmp_error = reprojectionError(
-//                 Rs[imu_i], Ps[imu_i], ric[0], tic[0], Rs[imu_j], Ps[imu_j],
-//                 ric[1], tic[1], depth, pts_i, pts_j_right);
-//             err += tmp_error;
-//             errCnt++;
-//             // LOG(INFO)<<"tmp_error "<< FOCAL_LENGTH / 1.5 * tmp_error;
-//           }
-//         }
-//     }
-//     double ave_err = err / errCnt;
-//     if (ave_err * FOCAL_LENGTH > options_.optimazation_outliers_rejection_th ||
-//         depth < 0 ||
-//         depth > options_.rejection_points_depth_max_th) {
-//       removeIndex.insert(it_per_id.feature_id);
-//     }
-//   }
-//   LOG(INFO)<<removeIndex.size();
-// }
 
 
 void SlideWindow::StateToFrameData() {
@@ -394,7 +339,7 @@ void SlideWindow::StateToFrameData() {
   }
   //
 
-  for (int i = 0; i < options_.opti_option.camera_num; i++) {
+  for (int i = 0; i < options_.opti_option.CamNum(); i++) {
     const Eigen::Vector3d t = Eigen::Vector3d(
         para_Ex_Pose[i][0], para_Ex_Pose[i][1], para_Ex_Pose[i][2]);
     const Eigen::Quaterniond q =
@@ -414,7 +359,7 @@ void SlideWindow::StateToFrameData() {
   }
   //
   //
-  for (size_t i = 0; i < options_.opti_option.track_cam_num; i++) {
+  for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     //
     if (feature_managers_->Exist(i)) {
       int feat_manger_depth_lenth =
@@ -451,19 +396,18 @@ void SlideWindow::FrameDataToState() {
   }
   if (options_.opti_option.use_odom) {
     for (int j = 0; j < 3; j++) {
-      para_Ex_Pose_Odom[0][j] = odo_to_imu_extric_.translation()[j];
-      LOG(INFO) << para_Ex_Pose_Odom[0][j];
+      para_Ex_Pose_Odom[0][j] = 0;//odo_to_imu_extric_.translation()[j];
     }
     para_Ex_Pose_Odom[0][3] = odo_to_imu_extric_.rotation().x();
     para_Ex_Pose_Odom[0][4] = odo_to_imu_extric_.rotation().y();
     para_Ex_Pose_Odom[0][5] = odo_to_imu_extric_.rotation().z();
     para_Ex_Pose_Odom[0][6] = odo_to_imu_extric_.rotation().w();
+    LOG(INFO)<< odo_to_imu_extric_;
   }
   //
   //
   // CHECK_EQ(extric_camera_to_imu_.size(), options_.opti_option.camera_num);
-  LOG(INFO)<<options_.opti_option.camera_num;
-  for (int i = 0; i < options_.opti_option.camera_num; i++) {
+  for (int i = 0; i < options_.opti_option.CamNum(); i++) {
     for (int j = 0; j < 3; j++) {
       para_Ex_Pose[i][j] = extric_camera_to_imu_[i].translation()[j];
     }
@@ -474,10 +418,10 @@ void SlideWindow::FrameDataToState() {
     para_Ex_Pose[i][5] = q.z();
     para_Ex_Pose[i][6] = q.w();
     // if (IsStereo()) break;
-    LOG(INFO)<<extric_camera_to_imu_[i];
+    LOG(INFO) << extric_camera_to_imu_[i];
   }
-  
-  for (size_t i = 0; i < options_.opti_option.track_cam_num; i++) {
+
+  for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     //
     if (feature_managers_->Exist(i)) {
       std::vector<double> dephts =

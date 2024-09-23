@@ -2,17 +2,15 @@
 
 #common parameters
 #support: 1 imu 1 cam; 1 imu 2 cam: 2 cam; 
-
 use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
-track_cam_num  : 3
 win_size : 6
 data_base_lenth : 1
 
-
+track_sequence: "{0,1},{2}"
 #feature traker paprameters
 
 feattrack0:
-  max_cnt: 60          # max feature number in feature tracking
+  max_cnt: 30          # max feature number in feature tracking
   min_dist:  45           # min distance between two features 
   mask_min_dist:  30  
   F_threshold: 1.0        # ransac threshold (pixel)
@@ -57,7 +55,7 @@ optimization:
 #optimization parameters
   max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
   max_num_iterations: 1   # max solver itrations, to guarantee real time
-  use_odom : 0
+  use_odom : 1
   camera_weight : 201
   estimate_extrinsic: 1  # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
@@ -85,11 +83,11 @@ feature_manager :
   convin_used_num : 4
   keyframe_parallax: 20.0 # keyframe selection threshold (pixel)
   init_depth : 5.0
-  init_pnp_inlier_num : 20
+  init_pnp_inlier_num : 10
   ###ParallaxOption
   start_frame : 2
-  last_track_num : 30
-  long_track_num : 20
+  last_track_num : 20
+  long_track_num : 10
   new_feature_ration : 0.5
 
 
@@ -143,6 +141,5 @@ zero_ratation_max : 10.1
 zero_odo_win_size : 30
 zero_odo_pose_size : 40
 init_rotation_th : 20
-init_pnp_inlier_num : 10
 init_bas_normal_max : 0.3
 

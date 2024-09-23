@@ -12,19 +12,17 @@
 namespace jarvis {
 namespace estimator {
 namespace {
-std::array<int,3> KimageIndex{0, 2, 3};
+std::array<int, 3> KimageIndex{0, 2, 3};
 }
 
 Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
-  for (int i = 0; i < options_.track_cam_num; i++) {
-    LOG(INFO)
-        << options_.feature_track_options[i].feature_detect_option.imag_size;
+  for (int i = 0; i < options_.track_sequence.size(); i++) {
     feature_trackers_.emplace(
         i, std::make_unique<FeatureTracker>(options_.feature_track_options[i]));
   }
   if (options_.use_stero) {
-    LOG(INFO)<<options_.stero_imu_init_option.imu_option.DebugInfo();
+    LOG(INFO) << options_.stero_imu_init_option.imu_option.DebugInfo();
     initials_.emplace(0, std::make_unique<SteroImuInitialization>(
                              options_.stero_imu_init_option, data_base_.get()));
   } else {
@@ -97,19 +95,21 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
         imu_state_,
     })};
 
-    for (int i = 0; i < options_.track_cam_num; i++) {
+    for (int i = 0; i < options_.track_sequence.size(); i++) {
       ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
-          images.time, images.image[KimageIndex[i]], cv::Mat(), &track_num);
+          images.time, images.image[options_.track_sequence[i][0]], cv::Mat(),
+          &track_num);
       frame_data.data->features_datas.emplace(
           i, FrameData::FeatureData{featureFrame});
     }
-    slide_wondows_->AddFeatureData(frame_data);
+    frame_data = slide_wondows_->AddFeatureData(frame_data);
     imu_state_ = frame_data.data->imu_state;
-    if (failure_detect_->Detect(frame_data)) {
-      frame_data.status = TrackState::LOST;
-    } else {
-      frame_data.status = TrackState::TRACKING;
+    frame_data.status = TrackState::TRACKING;
+    auto rejection_outliers = slide_wondows_->RejectionOutliers();
+    for (int i = 0; i < options_.track_sequence.size(); i++) {
+      feature_trackers_[i]->removeOutliers(rejection_outliers[i]);
     }
+
   } else {
     ImageFeatureTrackerData featureFrame = feature_trackers_[0]->TrackImage(
         images.time, images.image[0], images.image[1], &track_num);
@@ -133,13 +133,46 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   last_time_ = cur_time;
   frame_id_++;
   for (auto &frame : frame_data.data->features_datas) {
-    LOG(INFO)<<frame.first;
     FillFrameData(frame.first, frame.second.features, &frame_data);
   }
-  data_base_->TrimData(cur_time);
+  //
 
+  data_base_->TrimData(cur_time);
+  if (failure_detect_->Detect(frame_data)) {
+    frame_data.status = TrackState::LOST;
+  }
   return std::make_unique<FrameData>(frame_data);
 }
+//
+void Estimator::PredictPtsInNextFrame(const FrameData &frame_data,
+                                      const transform::Rigid3d &predit_pose) {
+  // std::map<int, Eigen::Vector3d> predictPts;
+
+  // for (auto &it_per_id : f_manager->feature) {
+  //   if (it_per_id.estimated_depth > 0) {
+  //     int firstIndex = it_per_id.start_frame;
+  //     int lastIndex =
+  //         it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
+  //     // printf("cur frame index  %d last frame index %d\n", frame_count,
+  //     // lastIndex);
+  //     if ((int)it_per_id.feature_per_frame.size() >= 2 &&
+  //         lastIndex == frame_count) {
+  //       double depth = it_per_id.estimated_depth;
+  //       Eigen::Vector3d pts_j =
+  //           ric[0] * (depth * it_per_id.feature_per_frame[0].point) + tic[0];
+  //       Eigen::Vector3d pts_w = Rs[firstIndex] * pts_j + Ps[firstIndex];
+  //       Eigen::Vector3d pts_local = nextT.block<3, 3>(0, 0).transpose() *
+  //                                   (pts_w - nextT.block<3, 1>(0, 3));
+  //       Eigen::Vector3d pts_cam = ric[0].transpose() * (pts_local - tic[0]);
+  //       int ptsIndex = it_per_id.feature_id;
+  //       predictPts[ptsIndex] = pts_cam;
+  //     }
+  //   }
+  // }
+  // feature_tracker_->setPrediction(predictPts);
+  // printf("estimator output %d predict pts\n",(int)predictPts.size());
+}
+
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
   double d_time = common::ToSeconds(imu_data.time - common::FromUniversal(0));

@@ -1,19 +1,22 @@
 
-#include <jarvis/estimator/featureTracker/feature_tracker.h>
 #include "jarvis/option_parse.h"
-#include "opencv2/core/eigen.hpp"
-#include "yaml-cpp/yaml.h"
-#include "opencv2/opencv.hpp"
-#include "jarvis/estimator/estimator.h"
+
+#include <jarvis/estimator/featureTracker/feature_tracker.h>
+
 #include <strstream>
+
+#include "jarvis/estimator/estimator.h"
 #include "jarvis/estimator/initial/initialization_stero_imu.h"
+#include "opencv2/core/eigen.hpp"
+#include "opencv2/opencv.hpp"
+#include "yaml-cpp/yaml.h"
 namespace jarvis {
 
-constexpr int kCameraNum =4;
+constexpr int kCameraNum = 4;
 std::stringstream info;
 bool CheckFileExist(const std::string &file) {
   FILE *fh = fopen(file.c_str(), "r");
-  if (fh == nullptr){
+  if (fh == nullptr) {
     return false;
   }
   fclose(fh);
@@ -44,7 +47,7 @@ CameraOption ParseYAMLOptionCameraOption(const CheckNode &paras, int i) {
                               cam_node["resolution"].as<std::vector<int>>()[1]};
   return camera_option;
 }
-template<>
+template <>
 void ParseYAMLOption(const std::string &file_path,
                      CalibrateOption *calibrate_options) {
   const std::string cam_chain_file = file_path + "/camchain-imucam.yaml";
@@ -52,7 +55,7 @@ void ParseYAMLOption(const std::string &file_path,
   CHECK(CheckFileExist(cam_chain_file)) << cam_chain_file << " not exist.";
   CHECK(CheckFileExist(config_file)) << config_file << " not exist.";
   {
-    info << "Start parse " << cam_chain_file<<"\n";
+    info << "Start parse " << cam_chain_file << "\n";
     CheckNode paras = YAML::LoadFile(cam_chain_file);
     CheckNode defalt_paras = YAML::Load(defalt_extric);
 
@@ -66,9 +69,9 @@ void ParseYAMLOption(const std::string &file_path,
       return transform::Rigid3d(
           camera_to_imu.block<3, 1>(0, 3),
           Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)).normalized()));
-      info << calibrate_options->camera_options.back().DebugInfo()<<"\n";
-      info << "imu_to_cam:"
-                << calibrate_options->extric_camera_to_imu.back()<<"\n";
+      info << calibrate_options->camera_options.back().DebugInfo() << "\n";
+      info << "imu_to_cam:" << calibrate_options->extric_camera_to_imu.back()
+           << "\n";
     }
 
     std::swap(calibrate_options->extric_camera_to_imu[2],
@@ -77,7 +80,7 @@ void ParseYAMLOption(const std::string &file_path,
               calibrate_options->camera_options[3]);
   }
   {
-    info << "Start parse " << cam_chain_file<<"\n";
+    info << "Start parse " << cam_chain_file << "\n";
     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
     if (!fsSettings.isOpened()) {
       LOG(FATAL) << "ERROR: Wrong path to settings";
@@ -104,7 +107,7 @@ void ParseYAMLOptionImuOption(cv::FileStorage *fs, jarvis::ImuOption *option,
   option->imu_noise.nba2 = option->imu_noise.nba * option->imu_noise.nba;
   option->imu_noise.nbg2 = option->imu_noise.nbg * option->imu_noise.nbg;
 
-  info << option->DebugInfo()<<"\n";
+  info << option->DebugInfo() << "\n";
 }
 //
 jarvis::estimator::OptimizationOption ParseYAMLOptionOptimizationOption(
@@ -120,7 +123,7 @@ jarvis::estimator::OptimizationOption ParseYAMLOptionOptimizationOption(
   op_option.init_td = fsSettings["td"];
   op_option.estimate_extrinsic = fsSettings["estimate_extrinsic"];
   op_option.huber_loss = fsSettings["huber_loss"];
-  
+
   return op_option;
 }
 //
@@ -149,49 +152,51 @@ jarvis::estimator::FeatureManagerOption ParseYAMLOptionFeatureManagerOption(
 
 //
 void ParseYAMLOptionFetureOption(
-    cv::FileStorage *fs,
-    int index,
+    cv::FileStorage *fs, int index,
     jarvis::estimator::FeatureTrackerOption *feature_option,
     const CalibrateOption &camera_option, const std::string &file) {
   //
   auto &fsSettings = *fs;
   //
-  std::string feat_tack = "feattrack"+std::to_string(index);
-  feature_option->pyrmid_option.layer = fsSettings[feat_tack]["lk_pre_max_layer"];
-  feature_option->pyrmid_option.lk_win_size = fsSettings[feat_tack]["lk_win_size"];
+  std::string feat_tack = "feattrack" + std::to_string(index);
+  feature_option->pyrmid_option.layer =
+      fsSettings[feat_tack]["lk_pre_max_layer"];
+  feature_option->pyrmid_option.lk_win_size =
+      fsSettings[feat_tack]["lk_win_size"];
   feature_option->ransac_threshold = fsSettings[feat_tack]["F_threshold"];
   feature_option->track_back = fsSettings[feat_tack]["flow_back"];
   feature_option->max_feat_cnt = fsSettings[feat_tack]["max_cnt"];
-  feature_option->feature_detect_option.min_distance = fsSettings[feat_tack]["min_dist"];
-  feature_option->feature_detect_option.mask_min_dist = fsSettings[feat_tack]["mask_min_dist"];
+  feature_option->feature_detect_option.min_distance =
+      fsSettings[feat_tack]["min_dist"];
+  feature_option->feature_detect_option.mask_min_dist =
+      fsSettings[feat_tack]["mask_min_dist"];
   feature_option->feature_detect_option.fast_thresh_hold =
       fsSettings[feat_tack]["fast_th"];
   feature_option->feature_detect_option.grid_size.x() =
       fsSettings[feat_tack]["grid_size_x"];
- feature_option->feature_detect_option.grid_size.y() =
+  feature_option->feature_detect_option.grid_size.y() =
       fsSettings[feat_tack]["grid_size_y"];
 
-//   feature_option->feature_detect_option.imag_size =
-//       camera_option.camera_options[0].resolution;
-//   LOG(INFO)<<camera_option.camera_options[0].resolution;
-//   // feature_option->feature_detect_option.grid_size=
-//   //     camera_option.camera_options[0].resolution;
+  //   feature_option->feature_detect_option.imag_size =
+  //       camera_option.camera_options[0].resolution;
+  //   LOG(INFO)<<camera_option.camera_options[0].resolution;
+  //   // feature_option->feature_detect_option.grid_size=
+  //   //     camera_option.camera_options[0].resolution;
 
-//   feature_option->calibrate_option = camera_option;
+  //   feature_option->calibrate_option = camera_option;
   std::string mask_id;
   fsSettings[feat_tack]["mask"] >> mask_id;
   int pn = file.find_last_of('/');
   std::string configPath = file.substr(0, pn);
   auto mask_file = configPath + "/" + mask_id;
 
-  info << "Mask file:  " << mask_file<<"\n";
-  info << feature_option->pyrmid_option.layer<<"\n";
-  
+  info << "Mask file:  " << mask_file << "\n";
+  info << feature_option->pyrmid_option.layer << "\n";
+
   feature_option->mask = cv::imread(mask_file, cv::IMREAD_GRAYSCALE);
-//   CHECK(!feature_option->mask.empty());
+  //   CHECK(!feature_option->mask.empty());
 }
 //
-
 
 //
 
@@ -209,16 +214,31 @@ void ParseYAMLOption(const std::string &file,
   std::string configPath = file.substr(0, pn);
   std::string estimator_name = opencv_file["estimator"];
   const std::string estimator_file = configPath + "/" + estimator_name;
- 
+
   //
   {
     // esitmator yaml
     //
     auto fsSettings = CheckFile(estimator_file);
-    int track_cam_num = fsSettings["track_cam_num"];
+
+    //
+    // std::vector<std::vector<int>> trace_sequence =
+    // fsSettings["trace_sequence"]; CHECK_EQ(trace_sequence.size(), 3);
+    std::string track_sequence_str = fsSettings["track_sequence"];
+    std::vector<std::vector<int>> track_sequence;
+    for (int i = 0; i < track_sequence_str.size(); i++) {
+      if (track_sequence_str[i] == '{') {
+        track_sequence.push_back(std::vector<int>{});
+      } else if (track_sequence_str[i] != ',' && track_sequence_str[i] != '}') {
+        track_sequence.back().push_back(track_sequence_str[i] - '0');
+      }
+    }
+
+    option->track_sequence = track_sequence;
+    int track_cam_num =option->track_sequence.size();
     option->win_size = fsSettings["win_size"];
     //
-    info << "track_cam_num" << track_cam_num<<"\n";
+    info << "track_cam_num" << track_cam_num << "\n";
     //
     LOG(INFO) << track_cam_num;
     jarvis::ImuOption imu_option;
@@ -242,19 +262,18 @@ void ParseYAMLOption(const std::string &file,
             calib_option.extric_camera_to_imu[j]);
       }
 
-      
       //
       feature_manager_option.pyrmid_option.image_size =
           calib_option.camera_options[0].resolution;
       feature_manager_option.feature_detect_option.imag_size =
           feature_manager_option.pyrmid_option.image_size;
       //
-     
+
       //
       option->feature_track_options.push_back(feature_manager_option);
     }
     //
-    LOG(INFO)<<"1";
+    LOG(INFO) << "1";
     for (int i = 1; i < track_cam_num; i++, j++) {
       jarvis::estimator::FeatureTrackerOption feature_manager_option;
       ParseYAMLOptionFetureOption(&fsSettings, i, &feature_manager_option,
@@ -271,27 +290,19 @@ void ParseYAMLOption(const std::string &file,
 
       option->feature_track_options.push_back(feature_manager_option);
     }
-    LOG(INFO)<<"1";
+    LOG(INFO) << "1";
     //
     //
 
-    
- 
-    LOG(INFO)<< track_cam_num; 
-    option->track_cam_num =  track_cam_num;
     int use_stero = fsSettings["use_stero"];
     option->use_stero = (use_stero == 1);
     // option->use_odom = fsSettings["use_odom"];
     // option->use_stereo_sample_ration =
     // fsSettings["use_stereo_sample_ration"];
     //
-     option->stero_imu_init_option.feature_manager_option =
+    option->stero_imu_init_option.feature_manager_option =
         ParseYAMLOptionFeatureManagerOption(option->win_size, option->use_stero,
                                             fsSettings["feature_manager"]);
-
-    
-
-
 
     //
 
@@ -325,7 +336,8 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["zero_odo_pose_size"];
     //
     //
-    option->slide_windows_option.track_cam_num = option->track_cam_num;
+    // option->slide_windows_option.track_cam_num = option->track_cam_num;
+    option->slide_windows_option.track_sequence = option->track_sequence;
     option->slide_windows_option.win_size = option->win_size;
     option->slide_windows_option.optimazation_outliers_rejection_th =
         fsSettings["slide_window"]["optimazation_outliers_rejection_th"];
@@ -345,21 +357,19 @@ void ParseYAMLOption(const std::string &file,
     option->slide_windows_option.odom_factor_option.transform_imu_to_robot =
         calib_option.extric_camera_to_robot *
         calib_option.extric_camera_to_imu[0].inverse();
-   //
-    
+    //
+
     option->slide_windows_option.feature_manager_option =
         ParseYAMLOptionFeatureManagerOption(option->win_size, option->use_stero,
                                             fsSettings["feature_manager"]);
 
-    
-    
     stero_imu_init_option.feature_manager_option =
         option->slide_windows_option.feature_manager_option;
-    option->stero_imu_init_option =stero_imu_init_option;
+    option->stero_imu_init_option = stero_imu_init_option;
     //
     option->stero_imu_init_option.opti_option =
         ParseYAMLOptionOptimizationOption(fsSettings["init_optimization"]);
-
+    
     //
     option->slide_windows_option.opti_option =
         ParseYAMLOptionOptimizationOption(fsSettings["optimization"]);
@@ -417,8 +427,7 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["UpdataZeroVelocityOption"]["imag_disparity_option"]
                   ["max_disparity"];
   }
-  LOG(INFO)<<"\n"<<info.str()<<"\n";
-
+  LOG(INFO) << "\n" << info.str() << "\n";
 }
 
 // void ParseYAMLOptionSimpleVoOption(cv::FileStorage *fs,
@@ -439,12 +448,14 @@ void ParseYAMLOption(const std::string &file,
 //       T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
 //   simple_vo_option->tracker_option.image_size =
 //       Eigen::Vector2i(fsSettings["image_width"], fsSettings["image_height"]);
-//   simple_vo_option->tracker_option.extric = cam_to_imu.inverse() * cam1_to_imu;
+//   simple_vo_option->tracker_option.extric = cam_to_imu.inverse() *
+//   cam1_to_imu;
 //   //
 // }
 // //
 // void ParseYAMLOptionSlipDetectOption(cv::FileStorage *fs,
-//                                      SlipDetectOption *slip_detection_opiont) {
+//                                      SlipDetectOption *slip_detection_opiont)
+//                                      {
 //   auto &fsSettings = *fs;
 //   slip_detection_opiont->type = fsSettings["type"];
 //   slip_detection_opiont->min_disparity_num = fsSettings["min_disparity_num"];
@@ -455,7 +466,7 @@ void ParseYAMLOption(const std::string &file,
 //   slip_detection_opiont->pose_odom_err_s_threash_hold =
 //       fsSettings["pose_odom_err_s_threash_hold"];
 //    slip_detection_opiont->pose_odom_err_theta_threash_hold =
-//       fsSettings["pose_odom_err_theta_threash_hold"]; 
+//       fsSettings["pose_odom_err_theta_threash_hold"];
 //   cv::Mat cv_T;
 //   fsSettings["cam2RobotT"] >> cv_T;
 //   Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
@@ -473,10 +484,10 @@ void ParseYAMLOption(const std::string &file,
 //   LOG(INFO)<<slip_detection_opiont->transform_cam_to_odom*cam_to_imu.inverse();
 
 //   }
-// } 
+// }
 //
 
 //
 
 //
-}  // namespace jarvis  // namespace jarvis
+}  // namespace jarvis

@@ -28,6 +28,7 @@ class SteroImuInitialization : public InitializationImu {
   //
  private:
   void RemoveBack();
+  void Reset();
   std::unique_ptr<InitializationResult> OptimizationResult();
   SteroImuInitializationOption options_;
   std::shared_ptr<FeatureManager> feature_manager_;
@@ -38,10 +39,10 @@ class SteroImuInitialization : public InitializationImu {
   std::vector<bool> frames_continuously_track_num ;
   common::Time last_time;
   //
+  const int camera_num_  =2;
   Eigen::Vector3d init_bgs_;
   std::unique_ptr<InitialAlignment> initial_alignment_;
   std::optional<Eigen::Quaterniond> init_imu_rotation_; 
-  std::unique_ptr<Optimization> optimization_;
 };
 //
 }  // namespace estimator

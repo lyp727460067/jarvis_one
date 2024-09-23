@@ -313,14 +313,15 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 
     //             }}));
     // if(time>1064339798000)
+  try{
     const cv::Mat lr_image =
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
 
-    // cv::imshow("l_image",lr_image);
-    // // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    // cv::waitKey(0);
+    cv::imshow("l_image",lr_image);
+    // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    cv::waitKey(0);
     if(lr_image.empty()||vr_image.empty() )continue;
     order_queue_->AddData(
         kImagTopic0,
@@ -334,6 +335,9 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                     vr_image(cv::Rect(0, 0, 544, 640)).clone(),
                     vr_image(cv::Rect(544, 0, 544, 640)).clone()
                 }}));
+  }catch(cv::Exception){
+
+  }
     // time+=100*1000*1000;
   }
   if (!imu_datas.empty()) {
@@ -396,6 +400,8 @@ int main(int argc, char* argv[]) {
       std::string(argv[1]), [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
         //
+        LOG(INFO)<<data.data->imu_state;
+        CHECK(!isnan( data.data->imu_state.p.x()));
         auto tracking_data = data;
         Eigen::Matrix3d rotaion;
         rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;

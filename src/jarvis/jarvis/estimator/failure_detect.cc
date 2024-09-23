@@ -23,6 +23,7 @@ bool FailureDetect::Detect(const FrameData& frame_data) {
   if (TimeLost(frame_data.data->time)) {
     return true;
   }
+  return false;
   // if (restart) {
   //   restart = false;
   //   return true;

@@ -23,16 +23,20 @@ struct SlideWindowOption {
   UpdataZeroVelocityOption updata_zerovelocity_option;
   OptimizationOption opti_option;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
-  int track_cam_num=1;
   bool enable_zero_velocity = 0;
   int win_size=6;
   double optimazation_outliers_rejection_th = 0.3;
   double rejection_points_depth_max_th = 30;
-
+  std::vector<std::vector<int>> track_sequence;
 //
 };
 //
 // 
+struct SlideWindowResult
+{
+
+
+};
 
 class SlideWindow {
  public:
@@ -40,7 +44,10 @@ class SlideWindow {
               const std::unique_ptr<InitializationResult>& init_data);
   //
   FrameData AddFeatureData(const FrameData&);
-
+  //
+  std::map<CameraId, std::set<TrackFeatureId>>& RejectionOutliers() {
+    return rejection_outliers_;
+  }
  private:
   void SlideData(bool);
   SlideWindowOption options_;
@@ -67,6 +74,7 @@ class SlideWindow {
   std::vector<transform::Rigid3d> extric_camera_to_imu_;
   transform::Rigid3d odo_to_imu_extric_;
   double camera_imu_time_offset_ = 0;
+  std::map<CameraId, std::set<TrackFeatureId>> rejection_outliers_;
   //
   //
   // std::vector<FrameData> frames_datas_;

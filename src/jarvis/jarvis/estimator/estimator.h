@@ -40,14 +40,13 @@ struct EstimatorOption {
   FailureDetectOptoin fail_detect_option;
   //
   SteroImuInitializationOption stero_imu_init_option;
-
+  std::vector<std::vector<int>> track_sequence;
   int use_stero = 0;
   //
   double data_base_lenth = 1;
 
   double use_stereo_sample_ration = 0.05;
   //
-  int track_cam_num = 1;
   int win_size=6;
 };
 
@@ -64,6 +63,10 @@ class Estimator {
   // std::thread trackThread;
   // std::thread processThread;
   private:
+  //
+  void  PredictPtsInNextFrame(const FrameData&frame_data,
+                     const transform::Rigid3d&predit_pose);
+  // 
   std::map<int, std::unique_ptr<FeatureTracker>> feature_trackers_;
   std::map<int, std::unique_ptr<InitializationInterface>> initials_;
   

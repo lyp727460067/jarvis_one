@@ -40,24 +40,24 @@ bool FeatureManager::IsParallax(int frame_count,
   double parallax_sum = 0;
   int parallax_num = 0;
   int last_track_num = 0;
-  double last_average_parallax = 0.0;
   int new_feature_num = 0;
   int long_track_num = 0;
   //
   for (const auto &id_pts : image.data->features) {
-    const int track_num = id_pts.second.camera_features.size();
+    const int track_num = features_[id_pts.first].feature_per_frame.size();
     if (track_num == 1) {
       new_feature_num++;
     } else {
       last_track_num++;
-      if (id_pts.second.camera_features.size() >
+      if (features_[id_pts.first].feature_per_frame.size() >
           size_t(options_.convin_used_num)) {
         long_track_num++;
       }
     }
     //
   }
-
+  LOG(INFO) << "last_track_num " << last_track_num << "long_track_num "
+            << long_track_num << " " << " new_feature_num " << new_feature_num;
   if (frame_count < options_.parallax_option.start_frame ||
       last_track_num < options_.parallax_option.last_track_num ||
       long_track_num < options_.parallax_option.long_track_num ||
@@ -76,16 +76,14 @@ bool FeatureManager::IsParallax(int frame_count,
       parallax_num++;
     }
   }
-
+  LOG(INFO)<<parallax_num;
   if (parallax_num == 0) {
     return true;
   } else {
     VLOG(kGlogLevel) << "parallax_sum: " << parallax_sum
                      << ",parallax_num: " << parallax_num
-                     << ",current parallax: "
-                     << parallax_sum / parallax_num * FOCAL_LENGTH;
+                     << ",current parallax: ";
     // LOG(INFO)<< parallax_sum / parallax_num<<" " << options_.min_parallax;
-    last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
     // LOG(INFO)<<options_.min_parallax;
     return parallax_sum / parallax_num >= options_.min_parallax;
   }
@@ -208,14 +206,85 @@ void FeatureManager::ClearDepth() {
     it_per_id.second.estimated_depth = -1;
   }
 }
+std::set<TrackFeatureId> FeatureManager::OutliersRejection(
+    const std::vector<ImuState> &pose,
+    const std::vector<transform::Rigid3d> &ex) {
+  std::set<TrackFeatureId> remove_index;
+  auto ReprojectionError = [](const Eigen::Vector3d world_point_i,
+                              const transform::Rigid3d &pose_j,
+                              Eigen::Vector3d &uvj) {
+    //
+    const Eigen::Vector3d pts_cj =
+         pose_j.inverse() * world_point_i;
+    Eigen::Vector2d residual = (pts_cj / pts_cj.z()).head<2>() - uvj.head<2>();
+    double rx = residual.x();
+    double ry = residual.y();
+    return sqrt(rx * rx + ry * ry);
+  };
+    std::stringstream info;
+  for (auto &pair_it_per_id : features_) {
+    double err = 0;
+    int errCnt = 0;
+    auto &it_per_id = pair_it_per_id.second;
 
+    if (it_per_id.UsedNum() < options_.convin_used_num) continue;
+    int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+    Eigen::Vector3d pts_i =
+        it_per_id.feature_per_frame[0].feature.camera_features[0].normal_points;
+    double depth = it_per_id.estimated_depth;
+    const Eigen::Vector3d world_point_i =
+        pose[imu_i].Pose() *( ex[0] * (pts_i * depth));
+    //
+    for (auto &it_per_frame : it_per_id.feature_per_frame) {
+      imu_j++;
+      if (imu_i != imu_j) {
+        Eigen::Vector3d pts_j =
+            it_per_frame.feature.camera_features[0].normal_points;
+        double tmp_error = ReprojectionError(
+            world_point_i, pose[imu_j].Pose() * ex[0], pts_j);
+        err += tmp_error;
+        errCnt++;
+        // printf("tmp_error %f\n", tmp_error);
+      }
+      // need to rewrite projecton factor.........
+      if (it_per_frame.IsStereo()) {
+        // Eigen::Vector3d pts_j =
+        //     it_per_frame.feature.camera_features[1].normal_points;
+        // double tmp_error =
+        //     ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
+        // err += tmp_error;
+        // printf("right tmp_error %f\n", tmp_error);
+        // errCnt++;
+      }
+    }
+    double ave_err = err / errCnt;
+    // LOG(INFO)<<pair_it_per_id.first <<" "<<ave_err<<" " <<options_.optimazation_outliers_rejection_th;
+    if (ave_err > options_.optimazation_outliers_rejection_th) {
+      info<<pair_it_per_id.first<<" ";
+      remove_index.insert(pair_it_per_id.first);
+    }
+  }
+  LOG(INFO)<<info.str();
+  RemoveOutlier(remove_index);
+  return remove_index;
+}
 //
 
 void FeatureManager::CreateFactor(
-    const std::function<void(const Eigen::Vector3d &, const Eigen::Vector3d &,
-                             const Eigen::Vector2d &, const Eigen::Vector2d &,
-                             double, double, const std::tuple<int, int, int>  &index)>
-        &projection_two_frame_one_cam) {
+    const std::function<void(
+        const Eigen::Vector3d &, const Eigen::Vector3d &,
+        const Eigen::Vector2d &, const Eigen::Vector2d &, double, double,
+        const std::tuple<int, int, int> &index)> &projection_two_frame_one_cam,
+    const std::function<void(
+        const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
+        const Eigen::Vector2d &_velocity_i, const Eigen::Vector2d &_velocity_j,
+        const double _td_i, const double _td_j,
+        const std::tuple<int, int, int> &index)> &projection_two_frametwocam,
+    const std::function<void(
+        const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
+        const Eigen::Vector2d &_velocity_i, const Eigen::Vector2d &_velocity_j,
+        const double _td_i, const double _td_j,
+        const std::tuple<int, int, int> &index)> &projection_one_frame_twocam) {
   //
   std::stringstream info;
   int feature_index = -1;
@@ -237,49 +306,45 @@ void FeatureManager::CreateFactor(
     for (auto it_per_frame : it_per_id.feature_per_frame) {
       imu_j++;
       if (imu_i != imu_j) {
-        Eigen::Vector3d pts_j =
+        const Eigen::Vector3d &pts_j =
             it_per_frame.feature.camera_features[0].normal_points;
-        const Eigen::Vector2d imu_j_velocity =
+        const Eigen::Vector2d &imu_j_velocity =
             it_per_frame.feature.camera_features[0].uv_velocity;
         //
         if (projection_two_frame_one_cam) {
-          projection_two_frame_one_cam(pts_i, pts_j, imu_i_velocity,
-                                       imu_j_velocity,
-                                       it_per_id.feature_per_frame[0].td,
-                                       it_per_frame.td, {imu_i, imu_j,feature_index});
+          projection_two_frame_one_cam(
+              pts_i, pts_j, imu_i_velocity, imu_j_velocity,
+              it_per_id.feature_per_frame[0].td, it_per_frame.td,
+              {imu_i, imu_j, feature_index});
         }
       }
 
       if (it_per_frame.IsStereo()) {
         // // /
-        Eigen::Vector3d pts_j_right =
+        const Eigen::Vector3d &pts_j_right =
             it_per_frame.feature.camera_features[1].normal_points;
         //
-        const Eigen::Vector2d imu_j_velocity = it_per_id.feature_per_frame[0]
-                                                   .feature.camera_features[1]
-                                                   .uv_velocity;
 
-        // if (imu_i != imu_j) {
-        //   ProjectionTwoFrameTwoCamFactor *f =
-        //       new ProjectionTwoFrameTwoCamFactor(
-        //           pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
-        //           it_per_id.feature_per_frame[0].td,
-        //           it_per_frame.td,cam_weight);
-        //   //
-        //   problem->AddResidualBlock(f, loss_function, para_Pose[imu_i],
-        //                             para_Pose[imu_j], para_Ex_Pose[0],
-        //                             para_Ex_Pose[1],
-        //                             para_Feature[feature_index], para_Td[0]);
-        // } else {
-        //   ProjectionOneFrameTwoCamFactor *f =
-        //       new ProjectionOneFrameTwoCamFactor(
-        //           pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
-        //           it_per_id.feature_per_frame[0].td,
-        //           it_per_frame.td,cam_weight);
-        //   problem->AddResidualBlock(f, loss_function, para_Ex_Pose[0],
-        //                             para_Ex_Pose[1],
-        //                             para_Feature[feature_index], para_Td[0]);
-        // }
+        const Eigen::Vector2d &imu_j_velocity =
+            it_per_frame.feature.camera_features[1].uv_velocity;
+
+        CHECK(!isnan(imu_j_velocity.y()))
+            << imu_j_velocity.transpose() << " " << pair_it_per_id.first;
+        if (imu_i != imu_j) {
+          if (projection_two_frametwocam) {
+            projection_two_frametwocam(
+                pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
+                it_per_id.feature_per_frame[0].td, it_per_frame.td,
+                {imu_i, imu_j, feature_index});
+          }
+        } else {
+          if (projection_one_frame_twocam) {
+            projection_one_frame_twocam(
+                pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
+                it_per_id.feature_per_frame[0].td, it_per_frame.td,
+                {imu_i, imu_j, feature_index});
+          }
+        }
       }
     }
   }
@@ -314,7 +379,7 @@ void FeatureManager::CreateFactor(
                                       const std::vector<cv::Point3f> &pts3D,
                                       transform::Rigid3d *p_initial) {
     // // printf("pnp size %d \n",(int)pts2D.size() );
-    LOG(INFO) << options_.init_pnp_inlier_num;
+    // LOG(INFO) << options_.init_pnp_inlier_num;
     if (int(pts2D.size()) < options_.init_pnp_inlier_num) {
       LOG(ERROR)
           << "feature tracking not enough, please slowly move you device! "
@@ -422,7 +487,7 @@ void FeatureManager::CreateFactor(
         }
       }
     }
-    LOG(INFO) << pts3D.size();
+    // LOG(INFO) << pts3D.size();
     // trans to w_T_cam
     transform::Rigid3d RCam = (sw_pose[frameCnt - 1] * ex_came_to_imu[0]);
     //
@@ -445,7 +510,7 @@ void FeatureManager::CreateFactor(
     // }
     // LOG(INFO)<<out_reprejct_outlier_num<<" "<<pts3D.size();
     // // if(out_reprejct_outlier_num<=pts3D.size()*0.90)return false;
-    LOG(INFO)<<ex_came_to_imu[0];
+    // LOG(INFO)<<ex_came_to_imu[0];
     // trans to w_T_imu
     sw_pose[frameCnt] = RCam * ex_came_to_imu[0].inverse();
     LOG(INFO) << "pnp pose:" << sw_pose[frameCnt] << "ypr: "
@@ -485,7 +550,7 @@ void FeatureManager::CreateFactor(
     // //
     Eigen::Vector3d localPoint = frame_left_pose.inverse() * point3d;
     // //
-    LOG(INFO) << localPoint.transpose();
+    // LOG(INFO) << localPoint.transpose();
     double depth = localPoint.z();
     // LOG(INFO)<<depth;
     const Eigen::Vector3d localPoint_r = frame_right_pose.inverse() * point3d;
@@ -507,7 +572,7 @@ void FeatureManager::CreateFactor(
         sw_pose[imu_i] * ex_came_to_imu[0];
     const int next_imu_i = imu_i + 1;
 
-    LOG(INFO) << imu_i << " " << next_imu_i;
+    // LOG(INFO) << imu_i << " " << next_imu_i;
     CHECK_LE(next_imu_i, sw_pose.size() - 1);
     const transform::Rigid3d &frame_right_pose =
         sw_pose[next_imu_i] * ex_came_to_imu[0];
@@ -525,7 +590,7 @@ void FeatureManager::CreateFactor(
     Eigen::Vector3d localPoint = frame_left_pose.inverse() * point3d;
     //
     double depth = localPoint.z();
-    LOG(INFO) << localPoint.transpose();
+    // LOG(INFO) << localPoint.transpose();
     const Eigen::Vector3d localPoint_r = frame_right_pose.inverse() * point3d;
     if (depth > 0.5 && localPoint_r.z() > 0.5 && depth < 20 &&
         localPoint_r.z() < 20)
@@ -773,6 +838,27 @@ void FeatureManager::CreateFactor(
     return false;
   }
   //
+  //
+  std::map<CameraId, std::set<TrackFeatureId>>
+  FeatureManagers::RemoveOutliersRejection(
+      const std::vector<ImuState> &pose,
+      const std::vector<transform::Rigid3d> &ex) {
+    std::array<std::vector<int>, 3> ParaExPoseIndex{
+        std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};
+
+    std::map<CameraId, std::set<TrackFeatureId>> result;
+    for (auto &f_m : feature_managers_) {
+      std::vector<transform::Rigid3d> ex_came_to_imu_tmp;
+      for (int i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
+        ex_came_to_imu_tmp.push_back(ex[ParaExPoseIndex[f_m.first][i]]);
+      }
+      result[f_m.first] =
+          std::move(f_m.second->OutliersRejection(pose, ex_came_to_imu_tmp));
+    }
+    return result;
+  }
+
+  //
 
   void FeatureManagers::Triangulate(
       int fram_cout, const std::vector<transform::Rigid3d> &sw_pose,
@@ -785,7 +871,6 @@ void FeatureManager::CreateFactor(
       for (int i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
         ex_came_to_imu_tmp.push_back(
             ex_came_to_imu[ParaExPoseIndex[f_m.first][i]]);
-        LOG(INFO)<<ex_came_to_imu_tmp.back();
       }
       f_m.second->Triangulate(fram_cout, sw_pose,ex_came_to_imu_tmp );
     }

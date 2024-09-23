@@ -293,7 +293,7 @@ void RosCompont::OnMapPointsCallback(
     geo_point.z = point.z();
     point_cloud.points.push_back(geo_point);
   }
-  point_cloud.header.frame_id = "camere_link";
+  point_cloud.header.frame_id = "map";
   point_cloud.header.stamp = rclcpp::Time();
   sensor_msgs::convertPointCloudToPointCloud2(point_cloud, point_cloud2);
   point_cloud_pub_->publish(point_cloud2);
@@ -464,12 +464,16 @@ void RosCompont::OnLocalTrackingResultCallback(
     std::vector<object::ObjectImageResult> *object_result,
     const transform::Rigid3d &local_to_global) {
   //
+  std::vector<Eigen::Vector3d> map_points;
   for (auto &cam_feature : tracking_data.data->features_datas) {
     auto image_result =
         GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
                                   cam_feature.second.key_points, {}, {}, {},
                                   "pre_imag", "curr_imag", {0});
     CommpressedImagePub(cam_feature.first, image_result);
+    for (auto &feature : cam_feature.second.features.data->features) {
+      map_points.push_back(cam_feature.second.map_points[feature.first]);
+    }
 
     // std::vector<transform::Rigid3d> mark_pose;
     // std::map<int, std::vector<object::ObjectImageResult>> same_marks;
@@ -506,7 +510,7 @@ void RosCompont::OnLocalTrackingResultCallback(
 
   // pub_local_tracking_result.publish(img);
 
-  // OnMapPointsCallback(tracking_data.data->tracking_map_points, local_to_global);
+  OnMapPointsCallback(map_points, local_to_global);
 
 
 

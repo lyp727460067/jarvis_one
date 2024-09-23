@@ -15,7 +15,7 @@ namespace {
 #define para_Ex_Pose_Odom opt_data->ex_pose_odom
 #define para_Td opt_data->td
 #define para_Feature opt_data->feature
-std::array<int,3> ParaExPoseIndex { 0, 2, 3 };
+// std::array<int,3> ParaExPoseIndex { 0, 2, 3 };
 }  // namespace
 //
 void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
@@ -26,17 +26,17 @@ void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
   //
   CHECK_EQ(frame_data->odom_factors.size(), options_.win_size + 1);
   CHECK_EQ(frame_data->imu_factors.size(), options_.win_size + 1);
-  if (frame_data->odom_factors[1]) {
-    // ceres::CostFunction *cost_function =
-    //     frame_data->odom_factors[1]->CostFunction();
-    // if (cost_function) {
-    //   ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-    //       cost_function, NULL,
-    //       std::vector<double *>{para_Pose[0], para_Pose[1],
-    //                             para_Ex_Pose_Odom[0]},
-    //       std::vector<int>{0});
-    //   margina_info->addResidualBlockInfo(residual_block_info);
-    // }
+  if (options_.use_odom && frame_data->odom_factors[1]) {
+    ceres::CostFunction *cost_function =
+        frame_data->odom_factors[1]->CostFunction();
+    if (cost_function) {
+      ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+          cost_function, NULL,
+          std::vector<double *>{para_Pose[0], para_Pose[1],
+                                para_Ex_Pose_Odom[0]},
+          std::vector<int>{0});
+      margina_info->addResidualBlockInfo(residual_block_info);
+    }
   }
 
   // /
@@ -64,118 +64,73 @@ void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
   // }
 }
 
-void Marginalization::MergeCameraData(int id,const OptimizationStateData *opt_data,
+void Marginalization::MergeCameraData(int id,
+                                      const OptimizationStateData *opt_data,
                                       FeatureManager *feature_manager,
                                       MarginalizationInfo *margina_info,
                                       ceres::LossFunction *loss_function) {
   //
   const double cam_weight = options_.camera_weight;
-  feature_manager->CreateFactor([&](const Eigen::Vector3d &pts_i,
-                                    const Eigen::Vector3d &pts_j,
-                                    const Eigen::Vector2d &imu_i_velocity,
-                                    const Eigen::Vector2d &imu_j_velocity,
-                                    const double td_i, const double td_j,
-                                    const std::tuple<int, int, int> &index) {
-    //
-    if(std::get<0>(index)==0){
-      ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
-          pts_i, pts_j, imu_i_velocity, imu_j_velocity, td_i, td_j, cam_weight);
+  feature_manager->CreateFactor(
+      [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
+          const Eigen::Vector2d &imu_i_velocity,
+          const Eigen::Vector2d &imu_j_velocity, const double td_i,
+          const double td_j, const std::tuple<int, int, int> &index) {
+        //
+        if (std::get<0>(index) == 0) {
+          ProjectionTwoFrameOneCamFactor *f_td =
+              new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, imu_i_velocity,
+                                                 imu_j_velocity, td_i, td_j,
+                                                 cam_weight);
 
-      ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-          f_td, loss_function,
-          std::vector<double *>{
-              para_Pose[std::get<0>(index)], para_Pose[std::get<1>(index)],
-              para_Ex_Pose[ParaExPoseIndex[id]],
-              para_Feature[id][std::get<2>(index)], para_Td[0]},
-          std::vector<int>{0, 3});
-      margina_info->addResidualBlockInfo(residual_block_info);
-    }
-      CHECK(para_Pose[0]);
-  });
+          ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+              f_td, loss_function,
+              std::vector<double *>{
+                  para_Pose[std::get<0>(index)], para_Pose[std::get<1>(index)],
+                  para_Ex_Pose[options_.trace_sequence[id][0]],
+                  para_Feature[id][std::get<2>(index)], para_Td[0]},
+              std::vector<int>{0, 3});
+          margina_info->addResidualBlockInfo(residual_block_info);
+        }
+      },
 
-  //   const auto &f_managers = feature_managers->GetFeatureManagers();
-  //   const double cam_weight = options_.camera_weight;
-  //   int feature_index = -1;
-  //   for (const auto &feature_manager : f_managers) {
-  //     for (const auto &pair_it_per_id : feature_manager.second.Features()) {
-  //       const auto &it_per_id = pair_it_per_id.second;
-  //       if (it_per_id.UsedNum() < options_.convin_used_num) continue;
+      [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
+          const Eigen::Vector2d &velocity_i, const Eigen::Vector2d &velocity_j,
+          const double td_i, const double td_j,
+          const std::tuple<int, int, int> &index) {
+        //
+        ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
+            pts_i, pts_j, velocity_i, velocity_j, td_i, td_j,cam_weight);
 
-  //       ++feature_index;
-  //       int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
-  //       if (imu_i != 0) continue;
+        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+            f, loss_function,
+            std::vector<double *>{
+                para_Pose[std::get<0>(index)], para_Pose[std::get<1>(index)],
+                para_Ex_Pose[options_.trace_sequence[id][0]],
+                para_Ex_Pose[options_.trace_sequence[id][1]],
+                para_Feature[id][std::get<2>(index)], para_Td[0]},
+            std::vector<int>{0, 4});
+        margina_info->addResidualBlockInfo(residual_block_info);
+      },
+      [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
+          const Eigen::Vector2d &velocity_i, const Eigen::Vector2d &velocity_j,
+          const double td_i, const double td_j,
+          const std::tuple<int, int, int> &index) {
+        //
+        ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
+            pts_i, pts_j, velocity_i, velocity_j, td_i, td_j,cam_weight);
 
-  //       const Eigen::Vector3d &pts_i = it_per_id.feature_per_frame[0]
-  //                                          .feature.camera_features[0]
-  //                                          .normal_points;
+        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+            f, loss_function,
+            std::vector<double *>{para_Ex_Pose[options_.trace_sequence[id][0]],
+                                  para_Ex_Pose[options_.trace_sequence[id][1]],
+                                  para_Feature[id][std::get<2>(index)],
+                                  para_Td[0]},
+            std::vector<int>{2});
+        margina_info->addResidualBlockInfo(residual_block_info);
+      }
 
-  //       const Eigen::Vector2d &imu_i_velocity =
-  //           it_per_id.feature_per_frame[0].feature.camera_features[0].uv_velocity;
-  //       for (auto &it_per_frame : it_per_id.feature_per_frame) {
-  //         imu_j++;
-  //         if (imu_i != imu_j) {
-  //           Eigen::Vector3d pts_j =
-  //               it_per_frame.feature.camera_features[0].normal_points;
-  //           const Eigen::Vector2d &imu_j_velocity =
-  //               it_per_frame.feature.camera_features[0].uv_velocity;
-  //           ProjectionTwoFrameOneCamFactor *f_td =
-  //               new ProjectionTwoFrameOneCamFactor(
-  //                   pts_i, pts_j, imu_i_velocity, imu_j_velocity,
-  //                   it_per_id.feature_per_frame[0].td, it_per_frame.td,
-  //                   cam_weight);
-
-  //           ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-  //               f_td, loss_function,
-  //               std::vector<double *>{para_Pose[imu_i], para_Pose[imu_j],
-  //                                     para_Ex_Pose[0],
-  //                                     para_Feature[feature_index],
-  //                                     para_Td[0]},
-  //               std::vector<int>{0, 3});
-  //           margina_info->addResidualBlockInfo(residual_block_info);
-  //         }
-
-  //         if (it_per_frame.IsStereo()) {
-  //           Eigen::Vector3d pts_j_right =
-  //               it_per_frame.feature.camera_features[1].normal_points;
-  //           //
-  //           const Eigen::Vector2d &imu_j_velocity =
-  //               it_per_id.feature_per_frame[0]
-  //                   .feature.camera_features[1]
-  //                   .uv_velocity;
-
-  //           if (imu_i != imu_j) {
-  //             ProjectionTwoFrameTwoCamFactor *f =
-  //                 new ProjectionTwoFrameTwoCamFactor(
-  //                     pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
-  //                     it_per_id.feature_per_frame[0].td,
-  //                     it_per_frame.td,cam_weight);
-  //             //
-  //             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-  //                 f, loss_function,
-  //                 std::vector<double *>{para_Pose[imu_i], para_Pose[imu_j],
-  //                                       para_Ex_Pose[0], para_Ex_Pose[1],
-  //                                       para_Feature[feature_index],
-  //                                       para_Td[0]},
-  //                 std::vector<int>{0, 4});
-  //             margina_info->addResidualBlockInfo(residual_block_info);
-  //           } else {
-  //             ProjectionOneFrameTwoCamFactor *f =
-  //                 new ProjectionOneFrameTwoCamFactor(
-  //                     pts_i, pts_j_right, imu_i_velocity, imu_j_velocity,
-  //                     it_per_id.feature_per_frame[0].td,
-  //                     it_per_frame.td,cam_weight);
-  //             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-  //                 f, loss_function,
-  //                 std::vector<double *>{para_Ex_Pose[0], para_Ex_Pose[1],
-  //                                       para_Feature[feature_index],
-  //                                       para_Td[0]},
-  //                 std::vector<int>{2});
-  //             margina_info->addResidualBlockInfo(residual_block_info);
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
+  );
 }
 
 //
@@ -209,11 +164,9 @@ std::unordered_map<long, double *> Marginalization::ShiftStateAdrrNew(
       continue;
     else if (i == options_.win_size) {
       addr_shift[reinterpret_cast<long>(para_Pose[i])] = para_Pose[i - 1];
-      para_SpeedBias[i - 1];
-
+      addr_shift[reinterpret_cast<long>(para_SpeedBias[i])] = para_SpeedBias[i - 1];
     } else {
       addr_shift[reinterpret_cast<long>(para_Pose[i])] = para_Pose[i];
-
       addr_shift[reinterpret_cast<long>(para_SpeedBias[i])] = para_SpeedBias[i];
     }
   }
@@ -249,28 +202,21 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
           drop_set);
       marginalization_info->addResidualBlockInfo(residual_block_info);
     }
-    LOG(INFO) << "!";
-
-      for (int i = 0; i < options_.track_cam_num; i++) {
-        if (data->feat_manager_factors->Exist(i)) {
-          MergeCameraData(
-              i, opt_data,
-              data->feat_manager_factors->MutableFeatureManager(i).get(),
-              marginalization_info.get(), loss_function.get());
-        }
+    for (int i = 0; i < options_.trace_sequence.size(); i++) {
+      if (data->feat_manager_factors->Exist(i)) {
+        MergeCameraData(
+            i, opt_data,
+            data->feat_manager_factors->MutableFeatureManager(i).get(),
+            marginalization_info.get(), loss_function.get());
       }
-
-     for (int i = 0; i < options_.track_cam_num; i++) {
-  
     }
-
     MergeFrameData(opt_data, data, marginalization_info.get());
-
   } else {
     if (last_marginalization_info_ &&
         std::count(std::begin(last_marginalization_parameter_blocks_),
                    std::end(last_marginalization_parameter_blocks_),
-                   para_Pose[options_.win_size - 2])) {
+                   para_Pose[options_.win_size - 1])) {
+      LOG(INFO)<<"1";
       MarginalizationInfo *marginalization_info = new MarginalizationInfo();
       //
       if (last_marginalization_info_ && last_marginalization_info_->valid) {
@@ -279,11 +225,15 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
                                 last_marginalization_parameter_blocks_.size());
              i++) {
           CHECK(last_marginalization_parameter_blocks_[i] !=
-                para_SpeedBias[WINDOW_SIZE - 1]);
+                para_SpeedBias[options_.win_size - 1]);
           if (last_marginalization_parameter_blocks_[i] ==
-              para_Pose[WINDOW_SIZE - 1])
+              para_Pose[options_.win_size - 1]) {
             drop_set.push_back(i);
+
+            LOG(INFO) << "2";
+          }
         }
+        LOG(INFO)<<drop_set.size();
         // construct new marginlization_factor
         MarginalizationFactor *marginalization_factor =
             new MarginalizationFactor(last_marginalization_info_.get());

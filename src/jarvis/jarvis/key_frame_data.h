@@ -59,7 +59,8 @@ using TrackingId = uint64_t;
 struct FrameData {
   struct FeatureData {
     estimator::ImageFeatureTrackerData features;
-    std::map<TrackingId, double> depths;
+    // std::map<TrackingId, double> depths;
+    std::map<TrackingId,Eigen::Vector3d> map_points;
     std::map<TrackingId,cv::KeyPoint> key_points;//for display
   };  
   struct Data {

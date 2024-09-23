@@ -38,8 +38,7 @@ std::unique_ptr<Eigen::Quaterniond> InitializationImu::InitImuRotaion(
   double yaw = Utility::R2ypr(R0).x();
   R0 = Utility::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;
 
-  LOG(INFO) << "Init rpy:"<< Utility::R2ypr(R0).transpose()<<"  R:\n"
-            << R0;
+  LOG(INFO) << "Init rpy:" << Utility::R2ypr(R0).transpose() << "  R:\n" << R0;
   return std::make_unique<Eigen::Quaterniond>(R0);
 
   //

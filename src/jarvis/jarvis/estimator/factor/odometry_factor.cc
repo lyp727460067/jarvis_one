@@ -78,7 +78,6 @@ class OdomCostFuction
         jacobians_.block<3, 3>(0, 3) =
             (q_a * q_e).toRotationMatrix() * Skew(translation_observe_);
         jacobians_ = sqrt_info * jacobians_;
-        // LOG(INFO)<<jacobians_ ;
       }
     }
     return true;
