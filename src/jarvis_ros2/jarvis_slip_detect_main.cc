@@ -25,7 +25,7 @@
 #include <glog/logging.h>
 
 // #include "jarvis/estimator/imu_extrapolator.h"
-// #define CHECK_DATA
+#define CHECK_DATA
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
@@ -319,9 +319,9 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
 
-    cv::imshow("l_image",lr_image);
+    // cv::imshow("l_image",lr_image);
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    cv::waitKey(0);
+    // cv::waitKey(0);
     if(lr_image.empty()||vr_image.empty() )continue;
     order_queue_->AddData(
         kImagTopic0,

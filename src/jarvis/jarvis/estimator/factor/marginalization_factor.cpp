@@ -116,23 +116,28 @@ void MarginalizationInfo::addResidualBlockInfo(
     double *addr = parameter_blocks[i];
     int size = parameter_block_sizes[i];
     parameter_block_size[reinterpret_cast<long>(addr)] = size;
+
+    // LOG(INFO)<<addr <<" "<<size<<parameter_block_size[reinterpret_cast<long>(addr)];
+    
   }
 
   for (int i = 0; i < static_cast<int>(residual_block_info->drop_set.size());
        i++) {
     double *addr = parameter_blocks[residual_block_info->drop_set[i]];
-
-        LOG(INFO)<<addr;
+    // LOG(INFO)<<addr;
     parameter_block_idx[reinterpret_cast<long>(addr)] = 0;
   }
+  // LOG(INFO)<<parameter_block_idx.size();
 }
 
 void MarginalizationInfo::preMarginalize() {
   VLOG(kGlogCostTimeLevel) << "marginalize fator size: " << factors.size();
-
+  // LOG(INFO)<< factors.size();
   for (auto it : factors) {
     it->Evaluate();
-
+    //  for (auto &it : parameter_block_size) {
+    //   LOG(INFO)<<it.second;
+    // }
     std::vector<int> block_sizes = it->cost_function->parameter_block_sizes();
     for (int i = 0; i < static_cast<int>(block_sizes.size()); i++) {
       long addr = reinterpret_cast<long>(it->parameter_blocks[i]);
@@ -199,9 +204,11 @@ void *ThreadsConstructA(void *threadsstruct) {
 #if 1
 void MarginalizationInfo::marginalize() {
   int pos = 0;
+  // LOG(INFO)<< parameter_block_idx.size();
   for (auto &it : parameter_block_idx) {
     it.second = pos;
     pos += localSize(parameter_block_size[it.first]);
+    // LOG(INFO)<<pos;
   }
 
   m = pos;

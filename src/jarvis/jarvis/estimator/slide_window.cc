@@ -236,9 +236,13 @@ void SlideWindow::SlideNew() {
   //
   std::swap(imu_states_[imu_states_.size() - 2], imu_states_.back());
   imu_states_.erase(imu_states_.end());
-  integration_base_[imu_states_.size() - 2]->Merge(*integration_base_.back());
+  if (integration_base_[imu_states_.size() - 2] && integration_base_.back()) {
+    integration_base_[imu_states_.size() - 2]->Merge(*integration_base_.back());
+  }
   integration_base_.erase(integration_base_.end());
-  odoms_factor_[odoms_factor_.size() - 2]->Merge(*odoms_factor_.back());
+  if (odoms_factor_[odoms_factor_.size() - 2] && odoms_factor_.back()) {
+    odoms_factor_[odoms_factor_.size() - 2]->Merge(*odoms_factor_.back());
+  }
   odoms_factor_.erase(odoms_factor_.end());
   //
   //

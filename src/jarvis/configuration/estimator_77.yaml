@@ -11,8 +11,8 @@ track_sequence: "{0,1},{2}"
 
 feattrack0:
   max_cnt: 30          # max feature number in feature tracking
-  min_dist:  45           # min distance between two features 
-  mask_min_dist:  30  
+  min_dist:  55           # min distance between two features 
+  mask_min_dist:  50  
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
@@ -24,8 +24,8 @@ feattrack0:
 ####
 feattrack1:
   max_cnt: 20          # max feature number in feature tracking
-  min_dist:  45           # min distance between two features 
-  mask_min_dist:  30  
+  min_dist:  55           # min distance between two features 
+  mask_min_dist:  50  
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy

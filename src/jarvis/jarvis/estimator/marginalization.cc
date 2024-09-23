@@ -185,7 +185,7 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
   std::unique_ptr<ceres::LossFunction> loss_function(new ceres::HuberLoss(1.0));
   std::unique_ptr<MarginalizationInfo> marginalization_info(
       new MarginalizationInfo());
-  
+  bool margina_valid = false; 
   if (!flag) {
     if (last_marginalization_info_ && last_marginalization_info_->valid) {
       std::vector<int> drop_set;
@@ -213,13 +213,12 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
       }
     }
     MergeFrameData(opt_data, data, marginalization_info.get());
+    margina_valid = true;
   } else {
     if (last_marginalization_info_ &&
         std::count(std::begin(last_marginalization_parameter_blocks_),
                    std::end(last_marginalization_parameter_blocks_),
                    para_Pose[options_.win_size - 1])) {
-      LOG(INFO)<<"1";
-      MarginalizationInfo *marginalization_info = new MarginalizationInfo();
       //
       if (last_marginalization_info_ && last_marginalization_info_->valid) {
         std::vector<int> drop_set;
@@ -232,10 +231,8 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
               para_Pose[options_.win_size - 1]) {
             drop_set.push_back(i);
 
-            LOG(INFO) << "2";
           }
         }
-        LOG(INFO)<<drop_set.size();
         // construct new marginlization_factor
         MarginalizationFactor *marginalization_factor =
             new MarginalizationFactor(last_marginalization_info_.get());
@@ -245,25 +242,29 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
 
         marginalization_info->addResidualBlockInfo(residual_block_info);
       }
+          // marginalization_info->marginalize();
+      margina_valid = true;
     }
   }
+  if (margina_valid) {
+    TicToc t_pre_margin;
+    marginalization_info->preMarginalize();
+    VLOG(kGlogCostTimeLevel) << "pre marginalization " << t_pre_margin.toc();
 
-  TicToc t_pre_margin;
-  marginalization_info->preMarginalize();
-  VLOG(kGlogCostTimeLevel) << "pre marginalization " << t_pre_margin.toc();
+    TicToc t_margin;
+    marginalization_info->marginalize();
+    VLOG(kGlogCostTimeLevel) << "marginalization " << t_margin.toc();
+    std::unordered_map<long, double *> addr_shift;
+    if (!flag) {
+      addr_shift = ShiftStateAdrrOld(opt_data);
+    } else {
+      addr_shift = ShiftStateAdrrNew(opt_data);
+    }
+    last_marginalization_parameter_blocks_ =
+        marginalization_info->getParameterBlocks(addr_shift);
 
-  TicToc t_margin;
-  marginalization_info->marginalize();
-  VLOG(kGlogCostTimeLevel) << "marginalization " << t_margin.toc();
-  std::unordered_map<long, double *> addr_shift;
-  if (!flag) {
-    addr_shift = ShiftStateAdrrOld(opt_data);
-  } else {
-    addr_shift = ShiftStateAdrrNew(opt_data);
+    last_marginalization_info_ = std::move(marginalization_info);
   }
-  last_marginalization_parameter_blocks_ =
-      marginalization_info->getParameterBlocks(addr_shift);
-  last_marginalization_info_ = std::move(marginalization_info);
 }
 
 //
