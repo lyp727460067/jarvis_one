@@ -160,8 +160,9 @@ std::unordered_map<long, double *> Marginalization::ShiftStateAdrrNew(
     const OptimizationStateData *opt_data) {
   std::unordered_map<long, double *> addr_shift;
   for (int i = 0; i <= options_.win_size; i++) {
-    if (i == options_.win_size - 1)
+    if (i == options_.win_size - 1){
       continue;
+    }
     else if (i == options_.win_size) {
       addr_shift[reinterpret_cast<long>(para_Pose[i])] = para_Pose[i - 1];
       addr_shift[reinterpret_cast<long>(para_SpeedBias[i])] = para_SpeedBias[i - 1];
@@ -184,6 +185,7 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
   std::unique_ptr<ceres::LossFunction> loss_function(new ceres::HuberLoss(1.0));
   std::unique_ptr<MarginalizationInfo> marginalization_info(
       new MarginalizationInfo());
+  
   if (!flag) {
     if (last_marginalization_info_ && last_marginalization_info_->valid) {
       std::vector<int> drop_set;
