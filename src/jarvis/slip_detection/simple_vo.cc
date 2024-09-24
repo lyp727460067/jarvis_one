@@ -577,7 +577,7 @@ SimpleVo::SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back) {
 void SimpleVo::AddImageData(const jarvis::sensor::ImageData& images) {
   std::map<int, int> track_num;
   auto feature_frame = feature_tracker_->TrackImage(
-      images.time, images.image[0], images.image[1], &track_num, 0);
+      images.time, images.image[0], images.image[1]);
   auto data = tracker_->AddImageData(feature_frame);
   if (call_back_) {
     call_back_(data);
@@ -598,8 +598,8 @@ std::unique_ptr<jarvis::TrajectorBuilder> FactorSimipleVo(
     std::string config_path = file.substr(0, pn);
     auto const vio_yaml_file = config_path + "/" + vio_yam;
     LOG(INFO) << vio_yaml_file;
-    return std::make_unique<TrajectorBuilder>(vio_yaml_file,
-                                              std::move(call_back));
+    // return std::make_unique<TrajectorBuilder>(vio_yaml_file,
+    //                                           std::move(call_back));
   }
   SimpleVoOption simple_vo_option{file};
   ParseYAMLOption(file, &simple_vo_option);

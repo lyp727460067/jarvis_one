@@ -234,6 +234,7 @@ const std::vector<cv::Point2f>&cur_points,
                                                const cv::Mat& derive,
                                                const cv::Mat& mask) {
   //
+  if(max_corners==0)return {};
   CHECK(options_.min_distance >= 1);
   TicToc t_t;
   std::vector<cv::KeyPoint> keypoints;

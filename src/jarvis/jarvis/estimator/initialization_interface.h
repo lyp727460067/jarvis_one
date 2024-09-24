@@ -3,8 +3,8 @@
 #include "jarvis/estimator/initial/initial_alignment.h"
 #include "jarvis/sensor/imu_data.h"
 #include "jarvis/sensor/odometry_data.h"
-#include "key_frame_data.h"
-#include "optimization.h"
+#include "jarvis/key_frame_data.h"
+#include "jarvis/estimator/optimization.h"
 #include "jarvis/common/time.h"
 namespace jarvis {
 namespace estimator {

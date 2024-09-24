@@ -1,7 +1,7 @@
 #include "jarvis/estimator/slide_window.h"
 
 #include <memory>
-
+#include <sstream>
 #include "marginalization.h"
 namespace jarvis {
 namespace estimator {
@@ -69,7 +69,8 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   SlideData(true);
 }
 
-FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
+std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
+    const FrameData& frame) {
   //
 
   //
@@ -81,7 +82,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
   //
   for (auto& f : frame.data->features_datas) {
     if (feature_managers_->Exist(f.first)) {
-      LOG(INFO) << "feature id: " << f.first;
+      VLOG(kGlogLevel)<< "feature id: " << f.first;
       feature_managers_->MutableFeatureManager(f.first)
           ->AddFeatureCheckParallax(
               frame_count, frame.data->features_datas[f.first].features, dt);
@@ -115,7 +116,7 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
   }
   //
   // bool is_keyframe = feature_manager_->CheckParallax();
-  LOG(INFO) << "Add incoming feature "
+   VLOG(kGlogLevel) << "Add incoming feature "
             << (is_keyframe ? "Keyframe" : "Non-keyframe,");
   //
   const common::Time current_time =
@@ -176,12 +177,6 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
     marginalizer_->Marginalize(opt_data_, &marg_data, !is_keyframe);
   }
 
-  //
-  for (size_t i = 0; i < extric_camera_to_imu_.size(); i++) {
-    LOG(INFO) << "extric_camera_to_imu_ " << i << " "
-              << extric_camera_to_imu_[i];
-  }
-  //
 
   rejection_outliers_ = feature_managers_->RemoveOutliersRejection(
       imu_states_, extric_camera_to_imu_);
@@ -228,24 +223,28 @@ FrameData SlideWindow::AddFeatureData(const FrameData& frame) {
   fram_result.data->extric_camera_to_imu = extric_camera_to_imu_;
   //
   fram_result.data->imu_state = imu_states_.back();
-  return fram_result;
+  return std::make_unique<SlideWindowResult>(SlideWindowResult{
+      fram_result, optimization_->FinalCost(),
+      feature_managers_->GetFeatTrackInfo(),
+      odoms_factor_.back() ? odoms_factor_.back()->GetObserveDistance() : 100});
 }
-//
-void SlideWindow::SlideNew() {
-  //
-  //
-  std::swap(imu_states_[imu_states_.size() - 2], imu_states_.back());
-  imu_states_.erase(imu_states_.end());
-  if (integration_base_[imu_states_.size() - 2] && integration_base_.back()) {
-    integration_base_[imu_states_.size() - 2]->Merge(*integration_base_.back());
-  }
-  integration_base_.erase(integration_base_.end());
-  if (odoms_factor_[odoms_factor_.size() - 2] && odoms_factor_.back()) {
-    odoms_factor_[odoms_factor_.size() - 2]->Merge(*odoms_factor_.back());
-  }
-  odoms_factor_.erase(odoms_factor_.end());
-  //
-  //
+ //
+ void SlideWindow::SlideNew() {
+   //
+   //
+   std::swap(imu_states_[imu_states_.size() - 2], imu_states_.back());
+   imu_states_.erase(imu_states_.end());
+   if (integration_base_[imu_states_.size() - 2] && integration_base_.back()) {
+     integration_base_[imu_states_.size() - 2]->Merge(
+         *integration_base_.back());
+   }
+   integration_base_.erase(integration_base_.end());
+   if (odoms_factor_[odoms_factor_.size() - 2] && odoms_factor_.back()) {
+     odoms_factor_[odoms_factor_.size() - 2]->Merge(*odoms_factor_.back());
+   }
+   odoms_factor_.erase(odoms_factor_.end());
+   //
+   //
 }
 
 void SlideWindow::SlideData(bool is_keyframe) {
@@ -398,6 +397,8 @@ void SlideWindow::FrameDataToState() {
       para_SpeedBias[i][j + 6] = imu_state.bg[j];
     }
   }
+
+  std::stringstream extric_info;
   if (options_.opti_option.use_odom) {
     for (int j = 0; j < 3; j++) {
       para_Ex_Pose_Odom[0][j] = 0;//odo_to_imu_extric_.translation()[j];
@@ -406,24 +407,24 @@ void SlideWindow::FrameDataToState() {
     para_Ex_Pose_Odom[0][4] = odo_to_imu_extric_.rotation().y();
     para_Ex_Pose_Odom[0][5] = odo_to_imu_extric_.rotation().z();
     para_Ex_Pose_Odom[0][6] = odo_to_imu_extric_.rotation().w();
-    LOG(INFO)<< odo_to_imu_extric_;
+    extric_info << "Odom to imu extric:" << odo_to_imu_extric_ << " ";
   }
   //
   //
   // CHECK_EQ(extric_camera_to_imu_.size(), options_.opti_option.camera_num);
   for (int i = 0; i < options_.opti_option.CamNum(); i++) {
+    extric_info << "cam(" << std::to_string(i) << ")"
+                << extric_camera_to_imu_[i] << " ";
     for (int j = 0; j < 3; j++) {
       para_Ex_Pose[i][j] = extric_camera_to_imu_[i].translation()[j];
     }
-    //
     const Eigen::Quaterniond q = extric_camera_to_imu_[i].rotation();
     para_Ex_Pose[i][3] = q.x();
     para_Ex_Pose[i][4] = q.y();
     para_Ex_Pose[i][5] = q.z();
     para_Ex_Pose[i][6] = q.w();
-    // if (IsStereo()) break;
-    LOG(INFO) << extric_camera_to_imu_[i];
   }
+  LOG_EVERY_N(INFO,100)<<extric_info.str();
 
   for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     //

@@ -212,7 +212,7 @@ SteroImuInitialization::OptimizationResult() {
   ceres::Solver::Options options;
   // options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 1;
+  options.num_threads = 4;
   options.trust_region_strategy_type = ceres::DOGLEG;
   options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
   options.use_explicit_schur_complement = true;
@@ -316,7 +316,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
 
   //
   //
-
+  
   const auto imu_datas = data_base_->GetImuIntervalData(last_time, cur_time);
   //
   //

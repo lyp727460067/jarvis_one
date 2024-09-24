@@ -57,6 +57,7 @@ class Optimization {
                                      OptimizationData* frames_data);
   OptimizationStateData* MutableData() { return &data_; }
   ~Optimization();
+  double FinalCost() { return final_cost_; }
 
  private:
   void AddCameraFactor(int id,ceres::Problem* Problem,
@@ -75,7 +76,7 @@ class Optimization {
 
   const int win_size_;
   const OptimizationOption options_;
-  
+  double final_cost_=0; 
 
   // double** para_Pose = data_.pose;
   // double** para_SpeedBias = data_.speed_bias;

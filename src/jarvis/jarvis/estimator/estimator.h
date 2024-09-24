@@ -83,7 +83,8 @@ class Estimator {
   double estimator_td_ = 0;
   uint64_t frame_id_ = 0;
 };
-std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
+
+EstimatorOption  ParseEstimatorOption(const std::string &config_file);
 
 }  // namespace estimator
 }  // namespace jarvis

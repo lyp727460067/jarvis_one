@@ -98,7 +98,7 @@ ImuState PosePredit::PreditDataBase(const ImuState& imu_stat,
 
   const auto imu_data = data_base->GetImuIntervalData(start_time, end_time);
 
-  LOG(INFO) << "image interval [" << start_time << "," << end_time
+  VLOG(kGlogLevel)  << "image interval [" << start_time << "," << end_time
             << ",peri: " << common::ToSeconds(end_time - start_time)
             << "],imu num: " << imu_data.size();
   //

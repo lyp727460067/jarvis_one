@@ -83,7 +83,6 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   TicToc add_image_data_cost;
   //
 
-  std::map<int, int> track_num;
   //  FrameData::FeatureData featureFrame;
   common::Time cur_time = images.time + common::FromSeconds(estimator_td_);
   TrackState state = TrackState::INIT;
@@ -99,33 +98,43 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     })};
 
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
-      LOG(INFO) << options_.track_sequence[i].size();
-      track_num.clear();
-
-      LOG(INFO) << options_.track_sequence[i][0];
-
+      //
+      // if (options_.feature_track_options[i].pyramid_image.empty()) {
+      //   for (size_t j = 0;
+      //        j < options_.feature_track_options[i].pyramid_image.size(); j++)
+      //     options_.feature_track_options[i].pyramid_image[j]->Build(cv::Mat());
+      // }
+      //
       CHECK(!images.image[options_.track_sequence[i][0]].empty());
       ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
-          images.time, images.image[options_.track_sequence[i][0]], cv::Mat(),
-          &track_num);
-      LOG(INFO)<<"!";
+          images.time, images.image[options_.track_sequence[i][0]]);
       frame_data.data->features_datas.emplace(
           i, FrameData::FeatureData{featureFrame});
     }
-    LOG(INFO)<<"!";
-    frame_data = slide_wondows_->AddFeatureData(frame_data);
-
-    LOG(INFO)<<"!";
+    std::unique_ptr<SlideWindowResult> slie_result =
+        slide_wondows_->AddFeatureData(frame_data);
+    //
+    frame_data = slie_result->frame_data;
     imu_state_ = frame_data.data->imu_state;
     frame_data.status = TrackState::TRACKING;
     auto rejection_outliers = slide_wondows_->RejectionOutliers();
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
-      feature_trackers_[i]->removeOutliers(rejection_outliers[i]);
+      feature_trackers_[i]->RemoveOutliers(rejection_outliers[i]);
+    }
+    if (failure_detect_->Detect(*slie_result)) {
+      frame_data.status = TrackState::LOST;
     }
 
   } else {
+    //
+    // if (options_.feature_track_options[0].pyramid_image.empty()) {
+    //   for (size_t j = 0;
+    //        j < options_.feature_track_options[0].pyramid_image.size(); j++)
+    //     options_.feature_track_options[0].pyramid_image[j]->Build(cv::Mat());
+    // }
+
     ImageFeatureTrackerData featureFrame = feature_trackers_[0]->TrackImage(
-        images.time, images.image[0], images.image[1], &track_num);
+        images.time, images.image[0], images.image[1]);
     auto init_result = initials_[0]->AddFeatureData(featureFrame);
     if (init_result) {
       slide_wondows_ = std::make_unique<SlideWindow>(
@@ -151,9 +160,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   //
 
   data_base_->TrimData(cur_time);
-  if (failure_detect_->Detect(frame_data)) {
-    frame_data.status = TrackState::LOST;
-  }
+
   return std::make_unique<FrameData>(frame_data);
 }
 //
@@ -201,12 +208,18 @@ void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {
 }
 
 //
-std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file) {
+
+EstimatorOption ParseEstimatorOption(const std::string &config_file) {
   EstimatorOption option;
 
   ParseYAMLOption(config_file, &option);
-  return std::make_unique<Estimator>(option);
+  return option;
 }
+
+// std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file) {
+
+//   return std::make_unique<Estimator>(option);
+// }
 
 }  // namespace estimator
 }  // namespace jarvis

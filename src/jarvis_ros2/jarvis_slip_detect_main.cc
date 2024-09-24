@@ -22,10 +22,12 @@
 #include "std_msgs/msg/string.hpp"
 #include "unistd.h"
 //
+
+#include "jarvis/estimator/featureTracker/pyramid_image.h"
 #include <glog/logging.h>
 
 // #include "jarvis/estimator/imu_extrapolator.h"
-#define CHECK_DATA
+// #define CHECK_DATA
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
@@ -43,6 +45,7 @@ std::ofstream kOImuFile;
 std::ofstream kOPoseFile;
 std::ofstream kSlipFile;
 std::string image_dir;
+int kuse_gpu = 0;
 // std::unique_ptr<jarvis::estimator::ImuExtrapolator> KImuExtrapolator;
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
@@ -50,6 +53,7 @@ void ParseOption(const std::string& config) {
   LOG(INFO) << imu_cam_time_offset;
   fsSettings["image_sample"] >> image_sample;
   fsSettings["start_image_time"] >> KStartImageTime;
+    fsSettings["use_gpu"] >> kuse_gpu;
   // fsSettings["record"] >> kRecordFlag;
   // fsSettings["data_capture"] >> kDataCaputureType;
 }
@@ -318,12 +322,14 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
-    cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
+    // cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
-    // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    // cv::waitKey(0);
-    CHECK(false);
+    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    cv::waitKey(0);
     if(lr_image.empty()||vr_image.empty() )continue;
+
+
+
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
@@ -397,11 +403,57 @@ int main(int argc, char* argv[]) {
   auto slip_detect = slip_detect::FactorSlipDetect(vslam_yaml_file);
   //
   std::vector<bool> slip_states;
-  builder_ = std::make_unique<TrajectorBuilder>(
-      std::string(argv[1]), [&](const TrackingData& data) {
+  estimator::EstimatorOption option =
+      estimator::ParseEstimatorOption(std::string(argv[1]));
+  //
+
+  if (kuse_gpu) {
+    //
+    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
+        extend_pyramid_image0 =
+            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+                option.feature_track_options[0].pyrmid_option);
+    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
+        extend_pyramid_image00 =
+            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+                option.feature_track_options[0].pyrmid_option);
+
+    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
+        extend_pyramid_image1 =
+            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+                option.feature_track_options[1].pyrmid_option);
+
+    LOG(INFO) << '1';
+    option.feature_track_options[0].pyramid_image.push_back(
+        extend_pyramid_image0);
+    option.feature_track_options[0].pyramid_image.push_back(
+        extend_pyramid_image00);
+    option.feature_track_options[1].pyramid_image.push_back(
+        extend_pyramid_image1);
+  }
+  std::shared_ptr<jarvis::estimator::PyramidImage> extend_pyramid_image0_tmp =
+      std::make_shared<jarvis::estimator::PyramidImage>(
+          option.feature_track_options[0].pyrmid_option);
+  std::shared_ptr<jarvis::estimator::PyramidImage> extend_pyramid_image00_tmp =
+      std::make_shared<jarvis::estimator::PyramidImage>(
+          option.feature_track_options[0].pyrmid_option);
+
+  std::shared_ptr<jarvis::estimator::PyramidImage> extend_pyramid_image1_tmp =
+      std::make_shared<jarvis::estimator::PyramidImage>(
+          option.feature_track_options[1].pyrmid_option);
+
+  // for (int i = 0; i < option.track_sequence.size(); i++) {
+  //   option.feature_track_options[i].pyramid_image.push_back(
+  //       std::make_shared<ExtendPyramidImage>
+  //   );
+  // }
+
+  
+  builder_ =
+      std::make_unique<TrajectorBuilder>(option, [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
         //
-        LOG(INFO)<<data.data->imu_state;
+        VLOG(kGlogLevel)<<data.data->imu_state;
         CHECK(!isnan( data.data->imu_state.p.x()));
         auto tracking_data = data;
         Eigen::Matrix3d rotaion;
@@ -472,28 +524,79 @@ int main(int argc, char* argv[]) {
                            slip_detect->AddOdometry(odom_data);
                          });
   //
-  order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
-    // slip_detect->AddImage(imag_data);
-    // auto flag = slip_detect->Detect(imag_data.time);
-    // ros_compont->PubBoolMsg(flag);
-    if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
-        imag_data.image[2].empty() || imag_data.image[3].empty()) {
-      LOG(WARNING) << "Input Image empty..";
-      return;
-    }
-    // if(imag_data.time<common::FromUniversal(530343438350))return;
-    auto start = std::chrono::high_resolution_clock::now();
-    builder_->AddImageData(imag_data);
-    // LOG(INFO) << "One frame cost: "
-              // << std::chrono::duration_cast<std::chrono::milliseconds>(
-                    //  std::chrono::high_resolution_clock::now() - start)
-                    //  .count();
-    // cv::imshow("show", *imag_data.image[1]);
-    // cv::waitKey(0);
-    // if(cv::waitKey()=='c'){
-    //   jarvis::restart =true;
-    // }
-  });
+
+  std::vector<std::pair<bool, sensor::ImageData>> image_datas_pry;
+  std::mutex mutex_py;
+  order_queue_->AddQueue(
+      kImagTopic0,
+      [&](const sensor::ImageData& imag_data) {
+        // slip_detect->AddImage(imag_data);
+        // auto flag = slip_detect->Detect(imag_data.time);
+        // ros_compont->PubBoolMsg(flag);
+
+        if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
+            imag_data.image[2].empty() || imag_data.image[3].empty()) {
+          LOG(WARNING) << "Input Image empty..";
+          return;
+        }
+        if (kuse_gpu) {
+          if (image_datas_pry.size() >= 1) {
+            bool ok = false;
+            {
+              std::lock_guard<std::mutex> lock(mutex_py);
+              ok = image_datas_pry.back().first;
+            }
+
+            while (!ok) {
+              {
+                usleep(10);
+                {
+                  std::lock_guard<std::mutex> lock(mutex_py);
+                  ok = image_datas_pry.back().first;
+                }
+              }
+            }
+
+            //
+            option.feature_track_options[0].pyramid_image[0]->SetCurrPyram(
+                extend_pyramid_image0_tmp->CurrPyram());
+            option.feature_track_options[0].pyramid_image[1]->SetCurrPyram(
+                extend_pyramid_image00_tmp->CurrPyram());
+            option.feature_track_options[1].pyramid_image[0]->SetCurrPyram(
+                extend_pyramid_image1_tmp->CurrPyram());
+            //
+            if (image_datas_pry.size() == 2) {
+              image_datas_pry.erase(image_datas_pry.begin());
+            }
+            image_datas_pry.push_back({false, imag_data});
+            std::thread thread([=, &image_datas_pry, &mutex_py]() {
+              extend_pyramid_image0_tmp->Build(imag_data.image[0]);
+              extend_pyramid_image00_tmp->Build(imag_data.image[1]);
+              extend_pyramid_image1_tmp->Build(imag_data.image[2]);
+              std::lock_guard<std::mutex> lock(mutex_py);
+              image_datas_pry.back().first = true;
+            });
+
+            builder_->AddImageData(image_datas_pry[0].second);
+            thread.detach();
+          } else {
+            image_datas_pry.push_back({false, imag_data});
+            std::thread thread([=, &image_datas_pry, &mutex_py]() {
+              extend_pyramid_image0_tmp->Build(imag_data.image[0]);
+              extend_pyramid_image00_tmp->Build(imag_data.image[1]);
+              extend_pyramid_image1_tmp->Build(imag_data.image[2]);
+              std::lock_guard<std::mutex> lock(mutex_py);
+              image_datas_pry.back().first = true;
+            });
+            thread.detach();
+          }
+
+        } else {
+          builder_->AddImageData(imag_data);
+        }
+      }
+
+  );
   order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
     builder_->AddImuData(jarvis::sensor::ImuData{
         imu.time + common::FromSeconds(0.1),

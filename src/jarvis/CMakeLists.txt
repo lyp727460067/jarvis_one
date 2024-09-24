@@ -20,7 +20,7 @@ if(PLATFORM_mr527)
   add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
   add_definitions(-D__ARM_NEON__)
   add_definitions(-D__ARM_PLATFORM__)
-  ##
+  ##ofast编译会有问题，需要查看原因
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s  -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
   option(build_test "build test" OFF)
 

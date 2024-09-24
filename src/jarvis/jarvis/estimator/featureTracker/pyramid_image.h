@@ -31,12 +31,13 @@ struct PyramidImageOption {
 class PyramidImage {
  public:
   PyramidImage(const PyramidImageOption &option);
-  void Build(const cv::Mat &image);
+  virtual void Build(const cv::Mat &image);
+  virtual void SetCurrPyram(const std::vector<cv::Mat> &pyram) {}
   const int Layer() { return option_.layer; }
   const std::vector<cv::Mat> &PrePyram() { return prev_img_pyramids_; }
   const std::vector<cv::Mat> &CurrPyram() { return curr_img_pyramids_; }
 
- private:
+ protected:
   void build_pyramids(const cv::Mat &img, std::vector<cv::Mat> *_pyramids,
                       uchar *const pyra_buf_ptr);
   const PyramidImageOption option_;
@@ -48,6 +49,20 @@ class PyramidImage {
   std::vector<cv::Mat> prev_img_pyramids_;
   std::vector<cv::Mat> curr_img_pyramids_;
 };
+class  ExtendPyramidImage :public PyramidImage {
+ public:
+  ExtendPyramidImage(const PyramidImageOption &option)
+      : PyramidImage(option) {}
+  void Build(const cv::Mat &image);
+  void SetCurrPyram(const std::vector<cv::Mat> &pyram);
+
+
+};
+
+
+
+
+
 }  // namespace estimator
 }  // namespace jarvis
 #endif

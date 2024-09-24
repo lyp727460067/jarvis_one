@@ -10,9 +10,9 @@
 #include "jarvis/estimator/optimization.h"
 #include "jarvis/estimator/updater_zero_velocity.h"
 #include "jarvis/sensor/imu_data.h"
-#include "key_frame_data.h"
-#include "marginalization.h"
-#include "transform/rigid_transform.h"
+#include "jarvis/key_frame_data.h"
+#include "jarvis/estimator/marginalization.h"
+#include "jarvis/transform/rigid_transform.h"
 namespace jarvis {
 namespace estimator {
 struct SlideWindowOption {
@@ -31,11 +31,12 @@ struct SlideWindowOption {
 //
 };
 //
-// 
-struct SlideWindowResult
-{
-
-
+//
+struct SlideWindowResult {
+  FrameData frame_data;
+  double final_cost;
+  FeatTrackInfo feat_track_info;
+  std::optional<double>latest_odo_distance= 0;
 };
 
 class SlideWindow {
@@ -43,7 +44,7 @@ class SlideWindow {
   SlideWindow(const SlideWindowOption& option, DataBase* data_base,
               const std::unique_ptr<InitializationResult>& init_data);
   //
-  FrameData AddFeatureData(const FrameData&);
+  std::unique_ptr<SlideWindowResult> AddFeatureData(const FrameData&);
   //
   std::map<CameraId, std::set<TrackFeatureId>>& RejectionOutliers() {
     return rejection_outliers_;

@@ -9,6 +9,7 @@ namespace sensor {
 struct ImageData {
   common::Time time;
   std::vector<cv::Mat> image;
+  std::vector<std::vector<cv::Mat>> pyramid_derive;
   static std::string TypeName() { return "image"; }
   // std::vector<std::unique_ptr<cv::Mat>> images_;
 };

@@ -167,7 +167,7 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
 
   );
   // LOG(INFO)<<info1.str();
-  LOG(INFO) << "Adding factor feature size " << f_m_cnt;
+  LOG_EVERY_N(INFO,100) << "Adding factor feature size " << f_m_cnt;
 }
 
 void Optimization::AddFrameFactor(ceres::Problem *problem,
@@ -207,7 +207,7 @@ void Optimization::AddFrameFactor(ceres::Problem *problem,
     auto pre_integration = sw_data->imu_factors[j];
     //
     if (!pre_integration || !pre_integration->IsValid()) {
-      LOG(WARNING) << j << " Imu avalid..";
+      VLOG(kGlogLevel) << j << " Imu avalid..";
       continue;
     }
 
@@ -297,7 +297,6 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   options.use_explicit_schur_complement = true;
   // options.minimizer_progress_to_stdout = true;
   options.use_nonmonotonic_steps = true;
-
   // if (marginalization_flag == MARGIN_OLD)
   //   options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
   // else
@@ -306,9 +305,10 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   TicToc t_solver;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
+
+  final_cost_ = summary.final_cost;
   VLOG(kGlogCeresLevel) << summary.BriefReport();
-  // LOG_EVERY_N(INFO, 1) << "\n" << summary.FullReport();
-  //   StateToFrameData(frames_data);
+  LOG_EVERY_N(INFO, 500) << "\n" << summary.FullReport();
   return &data_;
 }
 Optimization::~Optimization() {

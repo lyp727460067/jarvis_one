@@ -427,7 +427,7 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["UpdataZeroVelocityOption"]["imag_disparity_option"]
                   ["max_disparity"];
   }
-  LOG(INFO) << "\n" << info.str() << "\n";
+//   LOG(INFO) << "\n" << info.str() << "\n";
 }
 
 // void ParseYAMLOptionSimpleVoOption(cv::FileStorage *fs,

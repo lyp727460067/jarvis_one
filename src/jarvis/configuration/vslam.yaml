@@ -6,6 +6,7 @@ image_sample : 1
 record : 0
 GLOG_v :  -1
 offline_play_bag_duration : 0.001 
+use_gpu : 0
 mask_id: mask.png
 imu_cam_time_offset : 0.000
 slip_detect : 1

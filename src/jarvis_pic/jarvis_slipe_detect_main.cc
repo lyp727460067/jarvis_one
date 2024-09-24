@@ -252,7 +252,7 @@ int main(int argc, char* argv[]) {
 
   //
   //
-  const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
+  const std::string config_file("/oem/mowpack/mul_vslam_param/vslam.yaml");
   //
   //
   //
@@ -300,11 +300,6 @@ int main(int argc, char* argv[]) {
     }
     data_record_->AddVioData(tracking_data.data->time,
                                tracking_data.data->imu_state.Pose(), flag);
-    LOG(INFO) << "pose:" << tracking_data.data->imu_state.Pose()
-              << "bas: " << tracking_data.data->imu_state.ba.transpose()
-              << ",bgs: " << tracking_data.data->imu_state.bg.transpose()
-              << ",vio status: " << tracking_data.status
-              << ",slip status: " << int(flag);
 
     // jarvis_slam->AddStateToImuExtrapolator(tracking_data);
     // mpc.Write(

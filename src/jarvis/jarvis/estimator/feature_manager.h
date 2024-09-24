@@ -61,6 +61,17 @@ struct FeatureManagerOption {
   } parallax_option;
 };
 
+struct FeatTrackInfo {
+  int last_track_num = 0;
+  int new_feature_num = 0;
+  int long_track_num = 0;
+  FeatTrackInfo &operator+=(const FeatTrackInfo &rhs) {
+    last_track_num += rhs.last_track_num;
+    new_feature_num += rhs.new_feature_num;
+    long_track_num += rhs.long_track_num;
+    return *this;
+  }
+};
 class FeatureManager {
  public:
 
@@ -76,6 +87,7 @@ class FeatureManager {
                                const ImageFeatureTrackerData &image, double td);
 
   //
+  const FeatTrackInfo &GetFeatTrackInfo() { return info; }
   std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> GetCorresponding(
       int frame_count_l, int frame_count_r);
   // void updateDepth(const VectorXd &x);
@@ -166,6 +178,7 @@ class FeatureManager {
   // Eigen::Matrix3d ric[2];
   bool parallax_ = false;
   int frame_count_ =-1;
+  FeatTrackInfo info;
 };
 
 //
@@ -201,7 +214,7 @@ class FeatureManagers {
                    const std::vector<transform::Rigid3d> &sw_pose,
                    const std::vector<transform::Rigid3d> &ex_came_to_imu);
   //
-
+  FeatTrackInfo GetFeatTrackInfo();
   void RemoveFailures();
   void RemoveBack();
   void RemoveBackShiftDepth(const transform::Rigid3d &marg_p,

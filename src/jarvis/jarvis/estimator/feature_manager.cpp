@@ -56,8 +56,7 @@ bool FeatureManager::IsParallax(int frame_count,
     }
     //
   }
-  LOG(INFO) << "last_track_num " << last_track_num << "long_track_num "
-            << long_track_num << " " << " new_feature_num " << new_feature_num;
+  info = FeatTrackInfo{last_track_num, new_feature_num, long_track_num};
   if (frame_count < options_.parallax_option.start_frame ||
       last_track_num < options_.parallax_option.last_track_num ||
       long_track_num < options_.parallax_option.long_track_num ||
@@ -76,8 +75,8 @@ bool FeatureManager::IsParallax(int frame_count,
       parallax_num++;
     }
   }
-  LOG(INFO)<<parallax_num;
   if (parallax_num == 0) {
+    LOG(WARNING)<<"parallax_num :"<<parallax_num;
     return true;
   } else {
     VLOG(kGlogLevel) << "parallax_sum: " << parallax_sum
@@ -96,12 +95,12 @@ bool FeatureManager::AddFeatureCheckParallax(
     int frame_count, const ImageFeatureTrackerData &image, double td) {
   //
   frame_count_= frame_count;
-  VLOG(kGlogLevel) << "Continuously track feature points greater than 4-->"
-                   << GetFeatureCount();
+  const int conti_cout = GetFeatureCount();
+  LOG_IF(INFO, conti_cout < 10)
+      << "Continuously track feature points greater than 4-->" << conti_cout;
   //
   //
   //
-  LOG(INFO)<<frame_count;
   std::stringstream info;
   for (const auto &id_pts : image.data->features) {
     if (features_.count(id_pts.first)) {
@@ -123,7 +122,7 @@ bool FeatureManager::AddFeatureCheckParallax(
           FeaturePerId{frame_count, {FeaturePerFrame{id_pts.second, td}}});
     }
   }
-  LOG(INFO)<<info.str();
+  VLOG(kGlogLevel)<<info.str();
   parallax_ = IsParallax(frame_count, image);
   return parallax_;
 }
@@ -197,7 +196,7 @@ void FeatureManager::RemoveFailures() {
       features_.erase(it);
     }
   }
-  LOG(INFO)<<info.str();
+  VLOG(kGlogLevel) << info.str();
 }
 
 //
@@ -264,7 +263,7 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
       remove_index.insert(pair_it_per_id.first);
     }
   }
-  LOG(INFO)<<info.str();
+  VLOG(kGlogLevel) <<info.str();
   RemoveOutlier(remove_index);
   return remove_index;
 }
@@ -535,7 +534,7 @@ void FeatureManager::CreateFactor(
                                         .normal_points.head<2>();
     //
 
-    LOG(INFO) << point0.transpose() << point1.transpose();
+    // LOG(INFO) << point0.transpose() << point1.transpose();
     int imu_i = features_id.start_frame;
     CHECK_LE(imu_i, int(sw_pose.size() - 1));
     const transform::Rigid3d &frame_left_pose =
@@ -905,5 +904,14 @@ void FeatureManager::CreateFactor(
       f_m.second->RemoveFailures();
     }
   }
+
+  FeatTrackInfo FeatureManagers::GetFeatTrackInfo() {
+    FeatTrackInfo info;
+    for (auto &f_m : feature_managers_) {
+      info += f_m.second->GetFeatTrackInfo();
+    }
+    return info;
+  }
+
 }  // namespace estimator
 }  // namespace jarvis
