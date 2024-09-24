@@ -318,10 +318,11 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
-
+    cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
     // cv::waitKey(0);
+    CHECK(false);
     if(lr_image.empty()||vr_image.empty() )continue;
     order_queue_->AddData(
         kImagTopic0,

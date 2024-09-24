@@ -21,11 +21,16 @@ set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_flann.so
     ${Opencv_lib_dir}/libopencv_video.so
 )
+# 手动指定 OpenCL 的位置
+set(OPENCL_INCLUDE_DIRS ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/include)
+# set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/third_party/opencl/lib/libOpenCL.so)
 
+set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/lib/libmali.so)
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
 set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
+set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include)
 # set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
 # add_library(
 #         glog
@@ -51,7 +56,7 @@ INCLUDE_DIRECTORIES(
   # ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
-
+  ${YAML_INCLUDE_DIRS}/
   ${GLOG_INCLUDE_DIRS}
   ${TOP_CMAKE_DIR}/libs/libmpc/include/
   ${TOP_CMAKE_DIR}/libs/libimageproc/include/

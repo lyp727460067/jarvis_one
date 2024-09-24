@@ -20,6 +20,9 @@ Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     feature_trackers_.emplace(
         i, std::make_unique<FeatureTracker>(options_.feature_track_options[i]));
+    LOG(INFO)<<options_.feature_track_options[i].feature_detect_option.imag_size;
+    LOG(INFO)<<options_.feature_track_options[i].feature_detect_option.grid_size;
+    LOG(INFO)<<options_.feature_track_options[i].mask.size();
   }
   if (options_.use_stero) {
     LOG(INFO) << options_.stero_imu_init_option.imu_option.DebugInfo();
@@ -96,13 +99,23 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     })};
 
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
+      LOG(INFO) << options_.track_sequence[i].size();
+      track_num.clear();
+
+      LOG(INFO) << options_.track_sequence[i][0];
+
+      CHECK(!images.image[options_.track_sequence[i][0]].empty());
       ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
           images.time, images.image[options_.track_sequence[i][0]], cv::Mat(),
           &track_num);
+      LOG(INFO)<<"!";
       frame_data.data->features_datas.emplace(
           i, FrameData::FeatureData{featureFrame});
     }
+    LOG(INFO)<<"!";
     frame_data = slide_wondows_->AddFeatureData(frame_data);
+
+    LOG(INFO)<<"!";
     imu_state_ = frame_data.data->imu_state;
     frame_data.status = TrackState::TRACKING;
     auto rejection_outliers = slide_wondows_->RejectionOutliers();

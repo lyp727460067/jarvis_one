@@ -351,6 +351,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
       if (mask.empty()) {
         LOG(INFO) << "mask is empty ";
       }
+      LOG(INFO)<<mask.size();
       // cv::imshow("mask",mask); 
       // cv::waitKey(0);
       if (mask.type() != CV_8UC1) {

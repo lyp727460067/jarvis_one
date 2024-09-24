@@ -40,7 +40,7 @@ find_package(jarvis REQUIRED)
 find_package(OpenCV REQUIRED) #version 4.6.0
 
 include_directories(
-${OpenCV_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 
@@ -63,6 +63,9 @@ add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc)
 add_executable(ld_${PROJECT_NAME}_slip_main   jarvis_slip_detect_main.cc ros_component.cc
 )
 add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare.cc pose_optimization.cc
+)
+
+add_executable(ld_${PROJECT_NAME}_data_parse  jarvis_data_parse.cc
 )
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -89,6 +92,13 @@ target_link_libraries(ld_${PROJECT_NAME}_slip_main
   yaml-cpp
   jarvis
 )
+target_link_libraries(ld_${PROJECT_NAME}_data_parse
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+  glog::glog
+  yaml-cpp
+  jarvis
+)
 
 target_link_libraries(ld_${PROJECT_NAME}_pose_compare_main
   ${catkin_LIBRARIES}
@@ -104,6 +114,14 @@ tf2_ros
 cv_bridge
 image_transport
 )
+
+ament_target_dependencies(ld_${PROJECT_NAME}_data_parse rclcpp std_msgs nav_msgs sensor_msgs
+visualization_msgs
+tf2_ros
+cv_bridge
+image_transport
+)
+
 ament_target_dependencies(ld_${PROJECT_NAME}_slip_main rclcpp std_msgs nav_msgs sensor_msgs
 visualization_msgs
 tf2_ros

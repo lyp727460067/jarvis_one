@@ -56,8 +56,9 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
   order_queue_->AddQueue(
       kImagTopic0, [&](const jarvis::sensor::ImageData& imag_data) {
-
-        if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
+        if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
+            imag_data.image[2].empty() || imag_data.image[3].empty()
+        ) {
           LOG(WARNING) << "Input Image empty..";
           return;
         }
@@ -99,8 +100,12 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
             jarvis::sensor::ImageData{
                 jarvis::common::FromUniversal(frame.time * 10) +
                     jarvis::common::FromSeconds(imu_cam_time_offset),
-                {std::make_shared<cv::Mat>(frame.images[0]),
-                 std::make_shared<cv::Mat>(frame.images[1])}}));
+                {
+                    frame.images[0],
+                    frame.images[1],
+                    frame.images[2],
+                    frame.images[3]
+                }}));
   });
 
   LOG(INFO) << "Capture start..";

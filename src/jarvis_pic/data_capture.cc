@@ -3,12 +3,17 @@
 #include <array>
 #include <chrono>
 #include <vector>
-#define FRAME_MAX_LEN (4116580)
 // #include "SensorDataCapturer/DataCapturer.h"
 #include "glog/logging.h"
 #include "optional"
 #include "jarvis/transform/rigid_transform.h"
+#include <Eigen/Dense>
+#include <Eigen/SVD>
+#include "opencv2/core/eigen.hpp"
 //
+
+#define FRAME_MAX_LEN (4116580)
+
 // #define NEED_SYNC
 namespace jarvis_pic {
 namespace {
@@ -45,11 +50,27 @@ constexpr double kGryUnit = 0.001;
 constexpr double kAccUnit = (1./ 2048 * 9.81);  // 加速度单位
 //
 cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
-                        uint32_t height) {
-  cv::Mat yuvMat(height + height / 2, width, CV_8UC1, (unsigned char*)buf);
-  cv::Mat grayMat;
-  cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
-  return grayMat.clone();
+                        uint32_t height,bool rotate=false) {
+  if (rotate) {
+    // Eigen::Map<
+    //     Eigen::Matrix<uint8_t, height + height / 2, width, 7,
+    //     Eigen::ColMajor>> eigen_data((unsigned char*)buf);
+    // cv::Mat yuvMat;
+    // cv::eigen2cv(eigen_data, yuvMat);
+    // cv::Mat yuvMat(width + width / 2, height, CV_8UC1, (unsigned char*)buf);
+    cv::Mat grayMat(width ,height,CV_8UC1,(unsigned char*)buf);
+    // cv::Mat out_grayMat;
+    // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
+    // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
+    // cv::transpose(grayMat, out_grayMat);
+    return grayMat.clone();
+  } else {
+    // cv::Mat yuvMat(height + height / 2, width, CV_8UC1, (unsigned char*)buf);
+    // cv::Mat grayMat;
+    // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
+    cv::Mat grayMat(height,width,CV_8UC1,(unsigned char*)buf);
+    return grayMat.clone();
+  }
 }
 
 }  // namespace
@@ -294,7 +315,7 @@ void DataCapture::Run() {
 //
 Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
   //
-  Frame result{frame.head.time_stamp, std::vector<cv::Mat>(2)};
+  Frame result{frame.head.time_stamp, std::vector<cv::Mat>(4)};
   uint64_t camera_data_lenth =
       (option.frame_width * option.frame_hight * 3 * 2) >> 2;
   std::thread thread1([&]() {
@@ -316,8 +337,36 @@ Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
       result.images[1] = grayImg;
     }
   });
+
+  std::thread thread3([&]() {
+    if (GET_BIT(frame.head.capture_flag, 0) == 1) {
+      cv::Mat grayImg = YuvBufToGrayMat(
+          frame.buf + sizeof(CameraFrameHead),
+          camera_data_lenth, option.frame_width, option.frame_hight,true);
+
+      result.images[2] = grayImg;
+    }
+  });
+
+
+
+  std::thread thread4([&]() {
+    if (GET_BIT(frame.head.capture_flag, 3) == 1) {
+      cv::Mat grayImg = YuvBufToGrayMat(
+          frame.buf + sizeof(CameraFrameHead) + camera_data_lenth * 3,
+          camera_data_lenth, option.frame_width, option.frame_hight,true);
+
+      result.images[3] = grayImg;
+    }
+  });
+
+
+
   thread1.join();
   thread2.join();
+  thread3.join();
+  thread4.join();
+
   return result;
 }
 //

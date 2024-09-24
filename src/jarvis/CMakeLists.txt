@@ -31,7 +31,7 @@ if(PLATFORM_mr527)
   set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
   set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include)
   set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
-
+  message(${YAML_INCLUDE_DIRS})
   set(OpenCV_LIBS
       ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
       ${Opencv_lib_dir}/libopencv_imgcodecs.so
