@@ -87,7 +87,7 @@ struct EstimatorOption {
   double init_td = 0;
   double optimazation_outliers_rejection_th=3;
   double rejection_points_depth_max_th =  30;
-  double use_stereo_sample_ration=0.05; 
+  double use_stereo_sample_ration=0.1; 
   double init_rotation_th = 10;
   double init_bas_normal_max =0.3;
   int convin_used_num = 4;
@@ -263,6 +263,9 @@ class Estimator {
   std::vector<bool> failuer_track_lost_;
   std::vector<bool> failuer_zero_lost_;
   std::vector<bool> failuer_zero_feat_lost_;
+  std::vector<bool> continue_track_feat_lost_;
+  std::vector<bool> continue_track_feat_lost1_;
+  std::vector<bool> _;
   std::vector<bool> init_pnp_states_;
   std::vector<transform::Rigid3d> lost_last_poses_;  
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_=nullptr;
@@ -273,6 +276,7 @@ class Estimator {
   int optimization_max_num_iterations_ =1;
   double optimizaion_cam_weight_= FOCAL_LENGTH / 1.5;
   std::vector<float>cost_time_hisgram_;
+  double final_cost_=10;
 };
 std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file);
 

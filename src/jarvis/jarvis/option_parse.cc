@@ -9,6 +9,37 @@ namespace jarvis {
 
 constexpr int kCameraNum =2;
 
+std::string defalt_extric = R"(
+cam0:
+  FOV: [107.93911113317935, 88.90577703348904]
+  T_imu_cam :
+  - [0.004278094939249882, -0.008781514712983385, -0.9999522903134112, -0.03265168587124466]
+  - [0.9999883505210795, 0.002272838395565302, 0.00425828929951011, -0.03861822650981798]
+  - [0.0022353357290220144, -0.9999588587561857, 0.00879113583135066, 0.04237282279723379]
+  - [0.0, 0.0, 0.0, 1.0]
+  camera_model: pinhole
+  distortion_coeffs: [-0.11351460368451406, 0.027700300349535557, -0.05182815943506382, 0.033348630966814674]
+  distortion_model: equidistant
+  intrinsics: [375.1646285252324, 375.1480109372861, 324.34734769582957, 280.8303605144285]
+  resolution: [640, 544]
+  rostopic: /cam0/image_raw
+  timeshift_cam_imu: 0.0036469377829320506
+cam1:
+  FOV: [108.19716877637063, 88.89444585437855]
+  T_imu_cam :
+  - [0.00805418108864972, -0.012976385246538658, -0.9998833649946003, -0.03426593099017232]
+  - [0.9998453634446182, -0.01552732376971716, 0.008255387020022986, 0.041688009792324746]
+  - [-0.015632637822556528, -0.9997952368572698, 0.01284931874555939, 0.04227918368552841]
+  - [0.0, 0.0, 0.0, 1.0]
+  camera_model: pinhole
+  distortion_coeffs: [-0.10006345248147991, -0.0019597758035067043, -0.002504364558405612, -6.999676678582795e-05]
+  distortion_model: equidistant
+  intrinsics: [373.64381416357105, 373.60969531040723, 328.5177613602167, 274.892312101823]
+  resolution: [640, 544]
+  rostopic: /cam1/image_raw
+  timeshift_cam_imu: 0.003643864894561027
+)";
+
 bool CheckFileExist(const std::string &file) {
   FILE *fh = fopen(file.c_str(), "r");
   if (fh == nullptr){
@@ -52,26 +83,50 @@ void ParseYAMLOption(const std::string &file_path,
   {
     LOG(INFO) << "Start parse " << cam_chain_file;
     CheckNode paras = YAML::LoadFile(cam_chain_file);
+    CheckNode defalt_paras = YAML::Load(defalt_extric);
 
-    for (int i = 0; i < kCameraNum; i++) {
-      calibrate_options->camera_options.push_back(
-          ParseYAMLOptionCameraOption(paras, i));
-      //
-      const CheckNode cam_node = paras["cam" + std::to_string(i)];
+    auto GetCameraExt = [](const CheckNode &cam_node) {
+      Eigen::Matrix4d camera_to_imu;
       const std::vector<std::vector<double>> camera_to_imu_vector =
           cam_node["T_imu_cam"].as<std::vector<std::vector<double>>>();
-      //
-
-      Eigen::Matrix4d camera_to_imu;
       for (int i = 0; i < 4; i++) {
         camera_to_imu.row(i) = Eigen::Vector4d(camera_to_imu_vector[i].data());
       }
-      calibrate_options->extric_camera_to_imu.push_back(transform::Rigid3d(
+      return transform::Rigid3d(
           camera_to_imu.block<3, 1>(0, 3),
-          Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0))));
+          Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)));
+    };
+    //
+    for (int i = 0; i < kCameraNum; i++) {
+      const CheckNode cam_node = paras["cam" + std::to_string(i)];
+      const transform::Rigid3d ext_para = GetCameraExt(cam_node);
+      const CheckNode defalt_cam_node = defalt_paras["cam" + std::to_string(i)];
+      const transform::Rigid3d defalt_ext_para = GetCameraExt(defalt_cam_node);
+      if (abs(defalt_ext_para.translation().norm() -
+              ext_para.translation().norm()) > 0.03) {
+        LOG(ERROR) << "The calibration result is too far from the reference "
+                      "value. defalt:"
+                   << defalt_ext_para << "cal " << ext_para
+                   << ". distance:"
+                   << abs(defalt_ext_para.translation().norm() -
+                          ext_para.translation().norm())
+                   << ".Load defalt para.";
+        calibrate_options->extric_camera_to_imu.push_back(defalt_ext_para);
+        // calibrate_options->camera_options.push_back(
+        //     ParseYAMLOptionCameraOption(defalt_paras, i));
+      } else {
+        calibrate_options->extric_camera_to_imu.push_back(ext_para);
+
+      }
+      //
+        calibrate_options->camera_options.push_back(
+            ParseYAMLOptionCameraOption(paras, i));
       LOG(INFO) << calibrate_options->camera_options.back().DebugInfo();
       LOG(INFO) << "imu_to_cam:"
                 << calibrate_options->extric_camera_to_imu.back();
+
+      //
+      //
     }
   }
   {
