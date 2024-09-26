@@ -162,7 +162,15 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
 
   prev_time_ = d_time;
   TicToc trackTime;
-  if (solver_flag == INITIAL /*|| stereo_sample_->Pulse()*/) {
+  bool use_stere = false;
+  if (is_velocity_updates_[WINDOW_SIZE-1]) {
+    use_stere = true;
+  } else {
+    if (stereo_sample_->Pulse()) {
+      use_stere = true;
+    }
+  }
+  if (solver_flag == INITIAL || use_stere) {
     featureFrame = feature_tracker_->trackImage(
         d_time, *images.image[0], *images.image[1], &track_num, angle_);
 
@@ -191,6 +199,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   //
   auto tracking_data = ExtractKeyFrameMapPoints(*this, featureFrame);
   tracking_data->data->time = images.time;
+  LOG_EVERY_N(INFO,10)<<"opti ex0:"<<tic[0].transpose();
 
   tracking_data->data->transform_cam_to_imu =
       transform::Rigid3d(tic[0], Eigen::Quaterniond(ric[0]));
@@ -219,6 +228,15 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
       }
     }
   }
+
+  if (abs(options_.calibrate_option.extric_camera_to_imu[0]
+              .translation()
+              .norm() -
+          tic[0].norm()) > 0.2) {
+    LOG(ERROR) << "opti ex error,lost." << tic[0].transpose();
+    tracking_data->status = TrackState::LOST;
+  }
+
   auto imu_state_data = ImuState{
       transform::Rigid3d(Ps[frame_count], Eigen::Quaterniond(Rs[frame_count])),
       Vs[frame_count], Bas[frame_count], Bgs[frame_count], g};
@@ -610,7 +628,13 @@ void Estimator::InitFailureRestart() {
 int Estimator::processImage(const ImageFeatureTrackerData &image,
                             const double header) {
   // /
-
+  int feat_cout = f_manager->getFeatureCount();
+  if (feat_cout < 4) {
+    LOG(ERROR) << "It's spinning too fast";
+    continue_track_feat_lost_.push_back(true);
+  } else {
+    continue_track_feat_lost_.push_back(false);
+  }
   // LOG(INFO) << "delta_time" <<  header - last_time;
   const bool feature_margin_flag = f_manager->getFeatureCount()<15;
   if (f_manager->addFeatureCheckParallax(frame_count, image, td)) {
@@ -640,7 +664,7 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
        << " coming, Adding feature points " << image.data->features.size()
        << "," << "number of feature: " << f_manager->getFeatureCount();
   VLOG(kGlogLevel) << info.str();
- 
+  
   images_[frame_count] = {image.data->time, image};
   Headers[frame_count] = header;
   ImageFrame imageframe(ToStruct(image), header);
@@ -798,9 +822,18 @@ int Estimator::processImage(const ImageFeatureTrackerData &image,
     std::set<int> removeIndex;
     if (!is_velocity_updates_[frame_count]) {
       outliersRejection(removeIndex, options_.convin_used_num);
-      f_manager->removeOutlier(removeIndex);
-      feature_tracker_->removeOutliers(removeIndex);
     }
+    if (removeIndex.size() > size_t(f_manager->getFeatureCount() * 0.8) ||
+        final_cost_ > 1e5) {
+      LOG(ERROR) << "reproject erro fete num to big." << removeIndex.size()
+                 << " " << f_manager->getFeatureCount() << " " << final_cost_;
+      continue_track_feat_lost1_.push_back(true);
+    }
+    LOG(INFO) << "reproject erro fete num to big." << removeIndex.size() << " "
+              << f_manager->getFeatureCount() << " " << final_cost_;
+    f_manager->removeOutlier(removeIndex);
+    feature_tracker_->removeOutliers(removeIndex);
+    //
     predictPtsInNextFrame();
     VLOG(kGlogLevel) << "solver costs: " << t_solve.toc() << " ms"
                      << ",remove outlier: " << removeIndex.size();
@@ -1316,6 +1349,25 @@ bool Estimator::failureDetection() {
   // }
   //
   //
+  // if (final_cost_ > 1e5) {
+  //   LOG(ERROR) << "final cost too big" << final_cost_;
+  //   return true;
+  // }
+
+  while (continue_track_feat_lost_.size() > 40) {
+    continue_track_feat_lost_.erase(continue_track_feat_lost_.begin());
+  }
+  while (continue_track_feat_lost1_.size() > 20) {
+    continue_track_feat_lost1_.erase(continue_track_feat_lost1_.begin());
+  }
+  if (std::count(continue_track_feat_lost_.begin(),
+                 continue_track_feat_lost_.end(), true) > 20 ||
+      std::count(continue_track_feat_lost1_.begin(),
+                 continue_track_feat_lost1_.end(), true) > 10) {
+    LOG(ERROR) << "Continue track lost ...";
+    return true;
+  }
+
   failuer_zero_feat_lost_.push_back(is_velocity_updates_[frame_count]);
   // 
 
@@ -1323,11 +1375,11 @@ bool Estimator::failureDetection() {
       options_.fail_detect_option.zero_odo_win_size) {
     failuer_zero_feat_lost_.erase(failuer_zero_feat_lost_.begin());
   }
-
-  bool is_zero_velocity = (std::count(failuer_zero_feat_lost_.begin(),
-                                      failuer_zero_feat_lost_.end(), true) ==
-                           options_.fail_detect_option.zero_odo_win_size);
-  //
+  bool is_zero_velocity =false;
+  // bool is_zero_velocity = (std::count(failuer_zero_feat_lost_.begin(),
+  //                                     failuer_zero_feat_lost_.end(), true) ==
+  //                          options_.fail_detect_option.zero_odo_win_size);
+  // //
   //
 
 
@@ -1393,8 +1445,8 @@ bool Estimator::failureDetection() {
   Eigen::Matrix3d delta_R = tmp_R.transpose() * last_R;
 
   const double rotaion_threash_hold = options_.fail_detect_option.ratation_max;
-  double delta_angle =
-      common::RadToDeg(transform::GetYaw(Eigen::Quaterniond(delta_R)));
+  double delta_angle = common::RadToDeg(transform::GetAngle(
+      transform::Rigid3d::Rotation(Eigen::Quaterniond(delta_R))));
   if (delta_angle > rotaion_threash_hold) {
     LOG(ERROR) << " Big delta_angle " << delta_angle;
     return true;
@@ -1620,7 +1672,7 @@ void Estimator::optimization() {
   VLOG(kGlogCeresLevel) <<summary.BriefReport();
   LOG_EVERY_N(INFO, 200) << "\n" << summary.FullReport();
   //
-
+  final_cost_ = summary.final_cost;
   //
   // TicToc t_solver_ceres;
   // double cost;

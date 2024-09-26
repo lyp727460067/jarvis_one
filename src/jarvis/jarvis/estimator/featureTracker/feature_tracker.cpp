@@ -358,7 +358,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       // std::vector<cv::Point2f> forw_pts;
       // LOG(INFO)<<n_max_cnt;
       n_pts = feature_detect_->Detect(cur_img,cur_pts, n_max_cnt,
-                                      pyramid_image_->PrePyram()[1], mask);
+                                      pyramid_image_->CurrPyram()[1], mask);
       // LOG(INFO)<<n_pts.size();
     } else {
       n_pts.clear();
@@ -389,7 +389,7 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
   if (!_img1.empty() && stereo_cam) {
 
     TicToc t_t;
-    // r_pyramid_image_->Build(_img1);
+    r_pyramid_image_->Build(_img1);
     ids_right.clear();
     cur_right_pts.clear();
     cur_un_right_pts.clear();
@@ -401,13 +401,13 @@ FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
       std::vector<uchar> status, statusRightLeft;
       std::vector<float> err;
       // cur left ---- cur right
-      cv::calcOpticalFlowPyrLK(cur_img, _img1, cur_pts, cur_right_pts, status,
+      cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(), r_pyramid_image_->CurrPyram(), cur_pts, cur_right_pts, status,
                                err, cv::Size(21, 21), 3,criteria);
       // reverse check cur right ---- cur left
 
       // auto f_state  = rejectWithF(cur_pts,cur_right_pts);
       if (1) {
-        cv::calcOpticalFlowPyrLK(_img1, cur_img, cur_right_pts, reverseLeftPts,
+        cv::calcOpticalFlowPyrLK(r_pyramid_image_->CurrPyram(), pyramid_image_->CurrPyram(), cur_right_pts, reverseLeftPts,
                                  statusRightLeft, err, cv::Size(21, 21), 2,
                                  criteria);
         for (size_t i = 0; i < status.size(); i++) {
