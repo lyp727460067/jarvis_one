@@ -135,6 +135,18 @@ void XPcalcOpticalFlowPyrLK(
                                           30, 0.01),
     int _flags = 0, double _minEigThreshold = 1e-4);
 
+void XPcalcOpticalFlowPyrLKWithDeriv(
+    const std::vector<cv::Mat>& _prevPyramids,
+    const std::vector<cv::Mat>& _nextPyramids,
+    std::vector<XPKeyPoint>* _prevPts, std::vector<Point2f>* _nextPts,
+    std::vector<bool>* _status, std::vector<float>* _err,
+    const cv::Size _win_size = cv::Size(7, 7), int _max_level = 3,
+    int _start_level = 0,
+    TermCriteria _criteria = TermCriteria(TermCriteria::COUNT +
+                                              TermCriteria::EPS,
+                                          30, 0.01),
+    int _flags = 0, double _minEigThreshold = 1e-4);
+
 typedef struct XPTrackerInvoker {
   XPTrackerInvoker(const Mat& _prevImg, const Mat& _prevDeriv,
                    const Mat& _nextImg, std::vector<XPKeyPoint>* _prevPts,

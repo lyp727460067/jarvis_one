@@ -18,6 +18,7 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 #include <algorithm>
 #include <vector>
@@ -454,6 +455,7 @@ void XPTrackerInvoker::operator()(const Range& range) const {
   cv::Mat J_patch(iter_cache_size, CV_MAKETYPE(DataType<uchar>::depth, 1),
                   iteration_patch_buffer.get());
   __builtin_prefetch(J_patch.data, 1, 3);
+
   for (int ptidx = range.start; ptidx < range.end; ++ptidx) {
     Point2f prevPt = prevPts[ptidx].pt *
                      static_cast<float>(1. / (1 << (level - start_level)));
@@ -867,6 +869,63 @@ void XPcalcOpticalFlowPyrLK(const std::vector<cv::Mat>& _prevPyramids,
         .operator()(Range(0, npoints));
   }
 }
+
+void XPcalcOpticalFlowPyrLKWithDeriv(const std::vector<cv::Mat>& _prevPyramids,
+                                    const std::vector<cv::Mat>& _nextPyramids,
+                                    std::vector<XPKeyPoint>* _prevPts,
+                                    std::vector<Point2f>* _nextPts,
+                                    std::vector<bool>* _status,
+                                    std::vector<float>* _err, const cv::Size _win_size,
+                                    int _max_level, int _start_level,
+                                    TermCriteria _criteria, int _flags,
+                                    double _minEigThreshold) {
+#ifdef _XP_OPTICAL_FLOW_DEBUG_MODE_
+  CHECK_EQ(_win_size.width, 7) << "only support window size 7 for now";
+  CHECK_EQ(_win_size.height, 7) << "only support window size 7 for now";
+  CHECK_NOTNULL(_prevPts);
+  CHECK_NOTNULL(_nextPts);
+  CHECK_NOTNULL(_status);
+  CHECK_NOTNULL(_err);
+  CHECK_LT(_max_level, 4) << "only support 4 level pyramids";
+#endif
+
+  const int npoints = _prevPts->size();
+  CHECK_GT(npoints, 0);
+  _nextPts->resize(npoints);
+  _err->resize(npoints);
+  _status->resize(npoints);
+
+  int level = 0, i;
+  std::vector<bool>& status = *_status;
+  std::vector<XPKeyPoint>& prevPts = *_prevPts;
+  // allocate memory for new keypoint,
+  for (i = 0; i < npoints; i++) {
+    if (prevPts[i].need_to_update_repo) {
+      prevPts[i].allocate();  // will not reallocate memory
+    }
+    status[i] = true;
+  }
+
+  if ((_criteria.type & TermCriteria::COUNT) == 0)
+    _criteria.maxCount = 30;
+  else
+    _criteria.maxCount = std::min(std::max(_criteria.maxCount, 0), 100);
+  if ((_criteria.type & TermCriteria::EPS) == 0)
+    _criteria.epsilon = 0.01;
+  else
+    _criteria.epsilon = std::min(std::max(_criteria.epsilon, 0.), 10.);
+  _criteria.epsilon *= _criteria.epsilon;
+
+  for (level = _max_level; level >= _start_level; --level) {
+    // invoke optical flow, single thread
+    XPTrackerInvoker(_prevPyramids[level*2], _prevPyramids[level*2+1], _nextPyramids[level*2],
+                     _prevPts, _nextPts, _status, _err, _win_size, _criteria,
+                     level, _max_level, _start_level, _flags,
+                     static_cast<float>(_minEigThreshold))
+        .operator()(Range(0, npoints));
+  }
+}
+
 }  // namespace XP_OPTICAL_FLOW
 }  // namespace XP
 /* End of file. */
