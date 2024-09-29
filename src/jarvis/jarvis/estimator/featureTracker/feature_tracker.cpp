@@ -186,7 +186,7 @@ bool CalcOpticalFlowPyrLK::InBorder(const cv::Point2f &pt) {
 void CalcOpticalFlowPyrLK::operator()(
     const std::vector<cv::Mat> &pre_image,
     const std::vector<cv::Mat> &cur_image,
-    const std::map<uint64_t, PointCnt> prev_pts,
+    const std::map<uint64_t, PointCnt> &prev_pts,
     std::map<uint64_t, PointCnt> &cur_pts, int flags) {
   // CHECK_EQ(int(pre_image.size()), (options_.level+1) * 2)
       // << "Image need deriv image";
@@ -231,20 +231,44 @@ void CalcOpticalFlowPyrLK::operator()(
 
 void XpCalcOpticalFlowPyrLK::operator()(const std::vector<cv::Mat> &pre_image,
                                         const std::vector<cv::Mat> &cur_image,
-                                        const std::vector<cv::Point2f> prev_pts,
-                                        std::vector<cv::Point2f> &cur_pts,
+                                        const std::map<uint64_t, PointCnt> &prev_pts ,
+                                        std::map<uint64_t, PointCnt> &cur_pts,
                                         int flags) {
-  std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
-  pre_xp_kp_small.reserve(prev_pts.size());
-  for (const auto &p : prev_pts) {
-    pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p));
-  }
+  CHECK_LE(options_.level, 4);
   std::vector<float> err;
   std::vector<bool> status;
-  XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLK(
-      pre_image, cur_image, &pre_xp_kp_small, &cur_pts, &status, &err,
-      options_.win_size, options_.level, 0, options_.criteria,
-      cv::OPTFLOW_USE_INITIAL_FLOW);
+  const int start_level = 0;
+  //
+  std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
+  pre_xp_kp_small.reserve(prev_pts.size());
+  std::vector<Point2f> v_cur_pts;
+  if (!cur_pts.empty()) {
+    v_cur_pts.resize(cur_pts.size());
+    CHECK_EQ(v_cur_pts.size(), prev_pts.size());
+  }
+  //
+  std::vector<uint64_t> ids(prev_pts.size());
+  int i = 0;
+  for (const auto &p : prev_pts) {
+    pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p.second.pt));
+    ids[i] = p.first;
+    if (!cur_pts.empty()) {
+      v_cur_pts[i] = cur_pts[p.first].pt;
+    }
+    i++;
+  }
+
+  XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLKWithDeriv(
+      pre_image, cur_image, &pre_xp_kp_small, &v_cur_pts, &status, &err,
+      options_.win_size, options_.level, start_level, options_.criteria, flags);
+
+  cur_pts.clear();
+  for (int i = 0; i < int(status.size()); i++) {
+    if (status[i] && InBorder(v_cur_pts[i])) {
+      cur_pts[ids[i]].pt = v_cur_pts[i];
+      cur_pts[ids[i]].track_cnt = prev_pts.at(ids[i]).track_cnt;
+    }
+  }
 }
 
 //

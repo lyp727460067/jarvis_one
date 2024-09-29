@@ -91,7 +91,7 @@ class CalcOpticalFlowPyrLK {
       : options_(option) {}
   virtual void operator()(const std::vector<cv::Mat> &pre_image,
                           const std::vector<cv::Mat> &cur_image,
-                          const std::map<uint64_t, PointCnt> prev_pts,
+                          const std::map<uint64_t, PointCnt> &prev_pts,
                           std::map<uint64_t, PointCnt> &cur_pts, int flags = 0);
   virtual ~CalcOpticalFlowPyrLK() {}
 
@@ -107,8 +107,8 @@ class XpCalcOpticalFlowPyrLK : public CalcOpticalFlowPyrLK {
       : CalcOpticalFlowPyrLK(option) {};
   void operator()(const std::vector<cv::Mat> &pre_image,
                   const std::vector<cv::Mat> &cur_image,
-                  const std::vector<cv::Point2f> prev_pts,
-                  std::vector<cv::Point2f> &cur_pts, int flags = 0
+                  const std::map<uint64_t, PointCnt> &prev_pts,
+                  std::map<uint64_t, PointCnt> &cur_pts, int flags = 0
 
   );
 };

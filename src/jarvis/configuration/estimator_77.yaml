@@ -16,10 +16,11 @@ feattrack0:
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 21
-  lk_pre_max_layer : 4
+  lk_win_size : 7
+  lk_pre_max_layer : 3
   grid_size_x : 64
   grid_size_y : 68
+  klt_type : 1
   mask : mask.png
 ####
 feattrack1:
@@ -29,10 +30,11 @@ feattrack1:
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 21
-  lk_pre_max_layer : 4
+  lk_win_size : 7
+  lk_pre_max_layer : 3
   grid_size_x : 68
   grid_size_y : 64
+  klt_type : 1
   mask : mask0.png
 feattrack2:
   max_cnt: 20          # max feature number in feature tracking
@@ -45,6 +47,7 @@ feattrack2:
   lk_pre_max_layer : 4
   grid_size_x : 68
   grid_size_y : 64
+  klt_type : 0
   mask : mask0.png
 
 slide_window:
