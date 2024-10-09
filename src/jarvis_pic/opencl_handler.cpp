@@ -18,16 +18,16 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
     // 加载数据
     level_ = level;
     pyramids.resize((level + 1) * 2);
-    jarvis::estimator::TicToc timer;
+    // jarvis::estimator::TicToc timer;
     pyramids[0] = img.clone();
     loadData(img, pyramids);
-    double duration = timer.toc();
-    std::cout << "load data time: " << duration << " ms " << std::endl;
+    // double duration = timer.toc();
+    // std::cout << "load data time: " << duration << " ms " << std::endl;
     size_t localSize[2] = {static_cast<size_t>(20),
                            static_cast<size_t>(17)};
 
     // 并行计算
-    timer.tic();
+    // timer.tic();
     clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &buffer0);
     clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &buffer_deriv_0);
     clSetKernelArg(kernelCalcDeriv, 2, sizeof(int), &(width_[0]));
@@ -133,8 +133,8 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
         CHECK_ERROR(err);
     }
     clFinish(queue);
-    duration = timer.toc();
-    std::cout << "cal time: " << duration << std::endl;
+    // duration = timer.toc();
+    // std::cout << "cal time: " << duration << std::endl;
 
     // cl_int clEnqueueReadBuffer(
     //     cl_command_queue command_queue, cl_mem buffer, cl_bool
@@ -144,7 +144,7 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
     // buffer：要读取数据的OpenCL缓冲区对象
     // blocking_read：一个布尔值，指示读取操作是否应阻塞直到数据被读取。
     // ptr：一个指向主机内存区域的指针，数据将被读取到这个内存区域。
-    timer.tic();
+    // timer.tic();
 
     err = clEnqueueReadBuffer(queue, buffer_deriv_0, CL_TRUE, 0,
                               sizeof(deriv_type) * width_[0] * height_[0] * 2,
@@ -198,11 +198,11 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
                                   pyramids[9].data, 0, nullptr, nullptr);
         CHECK_ERROR(err);
     }
-    duration = timer.toc();
-    std::cout << "get result time: " << duration << std::endl;
+    // duration = timer.toc();
+    // std::cout << "get result time: " << duration << std::endl;
 
     // 释放內存
-    timer.tic();
+    // timer.tic();
     clReleaseMemObject(buffer0);
     clReleaseMemObject(buffer1);
     clReleaseMemObject(buffer2);
@@ -215,8 +215,8 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
     // clReleaseMemObject(buffer_deriv_4);
     delete[] width_;
     delete[] height_;
-    duration = timer.toc();
-    std::cout << "release time: " << duration << std::endl;
+    // duration = timer.toc();
+    // std::cout << "release time: " << duration << std::endl;
 }
 
 void OpenCLHandler::executeKernelWithBorder(const cv::Mat &img, int level,

@@ -8,18 +8,22 @@ using namespace estimator;
 //
 std::vector<cv::Mat> BuildPyramidsUsingGPU(const cv::Mat& img,
                                            OpenCLHandler* opencl_handler_,
-                                           const void* option) {
+                                           const void* option, int klt_type) {
   auto& option_ = *reinterpret_cast<const PyramidImageOption*>(option);
   //   CHECK_NOTNULL(_pyramids);
 
   std::vector<cv::Mat> pyramids;
   std::vector<cv::Mat> pyramids_temp;
   pyramids.resize((option_.layer + 1) * 2);
-  cv::Size winSize(option_.lk_win_size, option_.lk_win_size);
-
   opencl_handler_->executeKernel(img, option_.layer, pyramids_temp);
 
-  TicToc timer;
+  // 为真时用XP作光流,不需要边界
+  if (klt_type){
+    return pyramids_temp;
+  }
+
+  cv::Size winSize(option_.lk_win_size, option_.lk_win_size);
+
   for (int i = 0; i <= option_.layer; ++i) {
     cv::Size sz = pyramids_temp[i * 2].size();
     pyramids[i * 2].create(sz.height + winSize.height * 2,
@@ -49,15 +53,15 @@ std::vector<cv::Mat> BuildPyramidsUingGPUWithBorder(
   opencl_handler_->executeKernelWithBorder(img, option_.layer, pyramids,
                                            winSize);
 
-  TicToc timer;
+  // TicToc timer;
   for (int i = 0; i <= option_.layer; ++i) {
     pyramids[i * 2].adjustROI(-winSize.height, -winSize.height, -winSize.width,
                               -winSize.width);
     pyramids[i * 2 + 1].adjustROI(-winSize.height, -winSize.height,
                                   -winSize.width, -winSize.width);
   }
-  double duration = timer.toc();
-  std::cout << "adjust: " << duration << std::endl;
+  // double duration = timer.toc();
+  // std::cout << "adjust: " << duration << std::endl;
   return  pyramids;
 }
 

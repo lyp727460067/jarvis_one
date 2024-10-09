@@ -9,7 +9,7 @@ namespace jarvis_pic {
 class OpenCLHandler;
 std::vector<cv::Mat> BuildPyramidsUsingGPU(const cv::Mat&,
                                            OpenCLHandler* opencl_handler_,
-                                           const void* option);
+                                           const void* option, int klt_type = 0);
 
 std::vector<cv::Mat> BuildPyramidsUingGPUWithBorder(
     const cv::Mat&, OpenCLHandler* opencl_handler_, const void* option);

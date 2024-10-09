@@ -110,10 +110,12 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         pyramid_thread_ = std::thread([this, imag_data]() {
           for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
             for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+
               std::vector<cv::Mat> pyrmd_drev = BuildPyramidsUsingGPU(
                   imag_data.image[esit_option_.track_sequence[i][j]],
                   opencl_handler_.get(),
-                  &esit_option_.feature_track_options[i].pyrmid_option);
+                  &esit_option_.feature_track_options[i].pyrmid_option,
+                  esit_option_.feature_track_options[i].klt_type);
               image_datas_pyra_.back()
                   .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
                   pyrmd_drev;
@@ -143,7 +145,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
               std::vector<cv::Mat> pyrmd_drev = BuildPyramidsUsingGPU(
                   imag_data.image[esit_option_.track_sequence[i][j]],
                   opencl_handler_.get(),
-                  &esit_option_.feature_track_options[i].pyrmid_option);
+                  &esit_option_.feature_track_options[i].pyrmid_option,
+                  esit_option_.feature_track_options[i].klt_type);
               image_datas_pyra_.back()
                   .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
                   pyrmd_drev;
