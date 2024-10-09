@@ -35,9 +35,6 @@ class OpenCLHandler {
   cl_program program;
   cl_kernel kernelDownSampling, kernelCalcDeriv, kernelDownSamplingWithBorder,
       kernelCalcDerivWithBorder;
-  cl_mem buffer0, buffer1, buffer2, buffer3, buffer4;
-  cl_mem buffer_deriv_0, buffer_deriv_1, buffer_deriv_2, buffer_deriv_3,
-      buffer_deriv_4;
   cl_mem *buffers, *buffers_deriv;
   float *E_ptr;
   cl_int err;

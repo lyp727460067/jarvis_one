@@ -12,9 +12,7 @@ std::vector<cv::Mat> BuildPyramidsUsingGPU(const cv::Mat& img,
   auto& option_ = *reinterpret_cast<const PyramidImageOption*>(option);
   //   CHECK_NOTNULL(_pyramids);
 
-  std::vector<cv::Mat> pyramids;
   std::vector<cv::Mat> pyramids_temp;
-  pyramids.resize((option_.layer + 1) * 2);
   opencl_handler_->executeKernel(img, option_.layer, pyramids_temp);
 
   // 为真时用XP作光流,不需要边界
@@ -22,6 +20,8 @@ std::vector<cv::Mat> BuildPyramidsUsingGPU(const cv::Mat& img,
     return pyramids_temp;
   }
 
+  std::vector<cv::Mat> pyramids;
+  pyramids.resize((option_.layer + 1) * 2);
   cv::Size winSize(option_.lk_win_size, option_.lk_win_size);
 
   for (int i = 0; i <= option_.layer; ++i) {

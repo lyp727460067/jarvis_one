@@ -17,19 +17,23 @@ OpenCLHandler::~OpenCLHandler() {
 void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv::Mat> &pyramids) {
     // 加载数据
     level_ = level;
-    pyramids.resize((level + 1) * 2);
+    width_ = new int[level_ + 1];
+    height_ = new int[level_ + 1];
+    buffers = new cl_mem[level_ + 1];
+    buffers_deriv = new cl_mem[level_ + 1];
+
     // jarvis::estimator::TicToc timer;
-    pyramids[0] = img.clone();
     loadData(img, pyramids);
     // double duration = timer.toc();
     // std::cout << "load data time: " << duration << " ms " << std::endl;
-    size_t localSize[2] = {static_cast<size_t>(20),
-                           static_cast<size_t>(17)};
+
 
     // 并行计算
     // timer.tic();
-    clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &buffer0);
-    clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &buffer_deriv_0);
+    size_t localSize[2] = {static_cast<size_t>(20),
+                           static_cast<size_t>(17)};
+    clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &(buffers[0]));
+    clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &(buffers_deriv[0]));
     clSetKernelArg(kernelCalcDeriv, 2, sizeof(int), &(width_[0]));
     clSetKernelArg(kernelCalcDeriv, 3, sizeof(int), &(height_[0]));
     size_t globalSize[2] = {static_cast<size_t>(width_[0]),
@@ -38,16 +42,12 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
                                  globalSize, localSize, 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    // err = clFinish(queue);
-    // CHECK_ERROR(err);
-
-    if (level_ > 0) {
-        clSetKernelArg(kernelDownSampling, 0, sizeof(cl_mem), &buffer0);
-        clSetKernelArg(kernelDownSampling, 1, sizeof(cl_mem), &buffer1);
-        clSetKernelArg(kernelDownSampling, 2, sizeof(int), &(width_[1]));
-
-        size_t globalSize[2] = {static_cast<size_t>(width_[1]),
-                                static_cast<size_t>(height_[1])};
+    for (int i = 1; i <= level_; i++) {
+        clSetKernelArg(kernelDownSampling, 0, sizeof(cl_mem), &(buffers[i - 1]));
+        clSetKernelArg(kernelDownSampling, 1, sizeof(cl_mem), &(buffers[i]));
+        clSetKernelArg(kernelDownSampling, 2, sizeof(int), &(width_[i]));
+        size_t globalSize[2] = {static_cast<size_t>(width_[i]),
+                                static_cast<size_t>(height_[i])};
         err = clEnqueueNDRangeKernel(queue, kernelDownSampling, 2, nullptr,
                                      globalSize, localSize, 0, nullptr, nullptr);
         CHECK_ERROR(err);
@@ -55,87 +55,21 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
         err = clFinish(queue);
         CHECK_ERROR(err);
 
-        clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &buffer1);
-        clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &buffer_deriv_1);
-        clSetKernelArg(kernelCalcDeriv, 2, sizeof(int), &(width_[1]));
-        clSetKernelArg(kernelCalcDeriv, 3, sizeof(int), &(height_[1]));
+        clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &(buffers[i]));
+        clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &(buffers_deriv[i]));
+        clSetKernelArg(kernelCalcDeriv, 2, sizeof(int), &(width_[i]));
+        clSetKernelArg(kernelCalcDeriv, 3, sizeof(int), &(height_[i]));
         err = clEnqueueNDRangeKernel(queue, kernelCalcDeriv, 2, nullptr,
                                      globalSize, localSize, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
     }
-
-    if (level_ > 1) {
-        clSetKernelArg(kernelDownSampling, 0, sizeof(cl_mem), &buffer1);
-        clSetKernelArg(kernelDownSampling, 1, sizeof(cl_mem), &buffer2);
-        clSetKernelArg(kernelDownSampling, 2, sizeof(int), &(width_[2]));
-
-        size_t globalSize[2] = {static_cast<size_t>(width_[2]),
-                                static_cast<size_t>(height_[2])};
-        err = clEnqueueNDRangeKernel(queue, kernelDownSampling, 2, nullptr,
-                                     globalSize, localSize, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-
-        err = clFinish(queue);
-        CHECK_ERROR(err);
-
-        clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &buffer2);
-        clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &buffer_deriv_2);
-        clSetKernelArg(kernelCalcDeriv, 2, sizeof(int), &(width_[2]));
-        clSetKernelArg(kernelCalcDeriv, 3, sizeof(int), &(height_[2]));
-        err = clEnqueueNDRangeKernel(queue, kernelCalcDeriv, 2, nullptr,
-                                     globalSize, localSize, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 2) {
-        clSetKernelArg(kernelDownSampling, 0, sizeof(cl_mem), &buffer2);
-        clSetKernelArg(kernelDownSampling, 1, sizeof(cl_mem), &buffer3);
-        clSetKernelArg(kernelDownSampling, 2, sizeof(int), &(width_[3]));
-
-        size_t globalSize[2] = {static_cast<size_t>(width_[3]),
-                                static_cast<size_t>(height_[3])};
-        err = clEnqueueNDRangeKernel(queue, kernelDownSampling, 2, nullptr,
-                                     globalSize, localSize, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-
-        err = clFinish(queue);
-        CHECK_ERROR(err);
-
-        clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &buffer3);
-        clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &buffer_deriv_3);
-        clSetKernelArg(kernelCalcDeriv, 2, sizeof(int), &(width_[3]));
-        clSetKernelArg(kernelCalcDeriv, 3, sizeof(int), &(height_[3]));
-        err = clEnqueueNDRangeKernel(queue, kernelCalcDeriv, 2, nullptr,
-                                     globalSize, localSize, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 3) {
-        clSetKernelArg(kernelDownSampling, 0, sizeof(cl_mem), &buffer3);
-        clSetKernelArg(kernelDownSampling, 1, sizeof(cl_mem), &buffer4);
-        clSetKernelArg(kernelDownSampling, 2, sizeof(int), &(width_[4]));
-
-        size_t globalSize[2] = {static_cast<size_t>(width_[4]),
-                                static_cast<size_t>(height_[4])};
-        err = clEnqueueNDRangeKernel(queue, kernelDownSampling, 2, nullptr,
-                                     globalSize, localSize, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-
-        err = clFinish(queue);
-        CHECK_ERROR(err);
-
-        clSetKernelArg(kernelCalcDeriv, 0, sizeof(cl_mem), &buffer4);
-        clSetKernelArg(kernelCalcDeriv, 1, sizeof(cl_mem), &buffer_deriv_4);
-        clSetKernelArg(kernelCalcDeriv, 2, sizeof(int), &(width_[4]));
-        clSetKernelArg(kernelCalcDeriv, 3, sizeof(int), &(height_[4]));
-        err = clEnqueueNDRangeKernel(queue, kernelCalcDeriv, 2, nullptr, globalSize,
-                                     localSize, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-    }
-    clFinish(queue);
+    err = clFinish(queue);
+    CHECK_ERROR(err);
     // duration = timer.toc();
     // std::cout << "cal time: " << duration << std::endl;
 
+
+
+    // 读取数据
     // cl_int clEnqueueReadBuffer(
     //     cl_command_queue command_queue, cl_mem buffer, cl_bool
     //     blocking_read, size_t offset, size_t cb, void *ptr, cl_uint
@@ -146,56 +80,20 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
     // ptr：一个指向主机内存区域的指针，数据将被读取到这个内存区域。
     // timer.tic();
 
-    err = clEnqueueReadBuffer(queue, buffer_deriv_0, CL_TRUE, 0,
+    err = clEnqueueReadBuffer(queue, buffers_deriv[0], CL_TRUE, 0,
                               sizeof(deriv_type) * width_[0] * height_[0] * 2,
                               pyramids[1].data, 0, nullptr, nullptr);
     CHECK_ERROR(err);
 
-    if (level_ > 0) {
-        err = clEnqueueReadBuffer(queue, buffer1, CL_TRUE, 0,
-                                  sizeof(uchar) * width_[1] * height_[1],
-                                  pyramids[2].data, 0, nullptr, nullptr);
+    for (int i = 1; i <= level_; i++) {
+        err = clEnqueueReadBuffer(queue, buffers[i], CL_TRUE, 0,
+                                  sizeof(uchar) * width_[i] * height_[i],
+                                  pyramids[i * 2].data, 0, nullptr, nullptr);
         CHECK_ERROR(err);
 
-        err = clEnqueueReadBuffer(queue, buffer_deriv_1, CL_TRUE, 0,
-                                  sizeof(deriv_type) * width_[1] * height_[1] * 2,
-                                  pyramids[3].data, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 1) {
-        err = clEnqueueReadBuffer(queue, buffer2, CL_TRUE, 0,
-                                  sizeof(uchar) * width_[2] * height_[2],
-                                  pyramids[4].data, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-
-        err = clEnqueueReadBuffer(queue, buffer_deriv_2, CL_TRUE, 0,
-                                  sizeof(deriv_type) * width_[2] * height_[2] * 2,
-                                  pyramids[5].data, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 2) {
-        err = clEnqueueReadBuffer(queue, buffer3, CL_TRUE, 0,
-                                  sizeof(uchar) * width_[3] * height_[3],
-                                  pyramids[6].data, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-
-        err = clEnqueueReadBuffer(queue, buffer_deriv_3, CL_TRUE, 0,
-                                  sizeof(deriv_type) * width_[3] * height_[3] * 2,
-                                  pyramids[7].data, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 3) {
-        err = clEnqueueReadBuffer(queue, buffer4, CL_TRUE, 0,
-                                  sizeof(uchar) * width_[4] * height_[4],
-                                  pyramids[8].data, 0, nullptr, nullptr);
-        CHECK_ERROR(err);
-
-        err = clEnqueueReadBuffer(queue, buffer_deriv_4, CL_TRUE, 0,
-                                  sizeof(deriv_type) * width_[4] * height_[4] * 2,
-                                  pyramids[9].data, 0, nullptr, nullptr);
+        err = clEnqueueReadBuffer(queue, buffers_deriv[i], CL_TRUE, 0,
+                                  sizeof(deriv_type) * width_[i] * height_[i] * 2,
+                                  pyramids[i * 2 + 1].data, 0, nullptr, nullptr);
         CHECK_ERROR(err);
     }
     // duration = timer.toc();
@@ -203,18 +101,14 @@ void OpenCLHandler::executeKernel(const cv::Mat &img, int level, std::vector<cv:
 
     // 释放內存
     // timer.tic();
-    clReleaseMemObject(buffer0);
-    clReleaseMemObject(buffer1);
-    clReleaseMemObject(buffer2);
-    clReleaseMemObject(buffer3);
-    // clReleaseMemObject(buffer4);
-    clReleaseMemObject(buffer_deriv_0);
-    clReleaseMemObject(buffer_deriv_1);
-    clReleaseMemObject(buffer_deriv_2);
-    clReleaseMemObject(buffer_deriv_3);
-    // clReleaseMemObject(buffer_deriv_4);
+    for (int i = 0; i <= level_; i++) {
+        clReleaseMemObject(buffers[i]);
+        clReleaseMemObject(buffers_deriv[i]);
+    }
     delete[] width_;
     delete[] height_;
+    delete[] buffers;
+    delete[] buffers_deriv;
     // duration = timer.toc();
     // std::cout << "release time: " << duration << std::endl;
 }
@@ -322,8 +216,8 @@ void OpenCLHandler::executeKernelWithBorder(const cv::Mat &img, int level,
 
 void OpenCLHandler::loadData(const cv::Mat &img, std::vector<cv::Mat> &pyramids) {
     // Create buffers
-    width_ = new int[level_ + 1];
-    height_ = new int[level_ + 1];
+    pyramids.resize((level_ + 1) * 2);
+    pyramids[0] = img.clone();
     cv::Size sz = img.size();
 
     for (size_t i = 0; i < pyramids.size(); i++) {
@@ -341,56 +235,23 @@ void OpenCLHandler::loadData(const cv::Mat &img, std::vector<cv::Mat> &pyramids)
         }
     }
 
-    buffer0 = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+    buffers[0] = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
                              sizeof(uchar) * width_[0] * height_[0],
                              pyramids[0].data, &err);
     CHECK_ERROR(err);
-    buffer_deriv_0 = clCreateBuffer(
+    buffers_deriv[0] = clCreateBuffer(
         context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR,
         sizeof(deriv_type) * width_[0] * height_[0] * 2, nullptr, &err);
     CHECK_ERROR(err);
 
-    if (level_ > 0) {
-        buffer1 =
-            clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
-                           sizeof(uchar) * width_[1] * height_[1], nullptr, &err);
+    for (int i = 1; i <= level_; i++) {
+        buffers[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
+                                    sizeof(uchar) * width_[i] * height_[i],
+                                    nullptr, &err);
         CHECK_ERROR(err);
-        buffer_deriv_1 = clCreateBuffer(
+        buffers_deriv[i] = clCreateBuffer(
             context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR,
-            sizeof(deriv_type) * width_[1] * height_[1] * 2, nullptr, &err);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 1) {
-        buffer2 =
-            clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
-                           sizeof(uchar) * width_[2] * height_[2], nullptr, &err);
-        CHECK_ERROR(err);
-        buffer_deriv_2 = clCreateBuffer(
-            context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR,
-            sizeof(deriv_type) * width_[2] * height_[2] * 2, nullptr, &err);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 2) {
-        buffer3 =
-            clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
-                           sizeof(uchar) * width_[3] * height_[3], nullptr, &err);
-        CHECK_ERROR(err);
-        buffer_deriv_3 = clCreateBuffer(
-            context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR,
-            sizeof(deriv_type) * width_[3] * height_[3] * 2, nullptr, &err);
-        CHECK_ERROR(err);
-    }
-
-    if (level_ > 3) {
-        buffer4 =
-            clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
-                           sizeof(uchar) * width_[4] * height_[4], nullptr, &err);
-        CHECK_ERROR(err);
-        buffer_deriv_4 = clCreateBuffer(
-            context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR,
-            sizeof(deriv_type) * width_[4] * height_[4] * 2, nullptr, &err);
+            sizeof(deriv_type) * width_[i] * height_[i] * 2, nullptr, &err);
         CHECK_ERROR(err);
     }
 }
