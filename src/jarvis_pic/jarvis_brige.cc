@@ -93,11 +93,15 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       return;
     }
 
-    if (!image_sample_->Pulse()) return;
     if (kuse_gpu) {
       if (image_datas_pyra_.size() >= 1) {
         if (pyramid_thread_.joinable()) {
+          // auto start = std::chrono::high_resolution_clock::now();
           pyramid_thread_.join();
+          // LOG(INFO) << "join frame cost: "
+          //           << std::chrono::duration_cast<std::chrono::milliseconds>(
+          //                  std::chrono::high_resolution_clock::now() - start)
+          //                  .count();
         }
         //
         if (image_datas_pyra_.size() == 2) {
@@ -134,7 +138,12 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
                         .pyramid_derive[esit_option_.track_sequence[i][j]]);
           }
         }
+        auto start = std::chrono::high_resolution_clock::now();
         builder_->AddImageData(image_datas_pyra_[0].second);
+        LOG(INFO) << "One frame cost: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::high_resolution_clock::now() - start)
+                         .count();
       } else {
         image_datas_pyra_.push_back({false, imag_data});
         image_datas_pyra_.back().second.pyramid_derive.resize(
@@ -196,6 +205,9 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     //  static cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(10.0, cv::Size(8,
     //  8)); clahe->apply( frame.image, temp1);
     // auto temp = std::make_shared<cv::Mat>(temp1.clone());
+
+
+   if (!image_sample_->Pulse()) return;
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<
@@ -217,7 +229,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     if (newst_frame_time_.has_value() && newst_imu_time_.has_value()) {
       const int64_t delta_time =
           newst_frame_time_.value() - newst_imu_time_.value();
-      LOG_EVERY_N(WARNING, 10) << "Frame behind imu " << delta_time
+      LOG_EVERY_N(WARNING, 1000) << "Frame behind imu " << delta_time
                                << " frame: " << newst_frame_time_.value()
                                << " imu:" << newst_imu_time_.value();
       CHECK(abs(delta_time) < 2000000)
