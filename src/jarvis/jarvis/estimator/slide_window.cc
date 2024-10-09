@@ -223,10 +223,12 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   fram_result.data->extric_camera_to_imu = extric_camera_to_imu_;
   //
   fram_result.data->imu_state = imu_states_.back();
-  return std::make_unique<SlideWindowResult>(SlideWindowResult{
-      fram_result, optimization_->FinalCost(),
-      feature_managers_->GetFeatTrackInfo(),
-      odoms_factor_.back() ? odoms_factor_.back()->GetObserveDistance() : 100});
+  return std::make_unique<SlideWindowResult>(
+      SlideWindowResult{fram_result, optimization_->FinalCost(),
+                        feature_managers_->GetFeatTrackInfo(),
+                        odoms_factor_.back() != nullptr
+                            ? odoms_factor_.back()->GetObserveDistance()
+                            : 100});
 }
  //
  void SlideWindow::SlideNew() {

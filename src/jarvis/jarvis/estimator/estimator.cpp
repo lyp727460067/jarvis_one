@@ -37,7 +37,8 @@ Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   // CHECK(false);
   stereo_sample_ = std::make_unique<common::FixedRatioSampler>(
       options_.use_stereo_sample_ration);
-  failure_detect_ = std::make_unique<FailureDetect>(FailureDetectOptoin{});
+  failure_detect_ =
+      std::make_unique<FailureDetect>(options_.fail_detect_option);
   pose_predit_ = std::make_unique<PosePredit>();
 }
 

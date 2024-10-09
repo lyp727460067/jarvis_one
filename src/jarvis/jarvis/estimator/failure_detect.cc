@@ -30,12 +30,11 @@ bool FailureDetect::OdoZeroDetect(const SlideWindowResult& frame_data) {
 
   // //
   //
-  failuer_zero_odo_lost_.push_back((odo_distance < 0.0001));
+  failuer_zero_odo_lost_.push_back((odo_distance < 0.01));
   if (int(failuer_zero_odo_lost_.size()) > options_.zero_odo_win_size) {
-    failuer_zero_odo_lost_.pop_back();
+    failuer_zero_odo_lost_.erase(failuer_zero_odo_lost_.begin());
   }
   //
-
   if (std::count(failuer_zero_odo_lost_.begin(), failuer_zero_odo_lost_.end(),
                  true) != options_.zero_odo_win_size) {
     return false;
