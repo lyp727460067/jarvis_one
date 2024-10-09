@@ -425,10 +425,10 @@ void XPTrackerInvoker::compute_covariance_matrix_and_update_patch(
 void XPTrackerInvoker::operator()(const Range& range) const {
   const Point2f halfWin((winSize.width - 1) * 0.5f,
                         (winSize.height - 1) * 0.5f);
-  const Point2i halfWini(3, 3);
-  const cv::Size iter_cache_size(15, 15);
-  const cv::Point2i half_diff(iter_cache_size.width / 2 - halfWini.x,
-                              iter_cache_size.height / 2 - halfWin.y);
+  // const Point2i halfWini(3, 3);
+  // const cv::Size iter_cache_size(15, 15);
+  // const cv::Point2i half_diff(iter_cache_size.width / 2 - halfWini.x,
+  //                             iter_cache_size.height / 2 - halfWin.y);
   const Mat& I = *prevImg;
   const Mat& J = *nextImg;
   const Mat& derivI = *prevDeriv;
@@ -449,12 +449,12 @@ void XPTrackerInvoker::operator()(const Range& range) const {
 
   int wh = winSize.height;
 
-  cv::Rect valid_region(half_diff.x, half_diff.y, Jcols - iter_cache_size.width,
-                        Jrows - iter_cache_size.height);
+  // cv::Rect valid_region(half_diff.x, half_diff.y, Jcols - iter_cache_size.width,
+  //                       Jrows - iter_cache_size.height);
   const bool get_min_eigenvals = (flags & OPTFLOW_LK_GET_MIN_EIGENVALS) != 0;
-  cv::Mat J_patch(iter_cache_size, CV_MAKETYPE(DataType<uchar>::depth, 1),
-                  iteration_patch_buffer.get());
-  __builtin_prefetch(J_patch.data, 1, 3);
+  // cv::Mat J_patch(iter_cache_size, CV_MAKETYPE(DataType<uchar>::depth, 1),
+  //                 iteration_patch_buffer.get());
+  // __builtin_prefetch(J_patch.data, 1, 3);
 
   for (int ptidx = range.start; ptidx < range.end; ++ptidx) {
     Point2f prevPt = prevPts[ptidx].pt *
@@ -480,8 +480,10 @@ void XPTrackerInvoker::operator()(const Range& range) const {
     iprevPt.x = cvFloor(prevPt.x);
     iprevPt.y = cvFloor(prevPt.y);
 
-    if (XPTrackerInvoker::is_keypoint_not_in_valid_range(iprevPt,
-                                                         valid_region)) {
+    // if (XPTrackerInvoker::is_keypoint_not_in_valid_range(iprevPt,
+    //                                                      valid_region)) {
+    if( iprevPt.x < 0 || iprevPt.x >= (derivI.cols - winSize.width) ||
+        iprevPt.y < 0 || iprevPt.y >= (derivI.rows - winSize.height)){
       if (level == start_level) {
         status[ptidx] = false;
         err[ptidx] = 0.f;
@@ -561,8 +563,10 @@ void XPTrackerInvoker::operator()(const Range& range) const {
       inextPt.x = cvFloor(nextPt.x);
       inextPt.y = cvFloor(nextPt.y);
 
-      if (XPTrackerInvoker::is_keypoint_not_in_valid_range(inextPt,
-                                                           valid_region)) {
+      // if (XPTrackerInvoker::is_keypoint_not_in_valid_range(inextPt,
+      //                                                      valid_region)) {
+      if( inextPt.x < 0 || inextPt.x >= (derivI.cols - winSize.width) ||
+          inextPt.y < 0 || inextPt.y >= (derivI.rows - winSize.height)){
         if (level == start_level) {
           status[ptidx] = false;
         }
@@ -571,35 +575,35 @@ void XPTrackerInvoker::operator()(const Range& range) const {
       }
       // compute the current optical flow in pixels
       // this info will be used to decide whether update the cached buffer.
-      Point2i off = inextPt - init_pos;
+//       Point2i off = inextPt - init_pos;
 
-      if (std::abs(off.x) > half_diff.x || std::abs(off.y) > half_diff.y ||
-          j == 0) {
-#ifndef __ARM_NEON__
-        for (int m = 0; m < iter_cache_size.height + 1; ++m) {
-          uchar* dst = const_cast<uchar*>(J_patch.ptr<uchar>(m));
-          uchar* src =
-              const_cast<uchar*>(J.ptr<uchar>(m + inextPt.y - half_diff.y) +
-                                 inextPt.x - half_diff.x);
-          __builtin_prefetch(src + stepJ, 0, 1);
-          _mm_storeu_si128(
-              reinterpret_cast<__m128i*>(dst),
-              _mm_loadu_si128(reinterpret_cast<const __m128i*>(src)));
-        }
-#else
-        for (int m = 0; m < iter_cache_size.height + 1; ++m) {
-          uchar* dst = const_cast<uchar*>(J_patch.ptr<uchar>(m));
-          uchar* src =
-              const_cast<uchar*>(J.ptr<uchar>(m + inextPt.y - half_diff.y) +
-                                 inextPt.x - half_diff.x);
-          __builtin_prefetch(src + stepJ, 0, 1);
-          vst1q_u8(dst, vld1q_u8(src));
-        }
-#endif
-        init_pos = inextPt;
-        off.x = 0;
-        off.y = 0;
-      }
+//       if (std::abs(off.x) > half_diff.x || std::abs(off.y) > half_diff.y ||
+//           j == 0) {
+// #ifndef __ARM_NEON__
+//         for (int m = 0; m < iter_cache_size.height + 1; ++m) {
+//           uchar* dst = const_cast<uchar*>(J_patch.ptr<uchar>(m));
+//           uchar* src =
+//               const_cast<uchar*>(J.ptr<uchar>(m + inextPt.y - half_diff.y) +
+//                                  inextPt.x - half_diff.x);
+//           __builtin_prefetch(src + stepJ, 0, 1);
+//           _mm_storeu_si128(
+//               reinterpret_cast<__m128i*>(dst),
+//               _mm_loadu_si128(reinterpret_cast<const __m128i*>(src)));
+//         }
+// #else
+//         for (int m = 0; m < iter_cache_size.height + 1; ++m) {
+//           uchar* dst = const_cast<uchar*>(J_patch.ptr<uchar>(m));
+//           uchar* src =
+//               const_cast<uchar*>(J.ptr<uchar>(m + inextPt.y - half_diff.y) +
+//                                  inextPt.x - half_diff.x);
+//           __builtin_prefetch(src + stepJ, 0, 1);
+//           vst1q_u8(dst, vld1q_u8(src));
+//         }
+// #endif
+//         init_pos = inextPt;
+//         off.x = 0;
+//         off.y = 0;
+//       }
 
       a = nextPt.x - inextPt.x;
       b = nextPt.y - inextPt.y;
@@ -624,11 +628,13 @@ void XPTrackerInvoker::operator()(const Range& range) const {
 #endif
 
       for (y = 0; y < wh; y++) {
-        const uchar* Jptr0 =
-            J_patch.ptr<uchar>(y + half_diff.y + off.y) + (half_diff.x + off.x);
-        const uchar* Jptr1 =
-            J_patch.ptr<uchar>((y + half_diff.y) + (off.y + 1)) +
-            (half_diff.x + off.x);
+        // const uchar* Jptr0 =
+        //     J_patch.ptr<uchar>(y + half_diff.y + off.y) + (half_diff.x + off.x);
+        // const uchar* Jptr1 =
+        //     J_patch.ptr<uchar>((y + half_diff.y) + (off.y + 1)) +
+        //     (half_diff.x + off.x);
+        const uchar* Jptr0 = J.ptr<uchar>(y + inextPt.y) + inextPt.x * cn;
+        const uchar* Jptr1 = J.ptr<uchar>(y + inextPt.y + 1) + inextPt.x * cn;
         const deriv_type* Iptr = IWinBuf.ptr<deriv_type>(y);
         const deriv_type* dIptr = derivIWinBuf.ptr<deriv_type>(y);
 
@@ -817,8 +823,8 @@ void XPcalcOpticalFlowPyrLK(const std::vector<cv::Mat>& _prevPyramids,
                             TermCriteria _criteria, int _flags,
                             double _minEigThreshold) {
 #ifdef _XP_OPTICAL_FLOW_DEBUG_MODE_
-  CHECK_EQ(_win_size.width, 7) << "only support window size 7 for now";
-  CHECK_EQ(_win_size.height, 7) << "only support window size 7 for now";
+  // CHECK_EQ(_win_size.width, 7) << "only support window size 7 for now";
+  // CHECK_EQ(_win_size.height, 7) << "only support window size 7 for now";
   CHECK_NOTNULL(_prevPts);
   CHECK_NOTNULL(_nextPts);
   CHECK_NOTNULL(_status);
@@ -880,8 +886,8 @@ void XPcalcOpticalFlowPyrLKWithDeriv(const std::vector<cv::Mat>& _prevPyramids,
                                     TermCriteria _criteria, int _flags,
                                     double _minEigThreshold) {
 #ifdef _XP_OPTICAL_FLOW_DEBUG_MODE_
-  CHECK_EQ(_win_size.width, 7) << "only support window size 7 for now";
-  CHECK_EQ(_win_size.height, 7) << "only support window size 7 for now";
+  // CHECK_EQ(_win_size.width, 7) << "only support window size 7 for now";
+  // CHECK_EQ(_win_size.height, 7) << "only support window size 7 for now";
   CHECK_NOTNULL(_prevPts);
   CHECK_NOTNULL(_nextPts);
   CHECK_NOTNULL(_status);
