@@ -275,7 +275,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   //
   const common::Time& cur_time = track_frame.data->time;
   if (!init_imu_rotation_.has_value()) {
-    auto init_rotation = InitImuRotaion(last_time, cur_time);
+    auto init_rotation = InitImuRotaion(cur_time);
     if (init_rotation) {
       init_imu_rotation_ = *init_rotation;
       LOG(INFO) << "Init roation imu:" << *init_imu_rotation_;
