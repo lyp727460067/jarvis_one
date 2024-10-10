@@ -125,7 +125,7 @@ void DataCapture::ReadImu() {
     }
 
     //
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
   };
 }
 
@@ -152,7 +152,6 @@ void DataCapture::ReadImag() {
       // LOG(INFO) << frame.head.time_stamp - last_time;
       last_time = frame.head.time_stamp;
       last_frame_sys_count_ = frame_sys_count;
-      // std::lock_guard<std::mutex> lock(mutex_);
       ProcessImag(frame);
     }
     // }
@@ -181,11 +180,13 @@ void DataCapture::Start() {
   pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
   // 设置线程优先级
   sched_param.sched_priority = sched_get_priority_max(SCHED_FIFO);
+  sched_param.sched_priority = 98;
   pthread_attr_setschedparam(&attr, &sched_param);
-  // sched_param.sched_priority = 90;
+  sched_param.sched_priority = 99;
+  pthread_attr_setschedparam(&attr, &sched_param);
   int ret = pthread_create(&threads_[0],&attr, ReadImuPtread, this);
   CHECK(ret==0) << "Read Imu thread creat faied..";
-  ret = pthread_create(&threads_[1], nullptr, ReadImgPtread, this);
+  ret = pthread_create(&threads_[1], &attr, ReadImgPtread, this);
   CHECK(ret==0) << "Read imag thread creat faied..";
 }
 //
@@ -400,6 +401,8 @@ void DataCapture::ProcessImag(const CameraFrame& frame) {
     f.second(image_catch_.front().second);
   }
 #else
+
+  // std::lock_guard<std::mutex> lock(mutex_);
   for (auto& f : frame_call_backs_) {
     f.second(frame_data);
   }

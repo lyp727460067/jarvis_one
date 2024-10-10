@@ -75,7 +75,7 @@ void OrderedMultiQueue::Start() {
   dispath_thead_ = std::thread([this]() {
     while (!kill_thread) {
       Dispathch();
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (sensor_cout++ >= 1000) {
         LOG_EVERY_N(ERROR, 100) << "No data recive!!!!!!!!!!!!!!";
       }

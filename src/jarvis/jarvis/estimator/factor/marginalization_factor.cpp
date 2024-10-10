@@ -158,7 +158,16 @@ int MarginalizationInfo::localSize(int size) const {
 int MarginalizationInfo::globalSize(int size) const {
   return size == 6 ? 7 : size;
 }
-
+Eigen::MatrixXd Matrixmult(const Eigen::MatrixXd &a, const Eigen::MatrixXd &b) {
+  CHECK_EQ(a.cols(), b.rows());
+  Eigen::MatrixXd resutl = Eigen::MatrixXd::Zero(a.rows(), b.cols());
+  for (int i = 0; i < a.rows(); i++) {
+    for (int j = 0; j < b.cols(); j++) {
+      resutl(i, j) = a.row(i) * b.col(j);
+    }
+  }
+  return resutl;
+};
 void *ThreadsConstructA(void *threadsstruct) {
   ThreadsStruct *p = ((ThreadsStruct *)threadsstruct);
   double mem_i[100];
@@ -187,10 +196,12 @@ void *ThreadsConstructA(void *threadsstruct) {
         jacobian_j.noalias() = it->jacobians[j].leftCols(size_j);
         if (i == j)
           p->A.block(idx_i, idx_j, size_i, size_j) +=
-              jacobian_i.transpose() * jacobian_j;
+              Matrixmult(jacobian_i.transpose(), jacobian_j);
+              // jacobian_i.transpose() * jacobian_j;
         else {
           p->A.block(idx_i, idx_j, size_i, size_j) +=
-              jacobian_i.transpose() * jacobian_j;
+              Matrixmult(jacobian_i.transpose(), jacobian_j);
+          // jacobian_i.transpose() * jacobian_j;
           p->A.block(idx_j, idx_i, size_j, size_i) =
               p->A.block(idx_i, idx_j, size_i, size_j).transpose();
         }
@@ -221,7 +232,7 @@ void MarginalizationInfo::marginalize() {
   }
 
   n = pos - m;
-  std::stringstream info;
+  // std::stringstream info;
   //
   VLOG(kGlogLevel) << "marginalization pos: " << pos << " m: " << m
                    << " n: " << n
@@ -316,7 +327,8 @@ void MarginalizationInfo::marginalize() {
     A.noalias() += threadsstruct[i].A;
     b.noalias() += threadsstruct[i].b;
   }
-  VLOG(kGlogCostTimeLevel) << "thread summing up costs" <<t_thread_summing.toc();
+  std::stringstream info;
+  info << "\nthread summing up costs" << t_thread_summing.toc();
   // ROS_INFO("A diff %f , b diff %f ", (A - tmp_A).sum(), (b - tmp_b).sum());
 
   // TODO
@@ -327,12 +339,17 @@ void MarginalizationInfo::marginalize() {
   // ROS_ASSERT_MSG(saes.eigenvalues().minCoeff() >= -1e-4, "min eigenvalue %f",
   // saes.eigenvalues().minCoeff());
 
-  Eigen::MatrixXd Amm_inv =
-      saes.eigenvectors() *
-      Eigen::VectorXd((saes.eigenvalues().array() > eps)
-                          .select(saes.eigenvalues().array().inverse(), 0))
-          .asDiagonal() *
-      saes.eigenvectors().transpose();
+  TicToc t_amm_inv;
+  Eigen::MatrixXd Amm_inv =// Amm.inverse();
+  Matrixmult(
+  saes.eigenvectors() *
+  Eigen::VectorXd((saes.eigenvalues().array() > eps)
+                      .select(saes.eigenvalues().array().inverse(), 0))
+      .asDiagonal() ,
+  saes.eigenvectors().transpose());
+
+  info << "\na inv" << t_amm_inv.toc();
+
   // printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m,
   // m)).sum());
   Eigen::VectorXd bmm = b.segment(0, m);
@@ -341,13 +358,36 @@ void MarginalizationInfo::marginalize() {
   Eigen::MatrixXd Arr = A.block(m, m, n, n);
   Eigen::VectorXd brr = b.segment(m, n);
   {
+
+
     std::vector<double> pre_amem(std::vector<double>((n) * (n)));
+    //
     Eigen::Map<Eigen::MatrixXd> A(pre_amem.data(), n, n);
-    A.noalias() = Arr - Arm * Amm_inv * Amr;
+
+    TicToc t_amm_inv2;
+    // Eigen::MatrixXd armXamm_inv = Arm * Amm_inv;
+    Eigen::MatrixXd armXamm_inv = Matrixmult(Arm, Amm_inv);
+    info << "\nt_amm_inv2 " << t_amm_inv2.toc();
+
+    // Eigen::MatrixXd test = Eigen::MatrixXd::Random(80, 100);
+
+    // TicToc t_amm_test;
+    // Eigen::MatrixXd test1 = test * test.transpose();
+    // VLOG(kGlogCostTimeLevel)
+    //     << "test costs " << t_amm_test.toc() << test1;
+
+    TicToc t_amm_inv;
+    // A = Arr - armXamm_inv * Amr;
+    //
+    A = Arr - Matrixmult(armXamm_inv, Amr);  // armXamm_inv * Amr;
+    info << "\nA " << t_amm_inv.toc() << A.size();
+
+    TicToc t_amm_inv1;
     std::vector<double> pre_bmem(n);
     Eigen::Map<Eigen::VectorXd> b(pre_bmem.data(), n);
-    b.noalias() = brr - Arm * Amm_inv * bmm;
+    b = brr - armXamm_inv * bmm;
 
+    info << "\nb " << t_amm_inv1.toc();
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
     Eigen::VectorXd S =
         Eigen::VectorXd((saes2.eigenvalues().array() > eps)
@@ -355,14 +395,17 @@ void MarginalizationInfo::marginalize() {
     Eigen::VectorXd S_inv =
         Eigen::VectorXd((saes2.eigenvalues().array() > eps)
                             .select(saes2.eigenvalues().array().inverse(), 0));
-
+    TicToc t_job_inv;
     Eigen::VectorXd S_sqrt = S.cwiseSqrt();
     Eigen::VectorXd S_inv_sqrt = S_inv.cwiseSqrt();
-
     linearized_jacobians =
         S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
     linearized_residuals =
         S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
+
+    info << "\nS_inv_sqrt" << t_job_inv.toc();
+    VLOG(kGlogCostTimeLevel) << info.str()<<std::endl;
+    // std::cout << info.str() << std::endl;
   }
   // std::cout << A << std::endl
   //           << std::endl;

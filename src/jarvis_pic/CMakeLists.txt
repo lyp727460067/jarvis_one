@@ -44,11 +44,11 @@ set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/lib/
 #         ${glog_binary_dir}
 # )
 get_directory_property(out_var INCLUDE_DIRECTORIES)
-# message(****${out_var})
+message(****${out_var})
 string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
 set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
 get_directory_property(out_var1 INCLUDE_DIRECTORIES)
-# message(********${out_var1})
+message(********${out_var1})
 
 INCLUDE_DIRECTORIES(
   ${TOP_CMAKE_DIR}/vslam/src/jarvis/
@@ -76,11 +76,11 @@ add_executable(mpslam  jarvis_slipe_detect_main.cc
  gpu_pyramid_compute.cc
  opencl_handler.cpp
  )
-add_executable(thread_test  jarvis_thread_test.cc
+add_executable(jarvis_eigen_test  jarvis_eigen_test.cc
  )
 
 
-target_link_libraries(thread_test PUBLIC
+target_link_libraries(jarvis_eigen_test PUBLIC
   -ldl
 )
 

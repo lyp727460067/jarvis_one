@@ -37,6 +37,7 @@ bool FailureDetect::OdoZeroDetect(const SlideWindowResult& frame_data) {
   //
   if (std::count(failuer_zero_odo_lost_.begin(), failuer_zero_odo_lost_.end(),
                  true) != options_.zero_odo_win_size) {
+    lost_last_poses_.clear();
     return false;
   }
   lost_last_poses_.push_back(
