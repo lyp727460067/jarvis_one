@@ -131,7 +131,8 @@ void MarginalizationInfo::addResidualBlockInfo(
 }
 
 void MarginalizationInfo::preMarginalize() {
-  VLOG(kGlogCostTimeLevel) << "marginalize fator size: " << factors.size();
+  // VLOG(kGlogCostTimeLevel) << "marginalize fator size: " << factors.size();
+  std::cout << "marginalize fator size: " << factors.size() << std::endl;
   // LOG(INFO)<< factors.size();
   for (auto it : factors) {
     it->Evaluate();
@@ -212,6 +213,49 @@ void *ThreadsConstructA(void *threadsstruct) {
   return threadsstruct;
 }
 
+void MarginalizationInfo::ConstructA(Eigen::MatrixXd& A, Eigen::VectorXd& b){
+  double mem_i[100];
+  double mem_j[100];
+  for (auto it : factors) {
+    for (int i = 0; i < static_cast<int>(it->parameter_blocks.size()); i++) {
+      int idx_i = parameter_block_idx[reinterpret_cast<long>(
+          it->parameter_blocks[i])];
+      int size_i = parameter_block_size[reinterpret_cast<long>(
+          it->parameter_blocks[i])];
+      if (size_i == 7) size_i = 6;
+      Eigen::MatrixXd jacobian_i = Eigen::Map<Eigen::MatrixXd>(
+          reinterpret_cast<double *>(&mem_i), it->jacobians[i].rows(), size_i);
+      jacobian_i.noalias() = it->jacobians[i].leftCols(size_i);
+      for (int j = i; j < static_cast<int>(it->parameter_blocks.size()); j++) {
+        int idx_j = parameter_block_idx[reinterpret_cast<long>(
+            it->parameter_blocks[j])];
+        int size_j = parameter_block_size[reinterpret_cast<long>(
+            it->parameter_blocks[j])];
+        if (size_j == 7) size_j = 6;
+
+        // Eigen::MatrixXd jacobian_j = it->jacobians[j].leftCols(size_j);
+        Eigen::MatrixXd jacobian_j =
+            Eigen::Map<Eigen::MatrixXd>(reinterpret_cast<double *>(&mem_j),
+                                        it->jacobians[j].rows(), size_j);
+        jacobian_j.noalias() = it->jacobians[j].leftCols(size_j);
+        if (i == j)
+          A.block(idx_i, idx_j, size_i, size_j) +=
+              Matrixmult(jacobian_i.transpose(), jacobian_j);
+              // jacobian_i.transpose() * jacobian_j;
+        else {
+          A.block(idx_i, idx_j, size_i, size_j) +=
+              Matrixmult(jacobian_i.transpose(), jacobian_j);
+          // jacobian_i.transpose() * jacobian_j;
+          A.block(idx_j, idx_i, size_j, size_i) =
+              A.block(idx_i, idx_j, size_i, size_j).transpose();
+        }
+      }
+      b.segment(idx_i, size_i) += jacobian_i.transpose() * it->residuals;
+    }
+  }
+}
+
+
 #if 1
 void MarginalizationInfo::marginalize() {
   int pos = 0;
@@ -232,11 +276,14 @@ void MarginalizationInfo::marginalize() {
   }
 
   n = pos - m;
-  // std::stringstream info;
+  std::stringstream info;
   //
-  VLOG(kGlogLevel) << "marginalization pos: " << pos << " m: " << m
+  info << "marginalization pos: " << pos << " m: " << m
                    << " n: " << n
                    << " size: " << (int)parameter_block_idx.size();
+  // VLOG(kGlogLevel) << "marginalization pos: " << pos << " m: " << m
+  //                  << " n: " << n
+  //                  << " size: " << (int)parameter_block_idx.size();
   if (m == 0) {
     valid = false;
     LOG(ERROR) << "unstable tracking...m =0 ";
@@ -244,14 +291,14 @@ void MarginalizationInfo::marginalize() {
   }
 
   TicToc t_summing;
-  std::vector<double> a_mec(pos * pos,0);
-  std::vector<double> b_mec(pos,0);
-  Eigen::Map<Eigen::MatrixXd> A(a_mec.data(), pos, pos);
-  Eigen::Map<Eigen::VectorXd> b(b_mec.data(), pos);
-  // Eigen::MatrixXd A(pos, pos);
-  // Eigen::VectorXd b(pos);
-  // A.setZero();
-  // b.setZero();
+  // std::vector<double> a_mec(pos * pos,0);
+  // std::vector<double> b_mec(pos,0);
+  // Eigen::Map<Eigen::MatrixXd> A(a_mec.data(), pos, pos);
+  // Eigen::Map<Eigen::VectorXd> b(b_mec.data(), pos);
+  Eigen::MatrixXd A(pos, pos);
+  Eigen::VectorXd b(pos);
+  A.setZero();
+  b.setZero();
   // LOG(INFO)<<"1";
   /*
   for (auto it : factors)
@@ -286,49 +333,51 @@ void MarginalizationInfo::marginalize() {
   ROS_INFO("summing up costs %f ms", t_summing.toc());
   */
   // multi thread
-  int num_threads = factors.size() > NUM_THREADS ? NUM_THREADS : factors.size();
+  // int num_threads = factors.size() > NUM_THREADS ? NUM_THREADS : factors.size();
   TicToc t_thread_summing;
-  std::vector<std::vector<double>> pre_amem(num_threads,
-                                            std::vector<double>(pos * pos,0));
-  std::vector<std::vector<double>> pre_bmem(num_threads,
-                                            std::vector<double>(pos,0));
+  // std::vector<std::vector<double>> pre_amem(num_threads,
+  //                                           std::vector<double>(pos * pos,0));
+  // std::vector<std::vector<double>> pre_bmem(num_threads,
+  //                                           std::vector<double>(pos,0));
 
-  pthread_t tids[num_threads];
-  ThreadsStruct threadsstruct[num_threads];
-  int i = 0;
-  for (auto it : factors) {
-    threadsstruct[i].sub_factors.push_back(it);
-    i++;
-    i = i % num_threads;
-  }
-  for (int i = 0; i < num_threads; i++) {
-    TicToc zero_matrix;
-    threadsstruct[i].A = Eigen::Map<Eigen::MatrixXd>(pre_amem[i].data(),pos,pos); 
-    threadsstruct[i].b = Eigen::Map<Eigen::VectorXd>(pre_bmem[i].data(),pos); 
-    // threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
-    // threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
-    threadsstruct[i].parameter_block_size = parameter_block_size;
-    threadsstruct[i].parameter_block_idx = parameter_block_idx;
-    pthread_attr_t attr;
-    struct sched_param sched_param;
-    pthread_attr_init(&attr);
-    // 设置线程为实时线程
-    // pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
-    // pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-    // 设置线程优先级
-    sched_param.sched_priority = 90+i;
-    pthread_attr_setschedparam(&attr, &sched_param);
-    int ret = pthread_create(&tids[i], &attr, ThreadsConstructA,
-                             (void *)&(threadsstruct[i]));
-    CHECK(ret == 0) << "pthread_create error";
-  }
-  for (int i = num_threads - 1; i >= 0; i--) {
-    pthread_join(tids[i], NULL);
-    A.noalias() += threadsstruct[i].A;
-    b.noalias() += threadsstruct[i].b;
-  }
-  std::stringstream info;
-  info << "\nthread summing up costs" << t_thread_summing.toc();
+  // pthread_t tids[num_threads];
+  // ThreadsStruct threadsstruct[num_threads];
+  // int i = 0;
+  // for (auto it : factors) {
+  //   threadsstruct[i].sub_factors.push_back(it);
+  //   i++;
+  //   i = i % num_threads;
+  // }
+  // for (int i = 0; i < num_threads; i++) {
+  //   TicToc zero_matrix;
+  //   threadsstruct[i].A = Eigen::Map<Eigen::MatrixXd>(pre_amem[i].data(),pos,pos); 
+  //   threadsstruct[i].b = Eigen::Map<Eigen::VectorXd>(pre_bmem[i].data(),pos); 
+  //   // threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
+  //   // threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
+  //   threadsstruct[i].parameter_block_size = parameter_block_size;
+  //   threadsstruct[i].parameter_block_idx = parameter_block_idx;
+  //   pthread_attr_t attr;
+  //   struct sched_param sched_param;
+  //   pthread_attr_init(&attr);
+  //   // 设置线程为实时线程
+  //   // pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+  //   // pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+  //   // 设置线程优先级
+  //   sched_param.sched_priority = 90+i;
+  //   pthread_attr_setschedparam(&attr, &sched_param);
+  //   info << "\ntest 1: " << t_thread_summing.toc();
+  //   int ret = pthread_create(&tids[i], &attr, ThreadsConstructA,
+  //                            (void *)&(threadsstruct[i]));
+  //   CHECK(ret == 0) << "pthread_create error";
+  // }
+  // info << "\ntest 2: " << t_thread_summing.toc();
+  // for (int i = num_threads - 1; i >= 0; i--) {
+  //   pthread_join(tids[i], NULL);
+  //   A.noalias() += threadsstruct[i].A;
+  //   b.noalias() += threadsstruct[i].b;
+  // }
+  ConstructA(A, b);
+  info << "\nthread summing up cost: " << t_thread_summing.toc();
   // ROS_INFO("A diff %f , b diff %f ", (A - tmp_A).sum(), (b - tmp_b).sum());
 
   // TODO
@@ -348,7 +397,7 @@ void MarginalizationInfo::marginalize() {
       .asDiagonal() ,
   saes.eigenvectors().transpose());
 
-  info << "\na inv" << t_amm_inv.toc();
+  info << "\na inv cost: " << t_amm_inv.toc();
 
   // printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m,
   // m)).sum());
@@ -367,7 +416,7 @@ void MarginalizationInfo::marginalize() {
     TicToc t_amm_inv2;
     // Eigen::MatrixXd armXamm_inv = Arm * Amm_inv;
     Eigen::MatrixXd armXamm_inv = Matrixmult(Arm, Amm_inv);
-    info << "\nt_amm_inv2 " << t_amm_inv2.toc();
+    info << "\nt_amm_inv2 cost: " << t_amm_inv2.toc();
 
     // Eigen::MatrixXd test = Eigen::MatrixXd::Random(80, 100);
 
@@ -380,14 +429,14 @@ void MarginalizationInfo::marginalize() {
     // A = Arr - armXamm_inv * Amr;
     //
     A = Arr - Matrixmult(armXamm_inv, Amr);  // armXamm_inv * Amr;
-    info << "\nA " << t_amm_inv.toc() << A.size();
+    info << "\nA cost: " << t_amm_inv.toc() << A.size();
 
     TicToc t_amm_inv1;
     std::vector<double> pre_bmem(n);
     Eigen::Map<Eigen::VectorXd> b(pre_bmem.data(), n);
     b = brr - armXamm_inv * bmm;
 
-    info << "\nb " << t_amm_inv1.toc();
+    info << "\nb cost: " << t_amm_inv1.toc();
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
     Eigen::VectorXd S =
         Eigen::VectorXd((saes2.eigenvalues().array() > eps)
@@ -403,7 +452,7 @@ void MarginalizationInfo::marginalize() {
     linearized_residuals =
         S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
 
-    info << "\nS_inv_sqrt" << t_job_inv.toc();
+    info << "\nS_inv_sqrt cost: " << t_job_inv.toc();
     VLOG(kGlogCostTimeLevel) << info.str()<<std::endl;
     // std::cout << info.str() << std::endl;
   }
