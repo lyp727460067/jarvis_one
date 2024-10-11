@@ -62,7 +62,7 @@ TEST(OdomFactor, OdomFactorOptimazation1) {
   odom_factor.ComputeObserve(common::Time(common::FromSeconds(0.001)),
                              common::Time(common::FromSeconds(1)));
   odom_factor.AddToProblem(&problem, nullptr,
-                           std::array<double *, 2>{pose0.data(), pose1.data()});
+                           std::array<double *, 3>{pose0.data(), pose1.data()});
   //
   problem.SetParameterBlockConstant(pose0.data());
   ceres::Solver::Summary summary;

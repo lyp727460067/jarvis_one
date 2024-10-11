@@ -40,18 +40,18 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   esit_option_ = estimator::ParseEstimatorOption(std::string(config));
 
   if (kuse_gpu) {
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
+    std::shared_ptr<jarvis::estimator::PyramidImage>
         extend_pyramid_image0 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+            std::make_shared<jarvis::estimator::PyramidImage>(
                 esit_option_.feature_track_options[0].pyrmid_option);
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
+    std::shared_ptr<jarvis::estimator::PyramidImage>
         extend_pyramid_image00 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+            std::make_shared<jarvis::estimator::PyramidImage>(
                 esit_option_.feature_track_options[0].pyrmid_option);
 
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
+    std::shared_ptr<jarvis::estimator::PyramidImage>
         extend_pyramid_image1 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+            std::make_shared<jarvis::estimator::PyramidImage>(
                 esit_option_.feature_track_options[1].pyrmid_option);
 
     esit_option_.feature_track_options[0].pyramid_image.push_back(
