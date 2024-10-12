@@ -127,7 +127,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //
   imu_states_.push_back(frame.data->imu_state);
   //
-
+  LOG(INFO)<<frame.data->imu_state;
   integration_base_.push_back(nullptr);
   if (!imu_datas.empty()) {
     Eigen::Vector3d ba = imu_states_.back().ba;
@@ -302,7 +302,7 @@ void SlideWindow::StateToFrameData() {
                                         para_Pose[0][4], para_Pose[0][5])
                          .toRotationMatrix());
   double y_diff = origin_R0.x() - origin_R00.x();
-
+  LOG(INFO)<<y_diff;
   // TODO
   Eigen::Matrix3d rot_diff = Utility::ypr2R(Eigen::Vector3d(y_diff, 0, 0));
 
@@ -361,6 +361,7 @@ void SlideWindow::StateToFrameData() {
         Eigen::Quaterniond(para_Ex_Pose_Odom[0][6], para_Ex_Pose_Odom[0][3],
                            para_Ex_Pose_Odom[0][4], para_Ex_Pose_Odom[0][5])
             .normalized());
+    LOG(INFO)<<odo_to_imu_extric_ ;
   }
   //
   //
@@ -378,6 +379,7 @@ void SlideWindow::StateToFrameData() {
   }
   //
   camera_imu_time_offset_ = para_Td[0][0];
+  LOG(INFO)<<camera_imu_time_offset_ ;
 }
 
 void SlideWindow::FrameDataToState() {
@@ -426,7 +428,7 @@ void SlideWindow::FrameDataToState() {
     para_Ex_Pose[i][5] = q.z();
     para_Ex_Pose[i][6] = q.w();
   }
-  LOG_EVERY_N(INFO,100)<<extric_info.str();
+  LOG_EVERY_N(INFO,1)<<extric_info.str();
 
   for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     //

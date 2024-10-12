@@ -92,6 +92,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   if (slide_wondows_) {
     imu_state_ = pose_predit_->PreditDataBase(imu_state_, data_base_.get(),
                                               last_time_, images.time);
+    LOG(INFO)<<imu_state_;
     frame_data = FrameData{std::make_shared<FrameData::Data>(FrameData::Data{
         images.time,
         frame_id_,

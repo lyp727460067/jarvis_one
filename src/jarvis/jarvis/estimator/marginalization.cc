@@ -30,12 +30,12 @@ void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
     ceres::CostFunction *cost_function =
         frame_data->odom_factors[1]->CostFunction();
     if (cost_function) {
-      ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-          cost_function, NULL,
-          std::vector<double *>{para_Pose[0], para_Pose[1],
-                                para_Ex_Pose_Odom[0]},
-          std::vector<int>{0});
-      margina_info->addResidualBlockInfo(residual_block_info);
+      // ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+      //     cost_function, NULL,
+      //     std::vector<double *>{para_Pose[0], para_Pose[1],
+      //                           para_Ex_Pose_Odom[0]},
+      //     std::vector<int>{0});
+      // margina_info->addResidualBlockInfo(residual_block_info);
     }
   }
 
@@ -148,8 +148,8 @@ std::unordered_map<long, double *> Marginalization::ShiftStateAdrrOld(
   for (int i = 0; i < options_.camera_num; i++) {
     addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
   }
-  addr_shift[reinterpret_cast<long>(para_Ex_Pose_Odom[0])] =
-      para_Ex_Pose_Odom[0];
+  // addr_shift[reinterpret_cast<long>(para_Ex_Pose_Odom[0])] =
+  //     para_Ex_Pose_Odom[0];
   addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
 
   return addr_shift;
@@ -212,6 +212,7 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
             marginalization_info.get(), loss_function.get());
       }
     }
+    LOG(INFO)<<"1";
     MergeFrameData(opt_data, data, marginalization_info.get());
     margina_valid = true;
   } else {
@@ -242,6 +243,7 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
 
         marginalization_info->addResidualBlockInfo(residual_block_info);
       }
+      LOG(INFO)<<"1";
           // marginalization_info->marginalize();
       margina_valid = true;
     }

@@ -281,6 +281,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   for (const auto& image : images_datas) {
     //
     time = image.second.time;
+    if(time<22833527614000)continue;
     // LOG(INFO) << "image time : " << image.second.time
     //           << " start imu t: " << imu_datas.begin()->first
     //           << ", end imu t: " << imu_datas.upper_bound(time)->first
@@ -316,7 +317,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     //                 temp2,
 
     //             }}));
-    // if(time>1064339798000)
+
   try{
     const cv::Mat lr_image =
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
@@ -487,9 +488,9 @@ int main(int argc, char* argv[]) {
           slipe_alignment_pose =
               slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
         }
-        // LOG(INFO) << tracking_data.data->imu_state.pose;
+        LOG(INFO) << tracking_data.data->imu_state;
         if (kRecordFlag) {
-          const auto& pose = tracking_data.data->imu_state.Pose();
+          const auto pose = tracking_data.data->imu_state.Pose();
           std::stringstream info;
           info << std::to_string(uint64_t(
                       jarvis::common::ToUniversal(tracking_data.data->time) *
@@ -562,8 +563,8 @@ int main(int argc, char* argv[]) {
                 extend_pyramid_image0_tmp->CurrPyram());
             option.feature_track_options[0].pyramid_image[1]->SetCurrPyram(
                 extend_pyramid_image00_tmp->CurrPyram());
-            option.feature_track_options[1].pyramid_image[0]->SetCurrPyram(
-                extend_pyramid_image1_tmp->CurrPyram());
+            // option.feature_track_options[1].pyramid_image[0]->SetCurrPyram(
+            //     extend_pyramid_image1_tmp->CurrPyram());
             //
             if (image_datas_pry.size() == 2) {
               image_datas_pry.erase(image_datas_pry.begin());
@@ -584,7 +585,7 @@ int main(int argc, char* argv[]) {
             std::thread thread([=, &image_datas_pry, &mutex_py]() {
               extend_pyramid_image0_tmp->Build(imag_data.image[0]);
               extend_pyramid_image00_tmp->Build(imag_data.image[1]);
-              extend_pyramid_image1_tmp->Build(imag_data.image[2]);
+              // extend_pyramid_image1_tmp->Build(imag_data.image[2]);
               std::lock_guard<std::mutex> lock(mutex_py);
               image_datas_pry.back().first = true;
             });

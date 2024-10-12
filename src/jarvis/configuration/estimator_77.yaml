@@ -6,7 +6,7 @@ use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
 win_size : 6
 data_base_lenth : 1
 
-track_sequence: "{0,1},{2}"
+track_sequence: "{0,1}"
 #feature traker paprameters
 
 feattrack0:
@@ -135,8 +135,8 @@ track_feat_lost_win_size :  10
 bas_norm_max : 0.6
 bgs_norm_max : 0.5
 translation_norm_max : 1
-translation_z_max : 0.5
-ratation_max : 20
+translation_z_max : 1.5
+ratation_max : 12
 enable_odo_zero_lost_detect : 1
 zero_translation_norm_max : 0.15
 zero_translation_z_max : 0.01

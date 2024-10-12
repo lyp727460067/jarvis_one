@@ -132,7 +132,8 @@ bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
   if (delta_pose.translation().norm() > translation_threash_hold ||
       delta_angle > options_.ratation_max ||
       abs(delta_z_translation) > options_.translation_z_max) {
-    LOG(ERROR) << " Delta pose too big " << delta_pose;
+    LOG(ERROR) << " Delta pose too big " << delta_pose.translation().norm()
+               << " " << delta_angle << " " << delta_z_translation;
     return true;
   }
   return false;

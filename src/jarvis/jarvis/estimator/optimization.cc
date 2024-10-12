@@ -122,6 +122,7 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
             para_Ex_Pose[options_.trace_sequence[id][0]],
             para_Feature[id][std::get<2>(index)], para_Td[0]);
         f_m_cnt++;
+        ordering->AddElementToGroup(para_Feature[id][std::get<2>(index)], 0);
       },
       [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
           const Eigen::Vector2d &velocity_i, const Eigen::Vector2d &velocity_j,
@@ -147,7 +148,7 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
           info1 << para_Ex_Pose[options_.trace_sequence[id][0]][i]<<" "
                 << para_Ex_Pose[options_.trace_sequence[id][1]][i] << "\n";
         }
-
+        ordering->AddElementToGroup(para_Feature[id][std::get<2>(index)], 0);
         f_m_cnt++;
       },
       [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
@@ -156,13 +157,14 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
           const std::tuple<int, int, int> &index) {
         //
         ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
-            pts_i, pts_j, velocity_i, velocity_j, td_i, td_j,cam_weight);
+            pts_i, pts_j, velocity_i, velocity_j, td_i, td_j, cam_weight);
 
         problem->AddResidualBlock(
             f, loss_function, para_Ex_Pose[options_.trace_sequence[id][0]],
             para_Ex_Pose[options_.trace_sequence[id][1]],
             para_Feature[id][std::get<2>(index)], para_Td[0]);
         f_m_cnt++;
+        ordering->AddElementToGroup(para_Feature[id][std::get<2>(index)], 0);
       }
 
   );
@@ -177,7 +179,12 @@ void Optimization::AddFrameFactor(ceres::Problem *problem,
   //
 
   //
-
+  if (options_.use_odom) {
+    problem->AddParameterBlock(para_Ex_Pose_Odom[0], SIZE_POSE,
+                              new PoseLocalParameterization());
+    // /
+    ordering->AddElementToGroup(para_Ex_Pose_Odom[0], 1);
+  }
   //
   for (int i = 0; i < win_size_; i++) {
     int j = i + 1;
@@ -242,10 +249,6 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     ordering->AddElementToGroup(para_SpeedBias[i], 1);
   }
 
-  problem.AddParameterBlock(para_Ex_Pose_Odom[0], SIZE_POSE,
-                            new PoseLocalParameterization());
-  // /
-  ordering->AddElementToGroup(para_Ex_Pose_Odom[0], 1);
 
   //
   Eigen::Vector3d vs(para_SpeedBias[0][0], para_SpeedBias[0][1],
@@ -263,7 +266,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     }
   }
   problem.AddParameterBlock(para_Td[0], 1);
-
+  ordering->AddElementToGroup(para_Td[0], 1);
   if (options_.estimate_td == 0) {
     problem.SetParameterBlockConstant(para_Td[0]);
   }
@@ -288,7 +291,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   }
 
   ceres::Solver::Options options;
-  // options.linear_solver_ordering.reset(ordering);
+  options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
   options.num_threads = 1;
   options.trust_region_strategy_type = ceres::DOGLEG;

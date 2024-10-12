@@ -49,17 +49,17 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
             std::make_shared<jarvis::estimator::PyramidImage>(
                 esit_option_.feature_track_options[0].pyrmid_option);
 
-    std::shared_ptr<jarvis::estimator::PyramidImage>
-        extend_pyramid_image1 =
-            std::make_shared<jarvis::estimator::PyramidImage>(
-                esit_option_.feature_track_options[1].pyrmid_option);
+    // std::shared_ptr<jarvis::estimator::PyramidImage>
+    //     extend_pyramid_image1 =
+    //         std::make_shared<jarvis::estimator::PyramidImage>(
+    //             esit_option_.feature_track_options[1].pyrmid_option);
 
     esit_option_.feature_track_options[0].pyramid_image.push_back(
         extend_pyramid_image0);
     esit_option_.feature_track_options[0].pyramid_image.push_back(
         extend_pyramid_image00);
-    esit_option_.feature_track_options[1].pyramid_image.push_back(
-        extend_pyramid_image1);
+    // esit_option_.feature_track_options[1].pyramid_image.push_back(
+    //     extend_pyramid_image1);
 
     //
   }
