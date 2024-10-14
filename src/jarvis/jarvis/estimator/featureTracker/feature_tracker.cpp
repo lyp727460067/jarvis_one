@@ -334,6 +334,8 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     const common::Time &time, const cv::Mat &_img,
     const cv::Mat &_img1) {
   curr_time_ =time;
+  //
+  TicToc t_t;
   pyramid_image_->Build(_img);
   //
   std::map<uint64_t, PointCnt> cur_pts;
@@ -346,6 +348,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
                          pyramid_image_->CurrPyram(), prev_pts_, prev_pts_);
   }
   //
+  VLOG(kGlogCostTimeLevel) << "TrackImage costs " << t_t.toc() << " ms";
   for (auto &p : cur_pts) {
     p.second.track_cnt++;
   }
@@ -374,14 +377,18 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   
   std::map<uint64_t, PointCnt> cur_right_pts ;
   if (!_img1.empty()) {
+
+    TicToc t_t;
     r_pyramid_image_->Build(_img1);
     cur_right_pts = TrackImage(pyramid_image_->CurrPyram(),
                                r_pyramid_image_->CurrPyram(), cur_pts, {});
+
     // auto shwo_image =
     //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
-    // cv::imshow("cur_right_pts", shwo_image);
+
     // cv::waitKey(0);
     VLOG(kGlogLevel) << "Track r  num:" << cur_right_pts.size();
+    VLOG(kGlogCostTimeLevel) << "Track r Image costs " << t_t.toc() << " ms";
   }
   //
   

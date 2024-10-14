@@ -40,26 +40,26 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   esit_option_ = estimator::ParseEstimatorOption(std::string(config));
 
   if (kuse_gpu) {
-    std::shared_ptr<jarvis::estimator::PyramidImage>
+    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
         extend_pyramid_image0 =
-            std::make_shared<jarvis::estimator::PyramidImage>(
+            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
                 esit_option_.feature_track_options[0].pyrmid_option);
-    std::shared_ptr<jarvis::estimator::PyramidImage>
+    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
         extend_pyramid_image00 =
-            std::make_shared<jarvis::estimator::PyramidImage>(
+            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
                 esit_option_.feature_track_options[0].pyrmid_option);
 
-    // std::shared_ptr<jarvis::estimator::PyramidImage>
-    //     extend_pyramid_image1 =
-    //         std::make_shared<jarvis::estimator::PyramidImage>(
-    //             esit_option_.feature_track_options[1].pyrmid_option);
+    std::shared_ptr<jarvis::estimator::PyramidImage>
+        extend_pyramid_image1 =
+            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+                esit_option_.feature_track_options[1].pyrmid_option);
 
     esit_option_.feature_track_options[0].pyramid_image.push_back(
         extend_pyramid_image0);
     esit_option_.feature_track_options[0].pyramid_image.push_back(
         extend_pyramid_image00);
-    // esit_option_.feature_track_options[1].pyramid_image.push_back(
-    //     extend_pyramid_image1);
+    esit_option_.feature_track_options[1].pyramid_image.push_back(
+        extend_pyramid_image1);
 
     //
   }
@@ -87,8 +87,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
   order_queue_->AddQueue(kImagTopic0, [&](const jarvis::sensor::ImageData&
                                               imag_data) {
-    if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
-        imag_data.image[2].empty() || imag_data.image[3].empty()) {
+    if (imag_data.image[0].empty() || imag_data.image[1].empty() /*||
+        imag_data.image[2].empty() || imag_data.image[3].empty()*/) {
       LOG(WARNING) << "Input Image empty..";
       return;
     }

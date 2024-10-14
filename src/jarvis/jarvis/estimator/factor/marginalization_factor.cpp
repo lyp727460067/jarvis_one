@@ -291,14 +291,15 @@ void MarginalizationInfo::marginalize() {
   }
 
   TicToc t_summing;
-  // std::vector<double> a_mec(pos * pos,0);
-  // std::vector<double> b_mec(pos,0);
-  // Eigen::Map<Eigen::MatrixXd> A(a_mec.data(), pos, pos);
-  // Eigen::Map<Eigen::VectorXd> b(b_mec.data(), pos);
-  Eigen::MatrixXd A(pos, pos);
-  Eigen::VectorXd b(pos);
-  A.setZero();
-  b.setZero();
+  TicToc t_thread_summing;
+  std::vector<double> a_mec(pos * pos,0);
+  std::vector<double> b_mec(pos,0);
+  Eigen::Map<Eigen::MatrixXd> A(a_mec.data(), pos, pos);
+  Eigen::Map<Eigen::VectorXd> b(b_mec.data(), pos);
+  // Eigen::MatrixXd A(pos, pos);
+  // Eigen::VectorXd b(pos);
+  // A.setZero();
+  // b.setZero();
   // LOG(INFO)<<"1";
   /*
   for (auto it : factors)
@@ -334,7 +335,6 @@ void MarginalizationInfo::marginalize() {
   */
   // multi thread
   // int num_threads = factors.size() > NUM_THREADS ? NUM_THREADS : factors.size();
-  TicToc t_thread_summing;
   // std::vector<std::vector<double>> pre_amem(num_threads,
   //                                           std::vector<double>(pos * pos,0));
   // std::vector<std::vector<double>> pre_bmem(num_threads,

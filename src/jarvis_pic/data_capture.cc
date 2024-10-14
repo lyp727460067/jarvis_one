@@ -61,6 +61,7 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
     cv::Mat grayMat(width ,height,CV_8UC1,(unsigned char*)buf);
     // cv::Mat out_grayMat;
     // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
+    // cv::Mat grayMat;
     // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
     // cv::transpose(grayMat, out_grayMat);
     return grayMat.clone();
@@ -351,22 +352,22 @@ Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
 
 
 
-  std::thread thread4([&]() {
-    if (GET_BIT(frame.head.capture_flag, 3) == 1) {
-      cv::Mat grayImg = YuvBufToGrayMat(
-          frame.buf + sizeof(CameraFrameHead) + camera_data_lenth * 3,
-          camera_data_lenth, option.frame_width, option.frame_hight,true);
+  // std::thread thread4([&]() {
+  //   if (GET_BIT(frame.head.capture_flag, 3) == 1) {
+  //     cv::Mat grayImg = YuvBufToGrayMat(
+  //         frame.buf + sizeof(CameraFrameHead) + camera_data_lenth * 3,
+  //         camera_data_lenth, option.frame_width, option.frame_hight,true);
 
-      result.images[3] = grayImg;
-    }
-  });
+  //     result.images[3] = grayImg;
+  //   }
+  // });
 
 
 
   thread1.join();
   thread2.join();
   thread3.join();
-  thread4.join();
+  // thread4.join();
 
   return result;
 }
