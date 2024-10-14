@@ -45,7 +45,7 @@ struct EstimatorOption {
   //
   double data_base_lenth = 1;
 
-  double use_stereo_sample_ration = 0.05;
+  double use_stereo_sample_ration = 0.3;
   //
   int win_size=6;
 };
@@ -82,6 +82,7 @@ class Estimator {
   ImuState imu_state_;
   double estimator_td_ = 0;
   uint64_t frame_id_ = 0;
+  int testnum_  =0;
 };
 
 EstimatorOption  ParseEstimatorOption(const std::string &config_file);

@@ -1,19 +1,19 @@
 %YAML:1.0
 
 data_capture: 0
-# image_sample : 0.4
-image_sample : 1
+image_sample : 0.4
+# image_sample : 1
 record : 0
-GLOG_v :  2
+GLOG_v :  -1
 offline_play_bag_duration : 0.001 
-use_gpu : 0
 mask_id: mask.png
 imu_cam_time_offset : 0.000
+use_gpu : 1
 slip_detect : 1
 write_mpc_pose_type: 0
 # test_ip : 127.0.0.1
 slip_option: simple_vo.yaml
-calibrate_path : /home/lyp/config_back/calibrate_file
-# calibrate_path : /data/bin/sys_data/calibrate_file
+# calibrate_path : /home/lyp/config_back/calibrate_file
+calibrate_path : /data/bin/sys_data/calibrate_file
 estimator : estimator_77.yaml
 

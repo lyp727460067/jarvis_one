@@ -65,7 +65,9 @@ class MarginalizationInfo {
   void addResidualBlockInfo(ResidualBlockInfo *residual_block_info);
   void preMarginalize();
   void marginalize();
-  void ConstructA(Eigen::MatrixXd& A, Eigen::VectorXd& b);
+  //
+  template <typename T, typename Tb>
+  void ConstructA(T &A, Tb &b);
   std::vector<double *> getParameterBlocks(
       std::unordered_map<long, double *> &addr_shift);
 

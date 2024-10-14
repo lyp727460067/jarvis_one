@@ -77,7 +77,7 @@ class Optimization {
   const int win_size_;
   const OptimizationOption options_;
   double final_cost_=0; 
-
+  int num_= 0;
   // double** para_Pose = data_.pose;
   // double** para_SpeedBias = data_.speed_bias;
   // double** para_Ex_Pose = data_.ex_pose;

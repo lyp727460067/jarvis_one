@@ -85,11 +85,11 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
   //
   auto feature_manager = feature_managers;
   int f_m_cnt = 0;
-  std::stringstream info;
+  // std::stringstream info;
   // for (const auto &feature_manager : f_managers) {
 
   const double cam_weight = options_.camera_weight;
-  std::stringstream info1;
+  // std::stringstream info1;
   //
   feature_manager->CreateFactor(
       [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
@@ -109,11 +109,11 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
         //       << imu_j_velocity.transpose() << td_i << td_j << cam_weight <<
         //       "\n";
         ///
-        for (int i = 0; i < 7; i++) {
-          info1 << para_Pose[std::get<0>(index)][i] << " ";
-          info1 << para_Pose[std::get<1>(index)][i] << " ";
-          info1 << para_Ex_Pose[0][i] << "\n";
-        }
+        // for (int i = 0; i < 7; i++) {
+        //   info1 << para_Pose[std::get<0>(index)][i] << " ";
+        //   info1 << para_Pose[std::get<1>(index)][i] << " ";
+        //   info1 << para_Ex_Pose[0][i] << "\n";
+        // }
         // info1 << para_Feature[std::get<2>(index)][0] << "\n";
 
         problem->AddResidualBlock(
@@ -137,17 +137,17 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
             para_Ex_Pose[options_.trace_sequence[id][0]],
             para_Ex_Pose[options_.trace_sequence[id][1]],
             para_Feature[id][std::get<2>(index)], para_Td[0]);
-        info1 << "ste[" << std::get<0>(index) << std::get<1>(index)
-              << std::get<2>(index) << "]" << pts_i.transpose() << " "
-              << pts_j.transpose() << velocity_i.transpose()
-              << velocity_j.transpose() << td_i << td_j << cam_weight
-              << "\n";
-        for (int i = 0; i < 7; i++) {
-          info1 << para_Pose[std::get<0>(index)][i] << " ";
-          info1 << para_Pose[std::get<1>(index)][i] << " ";
-          info1 << para_Ex_Pose[options_.trace_sequence[id][0]][i]<<" "
-                << para_Ex_Pose[options_.trace_sequence[id][1]][i] << "\n";
-        }
+        // info1 << "ste[" << std::get<0>(index) << std::get<1>(index)
+        //       << std::get<2>(index) << "]" << pts_i.transpose() << " "
+        //       << pts_j.transpose() << velocity_i.transpose()
+        //       << velocity_j.transpose() << td_i << td_j << cam_weight
+        //       << "\n";
+        // for (int i = 0; i < 7; i++) {
+        //   info1 << para_Pose[std::get<0>(index)][i] << " ";
+        //   info1 << para_Pose[std::get<1>(index)][i] << " ";
+        //   info1 << para_Ex_Pose[options_.trace_sequence[id][0]][i]<<" "
+        //         << para_Ex_Pose[options_.trace_sequence[id][1]][i] << "\n";
+        // }
         ordering->AddElementToGroup(para_Feature[id][std::get<2>(index)], 0);
         f_m_cnt++;
       },
@@ -228,10 +228,12 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
                                            OptimizationData *frames_data) {
   //
   //
+  TicToc Optimization_result_t_t;
   std::stringstream info;
   //   FrameDataToState(frames_data);
   ceres::Problem problem;
-  ceres::LossFunction *loss_function = new ceres::HuberLoss(1.0);
+  ceres::LossFunction *loss_function =
+      new ceres::HuberLoss(options_.huber_loss);
   ceres::ParameterBlockOrdering *ordering = new ceres::ParameterBlockOrdering();
   for (int i = 0; i < win_size_ + 1; i++) {
     // LOG(INFO)<<frames_data->frame_data[i].data->imu_state;
@@ -253,6 +255,8 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   //
   Eigen::Vector3d vs(para_SpeedBias[0][0], para_SpeedBias[0][1],
                      para_SpeedBias[0][2]);
+
+  auto pre_integration = frames_data->imu_factors.back();
   for (int i = 0; i < options_.CamNum(); i++) {
     ceres::LocalParameterization *local_parameterization =
         new PoseLocalParameterization();
@@ -261,9 +265,13 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
                               local_parameterization);
 
     ordering->AddElementToGroup(para_Ex_Pose[i], 1);
-    if (options_.estimate_extrinsic == 0 || vs.norm() < 0.2) {
+    if (options_.estimate_extrinsic == 0 || vs.norm() < 0.2 ) {
       problem.SetParameterBlockConstant(para_Ex_Pose[i]);
     }
+    // if (pre_integration == nullptr || pre_integration->IsValid() ||
+    //     common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 3)) {
+    //   problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+    // };
   }
   problem.AddParameterBlock(para_Td[0], 1);
   ordering->AddElementToGroup(para_Td[0], 1);
@@ -273,29 +281,42 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
 
   //
   if (marg) {
+    TicToc t_t;
     marg->AddToProblem(&problem, nullptr);
+    VLOG(kGlogCostTimeLevel) << "add marg factor costs " << t_t.toc() << " ms";
   } else {
     problem.SetParameterBlockConstant(para_Pose[0]);
   }
-  AddFrameFactor(&problem, nullptr, ordering, frames_data);
-  //
-  for (int i = 0; i < options_.TrackNum(); i++) {
-    if (frames_data->feat_manager_factors->Exist(i)) {
-      AddCameraFactor(
-          i, &problem, loss_function, ordering,
-          frames_data->feat_manager_factors->MutableFeatureManager(i).get());
-    } else {
-      problem.SetParameterBlockConstant(
-          para_Ex_Pose[options_.trace_sequence[i][0]]);
-    }
+  {
+    TicToc t_t;
+    AddFrameFactor(&problem, nullptr, ordering, frames_data);
+    VLOG(kGlogCostTimeLevel) << "add frame factor costs " << t_t.toc() << " ms";
   }
+  //
+  {
+    TicToc t_t;
 
+    for (int i = 0; i < options_.TrackNum(); i++) {
+      if (frames_data->feat_manager_factors->Exist(i)) {
+        AddCameraFactor(
+            i, &problem, loss_function, ordering,
+            frames_data->feat_manager_factors->MutableFeatureManager(i).get());
+      } else {
+        problem.SetParameterBlockConstant(
+            para_Ex_Pose[options_.trace_sequence[i][0]]);
+      }
+    }
+
+    VLOG(kGlogCostTimeLevel) << "add camera factor costs " << t_t.toc() << " ms";
+  }
+  VLOG(kGlogCostTimeLevel) << "opti factor costs "
+                           << Optimization_result_t_t.toc() << " ms";
   ceres::Solver::Options options;
   options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 1;
+  options.num_threads = 8;
   options.trust_region_strategy_type = ceres::DOGLEG;
-  options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  options.sparse_linear_algebra_library_type = ceres::NO_SPARSE;
   // options.dynamic_sparsity =true;
   options.use_explicit_schur_complement = true;
   // options.minimizer_progress_to_stdout = true;
@@ -311,7 +332,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
 
   final_cost_ = summary.final_cost;
   VLOG(kGlogCeresLevel) << summary.BriefReport();
-  LOG_EVERY_N(INFO, 5) << "\n" << summary.FullReport();
+  LOG_EVERY_N(INFO, 1) << "\n" << summary.FullReport();
   return &data_;
 }
 Optimization::~Optimization() {

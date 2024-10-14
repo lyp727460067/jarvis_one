@@ -252,7 +252,7 @@ int main(int argc, char* argv[]) {
 
   //
   //
-  const std::string config_file("/oem/mowpack/mul_vslam_param/vslam.yaml");
+  const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
   //
   //
   //

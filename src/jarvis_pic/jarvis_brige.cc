@@ -40,27 +40,13 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   esit_option_ = estimator::ParseEstimatorOption(std::string(config));
 
   if (kuse_gpu) {
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
-        extend_pyramid_image0 =
+    for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+      for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+        esit_option_.feature_track_options[i].pyramid_image.push_back(
             std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                esit_option_.feature_track_options[0].pyrmid_option);
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
-        extend_pyramid_image00 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                esit_option_.feature_track_options[0].pyrmid_option);
-
-    std::shared_ptr<jarvis::estimator::PyramidImage>
-        extend_pyramid_image1 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                esit_option_.feature_track_options[1].pyrmid_option);
-
-    esit_option_.feature_track_options[0].pyramid_image.push_back(
-        extend_pyramid_image0);
-    esit_option_.feature_track_options[0].pyramid_image.push_back(
-        extend_pyramid_image00);
-    esit_option_.feature_track_options[1].pyramid_image.push_back(
-        extend_pyramid_image1);
-
+                esit_option_.feature_track_options[i].pyrmid_option));
+      }
+    }
     //
   }
   builder_ = std::make_unique<jarvis::TrajectorBuilder>(esit_option_,
@@ -96,17 +82,19 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     if (kuse_gpu) {
       if (image_datas_pyra_.size() >= 1) {
         if (pyramid_thread_.joinable()) {
-          // auto start = std::chrono::high_resolution_clock::now();
+          auto start = std::chrono::high_resolution_clock::now();
           pyramid_thread_.join();
-          // LOG(INFO) << "join frame cost: "
-          //           << std::chrono::duration_cast<std::chrono::milliseconds>(
-          //                  std::chrono::high_resolution_clock::now() - start)
-          //                  .count();
+          LOG(INFO) << "join frame cost: "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::high_resolution_clock::now() - start)
+                           .count();
         }
+
         //
         if (image_datas_pyra_.size() == 2) {
           image_datas_pyra_.erase(image_datas_pyra_.begin());
         }
+        
         image_datas_pyra_.push_back({false, imag_data});
         image_datas_pyra_.back().second.pyramid_derive.resize(
             image_datas_pyra_.back().second.image.size());
@@ -302,6 +290,10 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 }
 //
 JarvisBrige::~JarvisBrige() {
+  if (pyramid_thread_.joinable()) {
+    pyramid_thread_.join();
+  }
+
   data_capture_->RemoveCallBack(class_name_);
   order_queue_->Stop();
 }

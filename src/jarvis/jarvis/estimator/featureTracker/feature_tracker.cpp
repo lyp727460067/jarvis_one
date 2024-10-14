@@ -353,8 +353,11 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     p.second.track_cnt++;
   }
   //
+
+  TicToc mask_t_t;
   const cv::Mat mask = UpdatePointAndMask(cur_pts);
 
+  VLOG(kGlogCostTimeLevel) << "set mask costs " << mask_t_t.toc() << " ms";
   std::vector<cv::Point2f> v_cur_pts;
   //
 
@@ -370,6 +373,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
                                        pyramid_image_->CurrPyram()[1], mask);
 
   VLOG(kGlogLevel) << "Feature detect new num " << n_pts.size();
+
   for (int i = 0; i < int(n_pts.size()); i++) {
     cur_pts.emplace(tranck_id_, PointCnt{n_pts[i], 1});
     tranck_id_+=1;
@@ -392,6 +396,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   }
   //
   
+    TicToc tran_t_t;
   auto result_data = TransToTrackerData(cur_pts, cur_right_pts);
   result_data.data->images.push_back(_img);
   if (_img1.empty()) {
@@ -403,6 +408,8 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   prev_pts_ = std::move(cur_pts);
   predit_pts_.clear();
   //
+
+    VLOG(kGlogCostTimeLevel) << "tranck other costs " << tran_t_t.toc() << " ms";
   return result_data;
 }
 

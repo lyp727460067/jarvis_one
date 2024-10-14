@@ -6,13 +6,13 @@ use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
 win_size : 6
 data_base_lenth : 1
 
-track_sequence: "{0,1}"
+track_sequence: "{0,1},{2}"
 #feature traker paprameters
 
 feattrack0:
   max_cnt: 40          # max feature number in feature tracking
-  min_dist:  55           # min distance between two features 
-  mask_min_dist:  50  
+  min_dist:  45           # min distance between two features 
+  mask_min_dist:  30  
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
@@ -24,7 +24,7 @@ feattrack0:
   mask : mask.png
 ####
 feattrack1:
-  max_cnt: 60          # max feature number in feature tracking
+  max_cnt: 40          # max feature number in feature tracking
   min_dist:  55           # min distance between two features 
   mask_min_dist:  50  
   F_threshold: 1.0        # ransac threshold (pixel)
@@ -44,34 +44,31 @@ feattrack2:
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
   lk_win_size : 7
-  lk_pre_max_layer : 4
+  lk_pre_max_layer : 3
   grid_size_x : 68
   grid_size_y : 64
-  klt_type : 0
+  klt_type : 1
   mask : mask0.png
 
-slide_window:
-  optimazation_outliers_rejection_th : 3
-  rejection_points_depth_max_th : 20
 
 optimization: 
 #optimization parameters
   max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
   max_num_iterations: 1   # max solver itrations, to guarantee real time
   use_odom : 1
-  camera_weight : 201
+  camera_weight : 351
   estimate_extrinsic: 1  # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
   huber_loss : 1
   #unsynchronization parameters
-  estimate_td: 0                     # online estimate time offset between camera and imu
+  estimate_td: 0                    # online estimate time offset between camera and imu
   td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
 init_optimization: 
   max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
   max_num_iterations: 10   # max solver itrations, to guarantee real time
   use_odom : 0
-  camera_weight : 200 
+  camera_weight : 250 
   estimate_extrinsic: 0  # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
 
@@ -92,13 +89,13 @@ feature_manager :
   last_track_num : 20
   long_track_num : 10
   new_feature_ration : 0.5
-
-
+  optimazation_outliers_rejection_th : 5
+  rejection_points_depth_max_th : 20
 
 imu_option: 
   #imu parameters       The more accurate parameters you provide, the better performance
-  acc_n: 0.1       # accelerometer measurement noise standard deviation. 
-  gyr_n: 0.01        # gyroscope measurement noise standard deviation.     
+  acc_n: 0.1      # accelerometer measurement noise standard deviation. 
+  gyr_n: 0.03        # gyroscope measurement noise standard deviation.     
   acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
   gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
   g_norm: 9.81     # gravity magnitude
@@ -135,8 +132,8 @@ track_feat_lost_win_size :  10
 bas_norm_max : 0.6
 bgs_norm_max : 0.5
 translation_norm_max : 1
-translation_z_max : 1.5
-ratation_max : 12
+translation_z_max : 0.8
+ratation_max : 50
 enable_odo_zero_lost_detect : 1
 zero_translation_norm_max : 0.15
 zero_translation_z_max : 0.01

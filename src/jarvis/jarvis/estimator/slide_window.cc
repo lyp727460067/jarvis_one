@@ -62,7 +62,7 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   marginalizer_ = std::make_unique<Marginalization>(MarginalizationOption{
       options_.win_size, options_.track_sequence,
       options_.opti_option.camera_weight, options_.opti_option.CamNum(),
-      options_.opti_option.use_odom});
+      options_.opti_option.use_odom, options_.opti_option.huber_loss});
   // /
   last_feature_time_ = init_data->time;
   CHECK_EQ(int(imu_states_.size()), options_.win_size + 1);
@@ -75,11 +75,11 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
 
   //
   const double dt = camera_imu_time_offset_;
-  std::string info;
   //
   const int frame_count = imu_states_.size();
   //
   //
+  TicToc feature_t_t;
   for (auto& f : frame.data->features_datas) {
     if (feature_managers_->Exist(f.first)) {
       VLOG(kGlogLevel)<< "feature id: " << f.first;
@@ -127,7 +127,6 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //
   imu_states_.push_back(frame.data->imu_state);
   //
-  LOG(INFO)<<frame.data->imu_state;
   integration_base_.push_back(nullptr);
   if (!imu_datas.empty()) {
     Eigen::Vector3d ba = imu_states_.back().ba;
@@ -152,10 +151,17 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     triang_pose.push_back(imu_states_[i].Pose());
   }
   //
+
+  VLOG(kGlogCostTimeLevel) << "feature_t_t costs " << feature_t_t.toc() << " ms";
+
+  TicToc tran_t_t;
   feature_managers_->Triangulate(frame_count, triang_pose,
                                  extric_camera_to_imu_);
   //
+
+  VLOG(kGlogCostTimeLevel) << "Triangulate costs " << tran_t_t.toc() << " ms";
   OptimizationData opt_data;
+   TicToc opt_sum_t_t;
   for (int i = 0; i < options_.win_size + 1; i++) {
     opt_data.odom_factors.push_back(odoms_factor_[i].get());
     opt_data.imu_factors.push_back(integration_base_[i].get());
@@ -166,6 +172,10 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   FrameDataToState();
   optimization_->Solve(marginalizer_.get(), &opt_data);
   StateToFrameData();
+
+  VLOG(kGlogCostTimeLevel) << "optisum costs " << opt_sum_t_t.toc() << " ms";
+
+   TicToc marg_sum_t_t;
   {
     FrameDataToState();
     MarginalizationFactorData marg_data;
@@ -177,7 +187,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     marginalizer_->Marginalize(opt_data_, &marg_data, !is_keyframe);
   }
 
-
+  VLOG(kGlogCostTimeLevel) << "margsum costs " << marg_sum_t_t.toc() << " ms";
+  TicToc fram_result_t_t;
   rejection_outliers_ = feature_managers_->RemoveOutliersRejection(
       imu_states_, extric_camera_to_imu_);
   
@@ -223,6 +234,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   fram_result.data->extric_camera_to_imu = extric_camera_to_imu_;
   //
   fram_result.data->imu_state = imu_states_.back();
+
+  VLOG(kGlogCostTimeLevel) << "fram_result costs " << fram_result_t_t.toc() << " ms";
   return std::make_unique<SlideWindowResult>(
       SlideWindowResult{fram_result, optimization_->FinalCost(),
                         feature_managers_->GetFeatTrackInfo(),
@@ -302,7 +315,6 @@ void SlideWindow::StateToFrameData() {
                                         para_Pose[0][4], para_Pose[0][5])
                          .toRotationMatrix());
   double y_diff = origin_R0.x() - origin_R00.x();
-  LOG(INFO)<<y_diff;
   // TODO
   Eigen::Matrix3d rot_diff = Utility::ypr2R(Eigen::Vector3d(y_diff, 0, 0));
 
@@ -361,7 +373,6 @@ void SlideWindow::StateToFrameData() {
         Eigen::Quaterniond(para_Ex_Pose_Odom[0][6], para_Ex_Pose_Odom[0][3],
                            para_Ex_Pose_Odom[0][4], para_Ex_Pose_Odom[0][5])
             .normalized());
-    LOG(INFO)<<odo_to_imu_extric_ ;
   }
   //
   //
@@ -379,7 +390,6 @@ void SlideWindow::StateToFrameData() {
   }
   //
   camera_imu_time_offset_ = para_Td[0][0];
-  LOG(INFO)<<camera_imu_time_offset_ ;
 }
 
 void SlideWindow::FrameDataToState() {

@@ -249,12 +249,18 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
   // // //
   // memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
   // shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
+   ModSyncImuFb imudata;
+   shm_mod_->GetModByID(MOD_ID_SYNC_IMU_FB, reinterpret_cast<void *>(&imudata));
+   int64_t delta_time  = imudata.time_stamp-  mpc_data.timestamp/1000;
+   if(abs( delta_time )>350000 ){
 
-  // jarvis::transform::Rigid3d read_pose(
-  //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
-  //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  // LOG_EVERY_N(INFO, 1) << "Read pose: " << mpc_data.timestamp << " "
-  //                        << read_pose << " "
-  //                        << "state " << int(mpc_data.state);
+   LOG(ERROR)<<"imu vio delte_pose "<<imudata.time_stamp<<" "<<mpc_data.timestamp/1000<<" "<< delta_time;
+  }
+// jarvis::transform::Rigid3d read_pose(
+//     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
+//     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
+// LOG_EVERY_N(INFO, 1) << "Read pose: " << mpc_data.timestamp << " "
+//                        << read_pose << " "
+//                        << "state " << int(mpc_data.state);
 }
 }  // namespace jarvis_pic

@@ -11,6 +11,64 @@
 #include "opencv2/opencv.hpp"
 #include "yaml-cpp/yaml.h"
 namespace jarvis {
+std::string defalt_extric = R"(
+cam0:
+  FOV: [107.93911113317935, 88.90577703348904]
+  T_imu_cam :
+  - [0.004278094939249882, -0.008781514712983385, -0.9999522903134112, -0.03265168587124466]
+  - [0.9999883505210795, 0.002272838395565302, 0.00425828929951011, -0.03861822650981798]
+  - [0.0022353357290220144, -0.9999588587561857, 0.00879113583135066, 0.04237282279723379]
+  - [0.0, 0.0, 0.0, 1.0]
+  camera_model: pinhole
+  distortion_coeffs: [-0.11351460368451406, 0.027700300349535557, -0.05182815943506382, 0.033348630966814674]
+  distortion_model: equidistant
+  intrinsics: [375.1646285252324, 375.1480109372861, 324.34734769582957, 280.8303605144285]
+  resolution: [640, 544]
+  rostopic: /cam0/image_raw
+  timeshift_cam_imu: 0.0036469377829320506
+cam1:
+  FOV: [108.19716877637063, 88.89444585437855]
+  T_imu_cam :
+  - [0.00805418108864972, -0.012976385246538658, -0.9998833649946003, -0.03426593099017232]
+  - [0.9998453634446182, -0.01552732376971716, 0.008255387020022986, 0.041688009792324746]
+  - [-0.015632637822556528, -0.9997952368572698, 0.01284931874555939, 0.04227918368552841]
+  - [0.0, 0.0, 0.0, 1.0]
+  camera_model: pinhole
+  distortion_coeffs: [-0.10006345248147991, -0.0019597758035067043, -0.002504364558405612, -6.999676678582795e-05]
+  distortion_model: equidistant
+  intrinsics: [373.64381416357105, 373.60969531040723, 328.5177613602167, 274.892312101823]
+  resolution: [640, 544]
+  rostopic: /cam1/image_raw
+  timeshift_cam_imu: 0.003643864894561027
+cam2:
+  FOV: [108.66961697032585, 130.17812935091388]
+  T_imu_cam:
+  - [0.941056359814017, -0.3148804124051945, -0.12354454070142512, 0.03455358143724464]
+  - [0.0031538214143274346, -0.357062436454436, 0.9340751949836311, 0.19010505184132792]
+  - [-0.33823509732740326, -0.8794070402019515, -0.3350228000885397, -0.045030621595181064]
+  - [0.0, 0.0, 0.0, 1.0]
+  camera_model: pinhole
+  distortion_coeffs: [-0.03576599241600331, 0.005311944824974008, -0.008960851453169225, 0.002343472456752729]
+  distortion_model: equidistant
+  intrinsics: [296.58529220756407, 296.6552793534289, 266.55468172009057, 331.78644925697415]
+  resolution: [544, 640]
+  rostopic: /cam2/image_raw
+  timeshift_cam_imu: 0.0032609176405895054
+cam3:
+  FOV: [107.39385427619561, 128.33704200392532]
+  T_imu_cam:
+  - [-0.9423255259020137, -0.31038909667865566, -0.1252246457232003, 0.03345155137170076]
+  - [0.01093706854139559, 0.34538628591233134, -0.9383968744808382, -0.19134805802784746]
+  - [0.33451903348720485, -0.8856449187833086, -0.3220715666868047, -0.044823913170773166]
+  - [0.0, 0.0, 0.0, 1.0]
+  camera_model: pinhole
+  distortion_coeffs: [-0.03287901867378544, -0.004175992746239715, 0.0037018095011941555, -0.0026293441568893466]
+  distortion_model: equidistant
+  intrinsics: [299.6732677592133, 299.84763072714117, 258.39072609132694, 324.8680320355175]
+  resolution: [544, 640]
+  rostopic: /cam3/image_raw
+  timeshift_cam_imu: 0.0033212132730980003
+)";
 
 constexpr int kCameraNum = 4;
 std::stringstream info;
@@ -54,8 +112,8 @@ void ParseYAMLOption(const std::string &file_path,
   const std::string config_file = file_path + "/config.yml";
   CHECK(CheckFileExist(cam_chain_file)) << cam_chain_file << " not exist.";
   CHECK(CheckFileExist(config_file)) << config_file << " not exist.";
-  {
-    info << "Start parse " << cam_chain_file << "\n";
+ {
+    LOG(INFO) << "Start parse " << cam_chain_file;
     CheckNode paras = YAML::LoadFile(cam_chain_file);
     CheckNode defalt_paras = YAML::Load(defalt_extric);
 
@@ -68,17 +126,55 @@ void ParseYAMLOption(const std::string &file_path,
       }
       return transform::Rigid3d(
           camera_to_imu.block<3, 1>(0, 3),
-          Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)).normalized()));
-      info << calibrate_options->camera_options.back().DebugInfo() << "\n";
-      info << "imu_to_cam:" << calibrate_options->extric_camera_to_imu.back()
-           << "\n";
-    }
+          Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)));
+    };
+    //
+    for (int i = 0; i < kCameraNum; i++) {
 
+      LOG(INFO)<<i;
+      const CheckNode cam_node = paras["cam" + std::to_string(i)];
+      const transform::Rigid3d ext_para = GetCameraExt(cam_node);
+
+      LOG(INFO)<<i;
+      const CheckNode defalt_cam_node = defalt_paras["cam" + std::to_string(i)];
+      const transform::Rigid3d defalt_ext_para = GetCameraExt(defalt_cam_node);
+
+      LOG(INFO)<<i;
+      if (abs(defalt_ext_para.translation().norm() -
+              ext_para.translation().norm()) > 0.03) {
+        LOG(ERROR) << "The calibration result is too far from the reference "
+                      "value. defalt:"
+                   << defalt_ext_para << "cal " << ext_para
+                   << ". distance:"
+                   << abs(defalt_ext_para.translation().norm() -
+                          ext_para.translation().norm())
+                   << ".Load defalt para.";
+        calibrate_options->extric_camera_to_imu.push_back(defalt_ext_para);
+        // calibrate_options->camera_options.push_back(
+        //     ParseYAMLOptionCameraOption(defalt_paras, i));
+      } else {
+        calibrate_options->extric_camera_to_imu.push_back(ext_para);
+
+      }
+      //
+        calibrate_options->camera_options.push_back(
+            ParseYAMLOptionCameraOption(paras, i));
+      LOG(INFO) << calibrate_options->camera_options.back().DebugInfo();
+      LOG(INFO) << "imu_to_cam:"
+                << calibrate_options->extric_camera_to_imu.back();
+
+      //
+      //
+    }
+  
     std::swap(calibrate_options->extric_camera_to_imu[2],
               calibrate_options->extric_camera_to_imu[3]);
     std::swap(calibrate_options->camera_options[2],
               calibrate_options->camera_options[3]);
   }
+
+
+
   {
     info << "Start parse " << cam_chain_file << "\n";
     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
@@ -146,7 +242,13 @@ jarvis::estimator::FeatureManagerOption ParseYAMLOptionFeatureManagerOption(
       fsSettings["long_track_num"];
   feature_manager_option.parallax_option.new_feature_ration =
       fsSettings["new_feature_ration"];
+  feature_manager_option.optimazation_outliers_rejection_th =
+      fsSettings["optimazation_outliers_rejection_th"];
+  feature_manager_option.optimazation_outliers_rejection_th =
+      feature_manager_option.optimazation_outliers_rejection_th / 377.0f;
 
+  feature_manager_option.rejection_points_depth_max_th =
+      fsSettings["rejection_points_depth_max_th"];
   return feature_manager_option;
 }
 
@@ -299,8 +401,8 @@ void ParseYAMLOption(const std::string &file,
     option->use_stero = (use_stero == 1);
     // option->use_odom = fsSettings["use_odom"];
     // option->use_stereo_sample_ration =
-    // fsSettings["use_stereo_sample_ration"];
-    //
+    //     fsSettings["use_stereo_sample_ration"];
+    // //
     option->stero_imu_init_option.feature_manager_option =
         ParseYAMLOptionFeatureManagerOption(option->win_size, option->use_stero,
                                             fsSettings["feature_manager"]);
@@ -340,11 +442,15 @@ void ParseYAMLOption(const std::string &file,
     // option->slide_windows_option.track_cam_num = option->track_cam_num;
     option->slide_windows_option.track_sequence = option->track_sequence;
     option->slide_windows_option.win_size = option->win_size;
-    option->slide_windows_option.optimazation_outliers_rejection_th =
-        fsSettings["slide_window"]["optimazation_outliers_rejection_th"];
-    option->slide_windows_option.rejection_points_depth_max_th =
-        fsSettings["slide_window"]["rejection_points_depth_max_th"];
-    //
+    // option->slide_windows_option.optimazation_outliers_rejection_th =
+    //     fsSettings["slide_window"]["optimazation_outliers_rejection_th"];
+
+    // option->slide_windows_option.optimazation_outliers_rejection_th =
+    //     option->slide_windows_option.optimazation_outliers_rejection_th / 377.0;
+
+    // option->slide_windows_option.rejection_points_depth_max_th =
+    //     fsSettings["slide_window"]["rejection_points_depth_max_th"];
+    // //
     option->slide_windows_option.use_stereo = option->use_stero;
     option->slide_windows_option.imu_option = imu_option;
     //

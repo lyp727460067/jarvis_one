@@ -64,13 +64,13 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
     // cv::Mat grayMat;
     // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
     // cv::transpose(grayMat, out_grayMat);
-    return grayMat.clone();
+    return grayMat;
   } else {
     // cv::Mat yuvMat(height + height / 2, width, CV_8UC1, (unsigned char*)buf);
     // cv::Mat grayMat;
     // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
     cv::Mat grayMat(height,width,CV_8UC1,(unsigned char*)buf);
-    return grayMat.clone();
+    return grayMat;
   }
 }
 
@@ -317,20 +317,23 @@ void DataCapture::Run() {
 //
 Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
   //
+
+  auto start = std::chrono::high_resolution_clock::now();
   Frame result{frame.head.time_stamp, std::vector<cv::Mat>(4)};
   uint64_t camera_data_lenth =
       (option.frame_width * option.frame_hight * 3 * 2) >> 2;
-  std::thread thread1([&]() {
+    {
     if (GET_BIT(frame.head.capture_flag, 1) == 1) {
       //
       cv::Mat grayImg = YuvBufToGrayMat(
           frame.buf + sizeof(CameraFrameHead) + camera_data_lenth,
           camera_data_lenth, option.frame_width, option.frame_hight);
       result.images[0] = grayImg;
-    }
-  });
 
-  std::thread thread2([&]() {
+    }
+  }
+
+  {
     if (GET_BIT(frame.head.capture_flag, 2) == 1) {
       cv::Mat grayImg = YuvBufToGrayMat(
           frame.buf + sizeof(CameraFrameHead) + camera_data_lenth * 2,
@@ -338,9 +341,9 @@ Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
 
       result.images[1] = grayImg;
     }
-  });
+  }
 
-  std::thread thread3([&]() {
+  {
     if (GET_BIT(frame.head.capture_flag, 0) == 1) {
       cv::Mat grayImg = YuvBufToGrayMat(
           frame.buf + sizeof(CameraFrameHead),
@@ -348,27 +351,29 @@ Frame ToFrameData(const CameraFrame& frame, const DataCaptureOption& option) {
 
       result.images[2] = grayImg;
     }
-  });
+  }
 
 
 
-  // std::thread thread4([&]() {
-  //   if (GET_BIT(frame.head.capture_flag, 3) == 1) {
-  //     cv::Mat grayImg = YuvBufToGrayMat(
-  //         frame.buf + sizeof(CameraFrameHead) + camera_data_lenth * 3,
-  //         camera_data_lenth, option.frame_width, option.frame_hight,true);
+{
+    if (GET_BIT(frame.head.capture_flag, 3) == 1) {
+      cv::Mat grayImg = YuvBufToGrayMat(
+          frame.buf + sizeof(CameraFrameHead) + camera_data_lenth * 3,
+          camera_data_lenth, option.frame_width, option.frame_hight,true);
 
-  //     result.images[3] = grayImg;
-  //   }
-  // });
+      result.images[3] = grayImg;
+    }
+  }
 
 
-
-  thread1.join();
-  thread2.join();
-  thread3.join();
+  // thread1.join();
+  // thread2.join();
+  // thread3.join();
   // thread4.join();
-
+              // LOG(INFO) << "YuvBufToGrayMat: "
+              //     << std::chrono::duration_cast<std::chrono::milliseconds>(
+              //            std::chrono::high_resolution_clock::now() - start)
+              //            .count();
   return result;
 }
 //

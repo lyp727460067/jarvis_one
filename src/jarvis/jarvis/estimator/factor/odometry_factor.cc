@@ -162,7 +162,7 @@ std::optional<double> OdomFactor::GetObserveDistance() {
 //
 void OdomFactor::AddToProblem(ceres::Problem* problem,
                               ceres::LossFunction* loss_function,
-                              std::array<double*, 3> pqe) const {
+                              const std::array<double*, 3>& pqe) const {
   ceres::CostFunction* cons_function = CostFunction();
   if (cons_function == nullptr) return;
   problem->AddResidualBlock(cons_function, loss_function, pqe[0], pqe[1],

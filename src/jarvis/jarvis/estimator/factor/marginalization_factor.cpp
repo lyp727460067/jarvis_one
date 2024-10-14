@@ -212,8 +212,8 @@ void *ThreadsConstructA(void *threadsstruct) {
   }
   return threadsstruct;
 }
-
-void MarginalizationInfo::ConstructA(Eigen::MatrixXd& A, Eigen::VectorXd& b){
+template <typename T, typename Tb>
+void MarginalizationInfo::ConstructA(T &A, Tb &b){
   double mem_i[100];
   double mem_j[100];
   for (auto it : factors) {

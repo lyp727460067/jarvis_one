@@ -16,6 +16,7 @@ struct MarginalizationOption {
   double camera_weight = 200;
   int camera_num=0; 
   int use_odom=0;
+  double huber_loss =1.0;
 };
 
 //

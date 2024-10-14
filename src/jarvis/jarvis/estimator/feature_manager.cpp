@@ -101,28 +101,28 @@ bool FeatureManager::AddFeatureCheckParallax(
   //
   //
   //
-  std::stringstream info;
+  // std::stringstream info;
   for (const auto &id_pts : image.data->features) {
     if (features_.count(id_pts.first)) {
-      info<< id_pts.first<<" d: "<< features_[id_pts.first].estimated_depth<<" ,";
+      // info<< id_pts.first<<" d: "<< features_[id_pts.first].estimated_depth<<" ,";
       // info<<" "<<id_pts.second.camera_features[0].normal_points.transpose()<<" ";
-      if(id_pts.second.camera_features.size()==2){
+      // if(id_pts.second.camera_features.size()==2){
       // info<<" "<<id_pts.second.camera_features[1].normal_points.transpose()<<" ";
-      }
+      // }
       features_[id_pts.first].feature_per_frame.push_back(
           FeaturePerFrame{id_pts.second, td});
     } else {
-      info<<"*"<< id_pts.first<<" ";
+      // info<<"*"<< id_pts.first<<" ";
       // info<<" "<<id_pts.second.camera_features[0].normal_points.transpose()<<" ";
-      if(id_pts.second.camera_features.size()==2){
+      // if(id_pts.second.camera_features.size()==2){
       // info<<" "<<id_pts.second.camera_features[1].normal_points.transpose()<<" ";
-      }
+      // }
       features_.emplace(
           id_pts.first,
           FeaturePerId{frame_count, {FeaturePerFrame{id_pts.second, td}}});
     }
   }
-  VLOG(kGlogLevel)<<info.str();
+  // VLOG(kGlogLevel)<<info.str();
   parallax_ = IsParallax(frame_count, image);
   return parallax_;
 }
@@ -166,15 +166,15 @@ FeatureManager::GetCorresponding(int frame_count_l, int frame_count_r) {
 //
 void FeatureManager::SetDepth(const std::vector<double> &x) {
   int feature_index = -1;
-  std::stringstream info;
+  // std::stringstream info;
   for (auto &pair_it_per_id : features_) {
     auto &it_per_id = pair_it_per_id.second;
     if (it_per_id.UsedNum() < options_.convin_used_num) continue;
     //
     it_per_id.estimated_depth = 1.0 / x[++feature_index];
 
-    info << "[" << pair_it_per_id.first << "]"
-         << it_per_id.estimated_depth<<" ";
+    // info << "[" << pair_it_per_id.first << "]"
+    //      << it_per_id.estimated_depth<<" ";
     if (it_per_id.estimated_depth < 0) {
       it_per_id.solve_flag = 2;
     } else
@@ -187,7 +187,6 @@ void FeatureManager::SetDepth(const std::vector<double> &x) {
 //
 void FeatureManager::RemoveFailures() {
   std::stringstream info;
-  info<<"remove : ";
   for (auto it = features_.begin(), it_next = features_.begin();
        it != features_.end(); it = it_next) {
     it_next++;
@@ -196,7 +195,7 @@ void FeatureManager::RemoveFailures() {
       features_.erase(it);
     }
   }
-  VLOG(kGlogLevel) << info.str();
+  VLOG(kGlogLevel) <<  info.str();
 }
 
 //
@@ -258,6 +257,7 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
     }
     double ave_err = err / errCnt;
     // LOG(INFO)<<pair_it_per_id.first <<" "<<ave_err<<" " <<options_.optimazation_outliers_rejection_th;
+    // LOG(INFO)<<options_.optimazation_outliers_rejection_th;
     if (ave_err > options_.optimazation_outliers_rejection_th) {
       info<<pair_it_per_id.first<<" ";
       remove_index.insert(pair_it_per_id.first);
@@ -598,22 +598,7 @@ void FeatureManager::CreateFactor(
       feature.estimated_depth = options_.init_depth;
     }
   }
-  void triangulatePoint(Eigen::Matrix<double, 3, 4> & Pose0,
-                        Eigen::Matrix<double, 3, 4> & Pose1,
-                        Eigen::Vector2d & point0, Eigen::Vector2d & point1,
-                        Eigen::Vector3d & point_3d) {
-    Eigen::Matrix4d design_matrix = Eigen::Matrix4d::Zero();
-    design_matrix.row(0) = point0[0] * Pose0.row(2) - Pose0.row(0);
-    design_matrix.row(1) = point0[1] * Pose0.row(2) - Pose0.row(1);
-    design_matrix.row(2) = point1[0] * Pose1.row(2) - Pose1.row(0);
-    design_matrix.row(3) = point1[1] * Pose1.row(2) - Pose1.row(1);
-    Eigen::Vector4d triangulated_point;
-    triangulated_point =
-        design_matrix.jacobiSvd(Eigen::ComputeFullV).matrixV().rightCols<1>();
-    point_3d(0) = triangulated_point(0) / triangulated_point(3);
-    point_3d(1) = triangulated_point(1) / triangulated_point(3);
-    point_3d(2) = triangulated_point(2) / triangulated_point(3);
-  }
+
 
   void FeatureManager::Triangulate(
       int frameCnt, const std::vector<transform::Rigid3d> &sw_pose,

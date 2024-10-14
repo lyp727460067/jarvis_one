@@ -247,7 +247,6 @@ const std::vector<cv::Point2f>&cur_points,
 #endif
   auto eigens = ComputeEigens(cv::Point2i(0, 0), keypoints, derive,mask);
   //
-  VLOG(kGlogCostTimeLevel) << "detect feature fast costs: " << t_t.toc() << " ms";
 
 
   // LOG(INFO)<<keypoints.size();
@@ -291,6 +290,7 @@ const std::vector<cv::Point2f>&cur_points,
     ++ncorners;
     if (max_corners > 0 && (int)ncorners == max_corners) break;
   }
+  VLOG(kGlogCostTimeLevel) << "detect feature fast costs: " << t_t.toc() << " ms";
   return corners;
 }
 

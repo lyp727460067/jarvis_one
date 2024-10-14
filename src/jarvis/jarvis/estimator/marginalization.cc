@@ -182,7 +182,9 @@ std::unordered_map<long, double *> Marginalization::ShiftStateAdrrNew(
 //
 void Marginalization::Marginalize(const OptimizationStateData *opt_data,
                                   MarginalizationFactorData *data, bool flag) {
-  std::unique_ptr<ceres::LossFunction> loss_function(new ceres::HuberLoss(1.0));
+   TicToc factor_pre_margin;
+  std::unique_ptr<ceres::LossFunction> loss_function(
+      new ceres::HuberLoss(options_.huber_loss));
   std::unique_ptr<MarginalizationInfo> marginalization_info(
       new MarginalizationInfo());
   bool margina_valid = false; 
@@ -212,7 +214,6 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
             marginalization_info.get(), loss_function.get());
       }
     }
-    LOG(INFO)<<"1";
     MergeFrameData(opt_data, data, marginalization_info.get());
     margina_valid = true;
   } else {
@@ -243,11 +244,10 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
 
         marginalization_info->addResidualBlockInfo(residual_block_info);
       }
-      LOG(INFO)<<"1";
-          // marginalization_info->marginalize();
       margina_valid = true;
     }
   }
+   VLOG(kGlogCostTimeLevel) << "marginalization factor costs " << factor_pre_margin.toc();
   if (margina_valid) {
     TicToc t_pre_margin;
     marginalization_info->preMarginalize();
