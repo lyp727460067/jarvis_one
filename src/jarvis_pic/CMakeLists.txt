@@ -84,16 +84,8 @@ target_link_libraries(jarvis_eigen_test PUBLIC
   -ldl
 )
 
-# Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_gpu_main PUBLIC
-  # glog
-  ${OPENCL_LIBRARIES}
-  ${OpenCV_LIBS}
-  -ldl
-)
 
 
-target_include_directories( ${PROJECT_NAME}_gpu_main  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(mpslam PUBLIC
   # glog
   jarvis
