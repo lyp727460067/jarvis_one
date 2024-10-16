@@ -1,0 +1,90 @@
+#ifndef  JARVIS_MONO_IMU_INITIALIZATION_H
+#define   JARVIS_MONO_IMU_INITIALIZATION_H
+namespace jarvis {
+namespace estimator {
+class MonoImuInitialization {
+
+if (frame_count == WINDOW_SIZE) {
+        bool result = false;
+
+        if (estimate_extrinsic_ != 2 && (header - initial_timestamp) > 0.1) {
+          result = initialStructure();
+          initial_timestamp = header;
+        }
+        if (result) {
+          optimization();
+
+          updateLatestStates();
+          solver_flag = NON_LINEAR;
+          slideWindow();
+          LOG(INFO) << "Initialization finish!";
+        } else
+          slideWindow();
+      }
+
+
+
+bool Estimator::visualInitialAlign() {
+  TicToc t_g;
+  Eigen::VectorXd x;
+  // solve scale
+
+  bool result = alignment_.VisualIMUAlignment(all_image_frame, Bgs, g, x);
+  if (!result) {
+    VLOG(kGlogLevel) << "solve g failed!";
+    return false;
+  }
+
+  // change state
+  for (int i = 0; i <= frame_count; i++) {
+    Eigen::Matrix3d Ri = all_image_frame[Headers[i]].R;
+    Eigen::Vector3d Pi = all_image_frame[Headers[i]].T;
+    Ps[i] = Pi;
+    Rs[i] = Ri;
+    all_image_frame[Headers[i]].is_key_frame = true;
+  }
+
+  double s = (x.tail<1>())(0);
+  for (int i = 0; i <= WINDOW_SIZE; i++) {
+    pre_integrations[i]->repropagate(Eigen::Vector3d::Zero(), Bgs[i]);
+  }
+  for (int i = frame_count; i >= 0; i--) {
+    const auto &tic =
+        options_.calibrate_option.extric_camera_to_imu[0].translation();
+    Ps[i] = s * Ps[i] - Rs[i] * tic - (s * Ps[0] - Rs[0] * tic);
+  }
+
+  int kv = -1;
+  std::map<double, ImageFrame>::iterator frame_i;
+  for (frame_i = all_image_frame.begin(); frame_i != all_image_frame.end();
+       ++frame_i) {
+    if (frame_i->second.is_key_frame) {
+      kv++;
+      Vs[kv] = frame_i->second.R * x.segment<3>(kv * 3);
+    }
+  }
+
+  Eigen::Matrix3d R0 = Utility::g2R(g);
+  double yaw = Utility::R2ypr(R0 * Rs[0]).x();
+  R0 = Utility::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;
+  g = R0 * g;
+  // Eigen::Matrix3d rot_diff = R0 * Rs[0].transpose();
+  Eigen::Matrix3d rot_diff = R0;
+  for (int i = 0; i <= frame_count; i++) {
+    Ps[i] = rot_diff * Ps[i];
+    Rs[i] = rot_diff * Rs[i];
+    Vs[i] = rot_diff * Vs[i];
+  }
+  VLOG(kGlogLevel) << "g0     " << g.transpose();
+  VLOG(kGlogLevel) << "my R0  " << Utility::R2ypr(Rs[0]).transpose();
+
+  f_manager->clearDepth();
+  f_manager->triangulate(frame_count, Ps, Rs, tic, ric);
+
+  return true;
+}
+};
+}
+}  // namespace jarvis
+
+#endif

@@ -4,7 +4,7 @@
 #include <map>
 #include <memory>
 #include <vector>
-
+#include "jarvis/estimator/estimator.h"
 #include "sensor/image_data.h"
 #include "sensor/imu_data.h"
 //
@@ -18,7 +18,7 @@ using CallBack = std::function<void(const TrackingData &)>;
 class TrajectorBuilder {
  public:
   TrajectorBuilder();
-  TrajectorBuilder(const std::string &config, CallBack call_back);
+  TrajectorBuilder(const estimator::EstimatorOption& option, CallBack call_back);
   virtual void AddImageData(const sensor::ImageData &images);
   //
   virtual void AddImuData(const sensor::ImuData &imu_data);
@@ -35,7 +35,7 @@ class TrajectorBuilder {
   virtual ~TrajectorBuilder();
 
  private:
-  std::string  config_file_;
+ const estimator::EstimatorOption esit_option_;
   // std::unique_ptr<tracking::TrackingInterface> tracker_;
   std::unique_ptr<estimator::Estimator> tracker_;
   // std::unique_ptr<MapBuilderInterface> map_builder_;

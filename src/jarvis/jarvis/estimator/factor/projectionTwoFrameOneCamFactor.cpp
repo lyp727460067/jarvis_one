@@ -69,6 +69,7 @@ ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
   velocity_j.x() = _velocity_j.x();
   velocity_j.y() = _velocity_j.y();
   velocity_j.z() = 0;
+  // LOG(INFO)<<pts_i.transpose()<<" "<<pts_j.transpose()<<td_i<<td_j;
   sqrt_info = weight * Eigen::Matrix2d::Identity();
 
 #ifdef UNIT_SPHERE_ERROR
@@ -102,22 +103,28 @@ bool ProjectionTwoFrameOneCamFactor::EvaluateNormal(double const *const *paramet
   Eigen::Vector3d tic(parameters[2][0], parameters[2][1], parameters[2][2]);
   Eigen::Quaterniond qic(parameters[2][6], parameters[2][3], parameters[2][4],
                          parameters[2][5]);
-
-  const double &inv_dep_i = parameters[3][0];
-
-  const double &td = parameters[4][0];
+  const double inv_dep_i = parameters[3][0];
+  // LOG(INFO)<<inv_dep_i;
+  const double td = parameters[4][0];
+  
+  // LOG(INFO)<<transform::Rigid3d(Pi,Qi);
+  // LOG(INFO)<<transform::Rigid3d(Pj,Qj);
+  // LOG(INFO)<<transform::Rigid3d(tic,qic);
   Eigen::Vector3d pts_i_td = pts_i - (td - td_i) * velocity_i; 
   Eigen::Vector3d pts_j_td = pts_j - (td - td_j) * velocity_j;
+  //  LOG(INFO)<<pts_i_td.transpose();
+  //  LOG(INFO)<<pts_j_td.transpose();
   Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
   Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
   Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
-  Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
-  Eigen::Vector3d pts_camera_j = qic.inverse() * (pts_imu_j - tic);
+  Eigen::Vector3d pts_imu_j = Qj.conjugate() * (pts_w - Pj);
+
+  Eigen::Vector3d pts_camera_j = qic.conjugate() * (pts_imu_j - tic);
   Eigen::Map<Eigen::Vector2d> residual(residuals);
   double dep_j = pts_camera_j.z();
   residual = (pts_camera_j / dep_j).head<2>() - pts_j_td.head<2>();
+  // LOG(INFO)<<residual.transpose();
   residual = sqrt_info * residual;
-
   if (jacobians) {
     Eigen::Matrix3d Ri = Qi.toRotationMatrix();
     Eigen::Matrix3d Rj = Qj.toRotationMatrix();
@@ -181,6 +188,7 @@ bool ProjectionTwoFrameOneCamFactor::EvaluateNormal(double const *const *paramet
                                  (Rj.transpose() * (Ri * tic + Pi - Pj) - tic));
       jacobian_ex_pose.leftCols<6>() = reduce * jaco_ex;
       jacobian_ex_pose.rightCols<1>().setZero();
+      // LOG(INFO)<<jacobian_ex_pose;
     }
     if (jacobians[3]) {
       Eigen::Map<Eigen::Vector2d> jacobian_feature(jacobians[3]);

@@ -20,7 +20,7 @@
 #include "jarvis/utility/utility.h"
 namespace jarvis {
 namespace estimator {
-constexpr int NUM_THREADS = 2;
+constexpr int NUM_THREADS = 1;
 
 struct ResidualBlockInfo {
   ResidualBlockInfo(ceres::CostFunction *_cost_function,
@@ -65,6 +65,9 @@ class MarginalizationInfo {
   void addResidualBlockInfo(ResidualBlockInfo *residual_block_info);
   void preMarginalize();
   void marginalize();
+  //
+  template <typename T, typename Tb>
+  void ConstructA(T &A, Tb &b);
   std::vector<double *> getParameterBlocks(
       std::unordered_map<long, double *> &addr_shift);
 

@@ -1,63 +1,47 @@
-/*******************************************************
- * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science
- *and Technology
- *
- * This file is part of VINS.
- *
- * Licensed under the GNU General Public License v3.0;
- * you may not use this file except in compliance with the License.
- *
- * Author: Qin Tong (qintonguav@gmail.com)
- *******************************************************/
-
-#pragma once
+#ifndef _JARVIS_ESTIMATOR_INITIAL_INITIAL_ALIGNMENT_H
+#define  _JARVIS_ESTIMATOR_INITIAL_INITIAL_ALIGNMENT_H
 
 #include "Eigen/Dense"
 #include <iostream>
 #include <map>
-
-#include "jarvis/estimator/factor/imu_factor.h"
 #include "jarvis/estimator/feature_manager.h"
 #include "jarvis/utility/utility.h"
+#include "jarvis/common/time.h"
+#include "jarvis/estimator/factor/integration_base.h"
 namespace jarvis {
 namespace estimator {
-
-class ImageFrame {
- public:
-  ImageFrame(){};
-  ImageFrame(const std::map<
-                 int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>>
-                 &_points,
-             double _t)
-      : points(_points), t{_t}, is_key_frame{false} {};
-  std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> points;
-  double t = 0.0;
-  Eigen::Matrix3d R;
-  Eigen::Vector3d T;
-  IntegrationBase *pre_integration = nullptr;
+//
+struct ImageFrame {
+  common::Time time;
+  transform::Rigid3d p;
+  ImageFeatureTrackerData track_data;
+  IntegrationBase* pre_integration;
+  // std::shared_ptr<IntegrationBase> pre_integration=nullptr;
   bool is_key_frame = false;
 };
-struct AlignmentOption {
+struct InitialAlignmentOption {
   transform::Rigid3d cam_to_imu;
-  Eigen::Vector3d gravity;
+  Eigen::Vector3d gravity{0,0,9.8};
 };
-
-class Alignment {
+class InitialAlignment {
  public:
-   explicit Alignment(const AlignmentOption &option) : options_(option) {}
-  void solveGyroscopeBias(std::map<double, ImageFrame> &all_image_frame,
-                          Eigen::Vector3d *Bgs);
-  bool VisualIMUAlignment(std::map<double, ImageFrame> &all_image_frame,
+  explicit InitialAlignment(const InitialAlignmentOption &option)
+      : options_(option) {}
+  // /
+  Eigen::Vector3d SolveGyroscopeBias(const std::vector<ImageFrame> &all_image_frame);
+  //
+  bool VisualIMUAlignment(const std::vector<ImageFrame> &all_image_frame,
                           Eigen::Vector3d *Bgs, Eigen::Vector3d &g,
                           Eigen::VectorXd &x);
 
  private:
-  AlignmentOption options_;
-  void RefineGravity(std::map<double, ImageFrame> &all_image_frame,
+  InitialAlignmentOption options_;
+  void RefineGravity(const std::vector<ImageFrame> &all_image_frame,
                      Eigen::Vector3d &g, Eigen::VectorXd &x);
-                     bool LinearAlignment(std::map<double, ImageFrame> &all_image_frame,
-                     Eigen::Vector3d &g, Eigen::VectorXd &x);
+  bool LinearAlignment(const std::vector<ImageFrame> &all_image_frame,
+                       Eigen::Vector3d &g, Eigen::VectorXd &x);
 };
 
 }  // namespace estimator
 }  // namespace jarvis
+#endif

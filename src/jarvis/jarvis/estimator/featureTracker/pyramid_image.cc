@@ -73,6 +73,20 @@ void PyramidImage::Build(const cv::Mat& image) {
   build_pyramids(image, &curr_img_pyramids_, nullptr);
 }
 
+void ExtendPyramidImage::SetCurrPyram(const std::vector<cv::Mat>& pyram) {
+  if (!prev_img_pyramids_.empty()) {
+    prev_img_pyramids_ = std::move(curr_img_pyramids_);
+    curr_img_pyramids_ = pyram;
+    // curr_img_pyramids_.swap(prev_img_pyramids_);
+    // curr_pyramids_buffer_.swap(prev_pyramids_buffer_);
+
+  } else {
+    prev_img_pyramids_ = pyram;
+    curr_img_pyramids_ = pyram;
+  }
+}
+
+void ExtendPyramidImage::Build(const cv::Mat& image) {}
 //
 }  // namespace estimator
 }  // namespace jarvis

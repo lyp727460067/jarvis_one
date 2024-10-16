@@ -40,7 +40,7 @@ find_package(jarvis REQUIRED)
 find_package(OpenCV REQUIRED) #version 4.6.0
 
 include_directories(
-${OpenCV_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 
@@ -57,12 +57,15 @@ ${OpenCV_INCLUDE_DIRS}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_main  jarvis_main.cc ros_component.cc
-)
+# add_executable(${PROJECT_NAME}_main  jarvis_main.cc ros_component.cc
+# )
 add_executable(${PROJECT_NAME}_zmp_main  jarvis_zmp_main.cc)
 add_executable(ld_${PROJECT_NAME}_slip_main   jarvis_slip_detect_main.cc ros_component.cc
 )
 add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare.cc pose_optimization.cc
+)
+
+add_executable(ld_${PROJECT_NAME}_data_parse  jarvis_data_parse.cc
 )
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -75,14 +78,21 @@ add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_main
+# target_link_libraries(${PROJECT_NAME}_main
+#   ${catkin_LIBRARIES}
+#   ${Boost_LIBRARIES}
+#   glog::glog
+#   yaml-cpp
+#   jarvis
+# )
+target_link_libraries(ld_${PROJECT_NAME}_slip_main
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   glog::glog
   yaml-cpp
   jarvis
 )
-target_link_libraries(ld_${PROJECT_NAME}_slip_main
+target_link_libraries(ld_${PROJECT_NAME}_data_parse
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   glog::glog
@@ -104,18 +114,26 @@ tf2_ros
 cv_bridge
 image_transport
 )
+
+ament_target_dependencies(ld_${PROJECT_NAME}_data_parse rclcpp std_msgs nav_msgs sensor_msgs
+visualization_msgs
+tf2_ros
+cv_bridge
+image_transport
+)
+
 ament_target_dependencies(ld_${PROJECT_NAME}_slip_main rclcpp std_msgs nav_msgs sensor_msgs
 visualization_msgs
 tf2_ros
 cv_bridge
 image_transport
 )
-ament_target_dependencies(${PROJECT_NAME}_main rclcpp std_msgs nav_msgs sensor_msgs
-visualization_msgs
-tf2_ros
-cv_bridge
-image_transport
-)
+# ament_target_dependencies(${PROJECT_NAME}_main rclcpp std_msgs nav_msgs sensor_msgs
+# visualization_msgs
+# tf2_ros
+# cv_bridge
+# image_transport
+# )
 target_link_libraries(${PROJECT_NAME}_zmp_main
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}

@@ -41,9 +41,9 @@ typedef struct _interpolation_param {
 
 // only works for win_size(7, 7)
 typedef struct _XPKeyPointRepo {
-  int16_t patch[52];            // image patch storage
+  int16_t patch[228];            // image patch storage
   float covariance_maxtrix[6];  // covariance matrix
-  int16_t xy_gradient[128];     // xy gradient
+  int16_t xy_gradient[456];     // xy gradient
 } XPKeyPointRepo;
 
 typedef struct _XPKeyPointPyramidRepo {
@@ -124,6 +124,18 @@ struct XPKeyPoint : public cv::KeyPoint {
  * @param[in]  minEigThreshold
  */
 void XPcalcOpticalFlowPyrLK(
+    const std::vector<cv::Mat>& _prevPyramids,
+    const std::vector<cv::Mat>& _nextPyramids,
+    std::vector<XPKeyPoint>* _prevPts, std::vector<Point2f>* _nextPts,
+    std::vector<bool>* _status, std::vector<float>* _err,
+    const cv::Size _win_size = cv::Size(7, 7), int _max_level = 3,
+    int _start_level = 0,
+    TermCriteria _criteria = TermCriteria(TermCriteria::COUNT +
+                                              TermCriteria::EPS,
+                                          30, 0.01),
+    int _flags = 0, double _minEigThreshold = 1e-4);
+
+void XPcalcOpticalFlowPyrLKWithDeriv(
     const std::vector<cv::Mat>& _prevPyramids,
     const std::vector<cv::Mat>& _nextPyramids,
     std::vector<XPKeyPoint>* _prevPts, std::vector<Point2f>* _nextPts,

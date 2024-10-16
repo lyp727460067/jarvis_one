@@ -9,16 +9,16 @@
 
 #include "../utility/utility.h"
 
-constexpr uint8_t kGlogLevel = 0;
-constexpr uint8_t kGlogCostTimeLevel = 1;
-constexpr uint8_t kGlogCeresLevel = 0;
+constexpr uint8_t kGlogLevel = 1;
+constexpr uint8_t kGlogCostTimeLevel = 2;
+constexpr uint8_t kGlogCeresLevel = 3;
 namespace jarvis {
 namespace estimator {
 
 
-constexpr double FOCAL_LENGTH = 377.0;
+// constexpr double FOCAL_LENGTH = 377.0;
 constexpr int WINDOW_SIZE = 6;
-constexpr int NUM_OF_F = 1000;
+// constexpr int NUM_OF_F = 1000;
 enum StateOrder { O_P = 0, O_R = 3, O_V = 6, O_BA = 9, O_BG = 12 };
 enum NoiseOrder { O_AN = 0, O_GN = 3, O_AW = 6, O_GW = 9 };
 enum SIZE_PARAMETERIZATION {

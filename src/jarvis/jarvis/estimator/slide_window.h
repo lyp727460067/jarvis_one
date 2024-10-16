@@ -1,37 +1,87 @@
 #ifndef _JARVIS_ESTIMATOR_SLIDE_WINDOW_H
 #define _JARVIS_ESTIMATOR_SLIDE_WINDOW_H
 #include <queue>
-#include "transform/rigid_transform.h"
-#include "jarvis/common/time.h"
-#include "jarvis/estimator/featureTracker/feature_tracker.h"
 
+#include "jarvis/common/time.h"
+#include "jarvis/estimator/data_base.h"
+#include "jarvis/estimator/featureTracker/feature_tracker.h"
+#include "jarvis/estimator/feature_manager.h"
+#include "jarvis/estimator/initialization_interface.h"
+#include "jarvis/estimator/optimization.h"
+#include "jarvis/estimator/updater_zero_velocity.h"
+#include "jarvis/sensor/imu_data.h"
+#include "jarvis/key_frame_data.h"
+#include "jarvis/estimator/marginalization.h"
+#include "jarvis/transform/rigid_transform.h"
 namespace jarvis {
 namespace estimator {
 struct SlideWindowOption {
-  int win_size;
-};
-
+  ImuOption imu_option;
+  OdomFactorOption odom_factor_option;
+  bool use_stereo  =true;
+  FeatureManagerOption feature_manager_option;
+  UpdataZeroVelocityOption updata_zerovelocity_option;
+  OptimizationOption opti_option;
+  std::vector<transform::Rigid3d> extric_camera_to_imu;
+  bool enable_zero_velocity = 0;
+  int win_size=6;
+  // double optimazation_outliers_rejection_th = 0.3;
+  double rejection_points_depth_max_th = 30;
+  std::vector<std::vector<int>> track_sequence;
 //
-struct NodeData {
-  struct State {
-    Eigen::Vector3d translation;
-    Eigen::Quaterniond rotation;
-    Eigen::Vector3d Velocity;
-    Eigen::Vector3d bas;
-    Eigen::Vector3d bgs;
-  };
-  common::Time time;
-  State state;
-  ImageFeatureTrackerData feature_datas;
+};
+//
+//
+struct SlideWindowResult {
+  FrameData frame_data;
+  double final_cost;
+  FeatTrackInfo feat_track_info;
+  std::optional<double>latest_odo_distance= 0;
 };
 
 class SlideWindow {
  public:
-  SlideWindow(const SlideWindowOption& option);
-
+  SlideWindow(const SlideWindowOption& option, DataBase* data_base,
+              const std::unique_ptr<InitializationResult>& init_data);
+  //
+  std::unique_ptr<SlideWindowResult> AddFeatureData(const FrameData&);
+  //
+  std::map<CameraId, std::set<TrackFeatureId>>& RejectionOutliers() {
+    return rejection_outliers_;
+  }
  private:
-  // std::deque<FrameData> frame_datas_;
+  void SlideData(bool);
+  SlideWindowOption options_;
+  //
+  std::vector<ImuState> imu_states_;
+  //
+  std::vector<std::shared_ptr<IntegrationBase>> integration_base_;
+  std::vector<std::shared_ptr<OdomFactor>>odoms_factor_;
+  //
+  std::unique_ptr<FeatureManagers> feature_managers_;
+  //
+  std::map<CameraId, std::shared_ptr<FeatureManager>> init_feature_managers_;
+
+  //
+  std::unique_ptr<Optimization> optimization_;
+  std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
+  std::unique_ptr<Marginalization> marginalizer_;
+  void SlideNew(); 
+  DataBase* data_base_;
+  //
+  void StateToFrameData();
+  void FrameDataToState();
+  OptimizationStateData* opt_data_=nullptr;
+  std::vector<transform::Rigid3d> extric_camera_to_imu_;
+  transform::Rigid3d odo_to_imu_extric_;
+  double camera_imu_time_offset_ = 0;
+  std::map<CameraId, std::set<TrackFeatureId>> rejection_outliers_;
+  //
+  //
+  // std::vector<FrameData> frames_datas_;
+  common::Time last_feature_time_;
+  uint64_t global_id_ = 0;
 };
 }  // namespace estimator
-}
+}  // namespace jarvis
 #endif

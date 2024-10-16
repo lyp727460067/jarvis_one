@@ -75,7 +75,7 @@ void OrderedMultiQueue::Start() {
   dispath_thead_ = std::thread([this]() {
     while (!kill_thread) {
       Dispathch();
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (sensor_cout++ >= 1000) {
         LOG_EVERY_N(ERROR, 100) << "No data recive!!!!!!!!!!!!!!";
       }
@@ -136,18 +136,22 @@ void OrderedMultiQueue::Dispathch() {
       std::unique_ptr<Data> data = nullptr;
       {
         std::lock_guard<std::mutex> lock(mutex_);
-        #ifdef __ARM_PLATFORM__
+        // #ifdef __ARM_PLATFORM__
         if (next_queue_key == "/usb_cam_1/image_raw/compressed") {
-          bool image_data_delay=false;
-          while (next_queue->queue.size() >= 2) {
-            LOG(ERROR) << next_queue_key << " size > 2,Drop it."
-                       << next_queue->queue.front()->GetTime();
-            next_queue->queue.pop();
-            image_data_delay = true;
-          }
-          if (image_data_delay) continue;
+          // if (next_queue->queue.size() >= 2) {
+          //   LOG(ERROR) << next_queue_key << " size > 2"
+          //              << next_queue->queue.front()->GetTime();
+          // }
+            bool image_data_delay=false;
+            while (next_queue->queue.size() >= 2) {
+              LOG(ERROR) << next_queue_key << " size > 2,Drop it."
+                         << next_queue->queue.front()->GetTime();
+              next_queue->queue.pop();
+              image_data_delay = true;
+            }
+            if (image_data_delay) continue;
         }
-        #endif
+        // #endif
         data = std::move(next_queue->queue.front());
         next_queue->queue.pop();
       }

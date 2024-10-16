@@ -8,6 +8,7 @@ GLOG_v :  -1
 offline_play_bag_duration : 0.001 
 mask_id: mask.png
 imu_cam_time_offset : 0.000
+use_gpu : 1
 slip_detect : 1
 write_mpc_pose_type: 0
 # test_ip : 127.0.0.1

@@ -25,7 +25,7 @@ class RosCompont {
  public:
   RosCompont(rclcpp::Node *nh_);
 
-  void CommpressedImagePub(const cv::Mat&image);
+  void CommpressedImagePub(int pub,const cv::Mat&image);
   //
   void OnMapPointsCallback(const std::vector<Eigen::Vector3d> &points,
                            const jarvis::transform::Rigid3d &local_to_globle);
@@ -67,8 +67,9 @@ class RosCompont {
   // ros::Publisher compressed_image_pub_;
   // rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr
       // compressed_image_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr
-      image_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub0_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub1_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub2_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       pose_mark_publisher_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr

@@ -69,10 +69,8 @@ void SlipDetect::AddPose(const TimePose& pose) {
 void SlipDetect::AddImage(const jarvis::sensor::ImageData& image_data) {
   if (options_.type == 0) {
     std::map<int, int> track_num;
-    double d_time =
-        common::ToSeconds(image_data.time - common::FromUniversal(0));
-    auto feature_frame = feature_tracker_->trackImage(
-        d_time, *image_data.image[0], cv::Mat(), &track_num, 0);
+    auto feature_frame = feature_tracker_->TrackImage(
+        image_data.time, image_data.image[0], cv::Mat());
     LOG(INFO) << feature_frame.data->features.size();
     for (auto const& point : feature_frame.data->features) {
       key_point_datas_[static_cast<uint64_t>(point.first)].emplace(

@@ -128,7 +128,15 @@ void DataBase::TrimData(const common::Time &time) {
   }
   //
 }
-
+std::vector<sensor::ImuData> DataBase::GetEarlyImuData(
+    const common::Time &time) {
+  std::vector<sensor::ImuData> data;
+  for (size_t i = 0; i < imu_data_.size(); i++) {
+    if (imu_data_[i].time > time) break;
+    data.push_back(imu_data_[i]);
+  }
+  return data;
+}
 void DataBase::AddOdometry(const sensor::OdometryData &odom) {
   odometry_data_.push_back(odom);
   if (odometry_data_.size() > kMaxDataNum) {

@@ -15,12 +15,13 @@ namespace {
 using namespace jarvis;
 }  // namespace
 cv::Mat GenerateImageWithKeyPoint(
-    const cv::Mat &l_img, const std::vector<cv::KeyPoint> &l_key_points,
-    const std::vector<cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
-    const std::vector<cv::KeyPoint> &r_key_points, const std::string &l_name,
+    const cv::Mat &l_img, const std::map<uint64_t,cv::KeyPoint> &l_key_points,
+     const std::map<uint64_t,cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
+     const std::map<uint64_t,cv::KeyPoint> &r_key_points, const std::string &l_name,
     const std::string &r_name, std::vector<uint64_t> outlier_pointclass_id) {
   int col = l_img.cols;
   int row = l_img.rows;
+
   // cv::Mat l_img_feat;
   // cv::cvtColor(l_img, l_img_feat, cv::COLOR_GRAY2RGB);
   // cv::Mat r_img_feat;
@@ -42,19 +43,19 @@ cv::Mat GenerateImageWithKeyPoint(
                               outlier_pointclass_id.end());
   //
   for (auto &&keypoint : (l_key_points)) {
-    double len = std::min(1.0, 1.0 * keypoint.octave / 10);
+    double len = std::min(1.0, 1.0 * keypoint.second.octave / 10);
     cv::Scalar color = cv::Scalar(255 * (1 - len), 0, 255 * len);
     // if (class_id.count(keypoint.class_id)) {
     //   cv::circle(loop_match_img, keypoint.pt, 2 ,cv::Scalar(0, 0, 255), 2);
     // } else {
-    cv::circle(loop_match_img, keypoint.pt, 2, color, 2);
+    cv::circle(loop_match_img, keypoint.second.pt, 2, color, 2);
     // }
     // cv::putText(loop_match_img, std::to_string(keypoint.class_id),
     // keypoint.pt,
     //             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
   }
   for (auto &&keypoint : r_key_points) {
-    cv::circle(loop_match_img, keypoint.pt, 1, cv::Scalar(0, 255, 0), 1);
+    cv::circle(loop_match_img, keypoint.second.pt, 1, cv::Scalar(0, 255, 0), 1);
   }
   CHECK_EQ(outlier_pointclass_id.size(), 1)
       << "Outlier_pointclass_id is used display zupt,please assignment it..";
@@ -228,9 +229,12 @@ RosCompont::RosCompont(rclcpp::Node *nh)
   //     nh_->create_publisher<sensor_msgs::msg::CompressedImage>(
   //         "local_tracking_result_image/image_raw/compressed", 20);
 
-  image_pub_ =
-      nh_->create_publisher<sensor_msgs::msg::Image>(
-          "local_tracking_result_image/image_raw", 20);
+  image_pub0_ = nh_->create_publisher<sensor_msgs::msg::Image>(
+      "local_tracking_result_image/image_raw", 20);
+  image_pub1_ = nh_->create_publisher<sensor_msgs::msg::Image>(
+      "local_tracking_result_image0/image_raw", 20);
+  image_pub2_ = nh_->create_publisher<sensor_msgs::msg::Image>(
+      "local_tracking_result_image1/image_raw", 20);
 
   bool_publisher_ =
       nh->create_publisher<std_msgs::msg::Bool>("slip_detect", 10);
@@ -244,7 +248,9 @@ RosCompont::RosCompont(rclcpp::Node *nh)
 }
 //
 
-void RosCompont::CommpressedImagePub(const cv::Mat &image) {
+void RosCompont::CommpressedImagePub(
+  int id,
+    const cv::Mat &image) {
   // if (compressed_image_pub_->get_subscription_count() == 0) return;
 
   // std_msgs::msg::Header header;
@@ -255,7 +261,15 @@ void RosCompont::CommpressedImagePub(const cv::Mat &image) {
   // auto img_msg = img_bridge.toCompressedImageMsg();
   // compressed_image_pub_->publish(*img_msg);
 
-  if (image_pub_->get_subscription_count() == 0) return;
+  //
+  std::map<int, rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr> pubs{
+      {0, image_pub0_},
+      {1, image_pub1_},
+      {2, image_pub2_},
+  };
+  //
+  
+if (pubs[id]->get_subscription_count() == 0) return;
 
   std_msgs::msg::Header header;
   header.frame_id = "map";
@@ -263,7 +277,7 @@ void RosCompont::CommpressedImagePub(const cv::Mat &image) {
   cv_bridge::CvImage img_bridge =
       cv_bridge::CvImage(header, sensor_msgs::image_encodings::BGR8, image);
   auto img_msg = img_bridge.toImageMsg();
-  image_pub_->publish(*img_msg);
+  pubs[id]->publish(*img_msg);
 }
 //
 void RosCompont::OnMapPointsCallback(
@@ -279,7 +293,7 @@ void RosCompont::OnMapPointsCallback(
     geo_point.z = point.z();
     point_cloud.points.push_back(geo_point);
   }
-  point_cloud.header.frame_id = "camere_link";
+  point_cloud.header.frame_id = "map";
   point_cloud.header.stamp = rclcpp::Time();
   sensor_msgs::convertPointCloudToPointCloud2(point_cloud, point_cloud2);
   point_cloud_pub_->publish(point_cloud2);
@@ -449,29 +463,39 @@ void RosCompont::OnLocalTrackingResultCallback(
     const TrackingData &tracking_data,
     std::vector<object::ObjectImageResult> *object_result,
     const transform::Rigid3d &local_to_global) {
-  auto image_result = GenerateImageWithKeyPoint(
-      *tracking_data.data->image, tracking_data.data->key_points, {}, {}, {},
-      "pre_imag", "curr_imag", {0});
-
-  std::vector<transform::Rigid3d> mark_pose;
-  std::map<int, std::vector<object::ObjectImageResult>> same_marks;
-  cv::Mat image_object(image_result.size(), CV_8UC3, cv::Scalar::all(0));
-  if (object_result != nullptr && !object_result->empty()) {
-    for (const auto &result : *object_result) {
-      same_marks[result.id].push_back(result);
-      if (result.coners.empty()) continue;
-      image_object += ObjectToCvImage(
-          Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},
-                              Eigen::Vector2d{
-                                  tracking_data.data->image->cols,
-                                  tracking_data.data->image->rows,
-                              }),
-          image_result.size(), result);
-      mark_pose.push_back(result.global_pose_cam);
+  //
+  std::vector<Eigen::Vector3d> map_points;
+  for (auto &cam_feature : tracking_data.data->features_datas) {
+    auto image_result =
+        GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
+                                  cam_feature.second.key_points, {}, {}, {},
+                                  "pre_imag", "curr_imag", {0});
+    CommpressedImagePub(cam_feature.first, image_result);
+    for (auto &feature : cam_feature.second.features.data->features) {
+      map_points.push_back(cam_feature.second.map_points[feature.first]);
     }
-    MarkPub(same_marks);
-  } 
-  image_result += image_object;
+
+    // std::vector<transform::Rigid3d> mark_pose;
+    // std::map<int, std::vector<object::ObjectImageResult>> same_marks;
+    // cv::Mat image_object(image_result.size(), CV_8UC3, cv::Scalar::all(0));
+    // if (object_result != nullptr && !object_result->empty()) {
+    //   for (const auto &result : *object_result) {
+    //     same_marks[result.id].push_back(result);
+    //     if (result.coners.empty()) continue;
+    //     image_object += ObjectToCvImage(
+    //         Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},
+    //                             Eigen::Vector2d{
+    //                                 tracking_data.data->image->cols,
+    //                                 tracking_data.data->image->rows,
+    //                             }),
+    //         image_result.size(), result);
+    //     mark_pose.push_back(result.global_pose_cam);
+    //   }
+    //   MarkPub(same_marks);
+    // }
+    // image_result += image_object;
+  }
+
   // for (int i = 0; i < image_object.rows; i++) {
   //   for (int j = 0; j < image_object.cols; j++) {
   //     if (image_object.ptr(i, j)[0]) {
@@ -483,9 +507,10 @@ void RosCompont::OnLocalTrackingResultCallback(
   // }
 
 
+
   // pub_local_tracking_result.publish(img);
-  CommpressedImagePub(image_result);
-  OnMapPointsCallback(tracking_data.data->tracking_map_points, local_to_global);
+
+  OnMapPointsCallback(map_points, local_to_global);
 
 
 

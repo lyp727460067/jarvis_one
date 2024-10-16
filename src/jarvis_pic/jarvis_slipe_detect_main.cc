@@ -81,46 +81,6 @@ class JarvisBuilder {
 
     LOG(INFO) << "Capture start..";
 
-    data_capture_->Rigister("imu_extrapolator", [&](const ImuData& imu) {
-      // LOG(INFO)<<jarvis::common::FromUniversal(imu.time * 10);
-      // LOG(INFO)<<imu.linear_acceleration.transpose()<<"
-      // "<<imu.angular_velocity.transpose();
-      jarvis::estimator::ImuState state;
-      if (imu_extrapolator_ && kWriteMpcPoseType) {
-        {
-          std::lock_guard<std::mutex> lock(mutex_);
-
-          imu_extrapolator_->AddImu(jarvis::sensor::ImuData{
-              jarvis::common::FromUniversal(imu.time * 10),
-              imu.linear_acceleration,
-              imu.angular_velocity,
-          });
-
-          // auto start = std::chrono::high_resolution_clock::now();
-          state = imu_extrapolator_->Exrapolate(
-              jarvis::common::FromUniversal(imu.time * 10) +
-              common::FromSeconds(0.001));
-        // LOG(INFO) << "Exrapolate cost: "
-        //     << std::chrono::duration_cast<std::chrono::microseconds>(
-        //            std::chrono::high_resolution_clock::now() - start)
-        //            .count();
-        }
-        if (slip_detect_) {
-          jarvis::TrackingData data{
-              std::make_shared<jarvis::TrackingData::Data>(
-                  jarvis::TrackingData::Data{
-                      jarvis::common::FromUniversal(imu.time * 10), state}),
-              kVioState};
-          transform::Rigid3d slipe_alignment_pose =
-              slip_detect_->ToPoseInOdom(state.pose);
-          mpc_.Write(slipe_alignment_pose, data,
-                     GetDataCapture()->GetOrigImuTime(imu.time), kSlipeState);
-        }
-      }
-
-      // auto pose = jarvis::GetGlobleImuExtrapolatorPose();
-    });
-
     data_capture_->Rigister("slip_detect", [&](const OdomData& encode) {
       if (!slip_detect_) return;
       if (!last_odom_data_.has_value()) {
@@ -156,10 +116,10 @@ class JarvisBuilder {
             system_state_ == MowStatus::MS_SLEEP) {
           LOG(WARNING) << "Rest jarvis brige...";
           jarvis_brige_.reset(nullptr);
-          {
-            std::lock_guard<std::mutex> lock(mutex_);
-            imu_extrapolator_.reset(nullptr);
-          }
+          // {
+          //   std::lock_guard<std::mutex> lock(mutex_);
+          //   imu_extrapolator_.reset(nullptr);
+          // }
           slip_detect_.reset(nullptr);
           // global_odom_= transform::Rigid3d::Identity();
           kVioState = 0;
@@ -195,14 +155,14 @@ class JarvisBuilder {
   DataCapture* GetDataCapture() { return data_capture_.get(); }
   //
   void AddStateToImuExtrapolator(const jarvis::TrackingData& data) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!imu_extrapolator_ || kWriteMpcPoseType == 0) {
-      return;
-    }
-    if (data.status != 2) {
-      imu_extrapolator_->Rest();
-    }
-    imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
+    // std::lock_guard<std::mutex> lock(mutex_);
+    // if (!imu_extrapolator_ || kWriteMpcPoseType == 0) {
+    //   return;
+    // }
+    // if (data.status != 2) {
+    //   imu_extrapolator_->Rest();
+    // }
+    // imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
 
     // if (imu_extrapolator_->GetImuNum() > 200) {
     //   LOG(WARNING) << "imu_extrapolator_ too much imu data is cached.";
@@ -214,8 +174,8 @@ class JarvisBuilder {
   void CreateJarvisBrige() {
     {
       std::lock_guard<std::mutex> lock(mutex_);
-      imu_extrapolator_ =
-          std::make_unique<jarvis::estimator::ImuExtrapolator>();
+      // imu_extrapolator_ =
+      //     std::make_unique<jarvis::estimator::ImuExtrapolator>();
     }
 
     slip_detect_ = jarvis::slip_detect::FactorSlipDetect(config_path_);
@@ -231,12 +191,12 @@ class JarvisBuilder {
               // imu_extrapolator_->Rest();
             } else {
               slip_detect_->AddPose(slip_detect::TimePose{
-                  data.data->time, data.data->imu_state.pose});
+                  data.data->time, data.data->imu_state.Pose()});
               slip_flag = slip_detect_->Detect(data.data->time);
             }
             if (kWriteMpcPoseType == 0) {
               transform::Rigid3d slipe_alignment_pose =
-                  slip_detect_->ToPoseInOdom(data.data->imu_state.pose);
+                  slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
               mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
             }
           }
@@ -262,7 +222,7 @@ class JarvisBuilder {
   std::unique_ptr<JarvisBrige> jarvis_brige_;
   std::unique_ptr<jarvis::slip_detect::SlipDetect> slip_detect_;
   std::function<void(const jarvis_pic_call_back_data&)> call_back_;
-  std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_=nullptr;  //=
+  // std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_=nullptr;  //=
   uint8_t system_state_ = 0xff;
   std::mutex mutex_;
 
@@ -322,9 +282,10 @@ int main(int argc, char* argv[]) {
               std::lock_guard<std::mutex> lock(jarvis_mutex);
               tracking_data_temp = data.data;
               slip_flag = data.slip_flag;
-
+              LOG(INFO) << tracking_data_temp.data->imu_state
+                        << " state: " << tracking_data_temp.status;
+              con_variable.notify_all();
             }
-            con_variable.notify_all();
           });
 
   jarvis_pic::ZmqComponent zmq;
@@ -339,16 +300,9 @@ int main(int argc, char* argv[]) {
       flag = slip_flag;
     }
     data_record_->AddVioData(tracking_data.data->time,
-                               tracking_data.data->imu_state.pose, flag);
-    LOG(INFO)
-        << "pose:" << tracking_data.data->imu_state.pose << "bas: "
-        << tracking_data.data->imu_state.linear_acceleration_bias.transpose()
-        << ",bgs: "
-        << tracking_data.data->imu_state.angular_velocity_bias.transpose()
-        << ",vio status: " << tracking_data.status
-        << ",slip status: " << int(flag);
+                               tracking_data.data->imu_state.Pose(), flag);
 
-    jarvis_slam->AddStateToImuExtrapolator(tracking_data);
+    // jarvis_slam->AddStateToImuExtrapolator(tracking_data);
     // mpc.Write(
     //     tracking_data,
     //     jarvis_slam->GetDataCapture()->GetOrigImuTime(static_cast<uint64_t>(
@@ -356,9 +310,10 @@ int main(int argc, char* argv[]) {
     
 #ifdef __ZMQ_ENABLAE__
     if (tracking_data.status == 2) {
-      tracking_data.data->imu_state.pose =
-          jarvis_slam->GetSlipDect()->ToPoseInOdom(
-              tracking_data.data->imu_state.pose);
+     auto pose =   jarvis_slam->GetSlipDect()->ToPoseInOdom(
+              tracking_data.data->imu_state.Pose());
+      tracking_data.data->imu_state.p =  pose.translation();
+      tracking_data.data->imu_state.q =  pose.rotation();
       zmq.PubLocalData(tracking_data, flag);
     }
 #endif

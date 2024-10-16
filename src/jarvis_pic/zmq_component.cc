@@ -37,31 +37,41 @@ struct PoseData {
   uint8_t flag;
 };
 // namespace
+
 cv::Mat GenerateImageWithKeyPoint(
-    const cv::Mat &l_img, const std::vector<cv::KeyPoint> &l_key_points,
-    const std::vector<cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
-    const std::vector<cv::KeyPoint> &r_key_points, const std::string &l_name,
+    const cv::Mat &l_img, const std::map<uint64_t,cv::KeyPoint> &l_key_points,
+     const std::map<uint64_t,cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
+     const std::map<uint64_t,cv::KeyPoint> &r_key_points, const std::string &l_name,
     const std::string &r_name, std::vector<uint64_t> outlier_pointclass_id) {
+  // cv::Mat l_img_feat;
+  // cv::cvtColor(l_img, l_img_feat, cv::COLOR_GRAY2RGB);
+  // cv::Mat r_img_feat;
+  // cv::cvtColor(r_img, r_img_feat, cv::COLOR_GRAY2RGB);
+  // //
+  //   const int gap = 10;
+  //   cv::Mat gap_image(row, gap, CV_8UC1, cv::Scalar(255, 255, 255));
   cv::Mat gray_img, loop_match_img;
+  //   cv::hconcat(l_img, gap_image, gap_image);
+  //   cv::hconcat(gap_image, r_img, gray_img);
+  //
+  // common::FixedRatioSampler sampler(0.1);
   cvtColor(l_img, loop_match_img, cv::COLOR_GRAY2RGB);
-  std::set<uint64_t> class_id(outlier_pointclass_id.begin(),
-                              outlier_pointclass_id.end());
   //
   for (auto &&keypoint : (l_key_points)) {
-    double len = std::min(1.0, 1.0 * keypoint.octave / 20);
+    double len = std::min(1.0, 1.0 * keypoint.second.octave / 10);
     cv::Scalar color = cv::Scalar(255 * (1 - len), 0, 255 * len);
-    cv::circle(loop_match_img, keypoint.pt, 2, color, 2);
+    // if (class_id.count(keypoint.class_id)) {
+    //   cv::circle(loop_match_img, keypoint.pt, 2 ,cv::Scalar(0, 0, 255), 2);
+    // } else {
+    cv::circle(loop_match_img, keypoint.second.pt, 2, color, 2);
+    // }
+    // cv::putText(loop_match_img, std::to_string(keypoint.class_id),
+    // keypoint.pt,
+    //             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
   }
   for (auto &&keypoint : r_key_points) {
-    cv::circle(loop_match_img, keypoint.pt, 1, cv::Scalar(0, 255, 0), 1);
+    cv::circle(loop_match_img, keypoint.second.pt, 1, cv::Scalar(0, 255, 0), 1);
   }
-  CHECK_EQ(outlier_pointclass_id.size(), size_t(1))
-      << "Outlier_pointclass_id is used display zupt,please assignment it..";
-  if (outlier_pointclass_id[0]) {
-    cv::putText(loop_match_img, "ZUPT", cv::Point2f(20, 100),
-                cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(0, 255, 0), 3);
-  }
-
   return loop_match_img;
 }
 std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
@@ -80,22 +90,54 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
   params[5] = 0;
   params[6] = cv::IMWRITE_JPEG_RST_INTERVAL;
   params[7] = 0;
+  cv::Mat merge_image;
+  std::vector<cv::Mat> cvresult1;
+  for (auto &cam_feature : tracking_data.data->features_datas) {
+    auto image_result =
+        GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
+                                  cam_feature.second.key_points, {}, {}, {},
+                                  "pre_imag", "curr_imag", {0});
+    cvresult1.emplace_back(image_result);
+    // image_result.resize(640, 544);
+    // cv::hconcat(image_result, image_result, merge_image);
+    // CommpressedImagePub(cam_feature.first, image_result);
+    // for (auto &feature : cam_feature.second.features.data->features) {
+    //   map_points.push_back(cam_feature.second.map_points[feature.first]);
+    // }
+  }
+  cv::Size resize{640,544};
+  if (cvresult1.size() == 1) {
+    merge_image = cvresult1[0];
+  } else if (cvresult1.size() == 2) {
+    cv::Mat temp ;
+    cv::resize(cvresult1[1],temp,resize);
+    cv::hconcat(cvresult1[0], temp, merge_image);
+  } else if (cvresult1.size() == 3) {
+    cv::Mat temp = cvresult1[1];
+    cv::Mat temp1 = cvresult1[2];
+    cv::resize(cvresult1[1],temp,resize);
+    cv::resize(cvresult1[2],temp1,resize);
+    cv::Mat back(640, 540,CV_8UC3,cv::Scalar::all(0));
+    cv::hconcat(cvresult1[0], temp, merge_image);
+    cv::Mat tmp_2_out;
+    cv::hconcat(temp1, back, tmp_2_out);
+    cv::vconcat(merge_image, tmp_2_out, merge_image);
+  }
+  // auto image_result = GenerateImageWithKeyPoint(
+  //     tracking_data.data->features_datas[0].features.data->images[0],
+  //     tracking_data.data->key_points, {}, cv::Mat(), {}, "pre_imag",
+  //     "curr_imag", {0});
 
-  auto image_result = GenerateImageWithKeyPoint(
-      *tracking_data.data->image, tracking_data.data->key_points, {},
-      cv::Mat(), {},
-      "pre_imag", "curr_imag", {0});
-
-  cv::imencode(".jpeg", image_result, datas, params);
+  cv::imencode(".jpeg", merge_image, datas, params);
   //
 
-  PoseData pose{data.data->imu_state.pose.translation().x(),
-                data.data->imu_state.pose.translation().y(),
-                data.data->imu_state.pose.translation().z(),
-                data.data->imu_state.pose.rotation().w(),
-                data.data->imu_state.pose.rotation().x(),
-                data.data->imu_state.pose.rotation().y(),
-                data.data->imu_state.pose.rotation().z(),
+  PoseData pose{data.data->imu_state.Pose().translation().x(),
+                data.data->imu_state.Pose().translation().y(),
+                data.data->imu_state.Pose().translation().z(),
+                data.data->imu_state.Pose().rotation().w(),
+                data.data->imu_state.Pose().rotation().x(),
+                data.data->imu_state.Pose().rotation().y(),
+                data.data->imu_state.Pose().rotation().z(),
                 slip_data};
   int lenth = datas.size();
   datas.resize(datas.size() + sizeof(PoseData));
@@ -207,12 +249,18 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
   // // //
   // memset(reinterpret_cast<void *>(&mpc_data), 0, sizeof(ModLocPoseFb));
   // shm_mod_->GetModByID(vio_id_, reinterpret_cast<void *>(&mpc_data));
+   ModSyncImuFb imudata;
+   shm_mod_->GetModByID(MOD_ID_SYNC_IMU_FB, reinterpret_cast<void *>(&imudata));
+   int64_t delta_time  = imudata.time_stamp-  mpc_data.timestamp/1000;
+   if(abs( delta_time )>350000 ){
 
-  // jarvis::transform::Rigid3d read_pose(
-  //     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
-  //     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
-  // LOG_EVERY_N(INFO, 1) << "Read pose: " << mpc_data.timestamp << " "
-  //                        << read_pose << " "
-  //                        << "state " << int(mpc_data.state);
+   LOG(ERROR)<<"imu vio delte_pose "<<imudata.time_stamp<<" "<<mpc_data.timestamp/1000<<" "<< delta_time;
+  }
+// jarvis::transform::Rigid3d read_pose(
+//     Eigen::Vector3d{mpc_data.x, mpc_data.y, mpc_data.z},
+//     Eigen::Quaterniond(mpc_data.qw, mpc_data.qx, mpc_data.qy, mpc_data.qz));
+// LOG_EVERY_N(INFO, 1) << "Read pose: " << mpc_data.timestamp << " "
+//                        << read_pose << " "
+//                        << "state " << int(mpc_data.state);
 }
 }  // namespace jarvis_pic

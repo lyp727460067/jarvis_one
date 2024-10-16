@@ -39,21 +39,21 @@ struct ImuOption {
   double gravity_normal = 9.8;
   bool use_imu = true;
   bool do_rectify = false;
-  Eigen::Matrix3d gyr_A;
-  Eigen::Vector3d gyr_b;
-  Eigen::Matrix3d acc_A;
-  Eigen::Vector3d acc_b;
+  Eigen::Matrix3d gyr_A= Eigen::Matrix3d::Zero();
+  Eigen::Vector3d gyr_b{0,0,0};
+  Eigen::Matrix3d acc_A= Eigen::Matrix3d::Zero();;
+  Eigen::Vector3d acc_b{0,0,0};
   struct Noise {
-    double na;
-    double ng;
-    double nba;
-    double nbg;
-    double na2;
-    double ng2;
-    double nba2;
-    double nbg2;
+    double na{0};
+    double ng{0};
+    double nba{0};
+    double nbg{0};
+    double na2{0};
+    double ng2{0};
+    double nba2{0};
+    double nbg2{0};
   } imu_noise;
-  std::string DebugInfo() {
+  std::string DebugInfo()const {
     std::stringstream info;
     info << "\n"
          << "imu " << " frequency: " << frequency

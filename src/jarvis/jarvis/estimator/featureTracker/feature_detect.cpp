@@ -234,19 +234,19 @@ const std::vector<cv::Point2f>&cur_points,
                                                const cv::Mat& derive,
                                                const cv::Mat& mask) {
   //
+  if(max_corners==0)return {};
   CHECK(options_.min_distance >= 1);
   TicToc t_t;
   std::vector<cv::KeyPoint> keypoints;
   // cv::FAST(image, keypoints, options_.fast_thresh_hold, false);
   // GoodFeaturesToTrack_neon(image, keypoints,max_corners,0.001,0);
-// #ifdef __ARM_NEON__
-//   FastNeon(image,keypoints,options_.fast_thresh_hold/2,mask, false);
-// #else 
+#ifdef __ARM_NEON__
+  FastNeon(image,keypoints,options_.fast_thresh_hold/2,mask, false);
+#else 
  keypoints = keypoints = ExtractFastWithGrid(image, mask);
-// #endif
+#endif
   auto eigens = ComputeEigens(cv::Point2i(0, 0), keypoints, derive,mask);
   //
-  VLOG(kGlogCostTimeLevel) << "detect feature fast costs: " << t_t.toc() << " ms";
 
 
   // LOG(INFO)<<keypoints.size();
@@ -290,6 +290,7 @@ const std::vector<cv::Point2f>&cur_points,
     ++ncorners;
     if (max_corners > 0 && (int)ncorners == max_corners) break;
   }
+  VLOG(kGlogCostTimeLevel) << "detect feature fast costs: " << t_t.toc() << " ms";
   return corners;
 }
 

@@ -8,7 +8,7 @@
 
 #include <fstream>
 #include <string>
-
+// #include "udisk_file_storage.h"
 #include "glog/logging.h"
 //
 //
@@ -81,7 +81,12 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
     tasks_.push([=]() {
       //
       cv::Mat merge_image;
+      cv::Mat merge_image1;
       cv::hconcat(frame.images[0], frame.images[1], merge_image);
+      if (frame.images.size() > 2) {
+        cv::hconcat(frame.images[2], frame.images[3], merge_image1);
+        // cv::vconcat(merge_image, merge_image1, merge_image);
+      }
       // LDCV::Mat image(merge_image.rows, merge_image.cols, merge_image.ptr());
       // LDCV::imwrite(
       //     image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) +
@@ -96,10 +101,23 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
       params[5] = 0;
       params[6] = cv::IMWRITE_JPEG_RST_INTERVAL;
       params[7] = 0;
+      // {
+      //   std::vector<uint8_t> datas;
+      //   cv::imencode(".jpeg", merge_image, datas, params);
+      //   UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 0,
+      //                                    uint64_t(frame.time * 1e3));
+      // }
+      // {
+      //   std::vector<uint8_t> datas;
+      //   cv::imencode(".jpeg", merge_image1, datas, params);
+      //   UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 1,
+      //                                    uint64_t(frame.time * 1e3));
+      // }
 
-      cv::imwrite(
-          image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".jpg",
-          merge_image,params);
+
+    //   cv::imwrite(
+    //       image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".jpg",
+    //       merge_image,params);
     });
   } else {
     LOG(WARNING) << "Not find " << time << "image..";

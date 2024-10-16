@@ -1,16 +1,28 @@
 #ifndef JARVIS_ESTIMATION_INTEGRATION_BASE_H
 #define JARVIS_ESTIMATION_INTEGRATION_BASE_H
-
+#include "jarvis/sensor/imu_data.h"
 #include <ceres/ceres.h>
 
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/option_parse.h"
 #include "jarvis/utility/utility.h"
+#include "jarvis/key_frame_data.h"
 namespace jarvis {
 namespace estimator {
 
 class IntegrationBase {
  public:
+ 
+  IntegrationBase(const ImuState &state, const ImuOption &options,
+                  const std::vector<sensor::ImuData> &imu_datas)
+      : IntegrationBase(options, imu_datas[0].linear_acceleration,
+                        imu_datas[0].angular_velocity, state.ba, state.bg) {
+    for (size_t i = 1; i < imu_datas.size(); i++) {
+      double dt = common::ToSeconds(imu_datas[i].time - imu_datas[i - 1].time);
+      push_back(dt, imu_datas[i].linear_acceleration,
+                imu_datas[i].angular_velocity);
+    }
+  };
   IntegrationBase() = delete;
   IntegrationBase(const ImuOption &options, const Eigen::Vector3d &_acc_0,
                   const Eigen::Vector3d &_gyr_0,
@@ -58,7 +70,17 @@ class IntegrationBase {
     gyr_buf.push_back(gyr);
     propagate(dt, acc, gyr);
   }
-
+  //
+  void Merge(const IntegrationBase &rhs) {
+    //
+    for (int i = 0; i < static_cast<int>(rhs.acc_buf.size()); i++) {
+      dt_buf.push_back(dt);
+      acc_buf.push_back(rhs.acc_buf[i]);
+      gyr_buf.push_back(rhs.gyr_buf[i]);
+      propagate(rhs.dt_buf[i], rhs.acc_buf[i], rhs.gyr_buf[i]);
+    }
+  }
+  //
   void repropagate(const Eigen::Vector3d &_linearized_ba,
                    const Eigen::Vector3d &_linearized_bg) {
     sum_dt = 0.0;
@@ -76,14 +98,12 @@ class IntegrationBase {
   }
   bool IsValid() {
     if (sum_dt > 10.0){
-        LOG(WARNING)<<"Imu interval too large!! "<<sum_dt;
         return false;
     } 
     // LOG(INFO)<<acc_buf.size();
     // LOG(INFO) << common::RadToDeg(transform::GetYaw(delta_q));
     // if (acc_buf.size() <= 15 || acc_buf.size() >= 30) return false;
     if (acc_buf.size() <= 3 ){
-        LOG(WARNING)<<"acc_buf <3..";
         return false;
     } 
     return true;
@@ -206,7 +226,9 @@ class IntegrationBase {
       const Eigen::Quaterniond &Qj, const Eigen::Vector3d &Vj,
       const Eigen::Vector3d &Baj, const Eigen::Vector3d &Bgj) {
     Eigen::Matrix<double, 15, 1> residuals;
-
+    // LOG(INFO)<<ImuState{Pi,Qi,Vi,Bai,Bgi};
+    // LOG(INFO)<<ImuState{Pj,Qj,Vj,Baj,Bgj};
+    // LOG(INFO)<<jacobian;
     Eigen::Matrix3d dp_dba = jacobian.block<3, 3>(O_P, O_BA);
     Eigen::Matrix3d dp_dbg = jacobian.block<3, 3>(O_P, O_BG);
 
@@ -214,15 +236,15 @@ class IntegrationBase {
 
     Eigen::Matrix3d dv_dba = jacobian.block<3, 3>(O_V, O_BA);
     Eigen::Matrix3d dv_dbg = jacobian.block<3, 3>(O_V, O_BG);
-
+    // LOG(INFO)<<jacobian;
     Eigen::Vector3d dba = Bai - linearized_ba;
     Eigen::Vector3d dbg = Bgi - linearized_bg;
 
     Eigen::Quaterniond corrected_delta_q =
         delta_q * Utility::deltaQ(dq_dbg * dbg);
+    
     Eigen::Vector3d corrected_delta_v = delta_v + dv_dba * dba + dv_dbg * dbg;
     Eigen::Vector3d corrected_delta_p = delta_p + dp_dba * dba + dp_dbg * dbg;
-
     residuals.block<3, 1>(O_P, 0) =
         Qi.inverse() * (0.5 *G  * sum_dt * sum_dt + Pj - Pi - Vi * sum_dt) -
         corrected_delta_p;

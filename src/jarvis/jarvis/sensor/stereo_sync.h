@@ -16,7 +16,7 @@ class StereoSync {
   struct LocalImageData {
     common::Time time;
     std::string topic;
-    std::shared_ptr<cv::Mat> image;
+    cv::Mat image;
   };
   StereoSync(const double &cam0_cam1_time_offset_thresh_hold, double sample,
              std::function<void(const sensor::ImageData &)> call_back)

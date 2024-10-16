@@ -42,9 +42,10 @@ namespace jarvis {
 
 // }
 
-TrajectorBuilder::TrajectorBuilder(const std::string &config,
+TrajectorBuilder::TrajectorBuilder(const estimator::EstimatorOption &option,
                                    CallBack call_back)
-    :config_file_(config), tracker_(estimator::TrackerFactory(config)),
+    : esit_option_(option),
+      tracker_(std::make_unique<estimator::Estimator>(option)),
       call_back_(call_back) {
   //  cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   //  int pn = config.find_last_of('/');
@@ -69,7 +70,6 @@ TrajectorBuilder::TrajectorBuilder(const std::string &config,
   //          map_builder_option, std::make_unique<CameraModules>(config));
   //  map_builder_ = CreateMapBuilder(config);
 }
-TrajectorBuilder::TrajectorBuilder() {}
 //
 void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   auto tracking_data = tracker_->AddImageData(images);
@@ -79,7 +79,7 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
 
   if (tracking_data->status == 0) {
     LOG(ERROR)<<"Lost ....restart ..";
-    tracker_ = estimator::TrackerFactory(config_file_);
+    tracker_ = std::make_unique<estimator::Estimator>(esit_option_);
   }
 
 }

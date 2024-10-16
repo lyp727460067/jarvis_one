@@ -21,7 +21,7 @@
 //
 #include <glog/logging.h>
 
-#include <zmqpp/zmqpp.hpp>
+// #include <zmqpp/zmqpp.hpp>
 //
 #include <cv_bridge/cv_bridge.hpp>
 #include <stdio.h>

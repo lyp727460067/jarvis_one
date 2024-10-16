@@ -21,11 +21,16 @@ set(OpenCV_LIBS
     ${Opencv_lib_dir}/libopencv_flann.so
     ${Opencv_lib_dir}/libopencv_video.so
 )
+# 手动指定 OpenCL 的位置
+set(OPENCL_INCLUDE_DIRS ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/include)
+# set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/third_party/opencl/lib/libOpenCL.so)
 
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
 set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
+set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include)
+set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/lib/libmali.so)
 # set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
 # add_library(
 #         glog
@@ -39,19 +44,19 @@ set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
 #         ${glog_binary_dir}
 # )
 get_directory_property(out_var INCLUDE_DIRECTORIES)
-# message(****${out_var})
+message(****${out_var})
 string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
 set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
 get_directory_property(out_var1 INCLUDE_DIRECTORIES)
-# message(********${out_var1})
+message(********${out_var1})
 
 INCLUDE_DIRECTORIES(
   ${TOP_CMAKE_DIR}/vslam/src/jarvis/
   ${CERES_INCLUDE_DIRS}
-  # ${EIGEN3_INCLUDE_DIR}
+  ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
-
+  ${YAML_INCLUDE_DIRS}/
   ${GLOG_INCLUDE_DIRS}
   ${TOP_CMAKE_DIR}/libs/libmpc/include/
   ${TOP_CMAKE_DIR}/libs/libimageproc/include/
@@ -68,36 +73,40 @@ add_executable(mpslam  jarvis_slipe_detect_main.cc
  data_record.cc
  socket_wrapper.cc jarvis_brige.cc
  glog_sink.cc
+ gpu_pyramid_compute.cc
+ opencl_handler.cpp
  )
-add_executable(thread_test  jarvis_thread_test.cc
+add_executable(jarvis_eigen_test  jarvis_eigen_test.cc
  )
 
 
-target_link_libraries(thread_test PUBLIC
+target_link_libraries(jarvis_eigen_test PUBLIC
   -ldl
 )
 
-# add_executable(${PROJECT_NAME}_main  jarvis_main.cc data_capture.cc zmq_component.cc dev_socket.cc
-# socket_wrapper.cc 
-
-# )
-## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
-#   # glog
-#   jarvis
-#   ${OpenCV_LIBS}
-#   -ldl
-# )
 
 
-# target_include_directories( ${PROJECT_NAME}_pic_main  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-# target_link_libraries(mpslam PUBLIC
-#   # glog
-#   jarvis
-#   ${OpenCV_LIBS}
-#   -ldl
-#    mpc
-# )
+add_executable(${PROJECT_NAME}_gpu_main  jarvis_gpu_compute_py_test_main.cc
+
+)
+# Specify libraries to link a library or executable target against
+target_link_libraries(${PROJECT_NAME}_gpu_main PUBLIC
+  # glog
+  ${OPENCL_LIBRARIES}
+  ${OpenCV_LIBS}
+  -ldl
+)
+
+
+target_include_directories( ${PROJECT_NAME}_gpu_main  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(mpslam PUBLIC
+  # glog
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+   mpc
+
+)
 
 target_include_directories(mpslam  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(mpslam PUBLIC
@@ -105,5 +114,6 @@ target_link_libraries(mpslam PUBLIC
   ${OpenCV_LIBS}
   -ldl
   mpc
+  ${OPENCL_LIBRARIES}
 )
 target_include_directories(mpslam PUBLIC jarvis )

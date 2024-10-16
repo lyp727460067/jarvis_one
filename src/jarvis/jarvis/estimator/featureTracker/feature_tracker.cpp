@@ -17,112 +17,93 @@
 #include <opencv2/highgui/highgui_c.h>
 #include <opencv2/imgcodecs/legacy/constants_c.h>
 #include <opencv2/imgproc/types_c.h>
-#include "jarvis/estimator/featureTracker/xppyramid.hpp"
+
 #include "glog/logging.h"
+#include "jarvis/estimator/featureTracker/xppyramid.hpp"
 #include "random"
 namespace jarvis {
 namespace estimator {
-namespace {
-
-}
+namespace {}
 
 
-bool FeatureTracker::inBorder(const cv::Point2f &pt) {
-  const int BORDER_SIZE = 1;
-  int img_x = cvRound(pt.x);
-  int img_y = cvRound(pt.y);
-  return BORDER_SIZE <= img_x && img_x < col - BORDER_SIZE &&
-         BORDER_SIZE <= img_y && img_y < row - BORDER_SIZE;
-}
 
-double distance(cv::Point2f pt1, cv::Point2f pt2) {
-  // printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
-  double dx = pt1.x - pt2.x;
-  double dy = pt1.y - pt2.y;
-  return sqrt(dx * dx + dy * dy);
-}
-
-void reduceVector(std::vector<cv::Point2f> &v, std::vector<uchar> status) {
-  int j = 0;
-  for (int i = 0; i < int(v.size()); i++)
-    if (status[i]) v[j++] = v[i];
-  v.resize(j);
-}
-
-void reduceVector(std::vector<int> &v, std::vector<uchar> status) {
-  int j = 0;
-  for (int i = 0; i < int(v.size()); i++)
-    if (status[i]) v[j++] = v[i];
-  v.resize(j);
-}
-void reduceVector(std::vector<cv::Point2f> &v, std::vector<bool> status) {
-  int j = 0;
-  for (int i = 0; i < int(v.size()); i++)
-    if (status[i]) v[j++] = v[i];
-  v.resize(j);
-}
-
-void reduceVector(std::vector<int> &v, std::vector<bool> status) {
-  int j = 0;
-  for (int i = 0; i < int(v.size()); i++)
-    if (status[i]) v[j++] = v[i];
-  v.resize(j);
-}
 //
 FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
     : options_(option) {
   m_camera = options_.cameras;
-  if (options_.cameras.size() == 2) stereo_cam = 1;
-  pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
-  r_pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
+
+  VLOG(kGlogLevel) << option.pyrmid_option.image_size;
   feature_detect_ =
       std::make_unique<FeatureDetect>(option.feature_detect_option);
+  if (options_.pyramid_image.empty()) {
+    pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
+    r_pyramid_image_ = std::make_unique<PyramidImage>(option.pyrmid_option);
+  } else {
+    pyramid_image_ = options_.pyramid_image[0];
+    if (options_.pyramid_image.size()==2) {
+      r_pyramid_image_ = options_.pyramid_image[1];
+    }
+  }
+  cv::TermCriteria criteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30,
+                            0.01);
+  CalcOpticalFlowPyrLKOption klt_option{
+      options_.pyrmid_option.layer,
+      cv::Size{options_.pyrmid_option.lk_win_size,
+               options_.pyrmid_option.lk_win_size},
+      options_.pyrmid_option.image_size, criteria};
+  if (options_.klt_type == 0) {
+    calc_optical_flow_pyrlk_ =
+        std::make_unique<CalcOpticalFlowPyrLK>(klt_option);
+  } else {
+    calc_optical_flow_pyrlk_ =
+        std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
+  }
 }
 //
-void FeatureTracker::setMask() {
+//
+cv::Mat FeatureTracker::UpdatePointAndMask(
+    std::map<uint64_t, PointCnt> &points) {
   //
-  mask = options_.mask.clone();
+  cv::Mat mask = options_.mask.clone();
   // prefer to keep features that are tracked for long time
   std::vector<std::pair<int, std::pair<cv::Point2f, int>>> cnt_pts_id;
-
-  for (unsigned int i = 0; i < cur_pts.size(); i++)
-    cnt_pts_id.push_back(
-        std::make_pair(track_cnt[i], std::make_pair(cur_pts[i], ids[i])));
-
+  //
+  for (const auto &point : points) {
+    cnt_pts_id.push_back(std::make_pair(
+        point.second.track_cnt, std::make_pair(point.second.pt, point.first)));
+  }
   std::sort(cnt_pts_id.begin(), cnt_pts_id.end(),
             [](const std::pair<int, std::pair<cv::Point2f, int>> &a,
                const std::pair<int, std::pair<cv::Point2f, int>> &b) {
               return a.first > b.first;
             });
 
-  cur_pts.clear();
-  ids.clear();
-  track_cnt.clear();
+  points.clear();
 
   for (auto &it : cnt_pts_id) {
     if (mask.at<uchar>(it.second.first) >= 128) {
-      cur_pts.push_back(it.second.first);
-      ids.push_back(it.second.second);
-      track_cnt.push_back(it.first);
+      points[it.second.second].pt = it.second.first;
+      points[it.second.second].track_cnt = it.first;
       cv::circle(mask, it.second.first,
                  options_.feature_detect_option.mask_min_dist, 0, -1);
     }
   }
+  return mask;
 }
 
-double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2) {
+double distance(const cv::Point2f &pt1,
+                                const cv::Point2f &pt2) {
   // printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
   double dx = pt1.x - pt2.x;
   double dy = pt1.y - pt2.y;
   return sqrt(dx * dx + dy * dy);
 }
 
-
-#if 0
-cv::Mat GenerateImageWithKeyPoint(
-    const cv::Mat &l_img,  std::vector<cv::Point2f> l_key_points,const cv::Mat &r_img,
-     std::vector<cv::Point2f> r_key_points,std::vector<uchar> status
-  ) {
+#if 1
+cv::Mat GenerateImageWithKeyPoint(const cv::Mat &l_img,
+                                  std::map<uint64_t, PointCnt> l_key_points,
+                                  const cv::Mat &r_img,
+                                  std::map<uint64_t, PointCnt> r_key_points) {
   int col = l_img.cols;
   int row = l_img.rows;
   cv::Mat l_img_tmp;
@@ -136,19 +117,19 @@ cv::Mat GenerateImageWithKeyPoint(
   const int gap = 10;
   const int v_gap = 40;
 
-  cv::Mat gap_image(row+v_gap, gap, CV_8UC1, cv::Scalar(255, 255, 255));
-  cv::Mat v_gap_image(v_gap,col, CV_8UC1, cv::Scalar(0,0,0));
-  cv::vconcat(v_gap_image,l_img,l_img_tmp);
-  for(int i =0;i<l_key_points.size();i++){
-    l_key_points[i].y+=v_gap;
-  }
-  cv::vconcat(r_img,v_gap_image,r_img_tmp);
+  cv::Mat gap_image(row + v_gap, gap, CV_8UC1, cv::Scalar(255, 255, 255));
+  cv::Mat v_gap_image(v_gap, col, CV_8UC1, cv::Scalar(0, 0, 0));
+  cv::vconcat(v_gap_image, l_img, l_img_tmp);
+  //
 
-  
+  for (auto &p : l_key_points) {
+    p.second.pt.y += v_gap;
+  }
+  cv::vconcat(r_img, v_gap_image, r_img_tmp);
   cv::Mat gray_img, loop_match_img;
   cv::hconcat(l_img_tmp, gap_image, gap_image);
   cv::hconcat(gap_image, r_img_tmp, gray_img);
-  
+
   // common::FixedRatioSampler sampler(0.1);
   cvtColor(gray_img, loop_match_img, cv::COLOR_GRAY2RGB);
   std::mt19937 rng(42);
@@ -157,26 +138,28 @@ cv::Mat GenerateImageWithKeyPoint(
   std::uniform_int_distribution g_ound_distribution(1, 255);
 
   //
-  for (auto &&keypoint : (l_key_points)) {
+  for (auto &keypoint : (l_key_points)) {
     cv::Scalar color = cv::Scalar(255, 0, 0);
     // if (class_id.count(keypoint.class_id)) {
     //   cv::circle(loop_match_img, keypoint.pt, 2 ,cv::Scalar(0, 0, 255), 2);
     // } else {
-    cv::circle(loop_match_img, keypoint, 2,color , 2);
+    cv::circle(loop_match_img, keypoint.second.pt, 2, color, 2);
     // }
     // cv::putText(loop_match_img, std::to_string(keypoint.class_id),
     // keypoint.pt,
     //             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
   }
   for (auto &&keypoint : r_key_points) {
-    cv::circle(loop_match_img, {(int)keypoint.x + (col + gap), (int)keypoint.y}, 1, cv::Scalar(0, 255, 0), 2);
+    cv::circle(
+        loop_match_img,
+        {(int)keypoint.second.pt.x + (col + gap), (int)keypoint.second.pt.y}, 1,
+        cv::Scalar(0, 255, 0), 2);
   }
 
-  for (size_t j = 0; j < r_key_points.size(); j++) {
-    if(!status[j])continue;
-    cv::Point2f old_pt = r_key_points[j];
+  for (auto &p : r_key_points) {
+    cv::Point2f old_pt = p.second.pt;
     old_pt.x += (col + gap);
-    cv::line(loop_match_img, l_key_points[j], old_pt,
+    cv::line(loop_match_img, l_key_points[p.first].pt, old_pt,
              cv::Scalar(r_bound_distribution(rng), b_bound_distribution(rng),
                         g_ound_distribution(rng)),
              1, 8, 0);
@@ -190,551 +173,413 @@ cv::Mat GenerateImageWithKeyPoint(
   return loop_match_img;
 }
 #endif
-ImageFeatureTrackerData
-FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img,
-                           const cv::Mat &_img1,std::map<int,int>* track_num ,const double angle ) {
-  TicToc t_r;
-  cur_time = _cur_time;
-  cur_img = _img;
-  row = cur_img.rows;
-  col = cur_img.cols;
-  cv::Mat rightImg = _img1;
-  /*
-  {
-      cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
-      clahe->apply(cur_img, cur_img);
-      if(!rightImg.empty())
-          clahe->apply(rightImg, rightImg);
+bool CalcOpticalFlowPyrLK::InBorder(const cv::Point2f &pt) {
+  const int BORDER_SIZE = 1;
+  int img_x = cvRound(pt.x);
+  int img_y = cvRound(pt.y);
+  return BORDER_SIZE <= img_x &&
+         img_x < options_.image_size.x() - BORDER_SIZE &&
+         BORDER_SIZE <= img_y &&
+         img_y < options_.image_size.y() - BORDER_SIZE;
+}
+//
+void CalcOpticalFlowPyrLK::operator()(
+    const std::vector<cv::Mat> &pre_image,
+    const std::vector<cv::Mat> &cur_image,
+    const std::map<uint64_t, PointCnt> &prev_pts,
+    std::map<uint64_t, PointCnt> &cur_pts, int flags) {
+  // CHECK_EQ(int(pre_image.size()), (options_.level+1) * 2)
+      // << "Image need deriv image";
+  //
+  std::vector<uchar> status;
+  std::vector<float> err;
+  std::vector<cv::Point2f> v_prev_pts(prev_pts.size());
+  std::vector<cv::Point2f> v_cur_pts;
+  //
+
+  int i = 0;
+  std::vector<uint64_t> ids(prev_pts.size());
+  if (!cur_pts.empty()) {
+    v_cur_pts.resize(cur_pts.size());
   }
-  */
-  cur_pts.clear();
-  TicToc t_t1;
-  pyramid_image_->Build(_img);
-  VLOG(kGlogCostTimeLevel) << "pyramid_image_->Build " << t_t1.toc() << "ms";
-  // cv::imshow("pre",pyramid_image_->PrePyram().back());
-  // cv::imshow("pre1",pyramid_image_->CurrPyram().back());
+
+  for (const auto &pt : prev_pts) {
+    v_prev_pts[i] = pt.second.pt;
+    ids[i] = pt.first;
+    if (!cur_pts.empty()) {
+      CHECK(cur_pts.count(pt.first));
+      v_cur_pts[i] = cur_pts[pt.first].pt;
+    }
+    i++;
+  }
+  //
+  // cv::imshow("2",cur_image[0]);
+  // cv::imshow("1",pre_image[0]);
   // cv::waitKey(0);
-  const int level =  pyramid_image_->Layer()-1;
-  // LOG(INFO)<<level ;
+  //
+  cv::calcOpticalFlowPyrLK(pre_image, cur_image, v_prev_pts, v_cur_pts, status,
+                           err, options_.win_size, options_.level,
+                           options_.criteria, flags);
+  cur_pts.clear();
+  for (int i = 0; i < int(status.size()); i++) {
+    if (status[i] && InBorder(v_cur_pts[i])) {
+      cur_pts[ids[i]].pt = v_cur_pts[i];
+      cur_pts[ids[i]].track_cnt = prev_pts.at(ids[i]).track_cnt;
+    }
+  }
+}
+
+void XpCalcOpticalFlowPyrLK::operator()(const std::vector<cv::Mat> &pre_image,
+                                        const std::vector<cv::Mat> &cur_image,
+                                        const std::map<uint64_t, PointCnt> &prev_pts ,
+                                        std::map<uint64_t, PointCnt> &cur_pts,
+                                        int flags) {
+  CHECK_LE(options_.level, 4);
+  std::vector<float> err;
+  std::vector<bool> status;
   const int start_level = 0;
-  cv::Size win_size(options_.pyrmid_option.lk_win_size,
-                    options_.pyrmid_option.lk_win_size);
-  cv::TermCriteria criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
-  if (prev_pts.size() > 0) {
-    TicToc t_o;
-    std::vector<uchar> status;
-    std::vector<float> err;
-    // cur_pts = prev_pts;
-    if (hasPrediction) {
-      cur_pts = predict_pts;
-      cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
-                               pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                               status, err, win_size, level, criteria
-                               );
-      //
-      // std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
-      // pre_xp_kp_small.reserve(prev_pts.size());
-      // for (const auto &p : prev_pts) {
-      //   pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p));
-      // }
-
-      // XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLK(
-      //     pyramid_image_->PrePyram(), pyramid_image_->CurrPyram(),
-      //     &pre_xp_kp_small, &cur_pts, &status, &err, win_size, level,
-      //     start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
-
-      int succ_num = 0;
-      for (size_t i = 0; i < status.size(); i++) {
-        if (status[i]) succ_num++;
-      }
-      // LOG(INFO)<<succ_num ;
-      if (succ_num < 30) {
-        // {
-        //   cv::Mat gray_img, loop_match_img;
-        //   cvtColor(pyramid_image_->PrePyram()[0], loop_match_img,
-        //            cv::COLOR_GRAY2RGB);
-        //   for (auto &&keypoint : prev_pts) {
-        //     cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-        //   }
-        //   cv::imshow("lit", loop_match_img);
-        //   // cv::waitKey(0);
-        // }
-        // {
-        //   {
-        //     cv::Mat gray_img, loop_match_img;
-        //     cvtColor(pyramid_image_->CurrPyram()[0], loop_match_img,
-        //              cv::COLOR_GRAY2RGB);
-        //     for (auto &&keypoint : cur_pts) {
-        //       cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-        //     }
-        //     cv::imshow("lit1", loop_match_img);
-        //     cv::waitKey(0);
-        //   }
-        // }
-        cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
-                                 pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                                 status, err, win_size, level + 1, criteria);
-      }
-    } else {
-      cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
-                               pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-                               status, err, win_size, level+1, criteria);
+  //
+  std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
+  pre_xp_kp_small.reserve(prev_pts.size());
+  std::vector<Point2f> v_cur_pts;
+  if (!cur_pts.empty()) {
+    v_cur_pts.resize(cur_pts.size());
+    CHECK_EQ(v_cur_pts.size(), prev_pts.size());
+  }
+  //
+  std::vector<uint64_t> ids(prev_pts.size());
+  int i = 0;
+  for (const auto &p : prev_pts) {
+    pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p.second.pt));
+    ids[i] = p.first;
+    if (!cur_pts.empty()) {
+      v_cur_pts[i] = cur_pts[p.first].pt;
     }
-    // }
-    // } else {
-
-    // cv::calcOpticalFlowPyrLK(pyramid_image_->PrePyram(),
-    //                          pyramid_image_->CurrPyram(), prev_pts, cur_pts,
-    //                          status, err, win_size, 2);
-    // }
-
-    // reverse check
-    if (options_.track_back) {
-      // std::vector<bool> reverse_status;
-      // std::vector<cv::Point2f> reverse_pts = prev_pts;
-
-      // std::vector<XP::XP_OPTICAL_FLOW::XPKeyPoint> pre_xp_kp_small;
-      // pre_xp_kp_small.reserve(cur_pts.size());
-      // for (const auto &p : cur_pts) {
-      //   pre_xp_kp_small.push_back(XP::XP_OPTICAL_FLOW::XPKeyPoint(p));
-      // }
-      // //
-      // XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLK(
-      //     pyramid_image_->CurrPyram(), pyramid_image_->PrePyram(),
-      //     &pre_xp_kp_small, &reverse_pts, &reverse_status, &err, win_size,
-      //     level, start_level, criteria, cv::OPTFLOW_USE_INITIAL_FLOW);
-      std::vector<uchar> reverse_status;
-      std::vector<cv::Point2f> reverse_pts = prev_pts;
-      cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(),
-                               pyramid_image_->PrePyram(), cur_pts, reverse_pts,
-                               reverse_status, err, win_size, level+1, criteria,
-                               cv::OPTFLOW_USE_INITIAL_FLOW);
-      // cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts,
-      // reverse_status, err, cv::Size(21, 21), 3);
-      for (size_t i = 0; i < status.size(); i++) {
-        if (status[i] && reverse_status[i] &&
-            distance(prev_pts[i], reverse_pts[i]) <= 0.5) {
-          status[i] = 1;
-        } else
-          status[i] = 0;
-      }
-    }
-
-    for (int i = 0; i < int(cur_pts.size()); i++){
-       if (status[i] && !inBorder(cur_pts[i])) status[i] = 0; 
-    }
-    
-    reduceVector(prev_pts, status);
-    reduceVector(cur_pts, status);
-    reduceVector(ids, status);
-    reduceVector(track_cnt, status);
-
-
-    VLOG(kGlogCostTimeLevel) << "temporal optical flow costs:" << t_o.toc() << "ms";
-    // printf("track cnt %d\n", (int)ids.size());
+    i++;
   }
 
-  for (auto &n : track_cnt) n++;
+  XP::XP_OPTICAL_FLOW::XPcalcOpticalFlowPyrLKWithDeriv(
+      pre_image, cur_image, &pre_xp_kp_small, &v_cur_pts, &status, &err,
+      options_.win_size, options_.level, start_level, options_.criteria, flags);
 
-  if (1) {
-    // rejectWithF();
-    VLOG(kGlogCostTimeLevel) << "set mask begins";
-    TicToc t_m;
-    setMask();
-    VLOG(kGlogCostTimeLevel) << "set mask costs " << t_m.toc() << "ms";
-    VLOG(kGlogCostTimeLevel) << "detect feature begins";
-    TicToc t_t;
-    int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
-    if (n_max_cnt > 0) {
-      if (mask.empty()) {
-        LOG(INFO) << "mask is empty ";
-      }
-
-      if (mask.type() != CV_8UC1) {
-        LOG(INFO) << "mask type wrong ";
-      }
-      // cv::goodFeaturesToTrack(cur_img, n_pts, options_.max_feat_cnt - cur_pts.size(), 0.01,
-      //                         MIN_DIST, mask);
-      // std::vector<cv::Point2f> forw_pts;
-      // LOG(INFO)<<n_max_cnt;
-      n_pts = feature_detect_->Detect(cur_img,cur_pts, n_max_cnt,
-                                      pyramid_image_->CurrPyram()[1], mask);
-      // LOG(INFO)<<n_pts.size();
-    } else {
-      n_pts.clear();
+  cur_pts.clear();
+  for (int i = 0; i < int(status.size()); i++) {
+    if (status[i] && InBorder(v_cur_pts[i])) {
+      cur_pts[ids[i]].pt = v_cur_pts[i];
+      cur_pts[ids[i]].track_cnt = prev_pts.at(ids[i]).track_cnt;
     }
-    VLOG(kGlogCostTimeLevel) << "detect feature costs: " << t_t.toc() << " ms";
-
-    for (auto &p : n_pts) {
-      cur_pts.push_back(p);
-      ids.push_back(n_id++);
-      track_cnt.push_back(1);
-    }
-
-      //  cv::Mat gray_img, loop_match_img;
-      // cvtColor(_img, loop_match_img, cv::COLOR_GRAY2RGB);
-      // for (auto &&keypoint : cur_pts) {
-      //   cv::circle(loop_match_img, keypoint, 2, cv::Scalar(0, 255, 0), 1);
-      // }
-      // cv::imshow("lit",loop_match_img);
-      // cv::waitKey(0);
-
-
-    // printf("feature cnt after add %d\n", (int)ids.size());
   }
+}
+
+//
+//
+template <typename A, typename B>
+void MapIntersection(const std::map<A, B> &a, const std::map<A, B> &b,
+                     std::map<A, B> &resulta) {
+  auto a_it = a.begin();
+  auto b_it = b.begin();
+  while (a_it != a.end() && b_it != b.end()) {
+    if (a_it->first == b_it->first) {
+      // *result = *a_it;
+      resulta.insert(*a_it);
+      ++a_it;
+      ++b_it;
+    } else if (a_it->first < b_it->first) {
+      a_it = a.lower_bound(b_it->first);
+    } else {
+      b_it = b.lower_bound(a_it->first);
+    }
+  }
+}
+std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
+    const std::vector<cv::Mat> &pre_image,
+    const std::vector<cv::Mat> &cur_image,
+    const std::map<uint64_t, PointCnt> &prev_pts,
+    const std::map<uint64_t, PointCnt> &init_cur_pts,
+    int flags) {
+  if (prev_pts.empty()) return {};
+  std::map<uint64_t, PointCnt> cur_pts = init_cur_pts;
+  auto &calc_optical_flow_pyrlk = *calc_optical_flow_pyrlk_;
+  calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
+  const int succ_num = cur_pts.size();
+  if (succ_num < options_.try_recalc_min_num && flags != 0) {
+    cur_pts.clear();
+    calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
+  }
+  //
+
+  if (options_.track_back) {
+    std::map<uint64_t, PointCnt> prev_pts_tmp;
+    //
+    MapIntersection(prev_pts, cur_pts, prev_pts_tmp);
+    calc_optical_flow_pyrlk(cur_image, pre_image, cur_pts, prev_pts_tmp,
+                            cv::OPTFLOW_USE_INITIAL_FLOW);
+    for (auto it = cur_pts.begin(); it != cur_pts.end();) {
+      if (prev_pts_tmp.count(it->first) == 0) {
+        it = cur_pts.erase(it);
+        continue;
+      }
+      if (distance(prev_pts.at(it->first).pt, prev_pts_tmp[it->first].pt) >
+          options_.back_flow_min_distance) {
+        it = cur_pts.erase(it);
+        continue;
+      }
+      ++it;
+    }
+  }
+  return cur_pts;
+}
+//
+ImageFeatureTrackerData FeatureTracker::TrackImage(
+    const common::Time &time, const cv::Mat &_img,
+    const cv::Mat &_img1) {
+  curr_time_ =time;
+  //
   TicToc t_t;
-  cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
-  pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
-  VLOG(kGlogCostTimeLevel) << "  undistortedPts " << t_t.toc() << " ms";
-  if (!_img1.empty() && stereo_cam) {
+  pyramid_image_->Build(_img);
+  //
+  std::map<uint64_t, PointCnt> cur_pts;
+  if (!predit_pts_.empty()) {
+    cur_pts =
+        TrackImage(pyramid_image_->PrePyram(), pyramid_image_->CurrPyram(),
+                   prev_pts_,predit_pts_, cv::OPTFLOW_USE_INITIAL_FLOW);
+  } else {
+    cur_pts = TrackImage(pyramid_image_->PrePyram(),
+                         pyramid_image_->CurrPyram(), prev_pts_, prev_pts_);
+  }
+  //
+  VLOG(kGlogCostTimeLevel) << "TrackImage costs " << t_t.toc() << " ms";
+  for (auto &p : cur_pts) {
+    p.second.track_cnt++;
+  }
+  //
+
+  TicToc mask_t_t;
+  const cv::Mat mask = UpdatePointAndMask(cur_pts);
+
+  VLOG(kGlogCostTimeLevel) << "set mask costs " << mask_t_t.toc() << " ms";
+  std::vector<cv::Point2f> v_cur_pts;
+  //
+
+  std::map<TrackFeatureId, int> tracker_features_num;
+
+  for (auto &p : cur_pts) {
+    tracker_features_num.emplace(p.first, p.second.track_cnt);
+    v_cur_pts.push_back(p.second.pt);
+  }
+
+  int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
+  auto n_pts = feature_detect_->Detect(_img, v_cur_pts, n_max_cnt,
+                                       pyramid_image_->CurrPyram()[1], mask);
+
+  VLOG(kGlogLevel) << "Feature detect new num " << n_pts.size();
+
+  for (int i = 0; i < int(n_pts.size()); i++) {
+    cur_pts.emplace(tranck_id_, PointCnt{n_pts[i], 1});
+    tranck_id_+=1;
+  }
+  
+  std::map<uint64_t, PointCnt> cur_right_pts ;
+  if (!_img1.empty()) {
 
     TicToc t_t;
     r_pyramid_image_->Build(_img1);
-    ids_right.clear();
-    cur_right_pts.clear();
-    cur_un_right_pts.clear();
-    right_pts_velocity.clear();
-    cur_un_right_pts_map.clear();
-    if (!cur_pts.empty()) {
-      // printf("stereo image; track feature on right image\n");
-      std::vector<cv::Point2f> reverseLeftPts;
-      std::vector<uchar> status, statusRightLeft;
-      std::vector<float> err;
-      // cur left ---- cur right
-      cv::calcOpticalFlowPyrLK(pyramid_image_->CurrPyram(), r_pyramid_image_->CurrPyram(), cur_pts, cur_right_pts, status,
-                               err, cv::Size(21, 21), 3,criteria);
-      // reverse check cur right ---- cur left
+    cur_right_pts = TrackImage(pyramid_image_->CurrPyram(),
+                               r_pyramid_image_->CurrPyram(), cur_pts, {});
 
-      // auto f_state  = rejectWithF(cur_pts,cur_right_pts);
-      if (1) {
-        cv::calcOpticalFlowPyrLK(r_pyramid_image_->CurrPyram(), pyramid_image_->CurrPyram(), cur_right_pts, reverseLeftPts,
-                                 statusRightLeft, err, cv::Size(21, 21), 2,
-                                 criteria);
-        for (size_t i = 0; i < status.size(); i++) {
-          if (status[i]/*&& f_state[i]*/ && statusRightLeft[i] && inBorder(cur_right_pts[i]) &&
-              distance(cur_pts[i], reverseLeftPts[i]) <= 0.3  )
-            status[i] = 1;
-          else
-            status[i] = 0;
-        }
-      }
-      ids_right = ids;
-      // cv::Mat gray_img = GenerateImageWithKeyPoint(cur_img,cur_pts,_img1,cur_right_pts,status);     
-      reduceVector(cur_right_pts, status);
-      reduceVector(ids_right, status);
-      LOG(INFO)<<"Right points track size : "<<cur_right_pts.size();
-     
-      // cv::imshow("rit",gray_img);
-      // cv::waitKey(0);
-      // only keep left-right pts
-      /*
-      reduceVector(cur_pts, status);
-      reduceVector(ids, status);
-      reduceVector(track_cnt, status);
-      reduceVector(cur_un_pts, status);
-      reduceVector(pts_velocity, status);
-      */
-      cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
-      right_pts_velocity =
-          ptsVelocity(ids_right, cur_un_right_pts, cur_un_right_pts_map,
-                      prev_un_right_pts_map);
-    }
-    prev_un_right_pts_map = cur_un_right_pts_map;
-    VLOG(kGlogCostTimeLevel) << "  stereo_cam " << t_t.toc() << " ms";
+    // auto shwo_image =
+    //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
+
+    // cv::waitKey(0);
+    VLOG(kGlogLevel) << "Track r  num:" << cur_right_pts.size();
+    VLOG(kGlogCostTimeLevel) << "Track r Image costs " << t_t.toc() << " ms";
   }
-
-  prev_img = cur_img;
-  prev_pts = cur_pts;
-  prev_un_pts = cur_un_pts;
-  prev_un_pts_map = cur_un_pts_map;
-  prev_time = cur_time;
-  hasPrediction = false;
-
-  prevLeftPtsMap.clear();
-  for (size_t i = 0; i < cur_pts.size(); i++)
-    prevLeftPtsMap[ids[i]] = cur_pts[i];
-
-  // map<int, std::vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-  ImageFeatureTrackerData::Data result_data;
-  result_data.time = _cur_time;
-  for (size_t i = 0; i < ids.size(); i++) {
-    int feature_id = ids[i];
-    double x, y, z;
-    x = cur_un_pts[i].x;
-    y = cur_un_pts[i].y;
-    z = 1;
-    double p_u, p_v;
-    p_u = cur_pts[i].x;
-    p_v = cur_pts[i].y;
-    int camera_id = 0;
-    double velocity_x, velocity_y;
-    velocity_x = pts_velocity[i].x;
-    velocity_y = pts_velocity[i].y;
-
-    Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-    xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
-    result_data.features[feature_id] =
-        ImageFeatureTrackerData::FeatureTrackerData{
-            feature_id,
-            {ImageFeatureTrackerData::FeatureTrackerData::CameraFeature{
-                camera_id, Eigen::Vector3d{x, y, z}, Eigen::Vector2d{p_u, p_v},
-                Eigen::Vector2d{velocity_x, velocity_y}}},
-        };
-    result_data.tracker_features_num[feature_id] = track_cnt[i];
-    // featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
-    // if (track_num) {
-    //   (*track_num)[feature_id] = track_cnt[i];
-    // }
-  }
+  //
   
-  result_data.images[0]= cur_img;
-  if (!_img1.empty() && stereo_cam) {
-    int camera_id = 1;
-    for (size_t i = 0; i < ids_right.size(); i++) {
-      int feature_id = ids_right[i];
-      double x, y, z;
-      x = cur_un_right_pts[i].x;
-      y = cur_un_right_pts[i].y;
-      z = 1;
-      double p_u, p_v;
-      p_u = cur_right_pts[i].x;
-      p_v = cur_right_pts[i].y;
-      double velocity_x, velocity_y;
-      velocity_x = right_pts_velocity[i].x;
-      velocity_y = right_pts_velocity[i].y;
-
-      Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-      xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
-      result_data.features[feature_id].camera_features.emplace_back(
-          ImageFeatureTrackerData::FeatureTrackerData::CameraFeature{
-              camera_id, Eigen::Vector3d{x, y, z}, Eigen::Vector2d{p_u, p_v},
-              Eigen::Vector2d{velocity_x, velocity_y}});
-      // featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
-    }
-    result_data.images[camera_id]= rightImg;
+    TicToc tran_t_t;
+  auto result_data = TransToTrackerData(cur_pts, cur_right_pts);
+  result_data.data->images.push_back(_img);
+  if (_img1.empty()) {
+    result_data.data->images.push_back(_img1);
   }
-  VLOG(kGlogCostTimeLevel) <<"feature track whole time "<< t_r.toc();
-  return ImageFeatureTrackerData {
-    std::make_shared<ImageFeatureTrackerData::Data>(result_data)
-  };
-  // return featureFrame;
+  result_data.data->tracker_features_num = std::move(tracker_features_num);
+  result_data.data->time = curr_time_;
+  prev_time_ = curr_time_;
+  prev_pts_ = std::move(cur_pts);
+  predit_pts_.clear();
+  //
+
+    VLOG(kGlogCostTimeLevel) << "tranck other costs " << tran_t_t.toc() << " ms";
+  return result_data;
 }
 
- std::vector<uchar> FeatureTracker::rejectWithF(std::vector<cv::Point2f> &cur_pts,
-                                 std::vector<cv::Point2f> &prev_pts) {
-  if (cur_pts.size() >= 8) {
-    VLOG(kGlogLevel) << "FM ransac begins";
-    TicToc t_f;
-    std::vector<cv::Point2f> un_cur_pts(cur_pts.size()),
-        un_prev_pts(prev_pts.size());
-    for (unsigned int i = 0; i < cur_pts.size(); i++) {
-      Eigen::Vector3d tmp_p;
-      const std::vector<double> &cam0_intric =
-          options_.calibrate_option.camera_options[0].intrinsics;
+//
+ImageFeatureTrackerData FeatureTracker::TransToTrackerData(
+    const std::map<uint64_t, PointCnt> &cur_point,
+    const std::map<uint64_t, PointCnt> &cur_r_point) {
+  ImageFeatureTrackerData::Data result_data;
+  //
+  double dt = common::ToSeconds(curr_time_ - prev_time_);
+  //
+  std::map<uint64_t, Eigen::Vector3d> prev_un_pts;
+  std::map<uint64_t, Eigen::Vector3d> prev_un_right_pts;
+  for (auto &p : cur_point) {
 
-      m_camera[0]->liftProjective(Eigen::Vector2d(cur_pts[i].x, cur_pts[i].y),
-                                  tmp_p);
-      //
-      tmp_p.x() = cam0_intric[0] * tmp_p.x() / tmp_p.z() + cam0_intric[2];
-      tmp_p.y() = cam0_intric[1] * tmp_p.y() / tmp_p.z() + cam0_intric[3];
-      un_cur_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
-
-      const std::vector<double> &cam1_intric =
-          options_.calibrate_option.camera_options[1].intrinsics;
-
-      m_camera[1]->liftProjective(Eigen::Vector2d(prev_pts[i].x, prev_pts[i].y),
-                                  tmp_p);
-      tmp_p.x() = cam1_intric[0] * tmp_p.x() / tmp_p.z() + cam1_intric[2];
-      tmp_p.y() = cam1_intric[1] * tmp_p.y() / tmp_p.z() + cam1_intric[3];
-      un_prev_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
-    }
-
-    std::vector<uchar> status;
-    cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC,
-                           options_.ransac_threshold, 0.99, status);
-    int size_a = cur_pts.size();
-    
-    // reduceVector(prev_pts, status);
-    // reduceVector(cur_pts, status);
-    // reduceVector(cur_un_pts, status);
-    // reduceVector(ids, status);
-    // reduceVector(track_cnt, status);
-    const int ransac_inli_cnt = std::count(status.begin(), status.end(), 1);
-    VLOG(kGlogLevel) << "FM ransac: " << size_a << " -> " << ransac_inli_cnt
-                     << " " << 1.0 * ransac_inli_cnt / size_a;
-    return status;
+    //
+    FeatureData::CameraFeature feature =
+        FillAndUndistortedPt(p, prev_un_pts_, m_camera[0], dt);
+    result_data.features[p.first] =
+        FeatureData{TrackFeatureId(p.first), {feature}};
+    prev_un_pts[p.first] = feature.normal_points;
   }
+  for (auto &p : cur_r_point) {
+    //
+    
+
+    FeatureData::CameraFeature feature =
+        FillAndUndistortedPt(p, prev_un_right_pts_, m_camera[1], dt);
+    CHECK( cur_point.count(p.first))<<p.first;
+    result_data.features[p.first].camera_features.push_back(feature);
+    prev_un_right_pts[p.first] = feature.normal_points;
+
+  }
+
+  prev_un_right_pts_ = std::move(prev_un_right_pts);
+  prev_un_pts_ = std::move(prev_un_pts);
+  return ImageFeatureTrackerData{
+      std::make_shared<ImageFeatureTrackerData::Data>(result_data)};
+}
+//
+std::vector<uchar> FeatureTracker::rejectWithF(
+    std::vector<cv::Point2f> &cur_pts, std::vector<cv::Point2f> &prev_pts) {
+  // if (cur_pts.size() >= 8) {
+  //   VLOG(kGlogLevel) << "FM ransac begins";
+  //   TicToc t_f;
+  //   std::vector<cv::Point2f> un_cur_pts(cur_pts.size()),
+  //       un_prev_pts(prev_pts.size());
+  //   for (unsigned int i = 0; i < cur_pts.size(); i++) {
+  //     Eigen::Vector3d tmp_p;
+  //     const std::vector<double> &cam0_intric =
+  //         options_.calibrate_option.camera_options[0].intrinsics;
+
+  //     m_camera[0]->liftProjective(Eigen::Vector2d(cur_pts[i].x,
+  //     cur_pts[i].y),
+  //                                 tmp_p);
+  //     //
+  //     tmp_p.x() = cam0_intric[0] * tmp_p.x() / tmp_p.z() + cam0_intric[2];
+  //     tmp_p.y() = cam0_intric[1] * tmp_p.y() / tmp_p.z() + cam0_intric[3];
+  //     un_cur_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
+
+  //     const std::vector<double> &cam1_intric =
+  //         options_.calibrate_option.camera_options[1].intrinsics;
+
+  //     m_camera[1]->liftProjective(Eigen::Vector2d(prev_pts[i].x,
+  //     prev_pts[i].y),
+  //                                 tmp_p);
+  //     tmp_p.x() = cam1_intric[0] * tmp_p.x() / tmp_p.z() + cam1_intric[2];
+  //     tmp_p.y() = cam1_intric[1] * tmp_p.y() / tmp_p.z() + cam1_intric[3];
+  //     un_prev_pts[i] = cv::Point2f(tmp_p.x(), tmp_p.y());
+  //   }
+
+  //   std::vector<uchar> status;
+  //   cv::findFundamentalMat(un_cur_pts, un_prev_pts, cv::FM_RANSAC,
+  //                          options_.ransac_threshold, 0.99, status);
+  //   int size_a = cur_pts.size();
+
+  //   // reduceVector(prev_pts, status);
+  //   // reduceVector(cur_pts, status);
+  //   // reduceVector(cur_un_pts, status);
+  //   // reduceVector(ids, status);
+  //   // reduceVector(track_cnt, status);
+  //   const int ransac_inli_cnt = std::count(status.begin(), status.end(), 1);
+  //   VLOG(kGlogLevel) << "FM ransac: " << size_a << " -> " << ransac_inli_cnt
+  //                    << " " << 1.0 * ransac_inli_cnt / size_a;
+  //   return status;
+  // }
   return {};
 }
 
-void FeatureTracker::readIntrinsicParameter(
-    const std::vector<std::string> &calib_file) {}
-
-void FeatureTracker::showUndistortion(const std::string &name) {
-  cv::Mat undistortedImg(row + 600, col + 600, CV_8UC1, cv::Scalar(0));
-  std::vector<Eigen::Vector2d> distortedp, undistortedp;
-  for (int i = 0; i < col; i++)
-    for (int j = 0; j < row; j++) {
-      Eigen::Vector2d a(i, j);
-      Eigen::Vector3d b;
-      m_camera[0]->liftProjective(a, b);
-      distortedp.push_back(a);
-      undistortedp.push_back(Eigen::Vector2d(b.x() / b.z(), b.y() / b.z()));
-      // printf("%f,%f->%f,%f,%f\n)\n", a.x(), a.y(), b.x(), b.y(), b.z());
-    }
-  for (int i = 0; i < int(undistortedp.size()); i++) {
-    cv::Mat pp(3, 1, CV_32FC1);
-    pp.at<float>(0, 0) = undistortedp[i].x() * FOCAL_LENGTH + col / 2;
-    pp.at<float>(1, 0) = undistortedp[i].y() * FOCAL_LENGTH + row / 2;
-    pp.at<float>(2, 0) = 1.0;
-    // cout << trackerData[0].K << endl;
-    // printf("%lf %lf\n", p.at<float>(1, 0), p.at<float>(0, 0));
-    // printf("%lf %lf\n", pp.at<float>(1, 0), pp.at<float>(0, 0));
-    if (pp.at<float>(1, 0) + 300 >= 0 && pp.at<float>(1, 0) + 300 < row + 600 &&
-        pp.at<float>(0, 0) + 300 >= 0 && pp.at<float>(0, 0) + 300 < col + 600) {
-      undistortedImg.at<uchar>(pp.at<float>(1, 0) + 300,
-                               pp.at<float>(0, 0) + 300) =
-          cur_img.at<uchar>(distortedp[i].y(), distortedp[i].x());
-    } else {
-      // ROS_ERROR("(%f %f) -> (%f %f)", distortedp[i].y, distortedp[i].x,
-      // pp.at<float>(1, 0), pp.at<float>(0, 0));
-    }
+//
+FeatureData::CameraFeature FeatureTracker::FillAndUndistortedPt(
+    const std::pair<uint64_t, PointCnt> &pointid,
+    const std::map<uint64_t, Eigen::Vector3d> &pre_pointid,
+    camera_models::CameraPtr cam, double dt) {
+  Eigen::Vector2d a(pointid.second.pt.x, pointid.second.pt.y);
+  Eigen::Vector3d b;
+  cam->liftProjective(a, b);
+  Eigen::Vector2d pts_velocity{0, 0};
+  if (pre_pointid.count(pointid.first)) {
+    Eigen::Vector3d norm_points = b / b.z();
+    pts_velocity =
+        ((norm_points - pre_pointid.at(pointid.first)) / dt).head<2>();
   }
-  // turn the following code on if you need
-  // cv::imshow(name, undistortedImg);
-  // cv::waitKey(0);
+  return FeatureData::CameraFeature{b / b.z(), a, pts_velocity};
 }
 
-std::vector<cv::Point2f> FeatureTracker::undistortedPts(std::vector<cv::Point2f> &pts,
-                                                   camera_models::CameraPtr cam) {
-  std::vector<cv::Point2f> un_pts;
-  for (unsigned int i = 0; i < pts.size(); i++) {
-    Eigen::Vector2d a(pts[i].x, pts[i].y);
+std::map<uint64_t, Eigen::Vector2d> FeatureTracker::UndistortedPts(
+    const std::map<uint64_t, PointCnt> &pts, camera_models::CameraPtr cam) {
+  std::map<uint64_t, Eigen::Vector2d> un_pts;
+  for (const auto &point : pts) {
+    Eigen::Vector2d a(point.second.pt.x, point.second.pt.y);
     Eigen::Vector3d b;
     cam->liftProjective(a, b);
-    un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
+    un_pts.emplace(point.first, (b / b.z()).head<2>());
   }
   return un_pts;
 }
 
-std::vector<cv::Point2f> FeatureTracker::ptsVelocity(
-    std::vector<int> &ids, std::vector<cv::Point2f> &pts,
-    std::map<int, cv::Point2f> &cur_id_pts, std::map<int, cv::Point2f> &prev_id_pts) {
-  std::vector<cv::Point2f> pts_velocity;
-  cur_id_pts.clear();
-  for (unsigned int i = 0; i < ids.size(); i++) {
-    cur_id_pts.insert(std::make_pair(ids[i], pts[i]));
-  }
-
-  // caculate points velocity
-  if (!prev_id_pts.empty()) {
-    double dt = cur_time - prev_time;
-
-    for (unsigned int i = 0; i < pts.size(); i++) {
-      std::map<int, cv::Point2f>::iterator it;
-      it = prev_id_pts.find(ids[i]);
-      if (it != prev_id_pts.end()) {
-        double v_x = (pts[i].x - it->second.x) / dt;
-        double v_y = (pts[i].y - it->second.y) / dt;
-        pts_velocity.push_back(cv::Point2f(v_x, v_y));
-      } else
-        pts_velocity.push_back(cv::Point2f(0, 0));
+//
+std::map<uint64_t, Eigen::Vector2d> FeatureTracker::PtsVelocity(
+    const std::map<uint64_t, PointCnt> &pts,
+    const std::map<uint64_t, PointCnt> &pre_pts) {
+  std::map<uint64_t, Eigen::Vector2d> pts_velocity;
+  if (pre_pts.empty()) {
+    for (auto &p : pts) {
+      pts_velocity.emplace(p.first, Eigen::Vector2d::Zero());
     }
-  } else {
-    for (unsigned int i = 0; i < cur_pts.size(); i++) {
-      pts_velocity.push_back(cv::Point2f(0, 0));
+    return pts_velocity;
+  }
+  double dt = common::ToSeconds(curr_time_ - prev_time_);
+
+  for (auto &p : pts) {
+    std::map<int, cv::Point2f>::iterator it;
+    if (pre_pts.count(p.first)) {
+      const double v_x = (p.second.pt.x - pre_pts.at(p.first).pt.x) / dt;
+      const double v_y = (p.second.pt.y - pre_pts.at(p.first).pt.y) / dt;
+
+      pts_velocity.emplace(p.first, Eigen::Vector2d(v_x, v_y));
+    } else {
+      pts_velocity[p.first] = Eigen::Vector2d::Zero();
     }
   }
+
   return pts_velocity;
 }
-
-void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
-                               std::vector<int> &curLeftIds,
-                               std::vector<cv::Point2f> &curLeftPts,
-                               std::vector<cv::Point2f> &curRightPts,
-                               std::map<int, cv::Point2f> &prevLeftPtsMap) {
-  // int rows = imLeft.rows;
-  int cols = imLeft.cols;
-  if (!imRight.empty() && stereo_cam)
-    cv::hconcat(imLeft, imRight, imTrack);
-  else
-    imTrack = imLeft.clone();
-  cv::cvtColor(imTrack, imTrack, CV_GRAY2RGB);
-
-  for (size_t j = 0; j < curLeftPts.size(); j++) {
-    double len = std::min(1.0, 1.0 * track_cnt[j] / 20);
-    cv::circle(imTrack, curLeftPts[j], 2,
-               cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
-  }
-  if (!imRight.empty() && stereo_cam) {
-    for (size_t i = 0; i < curRightPts.size(); i++) {
-      cv::Point2f rightPt = curRightPts[i];
-      rightPt.x += cols;
-      cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
-      // cv::Point2f leftPt = curLeftPtsTrackRight[i];
-      // cv::line(imTrack, leftPt, rightPt, cv::Scalar(0, 255, 0), 1, 8, 0);
-    }
-  }
-
-  std::map<int, cv::Point2f>::iterator mapIt;
-  for (size_t i = 0; i < curLeftIds.size(); i++) {
-    int id = curLeftIds[i];
-    mapIt = prevLeftPtsMap.find(id);
-    if (mapIt != prevLeftPtsMap.end()) {
-      cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second,
-                      cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
-    }
-  }
-
-  // draw prediction
-  /*
-  for(size_t i = 0; i < predict_pts_debug.size(); i++)
-  {
-      cv::circle(imTrack, predict_pts_debug[i], 2, cv::Scalar(0, 170, 255), 2);
-  }
-  */
-  // printf("predict pts size %d \n", (int)predict_pts_debug.size());
-
-  // cv::Mat imCur2Compress;
-  // cv::resize(imCur2, imCur2Compress, cv::Size(cols, rows / 2));
-}
-
-void FeatureTracker::setPrediction(std::map<int, Eigen::Vector3d> &predictPts) {
-  hasPrediction = true;
-  predict_pts.clear();
-  predict_pts_debug.clear();
-  std::map<int, Eigen::Vector3d>::iterator itPredict;
-  for (size_t i = 0; i < ids.size(); i++) {
-    // printf("prevLeftId size %d prevLeftPts size
-    // %d\n",(int)prevLeftIds.size(), (int)prevLeftPts.size());
-    int id = ids[i];
-    itPredict = predictPts.find(id);
-    if (itPredict != predictPts.end()) {
+//
+void FeatureTracker::SetPrediction(
+    const std::map<int, Eigen::Vector3d> &predictPts) {
+  for (auto &point : predit_pts_) {
+    if (predictPts.count(point.first)) {
       Eigen::Vector2d tmp_uv;
-      m_camera[0]->spaceToPlane(itPredict->second, tmp_uv);
-      predict_pts.push_back(cv::Point2f(tmp_uv.x(), tmp_uv.y()));
-      predict_pts_debug.push_back(cv::Point2f(tmp_uv.x(), tmp_uv.y()));
-    } else
-      predict_pts.push_back(prev_pts[i]);
+      m_camera[0]->spaceToPlane(predictPts.at(point.first), tmp_uv);
+      //
+      predit_pts_.emplace(point.first,
+                          PointCnt{cv::Point2f(tmp_uv.x(), tmp_uv.y()),
+                                   point.second.track_cnt});
+    } else {
+      predit_pts_[point.first] = point.second;
+    }
   }
 }
 
-void FeatureTracker::removeOutliers(std::set<int> &removePtsIds) {
-  std::set<int>::iterator itSet;
-  std::vector<uchar> status;
-  for (size_t i = 0; i < ids.size(); i++) {
-    itSet = removePtsIds.find(ids[i]);
-    if (itSet != removePtsIds.end())
-      status.push_back(0);
-    else
-      status.push_back(1);
+void FeatureTracker::RemoveOutliers(const std::set<uint64_t> &removePtsIds) {
+  for (auto &id : removePtsIds) {
+    prev_pts_.erase(id);
+    predit_pts_.erase(id);
+    prev_un_pts_.erase(id);
+    prev_un_right_pts_.erase(id);
   }
-
-  reduceVector(prev_pts, status);
-  reduceVector(ids, status);
-  reduceVector(track_cnt, status);
 }
 
-cv::Mat FeatureTracker::getTrackImage() { return imTrack; }
-}  // namespace vins
-}  // namespace internal
+}  // namespace estimator
+}  // namespace jarvis

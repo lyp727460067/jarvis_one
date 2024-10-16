@@ -11,7 +11,7 @@
 #include "jarvis/estimator/data_base.h"
 #include "jarvis/estimator/parameters.h"
 #include "jarvis/utility/utility.h"
-#include "sensor/odometry_data.h"
+#include "jarvis/sensor/odometry_data.h"
 namespace jarvis {
 namespace estimator {
 
@@ -27,7 +27,7 @@ class OdomFactor {
   //
   void ComputeObserve(const common::Time start_time, const common::Time &time);
   void AddToProblem(ceres::Problem *problem, ceres::LossFunction *loss_function,
-                    std::array<double *, 3> pqe) const;
+                    const std::array<double *, 3> &pqe) const;
   void Merge(const OdomFactor &odom_factor);
   //
   std::optional<double> GetObserveDistance();

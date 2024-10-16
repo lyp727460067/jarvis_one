@@ -20,8 +20,8 @@ if(PLATFORM_mr527)
   add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
   add_definitions(-D__ARM_NEON__)
   add_definitions(-D__ARM_PLATFORM__)
-  ##
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
+  ##ofast编译会有问题，需要查看原因
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s  -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
   option(build_test "build test" OFF)
 
   set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
@@ -29,10 +29,9 @@ if(PLATFORM_mr527)
   set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
   set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
   set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
-  set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include/)
+  set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include)
   set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
-
-
+  message(${YAML_INCLUDE_DIRS})
   set(OpenCV_LIBS
       ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
       ${Opencv_lib_dir}/libopencv_imgcodecs.so
@@ -83,6 +82,8 @@ if(PLATFORM_mr527)
     ${TOP_CMAKE_DIR}/vslam/
   )
 else()
+  option(build_test "build test" ON)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)
   find_package(OpenCV REQUIRED)

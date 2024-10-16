@@ -13,14 +13,13 @@
 #include "projectionOneFrameTwoCamFactor.h"
 namespace jarvis {
 namespace estimator {
-Eigen::Matrix2d ProjectionOneFrameTwoCamFactor::sqrt_info =
-    Eigen::Matrix2d::Identity();
+
 double ProjectionOneFrameTwoCamFactor::sum_t = 0.0;
 
 ProjectionOneFrameTwoCamFactor::ProjectionOneFrameTwoCamFactor(
     const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
     const Eigen::Vector2d &_velocity_i, const Eigen::Vector2d &_velocity_j,
-    const double _td_i, const double _td_j)
+    const double _td_i, const double _td_j,double weight)
     : pts_i(_pts_i), pts_j(_pts_j), td_i(_td_i), td_j(_td_j) {
   velocity_i.x() = _velocity_i.x();
   velocity_i.y() = _velocity_i.y();
@@ -28,6 +27,8 @@ ProjectionOneFrameTwoCamFactor::ProjectionOneFrameTwoCamFactor(
   velocity_j.x() = _velocity_j.x();
   velocity_j.y() = _velocity_j.y();
   velocity_j.z() = 0;
+  sqrt_info =
+      weight*Eigen::Matrix2d::Identity();  
 #ifdef UNIT_SPHERE_ERROR
   Eigen::Vector3d b1, b2;
   Eigen::Vector3d a = pts_j.normalized();
