@@ -84,11 +84,6 @@ target_link_libraries(jarvis_eigen_test PUBLIC
   -ldl
 )
 
-
-
-add_executable(${PROJECT_NAME}_gpu_main  jarvis_gpu_compute_py_test_main.cc
-
-)
 # Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_gpu_main PUBLIC
   # glog
