@@ -138,7 +138,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
       feature_trackers_[i]->RemoveOutliers(rejection_outliers[i]);
     }
     if (failure_detect_->Detect(*slie_result)) {
-      // frame_data.status = TrackState::LOST;
+      frame_data.status = TrackState::LOST;
     }
     VLOG(kGlogCostTimeLevel) << "other costs " << other_t_t.toc() << " ms";
   } else {
