@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 
-#include "CL/cl.h"
+#include <CL/cl.h>
 #include "opencv2/core/core.hpp"
 namespace jarvis_pic{
 #define CHECK_ERROR(err)                                    \
