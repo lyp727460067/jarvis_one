@@ -131,8 +131,7 @@ void MarginalizationInfo::addResidualBlockInfo(
 }
 
 void MarginalizationInfo::preMarginalize() {
-  // VLOG(kGlogCostTimeLevel) << "marginalize fator size: " << factors.size();
-  std::cout << "marginalize fator size: " << factors.size() << std::endl;
+  VLOG(kGlogCostTimeLevel) << "marginalize fator size: " << factors.size();
   // LOG(INFO)<< factors.size();
   for (auto it : factors) {
     it->Evaluate();

@@ -282,7 +282,7 @@ int main(int argc, char* argv[]) {
               std::lock_guard<std::mutex> lock(jarvis_mutex);
               tracking_data_temp = data.data;
               slip_flag = data.slip_flag;
-              LOG(INFO) << tracking_data_temp.data->imu_state
+              LOG_EVERY_N(INFO,100) << tracking_data_temp.data->imu_state
                         << " state: " << tracking_data_temp.status;
               con_variable.notify_all();
             }

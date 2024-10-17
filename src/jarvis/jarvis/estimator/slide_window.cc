@@ -67,6 +67,7 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   last_feature_time_ = init_data->time;
   CHECK_EQ(int(imu_states_.size()), options_.win_size + 1);
   SlideData(true);
+  camera_imu_time_offset_ =  options_.camera_imu_time_offset;
 }
 
 std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
@@ -438,7 +439,7 @@ void SlideWindow::FrameDataToState() {
     para_Ex_Pose[i][5] = q.z();
     para_Ex_Pose[i][6] = q.w();
   }
-  LOG_EVERY_N(INFO,1)<<extric_info.str();
+  LOG_EVERY_N(INFO,100)<<extric_info.str();
 
   for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     //

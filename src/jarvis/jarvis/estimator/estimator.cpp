@@ -96,7 +96,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
                                               last_time_, images.time);
 
     //
-    LOG(INFO) << "predit costs" << t_t.toc() << " ms";
+    VLOG(kGlogCostTimeLevel) << "predit costs" << t_t.toc() << " ms";
     frame_data = FrameData{std::make_shared<FrameData::Data>(FrameData::Data{
         images.time,
         frame_id_,
@@ -120,14 +120,14 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
       // }
     }
 
-    LOG(INFO) << "track costs " << track_t_t.toc() << " ms";
+    VLOG(kGlogCostTimeLevel) << "track costs " << track_t_t.toc() << " ms";
 
     TicToc slide_t_t;
     std::unique_ptr<SlideWindowResult> slie_result =
         slide_wondows_->AddFeatureData(frame_data);
     //
 
-    LOG(INFO) << "side costs " << slide_t_t.toc() << " ms";
+    VLOG(kGlogCostTimeLevel) << "side costs " << slide_t_t.toc() << " ms";
     frame_data = slie_result->frame_data;
     imu_state_ = frame_data.data->imu_state;
     frame_data.status = TrackState::TRACKING;
@@ -138,9 +138,9 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
       feature_trackers_[i]->RemoveOutliers(rejection_outliers[i]);
     }
     if (failure_detect_->Detect(*slie_result)) {
-      frame_data.status = TrackState::LOST;
+      // frame_data.status = TrackState::LOST;
     }
-    LOG(INFO) << "other costs " << other_t_t.toc() << " ms";
+    VLOG(kGlogCostTimeLevel) << "other costs " << other_t_t.toc() << " ms";
   } else {
     ImageFeatureTrackerData featureFrame = feature_trackers_[0]->TrackImage(
         images.time, images.image[0], images.image[1]);
@@ -170,7 +170,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   //
 
   data_base_->TrimData(cur_time);
-  LOG(INFO) << "transform costs " << transform_t_t.toc() << " ms";
+  VLOG(kGlogCostTimeLevel) << "transform costs " << transform_t_t.toc() << " ms";
   return std::make_unique<FrameData>(frame_data);
 }
 //

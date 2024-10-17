@@ -28,6 +28,7 @@ struct SlideWindowOption {
   // double optimazation_outliers_rejection_th = 0.3;
   double rejection_points_depth_max_th = 30;
   std::vector<std::vector<int>> track_sequence;
+  double camera_imu_time_offset=0;
 //
 };
 //

@@ -54,6 +54,7 @@ void ParseOption(const std::string& config) {
   fsSettings["image_sample"] >> image_sample;
   fsSettings["start_image_time"] >> KStartImageTime;
     fsSettings["use_gpu"] >> kuse_gpu;
+    LOG(INFO)<< kuse_gpu;
   // fsSettings["record"] >> kRecordFlag;
   // fsSettings["data_capture"] >> kDataCaputureType;
 }
@@ -281,7 +282,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   for (const auto& image : images_datas) {
     //
     time = image.second.time;
-    if(time<22833527614000)continue;
+    // if(time<22833527614000)continue;
     // LOG(INFO) << "image time : " << image.second.time
     //           << " start imu t: " << imu_datas.begin()->first
     //           << ", end imu t: " << imu_datas.upper_bound(time)->first
@@ -325,8 +326,8 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
     // cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
-    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    cv::waitKey(0);
+    // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    // cv::waitKey(0);
     if(lr_image.empty()||vr_image.empty() )continue;
 
 
@@ -488,7 +489,7 @@ int main(int argc, char* argv[]) {
           slipe_alignment_pose =
               slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
         }
-        LOG(INFO) << tracking_data.data->imu_state;
+        // LOG(INFO) << tracking_data.data->imu_state;
         if (kRecordFlag) {
           const auto pose = tracking_data.data->imu_state.Pose();
           std::stringstream info;

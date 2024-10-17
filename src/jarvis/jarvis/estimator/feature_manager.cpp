@@ -285,7 +285,7 @@ void FeatureManager::CreateFactor(
         const double _td_i, const double _td_j,
         const std::tuple<int, int, int> &index)> &projection_one_frame_twocam) {
   //
-  std::stringstream info;
+  // std::stringstream info;
   int feature_index = -1;
   for (const auto &pair_it_per_id : features_) {
     const FeaturePerId it_per_id = pair_it_per_id.second;
@@ -300,8 +300,8 @@ void FeatureManager::CreateFactor(
     const Eigen::Vector2d imu_i_velocity =
         it_per_id.feature_per_frame[0].feature.camera_features[0].uv_velocity;
     //
-    info << "{" << imu_i << "}" << " " << it_per_id.feature_per_frame.size()
-         << " ";
+    // info << "{" << imu_i << "}" << " " << it_per_id.feature_per_frame.size()
+    //      << " ";
     for (auto it_per_frame : it_per_id.feature_per_frame) {
       imu_j++;
       if (imu_i != imu_j) {

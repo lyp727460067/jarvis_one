@@ -331,8 +331,8 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   ceres::Solve(options, &problem, &summary);
 
   final_cost_ = summary.final_cost;
-  VLOG(kGlogCeresLevel) << summary.BriefReport();
-  LOG_EVERY_N(INFO, 1) << "\n" << summary.FullReport();
+  LOG_EVERY_N(INFO, 10) << summary.BriefReport();
+  LOG_EVERY_N(INFO, 100) << "\n" << summary.FullReport();
   return &data_;
 }
 Optimization::~Optimization() {

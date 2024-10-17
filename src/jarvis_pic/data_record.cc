@@ -101,23 +101,29 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
       params[5] = 0;
       params[6] = cv::IMWRITE_JPEG_RST_INTERVAL;
       params[7] = 0;
-      // {
-      //   std::vector<uint8_t> datas;
-      //   cv::imencode(".jpeg", merge_image, datas, params);
-      //   UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 0,
-      //                                    uint64_t(frame.time * 1e3));
-      // }
-      // {
-      //   std::vector<uint8_t> datas;
-      //   cv::imencode(".jpeg", merge_image1, datas, params);
-      //   UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 1,
-      //                                    uint64_t(frame.time * 1e3));
-      // }
+      {
+        // std::vector<uint8_t> datas;
+        // cv::imencode(".jpeg", merge_image, datas, params);
+        // UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 0,
+        //                                  uint64_t(frame.time * 1e3));
+
+        cv::imwrite(image_data_dir_ +
+                        std::to_string(uint64_t(frame.time * 1e3)) + "_0.jpg",
+                    merge_image, params);
+      }
+      {
+        // std::vector<uint8_t> datas;
+        // cv::imencode(".jpeg", merge_image1, datas, params);
+        // UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 1,
+        //                                  uint64_t(frame.time * 1e3));
+
+        cv::imwrite(image_data_dir_ +
+                        std::to_string(uint64_t(frame.time * 1e3)) + "_1.jpg",
+                    merge_image1, params);
+      }
 
 
-    //   cv::imwrite(
-    //       image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) + ".jpg",
-    //       merge_image,params);
+
     });
   } else {
     LOG(WARNING) << "Not find " << time << "image..";

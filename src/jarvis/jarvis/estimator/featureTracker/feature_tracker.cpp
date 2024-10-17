@@ -435,7 +435,6 @@ ImageFeatureTrackerData FeatureTracker::TransToTrackerData(
   for (auto &p : cur_r_point) {
     //
     
-
     FeatureData::CameraFeature feature =
         FillAndUndistortedPt(p, prev_un_right_pts_, m_camera[1], dt);
     CHECK( cur_point.count(p.first))<<p.first;
@@ -508,12 +507,13 @@ FeatureData::CameraFeature FeatureTracker::FillAndUndistortedPt(
   Eigen::Vector3d b;
   cam->liftProjective(a, b);
   Eigen::Vector2d pts_velocity{0, 0};
+  Eigen::Vector3d norm_points = b / b.z();
   if (pre_pointid.count(pointid.first)) {
-    Eigen::Vector3d norm_points = b / b.z();
+
     pts_velocity =
         ((norm_points - pre_pointid.at(pointid.first)) / dt).head<2>();
   }
-  return FeatureData::CameraFeature{b / b.z(), a, pts_velocity};
+  return FeatureData::CameraFeature{norm_points, a, pts_velocity};
 }
 
 std::map<uint64_t, Eigen::Vector2d> FeatureTracker::UndistortedPts(
@@ -548,6 +548,7 @@ std::map<uint64_t, Eigen::Vector2d> FeatureTracker::PtsVelocity(
       const double v_y = (p.second.pt.y - pre_pts.at(p.first).pt.y) / dt;
 
       pts_velocity.emplace(p.first, Eigen::Vector2d(v_x, v_y));
+
     } else {
       pts_velocity[p.first] = Eigen::Vector2d::Zero();
     }

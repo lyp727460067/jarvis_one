@@ -84,7 +84,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         if (pyramid_thread_.joinable()) {
           auto start = std::chrono::high_resolution_clock::now();
           pyramid_thread_.join();
-          LOG(INFO) << "join frame cost: "
+          VLOG(1) << "join frame cost: "
                     << std::chrono::duration_cast<std::chrono::milliseconds>(
                            std::chrono::high_resolution_clock::now() - start)
                            .count();
@@ -128,7 +128,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         }
         auto start = std::chrono::high_resolution_clock::now();
         builder_->AddImageData(image_datas_pyra_[0].second);
-        LOG(INFO) << "One frame cost: "
+        VLOG(1) << "One frame cost: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::high_resolution_clock::now() - start)
                          .count();
@@ -147,10 +147,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
               image_datas_pyra_.back()
                   .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
                   pyrmd_drev;
-              LOG(INFO) << esit_option_.track_sequence[i][j];
             }
           }
-          LOG(INFO) << "1";
           image_datas_pyra_.back().first = true;
         });
       }
