@@ -99,6 +99,7 @@ void Marginalization::MergeCameraData(int id,
           const double td_i, const double td_j,
           const std::tuple<int, int, int> &index) {
         //
+        if (std::get<0>(index) != 0) return;
         ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
             pts_i, pts_j, velocity_i, velocity_j, td_i, td_j,cam_weight);
 
@@ -117,6 +118,7 @@ void Marginalization::MergeCameraData(int id,
           const double td_i, const double td_j,
           const std::tuple<int, int, int> &index) {
         //
+        if (std::get<0>(index) != 0) return;
         ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
             pts_i, pts_j, velocity_i, velocity_j, td_i, td_j,cam_weight);
 

@@ -217,7 +217,6 @@ void Optimization::AddFrameFactor(ceres::Problem *problem,
       VLOG(kGlogLevel) << j << " Imu avalid..";
       continue;
     }
-
     IMUFactor *imu_factor = new IMUFactor(pre_integration);
     problem->AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i],
                               para_Pose[j], para_SpeedBias[j]);
@@ -244,10 +243,10 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     ordering->AddElementToGroup(para_Pose[i], 1);
     problem.AddParameterBlock(para_Pose[i], SIZE_POSE, local_parameterization);
     problem.AddParameterBlock(para_SpeedBias[i], SIZE_SPEEDBIAS);
-    for (int j = 0; j < 6; j++) {
-      problem.SetParameterLowerBound(para_SpeedBias[i], j + 3, -1);
-      problem.SetParameterUpperBound(para_SpeedBias[i], j + 3, 1);
-    }
+    // for (int j = 0; j < 6; j++) {
+    //   problem.SetParameterLowerBound(para_SpeedBias[i], j + 3, -0.5);
+    //   problem.SetParameterUpperBound(para_SpeedBias[i], j + 3, 0.5);
+    // }
     ordering->AddElementToGroup(para_SpeedBias[i], 1);
   }
 
@@ -268,10 +267,10 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     if (options_.estimate_extrinsic == 0 || vs.norm() < 0.2 ) {
       problem.SetParameterBlockConstant(para_Ex_Pose[i]);
     }
-    // if (pre_integration == nullptr || pre_integration->IsValid() ||
-    //     common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 3)) {
-    //   problem.SetParameterBlockConstant(para_Ex_Pose[i]);
-    // };
+    if (/*pre_integration == nullptr || pre_integration->IsValid() ||  
+        common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 3)||*/ i>=2) {
+      problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+    };
   }
   problem.AddParameterBlock(para_Td[0], 1);
   ordering->AddElementToGroup(para_Td[0], 1);

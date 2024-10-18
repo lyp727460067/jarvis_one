@@ -36,7 +36,7 @@ struct CheckNode : public YAML::Node {
 };
 struct ImuOption {
   int frequency = 100;
-  double gravity_normal = 9.8;
+  double gravity_normal = 9.81;
   bool use_imu = true;
   bool do_rectify = false;
   Eigen::Matrix3d gyr_A= Eigen::Matrix3d::Zero();

@@ -279,6 +279,7 @@ void ParseYAMLOptionFetureOption(
   feature_option->feature_detect_option.grid_size.y() =
       fsSettings[feat_tack]["grid_size_y"];
   feature_option->klt_type = fsSettings[feat_tack]["klt_type"];
+  feature_option->back_flow_min_distance = fsSettings[feat_tack]["back_flow_min_distance"];
 
   //   feature_option->feature_detect_option.imag_size =
   //       camera_option.camera_options[0].resolution;

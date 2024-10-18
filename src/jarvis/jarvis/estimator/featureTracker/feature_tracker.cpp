@@ -125,11 +125,16 @@ cv::Mat GenerateImageWithKeyPoint(const cv::Mat &l_img,
   for (auto &p : l_key_points) {
     p.second.pt.y += v_gap;
   }
-  cv::vconcat(r_img, v_gap_image, r_img_tmp);
-  cv::Mat gray_img, loop_match_img;
-  cv::hconcat(l_img_tmp, gap_image, gap_image);
-  cv::hconcat(gap_image, r_img_tmp, gray_img);
+    cv::Mat gray_img, loop_match_img;  
+  if (!r_img.empty()) {
+    cv::vconcat(r_img, v_gap_image, r_img_tmp);
 
+    cv::hconcat(l_img_tmp, gap_image, gap_image);
+    cv::hconcat(gap_image, r_img_tmp, gray_img);
+  }else {
+
+    gray_img = l_img;
+  }
   // common::FixedRatioSampler sampler(0.1);
   cvtColor(gray_img, loop_match_img, cv::COLOR_GRAY2RGB);
   std::mt19937 rng(42);
@@ -307,7 +312,7 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
     calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
   }
   //
-
+  if(cur_pts.empty())return {};
   if (options_.track_back) {
     std::map<uint64_t, PointCnt> prev_pts_tmp;
     //
@@ -387,16 +392,16 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     cur_right_pts = TrackImage(pyramid_image_->CurrPyram(),
                                r_pyramid_image_->CurrPyram(), cur_pts, {});
 
-    // auto shwo_image =
-    //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
 
-    // cv::waitKey(0);
     VLOG(kGlogLevel) << "Track r  num:" << cur_right_pts.size();
     VLOG(kGlogCostTimeLevel) << "Track r Image costs " << t_t.toc() << " ms";
   }
   //
-  
-    TicToc tran_t_t;
+  // auto shwo_image =
+  //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
+  // cv::imshow("shwo_image", shwo_image);
+  // cv::waitKey(0);
+  TicToc tran_t_t;
   auto result_data = TransToTrackerData(cur_pts, cur_right_pts);
   result_data.data->images.push_back(_img);
   if (_img1.empty()) {

@@ -180,7 +180,6 @@ void FeatureManager::SetDepth(const std::vector<double> &x) {
     } else
       it_per_id.solve_flag = 1;
   }
-  // LOG(INFO)<<info.str();
   CHECK_EQ(feature_index,int(x.size()-1));
 }
 //
@@ -681,6 +680,7 @@ void FeatureManager::CreateFactor(
       //
       if (feature_per_frame.size() < 2) {
         it = features_.erase(it);
+        
         continue;
       } else {
         Eigen::Vector3d pts_i{uv_i * it->second.estimated_depth};
@@ -688,6 +688,7 @@ void FeatureManager::CreateFactor(
         Eigen::Vector3d w_pts_i = marg_p * pts_i;
         Eigen::Vector3d pts_j = new_p.inverse() * w_pts_i;
         double dep_j = pts_j(2);
+
         if (dep_j > 0)
           it->second.estimated_depth = dep_j;
         else
