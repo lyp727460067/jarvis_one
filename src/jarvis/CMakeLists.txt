@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(jarvis VERSION 1.0.0)
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 # set(BUILD_TYPE Debug)
-set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -15,7 +15,7 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
 set(BUILD_TYPE Release)
-
+set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 if(PLATFORM_mr527)
   add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
   add_definitions(-D__ARM_NEON__)
@@ -82,7 +82,6 @@ if(PLATFORM_mr527)
     ${TOP_CMAKE_DIR}/vslam/
   )
 else()
-  option(build_test "build test" ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)

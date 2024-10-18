@@ -326,8 +326,8 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
     // cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
-    // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    // cv::waitKey(0);
+    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    cv::waitKey(0);
     if(lr_image.empty()||vr_image.empty() )continue;
 
 

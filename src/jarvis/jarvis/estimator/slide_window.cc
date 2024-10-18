@@ -136,6 +136,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
         ImuState{Eigen::Vector3d::Zero(), Eigen::Quaterniond::Identity(),
                  Eigen::Vector3d::Zero(), ba, bg},
         options_.imu_option, imu_datas);
+
   };
   //
   //
@@ -163,6 +164,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   VLOG(kGlogCostTimeLevel) << "Triangulate costs " << tran_t_t.toc() << " ms";
   OptimizationData opt_data;
    TicToc opt_sum_t_t;
+  //  CHECK_EQ(odoms_factor_.size(),options_.win_size + 1);
   for (int i = 0; i < options_.win_size + 1; i++) {
     opt_data.odom_factors.push_back(odoms_factor_[i].get());
     opt_data.imu_factors.push_back(integration_base_[i].get());
@@ -213,22 +215,22 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
       if (depth > 0) {
         int start_frame = feat_manager->Features().at(track_id).start_frame;
         const Eigen::Vector3d cam_map_point =
-            features.second.camera_features[0].normal_points / depth;
-        
+            features.second.camera_features[0].normal_points * depth;
+
         //
         cam_features_data.map_points[track_id] =
             imu_states_[start_frame].Pose() *
             extric_camera_to_imu_[options_.opti_option
                                       .trace_sequence[cam_id][0]] *
             cam_map_point;
-        cam_features_data.key_points[track_id] =
-            cv::KeyPoint(features.second.camera_features[0].uv.x(),
-                         features.second.camera_features[0].uv.y(), 2);
+
       } else {
         remove_id.insert(track_id);
       }
+      cam_features_data.key_points[track_id] =
+          cv::KeyPoint(features.second.camera_features[0].uv.x(),
+                       features.second.camera_features[0].uv.y(), 2);
     }
-    
   }
   //
   last_feature_time_ = frame.data->time;
@@ -237,6 +239,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   fram_result.data->imu_state = imu_states_.back();
 
   VLOG(kGlogCostTimeLevel) << "fram_result costs " << fram_result_t_t.toc() << " ms";
+
+
   return std::make_unique<SlideWindowResult>(
       SlideWindowResult{fram_result, optimization_->FinalCost(),
                         feature_managers_->GetFeatTrackInfo(),
@@ -249,15 +253,17 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
    //
    //
    std::swap(imu_states_[imu_states_.size() - 2], imu_states_.back());
-   imu_states_.erase(imu_states_.end());
+
    if (integration_base_[imu_states_.size() - 2] && integration_base_.back()) {
      integration_base_[imu_states_.size() - 2]->Merge(
          *integration_base_.back());
    }
-   integration_base_.erase(integration_base_.end());
    if (odoms_factor_[odoms_factor_.size() - 2] && odoms_factor_.back()) {
      odoms_factor_[odoms_factor_.size() - 2]->Merge(*odoms_factor_.back());
    }
+
+   imu_states_.erase(imu_states_.end());
+   integration_base_.erase(integration_base_.end());
    odoms_factor_.erase(odoms_factor_.end());
    //
    //
@@ -267,9 +273,11 @@ void SlideWindow::SlideData(bool is_keyframe) {
   //
   CHECK_EQ(int(imu_states_.size() - 1), options_.win_size);
   //
-  if (is_keyframe) {
+  if(init_slide_new_num<options_.win_size+1){
+    init_slide_new_num++;
+  }
+  if (is_keyframe&& init_slide_new_num==options_.win_size+1) {
     //
-
     transform::Rigid3d marg_pose = imu_states_[0].Pose();
     imu_states_.erase(imu_states_.begin());
     transform::Rigid3d new_pose = imu_states_[0].Pose();

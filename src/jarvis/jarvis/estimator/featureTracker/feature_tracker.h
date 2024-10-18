@@ -68,7 +68,7 @@ struct FeatureTrackerOption {
   int track_back = 0;
   int max_feat_cnt = 100;
   double ransac_threshold = 1;
-  double back_flow_min_distance = 0.5;
+  double back_flow_min_distance = 0.3;
   int try_recalc_min_num = 30;
   int  klt_type =0;
   std::vector<std::shared_ptr<PyramidImage>>pyramid_image;

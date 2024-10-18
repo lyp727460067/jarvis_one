@@ -79,6 +79,7 @@ class SlideWindow {
   std::map<CameraId, std::set<TrackFeatureId>> rejection_outliers_;
   //
   //
+  int init_slide_new_num  =0;
   // std::vector<FrameData> frames_datas_;
   common::Time last_feature_time_;
   uint64_t global_id_ = 0;

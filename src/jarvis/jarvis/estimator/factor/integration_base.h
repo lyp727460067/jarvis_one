@@ -17,6 +17,7 @@ class IntegrationBase {
                   const std::vector<sensor::ImuData> &imu_datas)
       : IntegrationBase(options, imu_datas[0].linear_acceleration,
                         imu_datas[0].angular_velocity, state.ba, state.bg) {
+    
     for (size_t i = 1; i < imu_datas.size(); i++) {
       double dt = common::ToSeconds(imu_datas[i].time - imu_datas[i - 1].time);
       push_back(dt, imu_datas[i].linear_acceleration,
@@ -74,7 +75,7 @@ class IntegrationBase {
   void Merge(const IntegrationBase &rhs) {
     //
     for (int i = 0; i < static_cast<int>(rhs.acc_buf.size()); i++) {
-      dt_buf.push_back(dt);
+      dt_buf.push_back(rhs.dt_buf[i]);
       acc_buf.push_back(rhs.acc_buf[i]);
       gyr_buf.push_back(rhs.gyr_buf[i]);
       propagate(rhs.dt_buf[i], rhs.acc_buf[i], rhs.gyr_buf[i]);
@@ -97,7 +98,7 @@ class IntegrationBase {
       propagate(dt_buf[i], acc_buf[i], gyr_buf[i]);
   }
   bool IsValid() {
-    if (sum_dt > 10.0){
+    if (sum_dt > 1){
         return false;
     } 
     // LOG(INFO)<<acc_buf.size();

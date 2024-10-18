@@ -105,12 +105,12 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     TicToc track_t_t;
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       CHECK(!images.image[options_.track_sequence[i][0]].empty());
-      // if (options_.track_sequence[i].size() == 2 &&  (++testnum_>100)/* &&stereo_sample_->Pulse()*/ ) {
+      // if (options_.track_sequence[i].size() == 2 &&  stereo_sample_->Pulse() ) {
       //   ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
       //       images.time, images.image[options_.track_sequence[i][0]],
       //       images.image[options_.track_sequence[i][1]]);
-      //   // frame_data.data->features_datas.emplace(
-      //   //     i, FrameData::FeatureData{featureFrame});
+      //   frame_data.data->features_datas.emplace(
+      //       i, FrameData::FeatureData{featureFrame});
       //   LOG(INFO)<<"use stereo ..";
       // } else {
         ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
@@ -137,6 +137,20 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       feature_trackers_[i]->RemoveOutliers(rejection_outliers[i]);
     }
+
+    for (size_t i = 0;
+         i < slie_result->frame_data.data->extric_camera_to_imu.size(); i++) {
+      transform::Rigid3d &ext =
+          slie_result->frame_data.data->extric_camera_to_imu[i];
+      if (abs(options_.slide_windows_option.extric_camera_to_imu[i]
+                  .translation()
+                  .norm() -
+              ext.translation().norm()) > 0.2) {
+        LOG(ERROR) << "opti ex error,lost." << ext;
+        frame_data.status = TrackState::LOST;
+      }
+    }
+
     if (failure_detect_->Detect(*slie_result)) {
       frame_data.status = TrackState::LOST;
     }
