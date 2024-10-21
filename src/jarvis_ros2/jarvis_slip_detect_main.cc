@@ -488,7 +488,7 @@ int main(int argc, char* argv[]) {
 
           ros_compont->PubBoolMsg(flag);
           slipe_alignment_pose =
-              slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
+              ((tracking_data.data->imu_state.Pose()));
         }
         // LOG(INFO) << tracking_data.data->imu_state;
         if (kRecordFlag) {
