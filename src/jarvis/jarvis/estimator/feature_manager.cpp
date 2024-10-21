@@ -245,13 +245,13 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
       }
       // need to rewrite projecton factor.........
       if (it_per_frame.IsStereo()) {
-        // Eigen::Vector3d pts_j =
-        //     it_per_frame.feature.camera_features[1].normal_points;
-        // double tmp_error =
-        //     ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
-        // err += tmp_error;
+        Eigen::Vector3d pts_j =
+            it_per_frame.feature.camera_features[1].normal_points;
+        double tmp_error =
+            ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
+        err += tmp_error;
         // printf("right tmp_error %f\n", tmp_error);
-        // errCnt++;
+        errCnt++;
       }
     }
     double ave_err = err / errCnt;
@@ -597,56 +597,228 @@ void FeatureManager::CreateFactor(
       feature.estimated_depth = options_.init_depth;
     }
   }
-
+void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
+                                      Eigen::Matrix<double, 3, 4> &Pose1,
+                                      Eigen::Vector2d &point0,
+                                      Eigen::Vector2d &point1,
+                                      Eigen::Vector3d &point_3d) {
+  Eigen::Matrix4d design_matrix = Eigen::Matrix4d::Zero();
+  design_matrix.row(0) = point0[0] * Pose0.row(2) - Pose0.row(0);
+  design_matrix.row(1) = point0[1] * Pose0.row(2) - Pose0.row(1);
+  design_matrix.row(2) = point1[0] * Pose1.row(2) - Pose1.row(0);
+  design_matrix.row(3) = point1[1] * Pose1.row(2) - Pose1.row(1);
+  Eigen::Vector4d triangulated_point;
+  triangulated_point =
+      design_matrix.jacobiSvd(Eigen::ComputeFullV).matrixV().rightCols<1>();
+  point_3d(0) = triangulated_point(0) / triangulated_point(3);
+  point_3d(1) = triangulated_point(1) / triangulated_point(3);
+  point_3d(2) = triangulated_point(2) / triangulated_point(3);
+}
 
   void FeatureManager::Triangulate(
       int frameCnt, const std::vector<transform::Rigid3d> &sw_pose,
       const std::vector<transform::Rigid3d> &ex_came_to_imu) {
-     for (auto &pair_it_per_id : features_) {
-      auto &it_per_id = pair_it_per_id.second;
+    //
+    std::vector<Eigen::Vector3d> Ps; 
+    std::vector<Eigen::Matrix3d> Rs; 
+    std::vector<Eigen::Vector3d> tic; 
+    std::vector<Eigen::Matrix3d> ric;
+    for (size_t i = 0; i < sw_pose.size(); i++) {
+      Ps.push_back(sw_pose[i].translation());
+      Rs.push_back(sw_pose[i].rotation().toRotationMatrix());
+    }
+    for (size_t i = 0; i < ex_came_to_imu.size(); i++) {
+      tic.push_back(ex_came_to_imu[i].translation());
+      ric.push_back(ex_came_to_imu[i].rotation().toRotationMatrix());
+    }
+    for (auto &pari_it_per_id : features_) {
+        auto& it_per_id = pari_it_per_id.second; 
       if (it_per_id.estimated_depth > 0) continue;
-      //
+
       if (options_.use_stereo && it_per_id.feature_per_frame[0].IsStereo()) {
-        TriangulateStero(pair_it_per_id.first, sw_pose, ex_came_to_imu);
+        int imu_i = it_per_id.start_frame;
+        Eigen::Matrix<double, 3, 4> leftPose;
+        Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+        Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+        leftPose.leftCols<3>() = R0.transpose();
+        leftPose.rightCols<1>() = -R0.transpose() * t0;
+        // cout << "left pose " << leftPose << endl;
+
+        Eigen::Matrix<double, 3, 4> rightPose;
+        Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[1];
+        Eigen::Matrix3d R1 = Rs[imu_i] * ric[1];
+        rightPose.leftCols<3>() = R1.transpose();
+        rightPose.rightCols<1>() = -R1.transpose() * t1;
+        // cout << "right pose " << rightPose << endl;
+        Eigen::Vector2d point0, point1;
+        Eigen::Vector3d point3d;
+
+      auto &features_id = features_[pari_it_per_id.first];
+      point0 = features_id.feature_per_frame[0]
+                                        .feature.camera_features[0]
+                                        .normal_points.head<2>();
+       point1 = features_id.feature_per_frame[0]
+                                        .feature.camera_features[1]
+                                        .normal_points.head<2>();
+        // cout << "point0 " << point0.transpose() << endl;
+        // cout << "point1 " << point1.transpose() << endl;
+        triangulatePoint(leftPose, rightPose, point0, point1, point3d);
+        Eigen::Vector3d localPoint;
+        localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
+        double depth = localPoint.z();
+        const Eigen::Vector3d localPoint_r =
+            rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
+        // LOG(INFO)<<depth;
+        if (depth > 0.5 && localPoint_r.z() > 0.5){
+          it_per_id.estimated_depth = depth;
+        }
+       else {
+        it_per_id.estimated_depth = options_.init_depth;
+       }
+        /*
+        Vector3d ptsGt = pts_gt[it_per_id.feature_id];
+        printf("stereo %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id,
+        point3d.x(), point3d.y(), point3d.z(), ptsGt.x(), ptsGt.y(), ptsGt.z());
+        */
         continue;
       } else if (it_per_id.feature_per_frame.size() > 1) {
-        TriangulateCurAfter(pair_it_per_id.first, sw_pose, ex_came_to_imu);
+        int imu_i = it_per_id.start_frame;
+        Eigen::Matrix<double, 3, 4> leftPose;
+        Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+        Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+        leftPose.leftCols<3>() = R0.transpose();
+        leftPose.rightCols<1>() = -R0.transpose() * t0;
+
+        imu_i++;
+        Eigen::Matrix<double, 3, 4> rightPose;
+        Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[0];
+        Eigen::Matrix3d R1 = Rs[imu_i] * ric[0];
+        rightPose.leftCols<3>() = R1.transpose();
+        rightPose.rightCols<1>() = -R1.transpose() * t1;
+
+        Eigen::Vector2d point0, point1;
+        Eigen::Vector3d point3d;
+        //
+        point0 = it_per_id.feature_per_frame[0]
+                     .feature.camera_features[0]
+                     .normal_points.head<2>();
+        //
+        point1 = it_per_id.feature_per_frame[1]
+                     .feature.camera_features[0]
+                     .normal_points.head<2>();
+        //
+        // point1 = it_per_id.feature_per_frame[1].
+        triangulatePoint(leftPose, rightPose, point0, point1, point3d);
+        Eigen::Vector3d localPoint;
+        localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
+        const Eigen::Vector3d localPoint_r =
+            rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
+        double depth = localPoint.z();
+        if (depth > 0.5 && localPoint_r.z() > 0.5)
+          it_per_id.estimated_depth = depth;
+        else
+          it_per_id.estimated_depth = options_.init_depth;
+        /*
+        Vector3d ptsGt = pts_gt[it_per_id.feature_id];
+        printf("motion  %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id,
+        point3d.x(), point3d.y(), point3d.z(), ptsGt.x(), ptsGt.y(), ptsGt.z());
+        */
         continue;
       }
-      //
       if (it_per_id.UsedNum() < options_.convin_used_num) continue;
-      //
-
       int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+
       Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
-      //
-      CHECK_LE(imu_i, int(sw_pose.size() - 1));
-      //
-      const transform::Rigid3d &frame_pose0 =
-          sw_pose[imu_i] * ex_came_to_imu[0];
-      std::vector<transform::Rigid3d> sw_poses;
-      // sw_poses.push_back(frame_pose0);
-      //
-      std::vector<Eigen::Vector2d> normal_points;
+      int svd_idx = 0;
+
+      Eigen::Matrix<double, 3, 4> P0;
+      Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+      Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+      P0.leftCols<3>() = Eigen::Matrix3d::Identity();
+      P0.rightCols<1>() = Eigen::Vector3d::Zero();
+
       for (auto &it_per_frame : it_per_id.feature_per_frame) {
         imu_j++;
-        const transform::Rigid3d &frame_posei =
-            sw_pose[imu_j] * ex_came_to_imu[0];
-        sw_poses.push_back(frame_posei);
 
-        const Eigen::Vector3d &point0 =
+        Eigen::Vector3d t1 = Ps[imu_j] + Rs[imu_j] * tic[0];
+        Eigen::Matrix3d R1 = Rs[imu_j] * ric[0];
+        Eigen::Vector3d t = R0.transpose() * (t1 - t0);
+        Eigen::Matrix3d R = R0.transpose() * R1;
+        Eigen::Matrix<double, 3, 4> P;
+        P.leftCols<3>() = R.transpose();
+        P.rightCols<1>() = -R.transpose() * t;
+        Eigen::Vector3d f =
             it_per_frame.feature.camera_features[0].normal_points.normalized();
-        normal_points.push_back(point0.head<2>());
+        svd_A.row(svd_idx++) = f[0] * P.row(2) - f[2] * P.row(0);
+        svd_A.row(svd_idx++) = f[1] * P.row(2) - f[2] * P.row(1);
+
         if (imu_i == imu_j) continue;
       }
-      const Eigen::Vector3d point3d = TriangulatePoint(sw_poses, normal_points);
-      const Eigen::Vector3d local_points = frame_pose0 * point3d;
-      it_per_id.estimated_depth = local_points.z();
+      CHECK(svd_idx == svd_A.rows());
+      Eigen::Vector4d svd_V =
+          Eigen::JacobiSVD<Eigen::MatrixXd>(svd_A, Eigen::ComputeThinV)
+              .matrixV()
+              .rightCols<1>();
+      double svd_method = svd_V[2] / svd_V[3];
+      // it_per_id->estimated_depth = -b / A;
+      // it_per_id->estimated_depth = svd_V[2] / svd_V[3];
+
+      it_per_id.estimated_depth = svd_method;
+      // it_per_id->estimated_depth = INIT_DEPTH;
 
       if (it_per_id.estimated_depth < 0.1) {
         it_per_id.estimated_depth = options_.init_depth;
       }
     }
+
+    return;
+
+    //     //////
+    //     for (auto &pair_it_per_id : features_) {
+    //   auto &it_per_id = pair_it_per_id.second;
+    //   if (it_per_id.estimated_depth > 0) continue;
+    //   //
+    //   if (options_.use_stereo && it_per_id.feature_per_frame[0].IsStereo()) {
+    //     TriangulateStero(pair_it_per_id.first, sw_pose, ex_came_to_imu);
+    //     continue;
+    //   } else if (it_per_id.feature_per_frame.size() > 1) {
+    //     TriangulateCurAfter(pair_it_per_id.first, sw_pose, ex_came_to_imu);
+    //     continue;
+    //   }
+    //   //
+    //   if (it_per_id.UsedNum() < options_.convin_used_num) continue;
+    //   //
+
+    //   int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+    //   Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
+    //   //
+    //   CHECK_LE(imu_i, int(sw_pose.size() - 1));
+    //   //
+    //   const transform::Rigid3d &frame_pose0 =
+    //       sw_pose[imu_i] * ex_came_to_imu[0];
+    //   std::vector<transform::Rigid3d> sw_poses;
+    //   // sw_poses.push_back(frame_pose0);
+    //   //
+    //   std::vector<Eigen::Vector2d> normal_points;
+    //   for (auto &it_per_frame : it_per_id.feature_per_frame) {
+    //     imu_j++;
+    //     const transform::Rigid3d &frame_posei =
+    //         sw_pose[imu_j] * ex_came_to_imu[0];
+    //     sw_poses.push_back(frame_posei);
+
+    //     const Eigen::Vector3d &point0 =
+    //         it_per_frame.feature.camera_features[0].normal_points.normalized();
+    //     normal_points.push_back(point0.head<2>());
+    //     if (imu_i == imu_j) continue;
+    //   }
+    //   const Eigen::Vector3d point3d = TriangulatePoint(sw_poses, normal_points);
+    //   const Eigen::Vector3d local_points = frame_pose0 * point3d;
+    //   it_per_id.estimated_depth = local_points.z();
+
+    //   if (it_per_id.estimated_depth < 0.1) {
+    //     it_per_id.estimated_depth = options_.init_depth;
+    //   }
+    // }
   }
 
   //

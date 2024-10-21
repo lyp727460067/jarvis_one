@@ -15,7 +15,7 @@ class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9> {
  public:
   IMUFactor() = delete;
   IMUFactor(IntegrationBase *_pre_integration)
-      : pre_integration(_pre_integration),G(0,0,9.8) {
+      : pre_integration(_pre_integration),G(0,0,9.81) {
         
       }
   virtual bool Evaluate(double const *const *parameters, double *residuals,

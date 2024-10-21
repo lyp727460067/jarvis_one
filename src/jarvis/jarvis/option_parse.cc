@@ -112,6 +112,51 @@ void ParseYAMLOption(const std::string &file_path,
   const std::string config_file = file_path + "/config.yml";
   CHECK(CheckFileExist(cam_chain_file)) << cam_chain_file << " not exist.";
   CHECK(CheckFileExist(config_file)) << config_file << " not exist.";
+   {
+    info << "Start parse " << cam_chain_file << "\n";
+    cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
+    if (!fsSettings.isOpened()) {
+      LOG(FATAL) << "ERROR: Wrong path to settings";
+    }
+    {
+    cv::Mat cv_T;
+    fsSettings["cam2RobotT"] >> cv_T;
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    cv::cv2eigen(cv_T, T);
+    calibrate_options->extric_camera_to_robot = jarvis::transform::Rigid3d(
+        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+    calibrate_options->extric_camera_to_odom.push_back(
+        calibrate_options->extric_camera_to_robot);
+    //
+    }
+    {
+    cv::Mat cv_T;
+    fsSettings["cam2RobotT_side_left"] >> cv_T;
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    cv::cv2eigen(cv_T, T);
+   auto extric_camera_to_robot = jarvis::transform::Rigid3d(
+        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+    calibrate_options->extric_camera_to_odom.push_back(
+        extric_camera_to_robot);
+    //
+    }
+    {
+    cv::Mat cv_T;
+    fsSettings["cam2RobotT_side_right"] >> cv_T;
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    cv::cv2eigen(cv_T, T);
+    auto extric_camera_to_robot = jarvis::transform::Rigid3d(
+        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+    calibrate_options->extric_camera_to_odom.push_back(
+        extric_camera_to_robot);
+    //
+    }
+
+
+
+  }
+
+
  {
     LOG(INFO) << "Start parse " << cam_chain_file;
     CheckNode paras = YAML::LoadFile(cam_chain_file);
@@ -166,28 +211,32 @@ void ParseYAMLOption(const std::string &file_path,
       //
       //
     }
-  
+
     std::swap(calibrate_options->extric_camera_to_imu[2],
               calibrate_options->extric_camera_to_imu[3]);
     std::swap(calibrate_options->camera_options[2],
               calibrate_options->camera_options[3]);
-  }
+    //
+    transform::Rigid3d cam2tocam0 =
+        calibrate_options->extric_camera_to_odom[0].inverse() *
+        calibrate_options->extric_camera_to_odom[1];
+    LOG(INFO)<<"camcham "<<calibrate_options->extric_camera_to_imu[2];
+    calibrate_options->extric_camera_to_imu[2] =
+        calibrate_options->extric_camera_to_imu[0] * cam2tocam0;
+    //
+    LOG(INFO)<<"camodom "<<calibrate_options->extric_camera_to_imu[2];
+    transform::Rigid3d cam3tocam0 =
+        calibrate_options->extric_camera_to_odom[0].inverse() *
+        calibrate_options->extric_camera_to_odom[2];
 
+    LOG(INFO)<<"camcham "<<calibrate_options->extric_camera_to_imu[3];
+    calibrate_options->extric_camera_to_imu[3] =
+        calibrate_options->extric_camera_to_imu[0] * cam3tocam0;
 
+    LOG(INFO)<<"camodom "<<calibrate_options->extric_camera_to_imu[3];
+ }
 
-  {
-    info << "Start parse " << cam_chain_file << "\n";
-    cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
-    if (!fsSettings.isOpened()) {
-      LOG(FATAL) << "ERROR: Wrong path to settings";
-    }
-    cv::Mat cv_T;
-    fsSettings["cam2RobotT"] >> cv_T;
-    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
-    cv::cv2eigen(cv_T, T);
-    calibrate_options->extric_camera_to_robot = jarvis::transform::Rigid3d(
-        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
-  }
+ 
 }
 
 void ParseYAMLOptionImuOption(cv::FileStorage *fs, jarvis::ImuOption *option,
@@ -279,7 +328,8 @@ void ParseYAMLOptionFetureOption(
   feature_option->feature_detect_option.grid_size.y() =
       fsSettings[feat_tack]["grid_size_y"];
   feature_option->klt_type = fsSettings[feat_tack]["klt_type"];
-  feature_option->back_flow_min_distance = fsSettings[feat_tack]["back_flow_min_distance"];
+  feature_option->back_flow_min_distance =
+      fsSettings[feat_tack]["back_flow_min_distance"];
 
   //   feature_option->feature_detect_option.imag_size =
   //       camera_option.camera_options[0].resolution;

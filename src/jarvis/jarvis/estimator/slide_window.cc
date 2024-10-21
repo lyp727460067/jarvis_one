@@ -227,9 +227,9 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
       } else {
         remove_id.insert(track_id);
       }
-      cam_features_data.key_points[track_id] =
-          cv::KeyPoint(features.second.camera_features[0].uv.x(),
-                       features.second.camera_features[0].uv.y(), 2);
+      // cam_features_data.key_points[track_id] =
+      //     cv::KeyPoint(features.second.camera_features[0].uv.x(),
+      //                  features.second.camera_features[0].uv.y(), 2);
     }
   }
   //
@@ -276,7 +276,7 @@ void SlideWindow::SlideData(bool is_keyframe) {
   if(init_slide_new_num<options_.win_size+1){
     init_slide_new_num++;
   }
-  if (is_keyframe&& init_slide_new_num==options_.win_size+1) {
+  if (is_keyframe /*&& init_slide_new_num==options_.win_size+1*/) {
     //
     transform::Rigid3d marg_pose = imu_states_[0].Pose();
     imu_states_.erase(imu_states_.begin());
