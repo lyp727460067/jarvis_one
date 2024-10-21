@@ -96,6 +96,7 @@ struct CalibrateOption {
   std::vector<CameraOption> camera_options;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   transform::Rigid3d extric_camera_to_robot;
+  std::vector<transform::Rigid3d> extric_camera_to_odom;
 };
 
 template <typename Option>

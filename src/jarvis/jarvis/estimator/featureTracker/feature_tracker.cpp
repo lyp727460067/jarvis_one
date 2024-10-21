@@ -514,7 +514,6 @@ FeatureData::CameraFeature FeatureTracker::FillAndUndistortedPt(
   Eigen::Vector2d pts_velocity{0, 0};
   Eigen::Vector3d norm_points = b / b.z();
   if (pre_pointid.count(pointid.first)) {
-
     pts_velocity =
         ((norm_points - pre_pointid.at(pointid.first)) / dt).head<2>();
   }

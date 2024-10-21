@@ -64,13 +64,13 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
     // cv::Mat grayMat;
     // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
     // cv::transpose(grayMat, out_grayMat);
-    return grayMat;
+    return grayMat.clone();
   } else {
     // cv::Mat yuvMat(height + height / 2, width, CV_8UC1, (unsigned char*)buf);
     // cv::Mat grayMat;
     // cv::cvtColor(yuvMat, grayMat, cv::COLOR_YUV2GRAY_NV21);
     cv::Mat grayMat(height,width,CV_8UC1,(unsigned char*)buf);
-    return grayMat;
+    return grayMat.clone();
   }
 }
 

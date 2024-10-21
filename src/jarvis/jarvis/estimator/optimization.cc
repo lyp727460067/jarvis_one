@@ -269,7 +269,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     }
     if (/*pre_integration == nullptr || pre_integration->IsValid() ||  
         common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 3)||*/ i>=2) {
-      problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+      // problem.SetParameterBlockConstant(para_Ex_Pose[i]);
     };
   }
   problem.AddParameterBlock(para_Td[0], 1);

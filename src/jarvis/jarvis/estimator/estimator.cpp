@@ -137,7 +137,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       feature_trackers_[i]->RemoveOutliers(rejection_outliers[i]);
     }
-
+    LOG(INFO)<<slie_result->frame_data.data->extric_camera_to_imu.size();
     for (size_t i = 0;
          i < slie_result->frame_data.data->extric_camera_to_imu.size(); i++) {
       transform::Rigid3d &ext =

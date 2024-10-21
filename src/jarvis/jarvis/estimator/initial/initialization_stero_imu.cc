@@ -116,19 +116,36 @@ SteroImuInitialization::OptimizationResult() {
       problem.SetParameterLowerBound(para_speed[i].data(), j + 3, -1);
       problem.SetParameterUpperBound(para_speed[i].data(), j + 3, 1);
     }
+
   }
-  //
-  for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     ceres::LocalParameterization* local_parameterization =
         new PoseLocalParameterization();
 
-    problem.AddParameterBlock(para_ex_pose[i].data(), SIZE_POSE,
+ 
+    problem.AddParameterBlock(para_ex_pose[0].data(), SIZE_POSE,
                               local_parameterization);
-    if (options_.opti_option.estimate_extrinsic == 0) {
-      problem.SetParameterBlockConstant(para_ex_pose[i].data());
-    }
-  }
+    problem.AddParameterBlock(para_ex_pose[1].data(), SIZE_POSE,
+                              local_parameterization);
+
+
   //
+  // for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
+  //   ceres::LocalParameterization* local_parameterization =
+  //       new PoseLocalParameterization();
+
+  //   problem.AddParameterBlock(para_ex_pose[i].data(), SIZE_POSE,
+  //                             local_parameterization);
+
+  //     LOG(INFO)<<options_.opti_option.estimate_extrinsic;
+  //   if (options_.opti_option.estimate_extrinsic == 0) {
+  //     LOG(INFO)<<options_.opti_option.estimate_extrinsic;
+  //     problem.SetParameterBlockConstant(para_ex_pose[i].data());
+  //   }
+  // }
+  //
+
+  problem.SetParameterBlockConstant(para_ex_pose[0].data());
+  problem.SetParameterBlockConstant(para_ex_pose[1].data());
   problem.AddParameterBlock(&para_dt, 1);
   problem.SetParameterBlockConstant(&para_dt);
   for (int i = 0; i < options_.sw_size; i++) {

@@ -319,17 +319,18 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 
     //             }}));
 
-  try{
+  // try{
     const cv::Mat lr_image =
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
     // cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
-    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    cv::waitKey(0);
-    if(lr_image.empty()||vr_image.empty() )continue;
 
+    if(lr_image.empty()||vr_image.empty() )continue;
+    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    cv::imshow("vr_image",vr_image);
+    cv::waitKey(0);
 
 
     order_queue_->AddData(
@@ -344,9 +345,9 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                     vr_image(cv::Rect(0, 0, 544, 640)).clone(),
                     vr_image(cv::Rect(544, 0, 544, 640)).clone()
                 }}));
-  }catch(cv::Exception){
+  // }catch(cv::Exception){
 
-  }
+  // }
     // time+=100*1000*1000;
   }
   if (!imu_datas.empty()) {
