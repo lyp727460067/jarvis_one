@@ -472,6 +472,7 @@ void RosCompont::OnLocalTrackingResultCallback(
                                   "pre_imag", "curr_imag", {0});
     CommpressedImagePub(cam_feature.first, image_result);
     for (auto &feature : cam_feature.second.features.data->features) {
+      if(cam_feature.second.map_points.count(feature.first)==0)continue;
       map_points.push_back(cam_feature.second.map_points[feature.first]);
     }
 

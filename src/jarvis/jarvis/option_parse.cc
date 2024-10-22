@@ -10,7 +10,12 @@
 #include "opencv2/core/eigen.hpp"
 #include "opencv2/opencv.hpp"
 #include "yaml-cpp/yaml.h"
+
 namespace jarvis {
+
+double timeshift_cam_imu = 0;
+
+double GetTimeShiftCamImu() { return timeshift_cam_imu; }
 std::string defalt_extric = R"(
 cam0:
   FOV: [107.93911113317935, 88.90577703348904]
@@ -103,6 +108,7 @@ CameraOption ParseYAMLOptionCameraOption(const CheckNode &paras, int i) {
       cam_node["distortion_model"].as<std::string>();
   camera_option.resolution = {cam_node["resolution"].as<std::vector<int>>()[0],
                               cam_node["resolution"].as<std::vector<int>>()[1]};
+  camera_option.timeshift_cam_imu   =  cam_node["timeshift_cam_imu"].as<double>();
   return camera_option;
 }
 template <>
@@ -135,7 +141,7 @@ void ParseYAMLOption(const std::string &file_path,
     Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
     cv::cv2eigen(cv_T, T);
    auto extric_camera_to_robot = jarvis::transform::Rigid3d(
-        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)).normalized());
     calibrate_options->extric_camera_to_odom.push_back(
         extric_camera_to_robot);
     //
@@ -176,14 +182,11 @@ void ParseYAMLOption(const std::string &file_path,
     //
     for (int i = 0; i < kCameraNum; i++) {
 
-      LOG(INFO)<<i;
       const CheckNode cam_node = paras["cam" + std::to_string(i)];
       const transform::Rigid3d ext_para = GetCameraExt(cam_node);
 
-      LOG(INFO)<<i;
       const CheckNode defalt_cam_node = defalt_paras["cam" + std::to_string(i)];
       const transform::Rigid3d defalt_ext_para = GetCameraExt(defalt_cam_node);
-
       LOG(INFO)<<i;
       if (abs(defalt_ext_para.translation().norm() -
               ext_para.translation().norm()) > 0.03) {
@@ -211,7 +214,45 @@ void ParseYAMLOption(const std::string &file_path,
       //
       //
     }
+    // Eigen::Matrix3d temp;
+    // temp << 9.9995443247882831e-01, 4.4208498469253781e-03,
+    //     8.4610314132053579e-03, -4.4454512625568387e-03, 9.9998593988640494e-01,
+    //     2.8910192969837647e-03, -8.4481316879260245e-03,
+    //     -2.9285006631791207e-03, 9.9996002567845144e-01;
+    // Eigen::Vector3d temp_t(-7.9909196183143521e+01, 7.4353285997290131e-02,
+    //                        4.9535770968658988e-01);
 
+    // temp_t = temp_t * 0.001;
+    // transform::Rigid3d temp_ex(temp_t, Eigen::Quaterniond(temp).normalized());
+    // LOG(INFO)<<transform::Rot2ypr(temp.transpose());
+    // //
+    // temp_ex = temp_ex.inverse();
+    // LOG(INFO) << "cam0cam1: "
+    //           << calibrate_options->extric_camera_to_imu[0].inverse() *
+    //                  calibrate_options->extric_camera_to_imu[1];
+    // transform::Rigid3d diff_temp_ex = (calibrate_options->extric_camera_to_imu[0].inverse() *
+    //                  calibrate_options->extric_camera_to_imu[1]).inverse()* temp_ex;
+    // LOG(INFO)<<diff_temp_ex <<" diff_temp_ex "<<transform::Rot2ypr(diff_temp_ex.rotation().toRotationMatrix());
+    // LOG(INFO) << "rcam0cam1 " << temp_ex;
+    // //
+
+    // LOG(INFO) << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
+    //                                     .rotation()
+    //                                     .toRotationMatrix()) ;
+                    
+    // // calibrate_options->extric_camera_to_imu[1] =
+    // //     calibrate_options->extric_camera_to_imu[0] * temp_ex;
+    // //
+    // LOG(INFO)<<calibrate_options->extric_camera_to_imu[0];
+    // LOG(INFO)<<calibrate_options->extric_camera_to_imu[1];
+
+    // LOG(INFO) << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
+    //                                     .rotation()
+    //                                     .toRotationMatrix()) ;
+    // LOG(INFO) << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[1]
+    //                                     .rotation()
+    //                                     .toRotationMatrix()) ;
+    
     std::swap(calibrate_options->extric_camera_to_imu[2],
               calibrate_options->extric_camera_to_imu[3]);
     std::swap(calibrate_options->camera_options[2],
@@ -364,6 +405,7 @@ void ParseYAMLOption(const std::string &file,
   CalibrateOption calib_option;
   ParseYAMLOption(cali_path, &calib_option);
   //
+  timeshift_cam_imu   = calib_option.camera_options[0].timeshift_cam_imu;
   int pn = file.find_last_of('/');
   std::string configPath = file.substr(0, pn);
   std::string estimator_name = opencv_file["estimator"];
@@ -429,7 +471,6 @@ void ParseYAMLOption(const std::string &file,
       option->feature_track_options.push_back(feature_manager_option);
     }
     //
-    LOG(INFO) << "1";
     for (int i = 1; i < track_cam_num; i++, j++) {
       jarvis::estimator::FeatureTrackerOption feature_manager_option;
       ParseYAMLOptionFetureOption(&fsSettings, i, &feature_manager_option,

@@ -307,10 +307,12 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
   auto &calc_optical_flow_pyrlk = *calc_optical_flow_pyrlk_;
   calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
   const int succ_num = cur_pts.size();
+  // LOG(INFO)<<"pre pts size:"<<prev_pts.size();
   if (succ_num < options_.try_recalc_min_num && flags != 0) {
     cur_pts.clear();
     calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
   }
+  // LOG(INFO)<<"cur pts size:"<< cur_pts.size();
   //
   if(cur_pts.empty())return {};
   if (options_.track_back) {
@@ -319,6 +321,8 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
     MapIntersection(prev_pts, cur_pts, prev_pts_tmp);
     calc_optical_flow_pyrlk(cur_image, pre_image, cur_pts, prev_pts_tmp,
                             cv::OPTFLOW_USE_INITIAL_FLOW);
+
+    // LOG(INFO)<<"back pts size:"<<  prev_pts_tmp.size();
     for (auto it = cur_pts.begin(); it != cur_pts.end();) {
       if (prev_pts_tmp.count(it->first) == 0) {
         it = cur_pts.erase(it);
@@ -396,7 +400,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     VLOG(kGlogLevel) << "Track r  num:" << cur_right_pts.size();
     VLOG(kGlogCostTimeLevel) << "Track r Image costs " << t_t.toc() << " ms";
   }
-  //
+  
   // auto shwo_image =
   //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
   // cv::imshow("shwo_image", shwo_image);
@@ -513,6 +517,7 @@ FeatureData::CameraFeature FeatureTracker::FillAndUndistortedPt(
   cam->liftProjective(a, b);
   Eigen::Vector2d pts_velocity{0, 0};
   Eigen::Vector3d norm_points = b / b.z();
+  // LOG(INFO)<<pointid.first<<" "<<norm_points.transpose(); 
   if (pre_pointid.count(pointid.first)) {
     pts_velocity =
         ((norm_points - pre_pointid.at(pointid.first)) / dt).head<2>();

@@ -52,6 +52,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   builder_ = std::make_unique<jarvis::TrajectorBuilder>(esit_option_,
                                                         std::move(call_back));
 
+  imu_cam_time_offset  = jarvis::GetTimeShiftCamImu();
+  LOG(INFO)<<"imu_cam_time_offset   "<<imu_cam_time_offset  ;
   order_queue_->AddQueue(
       kImuTopic, [&](const jarvis::sensor::ImuData& imu_data) {
         // LOG(INFO) << imu_data.time;

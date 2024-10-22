@@ -20,12 +20,8 @@ Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     feature_trackers_.emplace(
         i, std::make_unique<FeatureTracker>(options_.feature_track_options[i]));
-    LOG(INFO)<<options_.feature_track_options[i].feature_detect_option.imag_size;
-    LOG(INFO)<<options_.feature_track_options[i].feature_detect_option.grid_size;
-    LOG(INFO)<<options_.feature_track_options[i].mask.size();
   }
   if (options_.use_stero) {
-    LOG(INFO) << options_.stero_imu_init_option.imu_option.DebugInfo();
     initials_.emplace(0, std::make_unique<SteroImuInitialization>(
                              options_.stero_imu_init_option, data_base_.get()));
   } else {
@@ -93,8 +89,8 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   if (slide_wondows_) {
       TicToc t_t;
     imu_state_ = pose_predit_->PreditDataBase(imu_state_, data_base_.get(),
-                                              last_time_, images.time);
-
+                                              last_time_, cur_time);
+    imu_state_.time = cur_time;
     //
     VLOG(kGlogCostTimeLevel) << "predit costs" << t_t.toc() << " ms";
     frame_data = FrameData{std::make_shared<FrameData::Data>(FrameData::Data{

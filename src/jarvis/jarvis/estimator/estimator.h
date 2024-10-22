@@ -69,9 +69,7 @@ class Estimator {
   // 
   std::map<int, std::unique_ptr<FeatureTracker>> feature_trackers_;
   std::map<int, std::unique_ptr<InitializationInterface>> initials_;
-  
   const EstimatorOption options_;
-
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
   std::unique_ptr<DataBase> data_base_ = nullptr;
   jarvis::transform::Rigid3d transform_imu_to_robot_;

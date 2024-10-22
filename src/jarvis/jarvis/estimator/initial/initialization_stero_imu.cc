@@ -82,7 +82,6 @@ SteroImuInitialization::OptimizationResult() {
   std::array<double, 7> para_ex_pose[options_.extric_camera_to_imu.size()];
   //
   //
-  LOG(INFO) << init_bgs_.transpose();
   for (int i = 0; i <= options_.sw_size; i++) {
     para_pose[i] = (std::array<double, 7>{PoseToAarr(sw_pose_[i])});
     para_speed[i] = std::array<double, 9>(
@@ -97,8 +96,6 @@ SteroImuInitialization::OptimizationResult() {
   //
   for (size_t i = 0; i < options_.extric_camera_to_imu.size(); i++) {
     para_ex_pose[i] = (PoseToAarr(options_.extric_camera_to_imu[i]));
-    LOG(INFO) << para_ex_pose[i][0] << " " << para_ex_pose[i][1]
-              << para_ex_pose[i][2];
   }
   double para_dt = 0;
   ceres::Problem problem;
@@ -118,18 +115,13 @@ SteroImuInitialization::OptimizationResult() {
     }
 
   }
-
-  
-  
   ceres::LocalParameterization* local_parameterization =
       new PoseLocalParameterization();
-
 
   problem.AddParameterBlock(para_ex_pose[0].data(), SIZE_POSE,
                             local_parameterization);
   problem.AddParameterBlock(para_ex_pose[1].data(), SIZE_POSE,
                             local_parameterization);
-
 
   //
   // for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
@@ -160,6 +152,7 @@ SteroImuInitialization::OptimizationResult() {
       LOG(WARNING) << j << " Imu avalid..";
       continue;
     }
+    LOG(INFO) << integration_bases_[j]->delta_p.transpose();
     IMUFactor* imu_factor = new IMUFactor(integration_bases_[j].get());
     //
     problem.AddResidualBlock(imu_factor, NULL, para_pose[i].data(),
@@ -168,7 +161,7 @@ SteroImuInitialization::OptimizationResult() {
   }
   //
   std::stringstream info1;
-  const double cam_weight = 200;
+  const double cam_weight = options_.opti_option.camera_weight;
   feature_manager_->CreateFactor(
       [&](const Eigen::Vector3d& pts_i, const Eigen::Vector3d& pts_j,
           const Eigen::Vector2d& imu_i_velocity,
@@ -180,24 +173,26 @@ SteroImuInitialization::OptimizationResult() {
                                                imu_j_velocity, td_i, td_j,
                                                cam_weight);
         //
-        info1 << "[" << std::get<0>(index) << std::get<1>(index)
-              << std::get<2>(index) << "]" << pts_i.transpose() << " "
-              << pts_j.transpose() << imu_i_velocity.transpose()
-              << imu_j_velocity.transpose() << td_i << td_j << cam_weight
-              << "\n";
-        ///
-        for (int i = 0; i < 7; i++) {
-          info1 << para_pose[std::get<0>(index)][i] << " ";
-          info1 << para_pose[std::get<1>(index)][i] << " ";
-          info1 << para_ex_pose[0][i] << "\n";
-        }
-        info1 << para_depth[std::get<2>(index)] << "\n";
-
+        // info1 << "[" << std::get<0>(index) << std::get<1>(index)
+        //       << std::get<2>(index) << "]" << pts_i.transpose() << " "
+        //       << pts_j.transpose() << imu_i_velocity.transpose()
+        //       << imu_j_velocity.transpose() << td_i << td_j << cam_weight
+        //       << "\n";
+        // ///
+        // for (int i = 0; i < 7; i++) {
+        //   info1 << para_pose[std::get<0>(index)][i] << " ";
+        //   info1 << para_pose[std::get<1>(index)][i] << " ";
+        //   info1 << para_ex_pose[0][i] << "\n";
+        // }
+        // info1 << para_depth[std::get<2>(index)] << "\n";
+       
         //
         problem.AddResidualBlock(
             f_td, loss_function, para_pose[std::get<0>(index)].data(),
             para_pose[std::get<1>(index)].data(), para_ex_pose[0].data(),
             &para_depth[std::get<2>(index)], &para_dt);
+
+        // problem.SetParameterBlockConstant(&para_depth[std::get<2>(index)]);
       },
       [&](const Eigen::Vector3d& pts_i, const Eigen::Vector3d& pts_j,
           const Eigen::Vector2d& velocity_i, const Eigen::Vector2d& velocity_j,
@@ -216,6 +211,7 @@ SteroImuInitialization::OptimizationResult() {
           const double td_i, const double td_j,
           const std::tuple<int, int, int>& index) {
         //
+
         ProjectionOneFrameTwoCamFactor* f = new ProjectionOneFrameTwoCamFactor(
             pts_i, pts_j, velocity_i, velocity_j, td_i, td_j, cam_weight);
 
@@ -225,11 +221,7 @@ SteroImuInitialization::OptimizationResult() {
       });
   //
   // std::cout<<info1.str()<<std::endl;
-  Eigen::Vector3d bas =
-      Eigen::Vector3d(para_speed[0][3], para_speed[0][4], para_speed[0][5]);
-  //
-  Eigen::Vector3d bgs =
-      Eigen::Vector3d(para_speed[0][6], para_speed[0][7], para_speed[0][8]);
+
   //
 
   ceres::Solver::Options options;
@@ -245,7 +237,11 @@ SteroImuInitialization::OptimizationResult() {
   options.max_num_iterations = options_.opti_option.max_num_iterations;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-
+  Eigen::Vector3d bas =
+      Eigen::Vector3d(para_speed[0][3], para_speed[0][4], para_speed[0][5]);
+  //
+  Eigen::Vector3d bgs =
+      Eigen::Vector3d(para_speed[0][6], para_speed[0][7], para_speed[0][8]);
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   //
   for (int i = 0; i < camera_num_; i++) {
@@ -298,7 +294,7 @@ SteroImuInitialization::OptimizationResult() {
   feature_manager_->SetDepth(para_depth);
   info << "---------opitimization bias ok--------------";
   LOG(INFO) << info.str();
-  LOG_EVERY_N(INFO, 1) << "\n" << summary.FullReport();
+  LOG(INFO) << "\n" << summary.FullReport();
   // feature_manager_->RemoveFailures();
   //
   // RemoveBack();

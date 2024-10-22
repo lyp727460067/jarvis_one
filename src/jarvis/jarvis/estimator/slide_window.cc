@@ -67,6 +67,8 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   last_feature_time_ = init_data->time;
   CHECK_EQ(int(imu_states_.size()), options_.win_size + 1);
   SlideData(true);
+  // feature_managers_->RemoveOutliersRejection(
+  //       imu_states_, extric_camera_to_imu_);
   camera_imu_time_offset_ =  options_.camera_imu_time_offset;
 }
 
@@ -83,7 +85,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   TicToc feature_t_t;
   for (auto& f : frame.data->features_datas) {
     if (feature_managers_->Exist(f.first)) {
-      VLOG(kGlogLevel)<< "feature id: " << f.first;
+      VLOG(kGlogLevel) << "feature id: " << f.first;
       feature_managers_->MutableFeatureManager(f.first)
           ->AddFeatureCheckParallax(
               frame_count, frame.data->features_datas[f.first].features, dt);
@@ -94,31 +96,38 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   for (auto& f : frame.data->features_datas) {
     if (!feature_managers_->Exist(f.first)) {
       CHECK(init_feature_managers_.count(f.first));
-      if (is_keyframe) {
-        init_feature_managers_[f.first]->AddFeatureCheckParallax(
-            init_feature_managers_[f.first]->FrameCount() + 1,
-            frame.data->features_datas[f.first].features, dt);
-        if (init_feature_managers_[f.first]->FrameCount() ==
-            options_.win_size) {
-          std::vector<transform::Rigid3d> triang_pose;
-          for (size_t i = 0; i < imu_states_.size(); i++) {
-            triang_pose.push_back(imu_states_[i].Pose());
-          }
-          //
-
-          // init_feature_managers_[f.first]->Triangulate(
-          //     options_.win_size, triang_pose,
-          //     {extric_camera_to_imu_[ParaExPoseIndex[f.first]]});
-          feature_managers_->AddFeatureManger(f.first,
-                                              init_feature_managers_[f.first]);
-        }
-      }
+      init_feature_datas_[frame.data->time].emplace(f);
     }
   }
+  if (!init_feature_datas_.empty()) {
+    if (int(init_feature_datas_.size()) > options_.win_size + 1) {
+      init_feature_datas_.erase(init_feature_datas_.begin());
+    }
+
+    if (init_feature_datas_.begin()->first == imu_states_.begin()->time) {
+      for (auto& t_f : init_feature_datas_) {
+        for (auto& f : t_f.second) {
+          init_feature_managers_[f.first]->AddFeatureCheckParallax(
+              init_feature_managers_[f.first]->FrameCount() + 1,
+              f.second.features, dt);
+        }
+      }
+
+      for (auto& f : init_feature_datas_.begin()->second) {
+        feature_managers_->AddFeatureManger(f.first,
+                                            init_feature_managers_[f.first]);
+        LOG(INFO) << "Add FeatureManger " << f.first << ",init size "
+                  << init_feature_datas_.size();
+      }
+
+      init_feature_datas_.clear();
+    }
+  }
+
   //
   // bool is_keyframe = feature_manager_->CheckParallax();
-   VLOG(kGlogLevel) << "Add incoming feature "
-            << (is_keyframe ? "Keyframe" : "Non-keyframe,");
+  VLOG(kGlogLevel) << "Add incoming feature "
+                   << (is_keyframe ? "Keyframe" : "Non-keyframe,");
   //
   const common::Time current_time =
       frame.data->time + common::FromSeconds(camera_imu_time_offset_);
@@ -127,6 +136,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
       data_base_->GetImuIntervalData(last_feature_time_, current_time);
   //
   imu_states_.push_back(frame.data->imu_state);
+
   //
   integration_base_.push_back(nullptr);
   if (!imu_datas.empty()) {
@@ -136,7 +146,6 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
         ImuState{Eigen::Vector3d::Zero(), Eigen::Quaterniond::Identity(),
                  Eigen::Vector3d::Zero(), ba, bg},
         options_.imu_option, imu_datas);
-
   };
   //
   //
@@ -154,7 +163,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   }
   //
 
-  VLOG(kGlogCostTimeLevel) << "feature_t_t costs " << feature_t_t.toc() << " ms";
+  VLOG(kGlogCostTimeLevel) << "feature_t_t costs " << feature_t_t.toc()
+                           << " ms";
 
   TicToc tran_t_t;
   feature_managers_->Triangulate(frame_count, triang_pose,
@@ -163,7 +173,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
 
   VLOG(kGlogCostTimeLevel) << "Triangulate costs " << tran_t_t.toc() << " ms";
   OptimizationData opt_data;
-   TicToc opt_sum_t_t;
+  TicToc opt_sum_t_t;
   //  CHECK_EQ(odoms_factor_.size(),options_.win_size + 1);
   for (int i = 0; i < options_.win_size + 1; i++) {
     opt_data.odom_factors.push_back(odoms_factor_[i].get());
@@ -178,7 +188,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
 
   VLOG(kGlogCostTimeLevel) << "optisum costs " << opt_sum_t_t.toc() << " ms";
 
-   TicToc marg_sum_t_t;
+  TicToc marg_sum_t_t;
   {
     FrameDataToState();
     MarginalizationFactorData marg_data;
@@ -194,8 +204,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   TicToc fram_result_t_t;
   rejection_outliers_ = feature_managers_->RemoveOutliersRejection(
       imu_states_, extric_camera_to_imu_);
-  
-  
+
   SlideData(is_keyframe);
 
   feature_managers_->RemoveFailures();
@@ -238,8 +247,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //
   fram_result.data->imu_state = imu_states_.back();
 
-  VLOG(kGlogCostTimeLevel) << "fram_result costs " << fram_result_t_t.toc() << " ms";
-
+  VLOG(kGlogCostTimeLevel) << "fram_result costs " << fram_result_t_t.toc()
+                           << " ms";
 
   return std::make_unique<SlideWindowResult>(
       SlideWindowResult{fram_result, optimization_->FinalCost(),
@@ -449,6 +458,7 @@ void SlideWindow::FrameDataToState() {
   }
   // LOG(INFO) << extric_info.str();
   LOG_EVERY_N(INFO,100)<<extric_info.str();
+  VLOG(kGlogLevel)<<extric_info.str();
 
   for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {
     //
