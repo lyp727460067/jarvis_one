@@ -118,14 +118,17 @@ SteroImuInitialization::OptimizationResult() {
     }
 
   }
-    ceres::LocalParameterization* local_parameterization =
-        new PoseLocalParameterization();
 
- 
-    problem.AddParameterBlock(para_ex_pose[0].data(), SIZE_POSE,
-                              local_parameterization);
-    problem.AddParameterBlock(para_ex_pose[1].data(), SIZE_POSE,
-                              local_parameterization);
+  
+  
+  ceres::LocalParameterization* local_parameterization =
+      new PoseLocalParameterization();
+
+
+  problem.AddParameterBlock(para_ex_pose[0].data(), SIZE_POSE,
+                            local_parameterization);
+  problem.AddParameterBlock(para_ex_pose[1].data(), SIZE_POSE,
+                            local_parameterization);
 
 
   //
@@ -144,8 +147,11 @@ SteroImuInitialization::OptimizationResult() {
   // }
   //
 
+  // 固定第一帧位姿和相机相对IMU外参
+  problem.SetParameterBlockConstant(para_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[1].data());
+  
   problem.AddParameterBlock(&para_dt, 1);
   problem.SetParameterBlockConstant(&para_dt);
   for (int i = 0; i < options_.sw_size; i++) {
