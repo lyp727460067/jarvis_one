@@ -401,7 +401,7 @@ void FeatureManager::CreateFactor(
         n++;
       }
     }
-    if (!pnp_succ && n >= options_.init_pnp_inlier_num) {
+    if (!pnp_succ || n <= options_.init_pnp_inlier_num) {
       LOG(ERROR) << "pnp failed ! ";
       return false;
     }
