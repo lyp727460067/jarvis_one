@@ -447,6 +447,7 @@ void SlideWindow::FrameDataToState() {
     para_Ex_Pose[i][5] = q.z();
     para_Ex_Pose[i][6] = q.w();
   }
+  // LOG(INFO) << extric_info.str();
   LOG_EVERY_N(INFO,100)<<extric_info.str();
 
   for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {

@@ -416,6 +416,8 @@ void ParseYAMLOption(const std::string &file,
             calib_option.extric_camera_to_imu[j]);
       }
 
+      stero_imu_init_option.init_v_th = fsSettings["init_velocity_th"];
+
       //
       feature_manager_option.pyrmid_option.image_size =
           calib_option.camera_options[0].resolution;

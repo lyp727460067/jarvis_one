@@ -17,6 +17,7 @@ struct SteroImuInitializationOption {
   OptimizationOption opti_option;
   double init_bg_th = 0.2;
   double init_ba_th = 0.2;
+  double init_v_th = 1.0;
 };
 
 class SteroImuInitialization : public InitializationImu {

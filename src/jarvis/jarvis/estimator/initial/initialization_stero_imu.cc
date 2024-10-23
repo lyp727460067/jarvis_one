@@ -118,14 +118,17 @@ SteroImuInitialization::OptimizationResult() {
     }
 
   }
-    ceres::LocalParameterization* local_parameterization =
-        new PoseLocalParameterization();
 
- 
-    problem.AddParameterBlock(para_ex_pose[0].data(), SIZE_POSE,
-                              local_parameterization);
-    problem.AddParameterBlock(para_ex_pose[1].data(), SIZE_POSE,
-                              local_parameterization);
+  
+  
+  ceres::LocalParameterization* local_parameterization =
+      new PoseLocalParameterization();
+
+
+  problem.AddParameterBlock(para_ex_pose[0].data(), SIZE_POSE,
+                            local_parameterization);
+  problem.AddParameterBlock(para_ex_pose[1].data(), SIZE_POSE,
+                            local_parameterization);
 
 
   //
@@ -144,8 +147,11 @@ SteroImuInitialization::OptimizationResult() {
   // }
   //
 
+  // 固定第一帧位姿和相机相对IMU外参
+  problem.SetParameterBlockConstant(para_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[1].data());
+  
   problem.AddParameterBlock(&para_dt, 1);
   problem.SetParameterBlockConstant(&para_dt);
   for (int i = 0; i < options_.sw_size; i++) {
@@ -255,6 +261,7 @@ SteroImuInitialization::OptimizationResult() {
   std::stringstream info;
   info << "Init optimization info:\n";
   std::vector<ImuState> imu_state;
+  double max_velocity = .0;
   for (int i = 0; i < options_.sw_size + 1; i++) {
     imu_state.push_back(ImuState{
         Eigen::Vector3d(para_pose[i][0], para_pose[i][1], para_pose[i][2]),
@@ -263,18 +270,31 @@ SteroImuInitialization::OptimizationResult() {
         Eigen::Vector3d(para_speed[i][0], para_speed[i][1], para_speed[i][2]),
         Eigen::Vector3d(para_speed[i][3], para_speed[i][4], para_speed[i][5]),
         Eigen::Vector3d(para_speed[i][6], para_speed[i][7], para_speed[i][8])});
+
+    Eigen::Vector3d vi(para_speed[i][0], para_speed[i][1], para_speed[i][2]);
+    double vin = vi.norm();
+    if (vin > max_velocity) max_velocity = vin;
   }
+
   for (size_t i = 0; i < imu_state.size(); i++) {
-    info << "staste " << std::to_string(i) << imu_state[i] << "\n";
+    info << "state " << std::to_string(i) << imu_state[i] << "\n";
   }
   for (int i = 0; i < camera_num_; i++) {
-    info << "cam" << std::to_string(i) << extric_camera_to_imu[i] << "\n";
+    info << "cam " << std::to_string(i) << extric_camera_to_imu[i] << "\n";
   }
+  info << "max velocity: " << std::to_string(max_velocity) << "\n";
+
   if (bgs.norm() > options_.init_bg_th || bas.norm() > options_.init_ba_th) {
-    info << "---------opitimization bias erro--------------";
+    info << "---------opitimization bias error--------------";
     LOG(ERROR) << info.str();
     return nullptr;
   }
+  if (max_velocity > options_.init_v_th){
+    info << "---------opitimization velocity error--------------";
+    LOG(ERROR) << info.str();
+    return nullptr;
+  }
+
   feature_manager_->SetDepth(para_depth);
   info << "---------opitimization bias ok--------------";
   LOG(INFO) << info.str();
