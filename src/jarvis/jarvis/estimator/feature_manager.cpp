@@ -402,7 +402,7 @@ void FeatureManager::CreateFactor(
       }
     }
     if (!pnp_succ || n <= options_.init_pnp_inlier_num) {
-      LOG(ERROR) << "pnp failed ! ";
+      LOG(ERROR) << "pnp failed ! pnp_status: " << pnp_succ << ", inlier num: " << n;
       return false;
     }
     cv::Rodrigues(rvec, r);
