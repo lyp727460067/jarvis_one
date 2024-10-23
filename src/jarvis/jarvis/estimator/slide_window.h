@@ -50,6 +50,7 @@ class SlideWindow {
   std::map<CameraId, std::set<TrackFeatureId>>& RejectionOutliers() {
     return rejection_outliers_;
   }
+
  private:
   void SlideData(bool);
   SlideWindowOption options_;
@@ -62,7 +63,8 @@ class SlideWindow {
   std::unique_ptr<FeatureManagers> feature_managers_;
   //
   std::map<CameraId, std::shared_ptr<FeatureManager>> init_feature_managers_;
-
+  std::map<common::Time, std::map<CameraId, FrameData::FeatureData>>
+      init_feature_datas_;
   //
   std::unique_ptr<Optimization> optimization_;
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
@@ -79,6 +81,7 @@ class SlideWindow {
   std::map<CameraId, std::set<TrackFeatureId>> rejection_outliers_;
   //
   //
+
   int init_slide_new_num  =0;
   // std::vector<FrameData> frames_datas_;
   common::Time last_feature_time_;

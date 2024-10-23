@@ -101,28 +101,42 @@ bool FeatureManager::AddFeatureCheckParallax(
   //
   //
   //
-  // std::stringstream info;
+  std::stringstream info;
   for (const auto &id_pts : image.data->features) {
     if (features_.count(id_pts.first)) {
-      // info<< id_pts.first<<" d: "<< features_[id_pts.first].estimated_depth<<" ,";
-      // info<<" "<<id_pts.second.camera_features[0].normal_points.transpose()<<" ";
-      // if(id_pts.second.camera_features.size()==2){
-      // info<<" "<<id_pts.second.camera_features[1].normal_points.transpose()<<" ";
-      // }
+#ifndef DEBUG_LOG
+      info << id_pts.first << " d: " << features_[id_pts.first].estimated_depth
+           << " ,";
+      info << " " << id_pts.second.camera_features[0].normal_points.transpose()
+           << " ";
+      if (id_pts.second.camera_features.size() == 2) {
+        info << " "
+             << id_pts.second.camera_features[1].normal_points.transpose()
+             << " ";
+      }
+#endif
       features_[id_pts.first].feature_per_frame.push_back(
           FeaturePerFrame{id_pts.second, td});
     } else {
-      // info<<"*"<< id_pts.first<<" ";
-      // info<<" "<<id_pts.second.camera_features[0].normal_points.transpose()<<" ";
-      // if(id_pts.second.camera_features.size()==2){
-      // info<<" "<<id_pts.second.camera_features[1].normal_points.transpose()<<" ";
-      // }
+
+#ifndef DEBUG_LOG
+      info << "*" << id_pts.first << " ";
+      info << " " << id_pts.second.camera_features[0].normal_points.transpose()
+           << " ";
+      if (id_pts.second.camera_features.size() == 2) {
+        info << " "
+             << id_pts.second.camera_features[1].normal_points.transpose()
+             << " ";
+      }
+#endif
       features_.emplace(
           id_pts.first,
           FeaturePerId{frame_count, {FeaturePerFrame{id_pts.second, td}}});
     }
   }
-  // VLOG(kGlogLevel)<<info.str();
+#ifndef DEBUG_LOG
+  VLOG(kGlogLevel) << info.str();
+#endif
   parallax_ = IsParallax(frame_count, image);
   return parallax_;
 }
@@ -151,41 +165,65 @@ FeatureManager::GetCorresponding(int frame_count_l, int frame_count_r) {
   return corres;
 }
 //
- std::vector<double> FeatureManager::GetDepthVector() {
+std::vector<double> FeatureManager::GetDepthVector() {
   std::vector<double> dep_vec(GetFeatureCount());
   int feature_index = -1;
+#ifdef DEBUG_LOG
+  std::stringstream info;
+#endif
   for (auto &pair_it_per_id : features_) {
     //
     auto &it_per_id = pair_it_per_id.second;
     if (it_per_id.UsedNum() < options_.convin_used_num) continue;
+
+#ifdef DEBUG_LOG
+    info << "[" << pair_it_per_id.first << "]" << it_per_id.estimated_depth
+         << " ";
+#endif
     dep_vec[++feature_index] = 1. / it_per_id.estimated_depth;
   }
+
+#ifdef DEBUG_LOG
+  LOG(INFO) << info.str();
+
+#endif
   return dep_vec;
 }
 
 //
 void FeatureManager::SetDepth(const std::vector<double> &x) {
   int feature_index = -1;
-  // std::stringstream info;
+  std::stringstream info;
   for (auto &pair_it_per_id : features_) {
     auto &it_per_id = pair_it_per_id.second;
     if (it_per_id.UsedNum() < options_.convin_used_num) continue;
-    //
+      //
+#ifdef DEBUG_LOG
+    info << "[" << pair_it_per_id.first << "]" << it_per_id.estimated_depth
+         << " ";
+#endif
     it_per_id.estimated_depth = 1.0 / x[++feature_index];
 
-    // info << "[" << pair_it_per_id.first << "]"
-    //      << it_per_id.estimated_depth<<" ";
+#ifdef DEBUG_LOG
+    info << ",after " << it_per_id.estimated_depth;
+
+#endif
     if (it_per_id.estimated_depth < 0) {
       it_per_id.solve_flag = 2;
     } else
       it_per_id.solve_flag = 1;
   }
+
+#ifdef DEBUG_LOG
+  LOG(INFO) << info.str();
+#endif
   CHECK_EQ(feature_index,int(x.size()-1));
 }
 //
 //
 void FeatureManager::RemoveFailures() {
   std::stringstream info;
+  info << "Total features_ size: " << features_.size() << " ";
   for (auto it = features_.begin(), it_next = features_.begin();
        it != features_.end(); it = it_next) {
     it_next++;
@@ -218,7 +256,7 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
     double ry = residual.y();
     return sqrt(rx * rx + ry * ry);
   };
-    std::stringstream info;
+  std::stringstream info;
   for (auto &pair_it_per_id : features_) {
     double err = 0;
     int errCnt = 0;
@@ -242,16 +280,18 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
         err += tmp_error;
         errCnt++;
         // printf("tmp_error %f\n", tmp_error);
+
+
       }
       // need to rewrite projecton factor.........
       if (it_per_frame.IsStereo()) {
-        Eigen::Vector3d pts_j =
-            it_per_frame.feature.camera_features[1].normal_points;
-        double tmp_error =
-            ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
-        err += tmp_error;
+        // Eigen::Vector3d pts_j =
+        //     it_per_frame.feature.camera_features[1].normal_points;
+        // double tmp_error =
+        //     ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
+        // err += tmp_error;
         // printf("right tmp_error %f\n", tmp_error);
-        errCnt++;
+        // errCnt++;
       }
     }
     double ave_err = err / errCnt;
@@ -284,7 +324,7 @@ void FeatureManager::CreateFactor(
         const double _td_i, const double _td_j,
         const std::tuple<int, int, int> &index)> &projection_one_frame_twocam) {
   //
-  // std::stringstream info;
+  std::stringstream info;
   int feature_index = -1;
   for (const auto &pair_it_per_id : features_) {
     const FeaturePerId it_per_id = pair_it_per_id.second;
@@ -295,7 +335,9 @@ void FeatureManager::CreateFactor(
     const Eigen::Vector3d &pts_i =
         it_per_id.feature_per_frame[0].feature.camera_features[0].normal_points;
     //
-    // info<<pts_i.transpose()<<" ";
+#ifdef DEBUG_LOG
+    info << pair_it_per_id.first << " " << it_per_id.estimated_depth << " ";
+#endif
     const Eigen::Vector2d imu_i_velocity =
         it_per_id.feature_per_frame[0].feature.camera_features[0].uv_velocity;
     //
@@ -346,6 +388,7 @@ void FeatureManager::CreateFactor(
       }
     }
   }
+  VLOG(kGlogLevel)<<info.str();
 }
   //
   //
@@ -633,6 +676,7 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
     }
     for (auto &pari_it_per_id : features_) {
         auto& it_per_id = pari_it_per_id.second; 
+      // LOG(INFO)<<pari_it_per_id.first; 
       if (it_per_id.estimated_depth > 0) continue;
 
       if (options_.use_stereo && it_per_id.feature_per_frame[0].IsStereo()) {
@@ -654,22 +698,27 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
         Eigen::Vector3d point3d;
 
       auto &features_id = features_[pari_it_per_id.first];
-      point0 = features_id.feature_per_frame[0]
+       point0 = features_id.feature_per_frame[0]
                                         .feature.camera_features[0]
                                         .normal_points.head<2>();
        point1 = features_id.feature_per_frame[0]
                                         .feature.camera_features[1]
                                         .normal_points.head<2>();
+
+      //  LOG(INFO)<<point0.transpose(); 
+      //  LOG(INFO)<<point1.transpose(); 
         // cout << "point0 " << point0.transpose() << endl;
         // cout << "point1 " << point1.transpose() << endl;
         triangulatePoint(leftPose, rightPose, point0, point1, point3d);
         Eigen::Vector3d localPoint;
         localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
+        // LOG(INFO)<<(localPoint/localPoint.z()).head<2>()-point0;
         double depth = localPoint.z();
         const Eigen::Vector3d localPoint_r =
             rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
+        // LOG(INFO)<<(localPoint_r/localPoint_r.z()).head<2>()  - point1;  
         // LOG(INFO)<<depth;
-        if (depth > 0.5 && localPoint_r.z() > 0.5){
+        if (depth > 0){
           it_per_id.estimated_depth = depth;
         }
        else {
@@ -714,7 +763,7 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
         const Eigen::Vector3d localPoint_r =
             rightPose.leftCols<3>() * point3d + rightPose.rightCols<1>();
         double depth = localPoint.z();
-        if (depth > 0.5 && localPoint_r.z() > 0.5)
+        if (depth > 0)
           it_per_id.estimated_depth = depth;
         else
           it_per_id.estimated_depth = options_.init_depth;
@@ -860,7 +909,6 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
         Eigen::Vector3d w_pts_i = marg_p * pts_i;
         Eigen::Vector3d pts_j = new_p.inverse() * w_pts_i;
         double dep_j = pts_j(2);
-
         if (dep_j > 0)
           it->second.estimated_depth = dep_j;
         else

@@ -328,10 +328,10 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     // cv::imshow("l_image",lr_image);
 
     if(lr_image.empty()||vr_image.empty() )continue;
-    cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
+    // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
     cv::imshow("vr_image",vr_image);
     cv::waitKey(0);
-
+    LOG(INFO)<<imu_cam_time_offset;
 
     order_queue_->AddData(
         kImagTopic0,
@@ -409,7 +409,8 @@ int main(int argc, char* argv[]) {
   estimator::EstimatorOption option =
       estimator::ParseEstimatorOption(std::string(argv[1]));
   //
-
+  imu_cam_time_offset  = jarvis::GetTimeShiftCamImu();
+  LOG(INFO)<<"imu_cam_time_offset   "<<imu_cam_time_offset  ;
   if (kuse_gpu) {
     //
     std::shared_ptr<jarvis::estimator::ExtendPyramidImage>

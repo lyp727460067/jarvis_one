@@ -26,6 +26,7 @@ struct ImuState {
   Eigen::Matrix<double, 15, 15> covariance =
       Eigen::Matrix<double, 15, 15>::Zero();
   transform::Rigid3d Pose() const { return transform::Rigid3d(p, q); }
+  common::Time time;
   // ImuState()=default;
   ImuState SetBaBg(const Eigen::Vector3d &ba_, const Eigen::Vector3d &bg_) {
     ba = ba_;

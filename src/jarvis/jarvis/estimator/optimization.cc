@@ -89,7 +89,7 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
   // for (const auto &feature_manager : f_managers) {
 
   const double cam_weight = options_.camera_weight;
-  // std::stringstream info1;
+  std::stringstream info1;
   //
   feature_manager->CreateFactor(
       [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
@@ -108,13 +108,12 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
         //       << pts_j.transpose() << imu_i_velocity.transpose()
         //       << imu_j_velocity.transpose() << td_i << td_j << cam_weight <<
         //       "\n";
-        ///
         // for (int i = 0; i < 7; i++) {
         //   info1 << para_Pose[std::get<0>(index)][i] << " ";
         //   info1 << para_Pose[std::get<1>(index)][i] << " ";
         //   info1 << para_Ex_Pose[0][i] << "\n";
         // }
-        // info1 << para_Feature[std::get<2>(index)][0] << "\n";
+        // info1 << *para_Feature[id][std::get<2>(index)] << "\n";
 
         problem->AddResidualBlock(
             f_td, loss_function, para_Pose[std::get<0>(index)],
@@ -148,7 +147,6 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
         //   info1 << para_Ex_Pose[options_.trace_sequence[id][0]][i]<<" "
         //         << para_Ex_Pose[options_.trace_sequence[id][1]][i] << "\n";
         // }
-        // ordering->AddElementToGroup(para_Feature[id][std::get<2>(index)], 0);
         f_m_cnt++;
       },
       [&](const Eigen::Vector3d &pts_i, const Eigen::Vector3d &pts_j,
@@ -164,12 +162,12 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
             para_Ex_Pose[options_.trace_sequence[id][1]],
             para_Feature[id][std::get<2>(index)], para_Td[0]);
         f_m_cnt++;
-        // ordering->AddElementToGroup(para_Feature[id][std::get<2>(index)], 0);
       }
 
   );
   // LOG(INFO)<<info1.str();
   LOG_EVERY_N(INFO,100) << "Adding factor feature size " << f_m_cnt;
+  VLOG(kGlogLevel) << "Adding factor feature size " << f_m_cnt;
 }
 
 void Optimization::AddFrameFactor(ceres::Problem *problem,
@@ -217,7 +215,8 @@ void Optimization::AddFrameFactor(ceres::Problem *problem,
       LOG(WARNING)<< j << " Imu avalid..";
       continue;
     }
-    // LOG(INFO)<<pre_integration->delta_p.transpose(); 
+    // LOG(INFO)<<common::RadToDeg( transform::GetYaw(pre_integration->delta_q));
+    // LOG(INFO)<<pre_integration->delta_p.transpose();
     IMUFactor *imu_factor = new IMUFactor(pre_integration);
     problem->AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i],
                               para_Pose[j], para_SpeedBias[j]);
@@ -271,7 +270,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     }
     if (/*pre_integration == nullptr || pre_integration->IsValid() ||  
         common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 3)||*/ i>=2) {
-      problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+      // problem.SetParameterBlockConstant(para_Ex_Pose[i]);
     };
   }
   problem.AddParameterBlock(para_Td[0], 1);
@@ -309,7 +308,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
       // LOG(INFO)<<options_.trace_sequence[i][0];
     }
 
-    VLOG(kGlogCostTimeLevel) << "add camera factor costs " << t_t.toc() << " ms";
+  VLOG(kGlogCostTimeLevel) << "add camera factor costs " << t_t.toc() << " ms";
   }
   VLOG(kGlogCostTimeLevel) << "opti factor costs "
                            << Optimization_result_t_t.toc() << " ms";
@@ -333,7 +332,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   ceres::Solve(options, &problem, &summary);
 
   final_cost_ = summary.final_cost;
-  LOG_EVERY_N(INFO, 10) << summary.BriefReport();
+  LOG_EVERY_N(INFO, 2) << summary.BriefReport();
   LOG_EVERY_N(INFO, 100) << "\n" << summary.FullReport();
   return &data_;
 }

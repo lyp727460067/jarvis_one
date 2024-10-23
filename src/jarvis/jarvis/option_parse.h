@@ -77,6 +77,7 @@ struct CameraOption {
   Eigen::Vector2i resolution;
   std::vector<double> intrinsics;
   std::vector<double> distortions;
+  double timeshift_cam_imu  =0;
   static cv::Mat IntrinsicsPinhol(const std::vector<double> &k) {
     return (cv::Mat_<double>(3, 3) << k[0], 0, k[2], 0, k[1], k[3], 0, 0, 1);
   }
@@ -101,6 +102,7 @@ struct CalibrateOption {
 
 template <typename Option>
 void ParseYAMLOption(const std::string &file, Option *option);
+double GetTimeShiftCamImu();
 //
 // template <typename Option>
 // void ParseYAMLOption(const std::string &file, Option *option,
