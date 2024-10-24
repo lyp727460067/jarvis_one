@@ -104,7 +104,7 @@ bool FeatureManager::AddFeatureCheckParallax(
   std::stringstream info;
   for (const auto &id_pts : image.data->features) {
     if (features_.count(id_pts.first)) {
-#ifndef DEBUG_LOG
+#ifdef DEBUG_LOG
       info << id_pts.first << " d: " << features_[id_pts.first].estimated_depth
            << " ,";
       info << " " << id_pts.second.camera_features[0].normal_points.transpose()
@@ -119,7 +119,7 @@ bool FeatureManager::AddFeatureCheckParallax(
           FeaturePerFrame{id_pts.second, td});
     } else {
 
-#ifndef DEBUG_LOG
+#ifdef DEBUG_LOG
       info << "*" << id_pts.first << " ";
       info << " " << id_pts.second.camera_features[0].normal_points.transpose()
            << " ";
@@ -134,7 +134,7 @@ bool FeatureManager::AddFeatureCheckParallax(
           FeaturePerId{frame_count, {FeaturePerFrame{id_pts.second, td}}});
     }
   }
-#ifndef DEBUG_LOG
+#ifdef DEBUG_LOG
   VLOG(kGlogLevel) << info.str();
 #endif
   parallax_ = IsParallax(frame_count, image);
@@ -290,7 +290,9 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
         // double tmp_error =
         //     ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
         // err += tmp_error;
-        // printf("right tmp_error %f\n", tmp_error);
+        // if (tmp_error > (5. / 377)) {
+          // LOG(WARNING) << "right tmp_error " << tmp_error;
+        // }
         // errCnt++;
       }
     }
@@ -388,7 +390,9 @@ void FeatureManager::CreateFactor(
       }
     }
   }
+  #ifdef DEBUG_LOG
   VLOG(kGlogLevel)<<info.str();
+  #endif
 }
   //
   //

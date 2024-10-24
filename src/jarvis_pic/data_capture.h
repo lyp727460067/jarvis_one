@@ -9,6 +9,7 @@
 #include "Eigen/Eigen"
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
+#include "event_bus.h"
 namespace jarvis_pic {
 struct DataCaptureOption {
   int use_method = 0;
@@ -54,6 +55,7 @@ struct RtkData {
 
 struct SystmeInfo {
   uint8_t state;
+  uint8_t env_dark_data=0;
 };
 class DataCapture {
  public:
@@ -79,6 +81,9 @@ class DataCapture {
   void Rigister(std::function<void(const SystmeInfo&)> f) {
     system_info_call_backs_ = std::move(f);
   }
+  void RigisterEvnt(std::function<void(const SystmeInfo&)> f) {
+    system_info_event_call_backs_ = std::move(f);
+  }
   virtual uint64_t GetOrigImuTime(const uint64_t& time);
   virtual void Start();
   virtual void Stop();
@@ -95,6 +100,7 @@ class DataCapture {
   void ProcessOdom(const ModSyncChassisPosFb& frame);
   void ProcessRtk(const ModRTKFB& frame);
   std::function<void(const SystmeInfo&)> system_info_call_backs_;
+  std::function<void(const SystmeInfo&)> system_info_event_call_backs_;
   //
   std::mutex mutex_;
   std::map<std::string, std::function<void(const ImuData&)>> imu_call_backs_;
@@ -119,6 +125,8 @@ class DataCapture {
   uint64_t last_rtk_time_stamp_ = 0;
   bool stop_ = false;
   std::array<pthread_t,2> threads_;
+  std::unique_ptr<EventBus> event_bus_;
+  int dark_state_ =0;
 };
 std::unique_ptr<DataCapture> CreateDataCaputure(
     const DataCaptureOption& option);

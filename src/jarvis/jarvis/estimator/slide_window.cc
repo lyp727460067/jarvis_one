@@ -53,6 +53,7 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   OptimizationOption opti_option = option.opti_option;
   opti_option.trace_sequence = options_.track_sequence;
   // opti_option.track_cam_num = options_.track_cam_num;
+  opti_option.extric_camera_to_imu = options_.extric_camera_to_imu;
   optimization_ =
       std::make_unique<Optimization>(options_.win_size, opti_option);
   options_.opti_option = opti_option;

@@ -13,7 +13,7 @@
 //
 
 #define FRAME_MAX_LEN (4116580)
-
+const EV_ID kVioEventList[] = {EV_FILL_LIGHT_CTRL};
 // #define NEED_SYNC
 namespace jarvis_pic {
 namespace {
@@ -77,7 +77,9 @@ cv::Mat YuvBufToGrayMat(uint8_t* buf, long size, uint32_t width,
 }  // namespace
 
 DataCapture::DataCapture(const DataCaptureOption& option)
-    : mem_ssq_(new ShmSensorQueue), shm_mod_(new ShmMod()) {}
+    : mem_ssq_(new ShmSensorQueue), shm_mod_(new ShmMod()),
+    event_bus_(new EventBus(kVioEventList, sizeof(kVioEventList) / sizeof(EV_ID)))
+     {}
 //
 
 //
@@ -89,6 +91,23 @@ void DataCapture::ReadImu() {
       // std::lock_guard<std::mutex> lock(mutex_);
       system_info_call_backs_({mower_status.MowerStatus});
     }
+    uint8_t event_buffer[512];
+    int32_t recv_len = 0;
+    recv_len = event_bus_->WaitEvent(event_buffer, sizeof(event_buffer), 10);
+    if (recv_len > 0) {
+      EvMsg ev_msg(event_buffer, recv_len);
+      if (ev_msg.valid) {
+        switch (ev_msg.id) {
+          case EV_FILL_LIGHT_CTRL:
+            bool env_dark_data = 0;
+            memcpy((void*)&env_dark_data, (void*)ev_msg.data, sizeof(bool));
+            LOG(WARNING) << "evet dark recive " << int(env_dark_data);
+            system_info_event_call_backs_({0, uint8_t(env_dark_data)});
+            break;
+        }
+      }
+    }
+
     {
       ModSyncImuFb imudata;
       int res = 1;

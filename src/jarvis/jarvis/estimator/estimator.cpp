@@ -138,11 +138,20 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
          i < slie_result->frame_data.data->extric_camera_to_imu.size(); i++) {
       transform::Rigid3d &ext =
           slie_result->frame_data.data->extric_camera_to_imu[i];
+      LOG_EVERY_N(INFO, 10) << transform::Rot2ypr(options_.slide_windows_option
+                                                      .extric_camera_to_imu[i]
+                                                      .rotation()
+                                                      .toRotationMatrix())
+                                   .transpose();
+      LOG_EVERY_N(INFO, 10)
+          << transform::Rot2ypr(ext.rotation().toRotationMatrix()).transpose();
       if (abs(options_.slide_windows_option.extric_camera_to_imu[i]
                   .translation()
                   .norm() -
-              ext.translation().norm()) > 0.2) {
-        LOG(ERROR) << "opti ex error,lost." << ext;
+              ext.translation().norm()) > 0.1) {
+
+
+        LOG(ERROR) <<"camera "<<i<<  " opti ex error,lost." << ext;
         // frame_data.status = TrackState::LOST;
       }
     }

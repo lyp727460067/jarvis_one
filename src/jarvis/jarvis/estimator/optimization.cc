@@ -166,8 +166,9 @@ int Optimization::AddCameraFactor(int id, ceres::Problem *problem,
 
   );
   // LOG(INFO)<<info1.str();
-  LOG_EVERY_N(INFO,100) << "Adding factor feature size " << f_m_cnt;
-  VLOG(kGlogLevel) << "Adding factor feature size " << f_m_cnt;
+  LOG_EVERY_N(INFO, 100) << "cam " << id << " Adding factor feature size "
+                         << f_m_cnt;
+  VLOG(kGlogLevel) << "cam " << id << " Adding factor feature size " << f_m_cnt;
   return f_m_cnt;
 }
 
@@ -269,6 +270,15 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     if (options_.estimate_extrinsic == 0 || vs.norm() < 0.2 ) {
       problem.SetParameterBlockConstant(para_Ex_Pose[i]);
     }
+    //
+    for (int k = 0; k < 3; k++) {
+      problem.SetParameterUpperBound(
+          para_Ex_Pose[i], k,
+          options_.extric_camera_to_imu[i].translation()[k] + 0.05);
+      problem.SetParameterLowerBound(
+          para_Ex_Pose[i], k,
+          options_.extric_camera_to_imu[i].translation()[k] - 0.05);
+    }
     if (/*pre_integration == nullptr || pre_integration->IsValid() ||  
         common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 3)||*/ i>=2) {
       // problem.SetParameterBlockConstant(para_Ex_Pose[i]);
@@ -311,6 +321,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
 
     // 视觉约束过少时固定odo-imu外参
     if (camera_factor_num < options_.camera_factor_num_th) {
+      LOG(WARNING) << "Camera fator num : " << camera_factor_num;
       problem.SetParameterBlockConstant(para_Ex_Pose_Odom[0]);
     }
 
