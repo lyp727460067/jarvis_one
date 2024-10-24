@@ -290,11 +290,13 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 }
 //
 JarvisBrige::~JarvisBrige() {
+
+  data_capture_->RemoveCallBack(class_name_);
+  order_queue_->Stop();
+
   if (pyramid_thread_.joinable()) {
     pyramid_thread_.join();
   }
 
-  data_capture_->RemoveCallBack(class_name_);
-  order_queue_->Stop();
 }
 }  // namespace jarvis_pic
