@@ -309,7 +309,7 @@ jarvis::estimator::OptimizationOption ParseYAMLOptionOptimizationOption(
   op_option.init_td = fsSettings["td"];
   op_option.estimate_extrinsic = fsSettings["estimate_extrinsic"];
   op_option.huber_loss = fsSettings["huber_loss"];
-
+  op_option.camera_factor_num_th = fsSettings["camera_factor_num_th"];
   return op_option;
 }
 //

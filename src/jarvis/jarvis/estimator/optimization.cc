@@ -76,7 +76,7 @@ Optimization::Optimization(int win_size1, const OptimizationOption &option)
   //
 }
 
-void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
+int Optimization::AddCameraFactor(int id, ceres::Problem *problem,
                                    ceres::LossFunction *loss_function,
                                    ceres::ParameterBlockOrdering *ordering,
                                    FeatureManager *feature_managers) {
@@ -168,6 +168,7 @@ void Optimization::AddCameraFactor(int id, ceres::Problem *problem,
   // LOG(INFO)<<info1.str();
   LOG_EVERY_N(INFO,100) << "Adding factor feature size " << f_m_cnt;
   VLOG(kGlogLevel) << "Adding factor feature size " << f_m_cnt;
+  return f_m_cnt;
 }
 
 void Optimization::AddFrameFactor(ceres::Problem *problem,
@@ -295,10 +296,10 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   //
   {
     TicToc t_t;
-
+    int camera_factor_num = 0;
     for (int i = 0; i < options_.TrackNum(); i++) {
       if (frames_data->feat_manager_factors->Exist(i)) {
-        AddCameraFactor(
+        camera_factor_num += AddCameraFactor(
             i, &problem, loss_function, ordering,
             frames_data->feat_manager_factors->MutableFeatureManager(i).get());
       } else {
@@ -308,7 +309,12 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
       // LOG(INFO)<<options_.trace_sequence[i][0];
     }
 
-  VLOG(kGlogCostTimeLevel) << "add camera factor costs " << t_t.toc() << " ms";
+    // 视觉约束过少时固定odo-imu外参
+    if (camera_factor_num < options_.camera_factor_num_th) {
+      problem.SetParameterBlockConstant(para_Ex_Pose_Odom[0]);
+    }
+
+    VLOG(kGlogCostTimeLevel) << "add camera factor costs " << t_t.toc() << " ms";
   }
   VLOG(kGlogCostTimeLevel) << "opti factor costs "
                            << Optimization_result_t_t.toc() << " ms";

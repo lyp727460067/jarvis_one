@@ -19,6 +19,7 @@ struct OptimizationOption {
   double max_solver_time = 0.5;
   int estimate_extrinsic=1;
   double huber_loss =1.0;
+  int camera_factor_num_th = 10;
   inline int TrackNum() const { return int(trace_sequence.size()); }
   int CamNum()const {
     int camera_num  =0;
@@ -60,7 +61,7 @@ class Optimization {
   double FinalCost() { return final_cost_; }
 
  private:
-  void AddCameraFactor(int id,ceres::Problem* Problem,
+  int AddCameraFactor(int id,ceres::Problem* Problem,
                        ceres::LossFunction* loss_function,
                        ceres::ParameterBlockOrdering* ordering,
                        FeatureManager* feature_managers);
