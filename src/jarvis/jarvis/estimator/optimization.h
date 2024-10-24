@@ -28,6 +28,7 @@ struct OptimizationOption {
     }
     return camera_num;
   }
+  std::vector<transform::Rigid3d> extric_camera_to_imu;
 };
 class Marginalization;
 //

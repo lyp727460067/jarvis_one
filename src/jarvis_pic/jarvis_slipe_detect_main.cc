@@ -81,7 +81,7 @@ class JarvisBuilder {
 
     LOG(INFO) << "Capture start..";
 
-    data_capture_->Rigister("slip_detect", [&](const OdomData& encode) {
+    data_capture_->Rigister("slip_detect", [this](const OdomData& encode) {
       if (!slip_detect_) return;
       if (!last_odom_data_.has_value()) {
         last_odom_data_ = encode;
@@ -107,11 +107,16 @@ class JarvisBuilder {
       }
     });
 
-    data_capture_->Rigister([&](const SystmeInfo& state) {
+    data_capture_->Rigister([this](const SystmeInfo& state) {
+      
       if (system_state_ != state.state) {
         LOG(WARNING) << "System status change. frome " << int(system_state_)
                      << " to " << int(state.state);
         system_state_ = state.state;
+        if (event_dark_ == 1) {
+          LOG(WARNING) << "Not revive envet dark off.";
+          return;
+        }
         if (system_state_ == MowStatus::MS_CHARGING ||
             system_state_ == MowStatus::MS_SLEEP) {
           LOG(WARNING) << "Rest jarvis brige...";
@@ -132,20 +137,30 @@ class JarvisBuilder {
 
       }
     });
-
+    //
+    data_capture_->RigisterEvnt([this](const SystmeInfo& state) {
+      event_dark_ = state.env_dark_data;
+      LOG(INFO)<<int(event_dark_) ;
+      if (event_dark_ ==1) {
+        LOG(WARNING) << "event dark recive,delte jarvis."<<int(event_dark_);
+        jarvis_brige_.reset(nullptr);
+        slip_detect_.reset(nullptr);
+        kVioState = 0;
+      }
+    });
     //
     //
     data_capture_->Rigister(
-        "data_record", [&](const ImuData& imu) { data_record_->AddImu(imu); });
+        "data_record", [this](const ImuData& imu) { data_record_->AddImu(imu); });
 
-    data_capture_->Rigister("data_record", [&](const OdomData& odom) {
+    data_capture_->Rigister("data_record", [this](const OdomData& odom) {
       data_record_->AddOdom(odom);
     });
-    data_capture_->Rigister("data_record", [&](const Frame& frame) {
+    data_capture_->Rigister("data_record", [this](const Frame& frame) {
       data_record_->AddFrame(frame);
     });
     data_capture_->Rigister(
-        "data_record", [&](const RtkData& rtk) { data_record_->AddRtk(rtk); });
+        "data_record", [this](const RtkData& rtk) { data_record_->AddRtk(rtk); });
 
     data_capture_->Start();
   }
@@ -225,7 +240,7 @@ class JarvisBuilder {
   // std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_=nullptr;  //=
   uint8_t system_state_ = 0xff;
   std::mutex mutex_;
-
+  uint8_t event_dark_=0;
 };
 }  // namespace jarvis_pic
 std::string kDataDir = "/mnt/UDISK/jarvis/";
