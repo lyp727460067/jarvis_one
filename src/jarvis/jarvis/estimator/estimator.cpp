@@ -138,13 +138,17 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
          i < slie_result->frame_data.data->extric_camera_to_imu.size(); i++) {
       transform::Rigid3d &ext =
           slie_result->frame_data.data->extric_camera_to_imu[i];
-      LOG_EVERY_N(INFO, 10) << transform::Rot2ypr(options_.slide_windows_option
-                                                      .extric_camera_to_imu[i]
-                                                      .rotation()
-                                                      .toRotationMatrix())
-                                   .transpose();
-      LOG_EVERY_N(INFO, 10)
-          << transform::Rot2ypr(ext.rotation().toRotationMatrix()).transpose();
+      //
+      std::stringstream info;
+      info << transform::Rot2ypr(
+                  options_.slide_windows_option.extric_camera_to_imu[i]
+                      .rotation()
+                      .toRotationMatrix())
+                  .transpose();
+
+      info << transform::Rot2ypr(ext.rotation().toRotationMatrix()).transpose();
+      LOG_EVERY_N(INFO, 10) << info.str();
+      //
       if (abs(options_.slide_windows_option.extric_camera_to_imu[i]
                   .translation()
                   .norm() -

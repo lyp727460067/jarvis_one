@@ -197,7 +197,9 @@ class JarvisBuilder {
     jarvis_brige_ = std::make_unique<JarvisBrige>(
         config_path_, data_capture_.get(),
         [&](const jarvis::TrackingData& data) {
-          data_record_->AddAtTimeFram(common::ToUniversal(data.data->time));
+          data_record_->AddAtTimeFram(common::ToUniversal(
+              data.data->time -
+              common::FromSeconds(jarvis::GetTimeShiftCamImu())));
           bool slip_flag = false;
           if (slip_detect_) {
             if (data.status != 2) {

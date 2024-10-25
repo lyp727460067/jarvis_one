@@ -285,15 +285,15 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
       }
       // need to rewrite projecton factor.........
       if (it_per_frame.IsStereo()) {
-        // Eigen::Vector3d pts_j =
-        //     it_per_frame.feature.camera_features[1].normal_points;
-        // double tmp_error =
-        //     ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
-        // err += tmp_error;
-        // if (tmp_error > (5. / 377)) {
-          // LOG(WARNING) << "right tmp_error " << tmp_error;
-        // }
-        // errCnt++;
+        Eigen::Vector3d pts_j =
+            it_per_frame.feature.camera_features[1].normal_points;
+        double tmp_error =
+            ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
+        err += tmp_error;
+        if (tmp_error > (5. / 377)) {
+          LOG(WARNING) << "right tmp_error " << tmp_error;
+        }
+        errCnt++;
       }
     }
     double ave_err = err / errCnt;
@@ -390,9 +390,9 @@ void FeatureManager::CreateFactor(
       }
     }
   }
-  #ifdef DEBUG_LOG
-  VLOG(kGlogLevel)<<info.str();
-  #endif
+#ifdef DEBUG_LOG
+  VLOG(kGlogLevel) << info.str();
+#endif
 }
   //
   //

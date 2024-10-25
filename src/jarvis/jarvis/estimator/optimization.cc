@@ -332,7 +332,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   ceres::Solver::Options options;
   options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 1;
+  options.num_threads = 4;
   options.trust_region_strategy_type = ceres::DOGLEG;
   options.sparse_linear_algebra_library_type = ceres::NO_SPARSE;
   // options.dynamic_sparsity =true;
