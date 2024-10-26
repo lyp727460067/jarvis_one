@@ -14,7 +14,7 @@ constexpr uint8_t kGlogCostTimeLevel = 2;
 constexpr uint8_t kGlogCeresLevel = 3;
 namespace jarvis {
 namespace estimator {
-#define DEBUG_LOG
+// #define DEBUG_LOG
 
 
 // constexpr double FOCAL_LENGTH = 377.0;

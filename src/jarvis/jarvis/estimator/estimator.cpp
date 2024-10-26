@@ -140,14 +140,14 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
           slie_result->frame_data.data->extric_camera_to_imu[i];
       //
       std::stringstream info;
-      info << transform::Rot2ypr(
+      info <<"Cam: "<<i<< " imucham:"<<transform::Rot2ypr(
                   options_.slide_windows_option.extric_camera_to_imu[i]
                       .rotation()
                       .toRotationMatrix())
                   .transpose();
 
-      info << transform::Rot2ypr(ext.rotation().toRotationMatrix()).transpose();
-      LOG_EVERY_N(INFO, 10) << info.str();
+      info << " op:"<<transform::Rot2ypr(ext.rotation().toRotationMatrix()).transpose();
+      LOG_EVERY_N(INFO, 10) <<  info.str();
       //
       if (abs(options_.slide_windows_option.extric_camera_to_imu[i]
                   .translation()
