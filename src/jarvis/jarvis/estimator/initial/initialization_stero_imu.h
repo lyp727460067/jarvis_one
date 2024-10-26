@@ -4,6 +4,7 @@
 #include "jarvis/estimator/initialization_interface.h"
 #include "jarvis/estimator/optimization.h"
 //
+#include "jarvis/estimator/initial/initial_ex_rotation.h"
 #include "jarvis/estimator/optimization.h"
 namespace jarvis {
 namespace estimator {
@@ -39,6 +40,7 @@ class SteroImuInitialization : public InitializationImu {
   std::vector<std::shared_ptr<IntegrationBase>> integration_bases_;
   std::vector<bool> frames_continuously_track_num ;
   common::Time last_time;
+  std::unique_ptr<InitialEXRotation> initial_ex_rotation_;
   //
   const int camera_num_  =2;
   Eigen::Vector3d init_bgs_;

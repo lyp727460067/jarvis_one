@@ -76,7 +76,7 @@ bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters,
 #endif
 
   residual = sqrt_info * residual;
-
+  // LOG(INFO)<<residual ;
   if (jacobians) {
     Eigen::Matrix3d ric = qic.toRotationMatrix();
     Eigen::Matrix3d ric2 = qic2.toRotationMatrix();

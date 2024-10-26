@@ -35,6 +35,7 @@ SteroImuInitialization::SteroImuInitialization(
   // optimization_ = std::make_unique<Optimization>(options_.sw_size,
   // opti_optio);
   LOG(INFO) << "Init with Stero";
+  initial_ex_rotation_ =  std::make_unique<InitialEXRotation>();
 }
 //
 
@@ -140,7 +141,7 @@ SteroImuInitialization::OptimizationResult() {
   //
 
   // 固定第一帧位姿和相机相对IMU外参
-  problem.SetParameterBlockConstant(para_pose[0].data());
+  // problem.SetParameterBlockConstant(para_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[1].data());
   
@@ -331,6 +332,9 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   //
   //
 
+
+
+
   //
   if (sw_pose_.empty()) {
     sw_pose_.push_back(
@@ -363,6 +367,23 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
         ImuState{}, options_.imu_option, imu_datas);
   }
   //
+
+  // if (frame_count != 0) {
+  //     LOG(INFO) << "calibrating extrinsic param, rotation movement is needed";
+  //     std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> corres =
+  //         feature_manager_->GetCorresponding(frame_count - 1, frame_count);
+  //     Eigen::Matrix3d calib_ric;
+  //     if (initial_ex_rotation_->CalibrationExRotation(
+  //             corres, integration_bases_.back()->delta_q, calib_ric)) {
+  //       LOG(WARNING) << "initial extrinsic rotation calib success";
+  //       LOG(WARNING) << "initial extrinsic rotation: "
+  //                    << Eigen::Quaterniond(calib_ric)
+  //                    << options_.extric_camera_to_imu[0].rotation();
+  //       // RIC[0] = calib_ric;
+  //     }
+  //   }
+
+
   image_frames_.emplace_back(ImageFrame{cur_time, sw_pose_.back(), track_frame,
                                         integration_bases_.back().get()});
   //

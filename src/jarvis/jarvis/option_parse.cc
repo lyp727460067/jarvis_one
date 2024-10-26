@@ -111,14 +111,45 @@ CameraOption ParseYAMLOptionCameraOption(const CheckNode &paras, int i) {
   camera_option.timeshift_cam_imu   =  cam_node["timeshift_cam_imu"].as<double>();
   return camera_option;
 }
+
+cv::Mat GetMask(const CheckNode &paras, const std::string &name,
+                const Eigen::Vector2i &res) {
+  const std::vector<std::vector<int>> front_left_contour =
+      paras[name].as<std::vector<std::vector<int>>>();
+  CHECK(!front_left_contour.empty());
+  cv::Mat mask(320, 320, CV_8UC1, cv::Scalar(255));
+  std::vector<cv::Point> pts(front_left_contour.size());
+
+  for (size_t i = 0; i < front_left_contour.size(); i++) {
+    pts[i].x = front_left_contour[i][0];
+    pts[i].y = front_left_contour[i][1];
+  }
+  //
+  fillPoly(mask, pts, 0, 8, 0);
+  int dilation_size  =5;
+  cv::resize(mask, mask, cv::Size(res.x(), res.y()));
+  cv::Mat element = getStructuringElement(
+      cv::MORPH_RECT, cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+      cv::Point(dilation_size, dilation_size));
+
+//   cv::imshow("mask", mask);
+  cv::Mat out;
+  cv::erode(mask,out,element);
+//   cv::imshow("dilatemask",out);
+//   cv::waitKey(0);
+  return out;
+}
 template <>
 void ParseYAMLOption(const std::string &file_path,
                      CalibrateOption *calibrate_options) {
   const std::string cam_chain_file = file_path + "/camchain-imucam.yaml";
   const std::string config_file = file_path + "/config.yml";
+  const std::string mask_file = file_path + "/grassMask.yml";
   CHECK(CheckFileExist(cam_chain_file)) << cam_chain_file << " not exist.";
   CHECK(CheckFileExist(config_file)) << config_file << " not exist.";
-   {
+  CHECK(CheckFileExist(mask_file)) << config_file << " not exist.";
+
+  {
     info << "Start parse " << cam_chain_file << "\n";
     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
     if (!fsSettings.isOpened()) {
@@ -291,9 +322,24 @@ void ParseYAMLOption(const std::string &file_path,
     //                                     .rotation()
     //                                     .toRotationMatrix())
     //                  .transpose();
- }
 
- 
+    
+ }
+ info << "Start parse " << mask_file << "\n";
+ CheckNode paras = YAML::LoadFile(mask_file);
+ calibrate_options->masks.resize(kCameraNum);
+ calibrate_options->masks[0] =
+     GetMask(paras, "front_left_contour",
+             calibrate_options->camera_options[0].resolution);
+//  /
+//  calibrate_options->masks[2] =
+//      GetMask(paras, "side_left_contour",
+//              calibrate_options->camera_options[2].resolution);
+//  calibrate_options->masks[3] =
+//      GetMask(paras, "side_right_contour",
+//              calibrate_options->camera_options[3].resolution);
+
+
 }
 
 void ParseYAMLOptionImuOption(cv::FileStorage *fs, jarvis::ImuOption *option,
@@ -475,7 +521,7 @@ void ParseYAMLOption(const std::string &file,
       }
 
       stero_imu_init_option.init_v_th = fsSettings["init_velocity_th"];
-
+      
       //
       feature_manager_option.pyrmid_option.image_size =
           calib_option.camera_options[0].resolution;
@@ -486,6 +532,10 @@ void ParseYAMLOption(const std::string &file,
       //
       option->feature_track_options.push_back(feature_manager_option);
     }
+    // cv::imshow("mask1",option->feature_track_options[0].mask);
+    // cv::imshow("mask2",calib_option.masks[0]);
+    option->feature_track_options[0].mask &= calib_option.masks[0];
+    // cv::imshow("mask",option->feature_track_options[0].mask);
     //
     for (int i = 1; i < track_cam_num; i++, j++) {
       jarvis::estimator::FeatureTrackerOption feature_manager_option;
@@ -503,7 +553,6 @@ void ParseYAMLOption(const std::string &file,
 
       option->feature_track_options.push_back(feature_manager_option);
     }
-    LOG(INFO) << "1";
     //
     //
 

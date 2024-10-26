@@ -551,9 +551,9 @@ void RosCompont::PubPoseWithMark(
 
     // mark.type = visualization_msgs::Marker::ARROW;
     // mark.lifetime = rclcpp::Duration(0);
-    mark.scale.x = 0.01;
-    mark.scale.y = 0.01;
-    mark.scale.z = 0.01;
+    mark.scale.x = 0.03;
+    mark.scale.y = 0.03;
+    mark.scale.z = 0.03;
     std::uniform_real_distribution<float> ran(0, 1);
     mark.color.r = 1;       // ran(e);//1.0;
     mark.color.a = 1;       // ran(e);

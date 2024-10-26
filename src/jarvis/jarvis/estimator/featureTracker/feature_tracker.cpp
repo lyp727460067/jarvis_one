@@ -54,9 +54,16 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
   if (options_.klt_type == 0) {
     calc_optical_flow_pyrlk_ =
         std::make_unique<CalcOpticalFlowPyrLK>(klt_option);
+    //  calc_optical_flow_pyrlk_ =
+    //     std::make_unique<CalcOpticalFlowPyrLK>(klt_option);
+ 
   } else {
     calc_optical_flow_pyrlk_ =
         std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
+    // calc_optical_flow_pyrlk_r_ =
+    //     std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
+
+
   }
 }
 //
@@ -115,7 +122,7 @@ cv::Mat GenerateImageWithKeyPoint(const cv::Mat &l_img,
   // cv::cvtColor(r_img, r_img_feat, cv::COLOR_GRAY2RGB);
   // //
   const int gap = 10;
-  const int v_gap = 40;
+  const int v_gap = 0;
 
   cv::Mat gap_image(row + v_gap, gap, CV_8UC1, cv::Scalar(255, 255, 255));
   cv::Mat v_gap_image(v_gap, col, CV_8UC1, cv::Scalar(0, 0, 0));
@@ -376,7 +383,10 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     tracker_features_num.emplace(p.first, p.second.track_cnt);
     v_cur_pts.push_back(p.second.pt);
   }
+  // auto shwo_image1 =
+  //     GenerateImageWithKeyPoint(_img, cur_pts, cv::Mat(),{});
 
+  // cv::imshow("shwo_image1 ", shwo_image1);
   int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
   auto n_pts = feature_detect_->Detect(_img, v_cur_pts, n_max_cnt,
                                        pyramid_image_->CurrPyram()[1], mask);
@@ -403,6 +413,8 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   
   // auto shwo_image =
   //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
+
+  // cv::imshow("mask",mask);
   // cv::imshow("shwo_image", shwo_image);
   // cv::waitKey(0);
   TicToc tran_t_t;

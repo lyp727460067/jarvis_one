@@ -75,7 +75,8 @@ bool InitialEXRotation::CalibrationExRotation(
   // cout << ric << endl;
   Vector3d ric_cov;
   ric_cov = svd.singularValues().tail<3>();
-  if (frame_count >= WINDOW_SIZE && ric_cov(1) > 0.25) {
+  LOG(INFO)<<ric_cov(1);
+  if (frame_count >= 6 && ric_cov(1) > 0.019) {
     calib_ric_result = ric;
     return true;
   } else

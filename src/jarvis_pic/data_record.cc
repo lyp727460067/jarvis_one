@@ -80,13 +80,14 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
     auto frame = frames_.front();
     tasks_.push([=]() {
       //
-      cv::Mat merge_image;
-      cv::Mat merge_image1;
-      cv::hconcat(frame.images[0], frame.images[1], merge_image);
-      if (frame.images.size() > 2) {
-        cv::hconcat(frame.images[2], frame.images[3], merge_image1);
-        // cv::vconcat(merge_image, merge_image1, merge_image);
-      }
+
+      // cv::Mat merge_image;
+      // cv::Mat merge_image1;
+      // cv::hconcat(frame.images[0], frame.images[1], merge_image);
+      // if (frame.images.size() > 2) {
+      //   cv::hconcat(frame.images[2], frame.images[3], merge_image1);
+      //   // cv::vconcat(merge_image, merge_image1, merge_image);
+      // }
       // LDCV::Mat image(merge_image.rows, merge_image.cols, merge_image.ptr());
       // LDCV::imwrite(
       //     image_data_dir_ + std::to_string(uint64_t(frame.time * 1e3)) +
@@ -102,13 +103,29 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
       params[6] = cv::IMWRITE_JPEG_RST_INTERVAL;
       params[7] = 0;
       {
-        // std::vector<uint8_t> datas;
-        // cv::imencode(".jpeg", merge_image, datas, params);
-        // UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 0,
-        //                                  uint64_t(frame.time * 1e3));
         cv::imwrite(image_data_dir_ +
                         std::to_string(uint64_t(frame.time * 1e3)) + "_0.jpg",
-                    merge_image, params);
+                    frame.images[0], params);
+        cv::imwrite(image_data_dir_ +
+                        std::to_string(uint64_t(frame.time * 1e3)) + "_1.jpg",
+                    frame.images[1], params);
+        cv::imwrite(image_data_dir_ +
+                        std::to_string(uint64_t(frame.time * 1e3)) + "_2.jpg",
+                    frame.images[2], params);
+
+        //  cv::Mat out_grayMat;
+        //  cv::transpose(merge_image1, out_grayMat);
+        //  cv::Mat merge_imag2e;
+        //  cv::vconcat(merge_image, out_grayMat, merge_imag2e);
+
+        // std::vector<uint8_t> datas;
+        // cv::imencode(".jpeg", merge_imag2e, datas, params);
+        // UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 0,
+        //                                  uint64_t(frame.time * 1e3));
+        
+        // cv::imwrite(image_data_dir_ +
+        //                 std::to_string(uint64_t(frame.time * 1e3)) + "_0.jpg",
+        //             merge_image, params);
       }
       {
         // std::vector<uint8_t> datas;
@@ -116,9 +133,9 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
         // UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 1,
         //                                  uint64_t(frame.time * 1e3));
 
-        cv::imwrite(image_data_dir_ +
-                        std::to_string(uint64_t(frame.time * 1e3)) + "_1.jpg",
-                    merge_image1, params);
+        // cv::imwrite(image_data_dir_ +
+        //                 std::to_string(uint64_t(frame.time * 1e3)) + "_1.jpg",
+        //             merge_image1, params);
       }
 
 
@@ -200,10 +217,10 @@ void DataRecord::AddRtk(const RtkData& rtk) {
   // std::lock_guard<std::mutex> lock(mutex_);
   // tasks_.push([=]() {
   std::stringstream info;
-  info << "rtk " << std::to_string(uint64_t(rtk.time * 1e3)) << " " << rtk.lat
-       << " " << std::to_string(rtk.lon) << " " << std::to_string(rtk.alt)
-       << " " << std::to_string(rtk.qual) << " " << rtk.sats << " " << rtk.age
-       << " " << rtk.speed << " " << rtk.track;
+  info << "rtk " << std::to_string(uint64_t(rtk.time * 1e3)) << " "
+       << std::to_string(rtk.lat) << " " << std::to_string(rtk.lon) << " "
+       << std::to_string(rtk.alt) << " " << std::to_string(rtk.qual) << " "
+       << rtk.sats << " " << rtk.age << " " << rtk.speed << " " << rtk.track;
   imu_file_ << info.str() << std::endl;
 }
 //

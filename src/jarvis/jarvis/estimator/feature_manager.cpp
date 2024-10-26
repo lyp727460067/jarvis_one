@@ -291,9 +291,9 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
         // double tmp_error =
         //     ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
         // err += tmp_error;
-        // if (tmp_error > (5. / 377)) {
-        //   LOG(WARNING) << "right tmp_error " << tmp_error;
-        // }
+        // // if (tmp_error > (5. / 377)) {
+        //   // LOG(WARNING) << "right tmp_error " << tmp_error;
+        // // }
         // errCnt++;
       }
     }
