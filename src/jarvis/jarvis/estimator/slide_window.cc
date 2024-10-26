@@ -86,10 +86,17 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   TicToc feature_t_t;
   for (auto& f : frame.data->features_datas) {
     if (feature_managers_->Exist(f.first)) {
-      VLOG(kGlogLevel) << "feature id: " << f.first;
+      const int conti_cout =
+          feature_managers_->MutableFeatureManager(f.first)->GetFeatureCount();
       feature_managers_->MutableFeatureManager(f.first)
           ->AddFeatureCheckParallax(
               frame_count, frame.data->features_datas[f.first].features, dt);
+      const int conti_cout_after =
+          feature_managers_->MutableFeatureManager(f.first)->GetFeatureCount();
+      LOG_IF(WARNING, conti_cout < 10)
+          << "Cam:" << f.first
+          << " Continuously track feature points greater than 4-->" << conti_cout
+          << ",Add feature after trackpoints: " << conti_cout_after<<" ";
     }
   }
   //
@@ -458,7 +465,7 @@ void SlideWindow::FrameDataToState() {
     para_Ex_Pose[i][6] = q.w();
   }
   // LOG(INFO) << extric_info.str();
-  LOG_EVERY_N(INFO,100)<<extric_info.str();
+  LOG_EVERY_N(INFO,10)<<extric_info.str();
   VLOG(kGlogLevel)<<extric_info.str();
 
   for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {

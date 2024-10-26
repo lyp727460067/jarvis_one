@@ -8,7 +8,7 @@
 
 #include <fstream>
 #include <string>
-// #include "udisk_file_storage.h"
+#include "udisk_file_storage.h"
 #include "glog/logging.h"
 //
 //
@@ -106,7 +106,6 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
         // cv::imencode(".jpeg", merge_image, datas, params);
         // UDISKFILESTORAGE->UdiskDataWrite(datas.data(), int(datas.size()), 0,
         //                                  uint64_t(frame.time * 1e3));
-
         cv::imwrite(image_data_dir_ +
                         std::to_string(uint64_t(frame.time * 1e3)) + "_0.jpg",
                     merge_image, params);

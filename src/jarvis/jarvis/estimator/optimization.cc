@@ -166,7 +166,7 @@ int Optimization::AddCameraFactor(int id, ceres::Problem *problem,
 
   );
   // LOG(INFO)<<info1.str();
-  LOG_EVERY_N(INFO, 100) << "cam " << id << " Adding factor feature size "
+  LOG_EVERY_N(INFO, 10) << "cam " << id << " Adding factor feature size "
                          << f_m_cnt;
   VLOG(kGlogLevel) << "cam " << id << " Adding factor feature size " << f_m_cnt;
   return f_m_cnt;
@@ -332,7 +332,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   ceres::Solver::Options options;
   options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 1;
+  options.num_threads = 4;
   options.trust_region_strategy_type = ceres::DOGLEG;
   options.sparse_linear_algebra_library_type = ceres::NO_SPARSE;
   // options.dynamic_sparsity =true;
@@ -349,7 +349,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   ceres::Solve(options, &problem, &summary);
 
   final_cost_ = summary.final_cost;
-  LOG_EVERY_N(INFO, 2) << summary.BriefReport();
+  LOG_EVERY_N(INFO, 5) << summary.BriefReport();
   LOG_EVERY_N(INFO, 100) << "\n" << summary.FullReport();
   return &data_;
 }

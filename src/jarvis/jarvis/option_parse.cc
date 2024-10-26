@@ -258,23 +258,39 @@ void ParseYAMLOption(const std::string &file_path,
     std::swap(calibrate_options->camera_options[2],
               calibrate_options->camera_options[3]);
     //
-    transform::Rigid3d cam2tocam0 =
-        calibrate_options->extric_camera_to_odom[0].inverse() *
-        calibrate_options->extric_camera_to_odom[1];
-    LOG(INFO)<<"camcham "<<calibrate_options->extric_camera_to_imu[2];
-    calibrate_options->extric_camera_to_imu[2] =
-        calibrate_options->extric_camera_to_imu[0] * cam2tocam0;
-    //
-    LOG(INFO)<<"camodom "<<calibrate_options->extric_camera_to_imu[2];
-    transform::Rigid3d cam3tocam0 =
-        calibrate_options->extric_camera_to_odom[0].inverse() *
-        calibrate_options->extric_camera_to_odom[2];
+    // transform::Rigid3d cam2tocam0 =
+    //     calibrate_options->extric_camera_to_odom[0].inverse() *
+    //     calibrate_options->extric_camera_to_odom[1];
+    // LOG(INFO) << "camcham " << calibrate_options->extric_camera_to_imu[2] << " "
+    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
+    // calibrate_options->extric_camera_to_imu[2] =
+    //     calibrate_options->extric_camera_to_imu[0] * cam2tocam0;
+    // //
+    // LOG(INFO) << "camodom " << calibrate_options->extric_camera_to_imu[2] << " "
+    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
 
-    LOG(INFO)<<"camcham "<<calibrate_options->extric_camera_to_imu[3];
-    calibrate_options->extric_camera_to_imu[3] =
-        calibrate_options->extric_camera_to_imu[0] * cam3tocam0;
+    // transform::Rigid3d cam3tocam0 =
+    //     calibrate_options->extric_camera_to_odom[0].inverse() *
+    //     calibrate_options->extric_camera_to_odom[2];
 
-    LOG(INFO)<<"camodom "<<calibrate_options->extric_camera_to_imu[3];
+    // LOG(INFO) << "camcham " << calibrate_options->extric_camera_to_imu[3] << " "
+    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
+    // calibrate_options->extric_camera_to_imu[3] =
+    //     calibrate_options->extric_camera_to_imu[0] * cam3tocam0;
+    // LOG(INFO) << "camodom " << calibrate_options->extric_camera_to_imu[3] << " "
+    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
  }
 
  

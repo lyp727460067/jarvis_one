@@ -95,9 +95,8 @@ bool FeatureManager::AddFeatureCheckParallax(
     int frame_count, const ImageFeatureTrackerData &image, double td) {
   //
   frame_count_= frame_count;
-  const int conti_cout = GetFeatureCount();
-  LOG_IF(INFO, conti_cout < 10)
-      << "Continuously track feature points greater than 4-->" << conti_cout;
+  // const int conti_cout = GetFeatureCount();
+
   //
   //
   //
@@ -232,7 +231,9 @@ void FeatureManager::RemoveFailures() {
       features_.erase(it);
     }
   }
-  VLOG(kGlogLevel) <<  info.str();
+  if(!info.str().empty()){
+    VLOG(kGlogLevel) <<  info.str();
+  }
 }
 
 //
@@ -291,7 +292,7 @@ std::set<TrackFeatureId> FeatureManager::OutliersRejection(
         //     ReprojectionError(world_point_i, pose[imu_j].Pose() * ex[1], pts_j);
         // err += tmp_error;
         // if (tmp_error > (5. / 377)) {
-          // LOG(WARNING) << "right tmp_error " << tmp_error;
+        //   LOG(WARNING) << "right tmp_error " << tmp_error;
         // }
         // errCnt++;
       }
@@ -390,9 +391,9 @@ void FeatureManager::CreateFactor(
       }
     }
   }
-  #ifdef DEBUG_LOG
-  VLOG(kGlogLevel)<<info.str();
-  #endif
+#ifdef DEBUG_LOG
+  VLOG(kGlogLevel) << info.str();
+#endif
 }
   //
   //
@@ -1056,6 +1057,7 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
         std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};
 
     std::map<CameraId, std::set<TrackFeatureId>> result;
+    std::stringstream info;
     for (auto &f_m : feature_managers_) {
       std::vector<transform::Rigid3d> ex_came_to_imu_tmp;
       for (size_t i = 0; i < ParaExPoseIndex[f_m.first].size(); i++) {
@@ -1063,7 +1065,14 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
       }
       result[f_m.first] =
           std::move(f_m.second->OutliersRejection(pose, ex_came_to_imu_tmp));
+      info << "cam:" << f_m.first
+           << " Total features size:" << f_m.second->Features().size()
+           << " Remove: " << result[f_m.first].size()<<" ";
     }
+    if (!info.str().empty()) {
+      LOG_EVERY_N(INFO, 5) << info.str();
+    }
+    VLOG(kGlogLevel) << info.str();
     return result;
   }
 
