@@ -279,9 +279,9 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
           para_Ex_Pose[i], k,
           options_.extric_camera_to_imu[i].translation()[k] - 0.05);
     }
-    if (/*pre_integration == nullptr || pre_integration->IsValid() ||  
-        common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 3)||*/ i>=2) {
-      // problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+    if (pre_integration == nullptr || pre_integration->IsValid() ||  
+        common::RadToDeg(transform::GetYaw(pre_integration->delta_q) > 2)) {
+      problem.SetParameterBlockConstant(para_Ex_Pose[i]);
     };
   }
   problem.AddParameterBlock(para_Td[0], 1);
