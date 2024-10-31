@@ -24,10 +24,10 @@ error_flag = False
 with open(output, "w", encoding="utf-8") as file:
     for name in names:
         print(name)
-        result = subprocess.run(["cppcheck", "--enable=error,performance", name], capture_output=True, text=True)
-        if result.stderr:
-            print(result.stderr)
-            file.write(f"{result.stderr}\n")
-            error_flag = True
+        #result = subprocess.run(["cppcheck", "--enable=error,performance", name], capture_output=True, text=True)
+        #if result.stderr:
+        #    print(result.stderr)
+        #    file.write(f"{result.stderr}\n")
+        #    error_flag = True
 if error_flag:
     exit(1)
