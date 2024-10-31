@@ -146,8 +146,7 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
             (int)pt_cor.pt.y < 0 || (int)pt_cor.pt.y > img.rows) {
           continue;
         }
-  
-        if (mask.at<uint8_t>((int)pt_cor.pt.y, (int)pt_cor.pt.x) < 127) {
+        if (mask.at<uint8_t>((int)pt_cor.pt.y, (int)pt_cor.pt.x) < 255) {
           continue;
         }
         std::lock_guard<std::mutex> lock(mutex);
@@ -197,7 +196,8 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
 bool FeatureDetect::CheckGridValid(
     const std::vector<std::vector<cv::Point2f>>& grid,
     const cv::Point2f& point,const cv::Mat& mask) {
-  if (mask.at<uint8_t>((int)point.y, (int)point.x) < 127) {
+
+  if (mask.at<uint8_t>((int)point.y, (int)point.x) < 255) {
     return false;
   }
   int x_cell = point.x / options_.grid_size.x();

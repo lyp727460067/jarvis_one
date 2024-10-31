@@ -169,6 +169,7 @@ class FeatureTracker {
   std::map<uint64_t, Eigen::Vector3d> prev_un_pts_;
   std::map<uint64_t, Eigen::Vector3d> prev_un_right_pts_;
   std::unique_ptr<CalcOpticalFlowPyrLK> calc_optical_flow_pyrlk_;
+  std::unique_ptr<CalcOpticalFlowPyrLK> calc_optical_flow_pyrlk_r_;
   common::Time prev_time_;
   common::Time curr_time_;
   uint64_t tranck_id_ = 0;

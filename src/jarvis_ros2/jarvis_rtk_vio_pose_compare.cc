@@ -74,16 +74,15 @@ using namespace jarvis;
 // /
 struct Pose {
   uint64_t time;
-  uint64_t local_time;
   Eigen::Vector3d p;
   Eigen::Quaterniond q;
 };
 struct RtkData {
   uint64_t time;
-  uint64_t local_time;
   double latitude;
   double longitude;
   double altitude;
+  bool valid = 0;
 };
 struct FusionData {
   uint64_t time;
@@ -165,14 +164,20 @@ std::istringstream& operator>>(std::istringstream& ifs, RtkData& rtk_data) {
   std::string name;
   ifs >> name;
   if (name == "rtk") {
-    ifs >> rtk_data.time >> rtk_data.local_time;
-    int unuse_cout;
-    ifs >> unuse_cout;
-    std::string lat,log,alt;
+    ifs >> rtk_data.time;
+    std::string lat ,log,alt;
     ifs >> lat >> log >> alt;
-    rtk_data.altitude = stod(alt);
-    rtk_data.longitude = ToDeg(log);
-    rtk_data.latitude =ToDeg(lat);
+    int qua,age;
+    int uuse;
+    ifs >> qua>> uuse>>age;
+    if (qua == 4 && age < 7) {
+      rtk_data.valid =true;
+      LOG(INFO) << rtk_data.time;
+    }
+          rtk_data.altitude = stod(alt);
+      rtk_data.longitude = ToDeg(log);
+      rtk_data.latitude = ToDeg(lat);
+
     return ifs;
   }
 
@@ -200,11 +205,10 @@ std::istringstream& operator>>(std::istringstream& ifs, Pose& pose) {
   //  pose.p.y() *=1.01;
   // LOG(INFO)<<pose.time;
   Eigen::Quaterniond ex_r(0.983681, -0.029403, -0.174547 ,-0.0322581);
-  auto extirc =  transform::Rigid3d(Eigen::Vector3d(0.451,0,0),ex_r.inverse());
-  auto p =   transform::Rigid3d(pose.p,pose.q)*extirc;
+  // auto extirc =  transform::Rigid3d(Eigen::Vector3d(0.451,0,0),ex_r.inverse());
+  auto p =   transform::Rigid3d(pose.p,pose.q);
   pose.p = p.translation();
   pose.q = p.rotation();
-  LOG(INFO)<<pose.p;
   return ifs;
 }
 
@@ -246,8 +250,9 @@ jarvis::transform::Rigid3d RtkToPose(const RtkData& data) {
 std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
   std::vector<Pose> result;
   for (const auto& d : datas) {
+    if(!d.valid)continue;
     auto r = RtkToPose(d);
-    result.push_back(Pose{d.time * 1000, d.local_time * 1000, r.translation(),
+    result.push_back(Pose{d.time, r.translation(),
                           r.rotation()});
     // LOG(INFO)<<d.time;
   }
@@ -257,7 +262,7 @@ std::vector<Pose> RtkToPose(const std::vector<RtkData>& datas) {
 std::vector<Pose> OdomToPose(const std::vector<OdomData>& datas) {
   std::vector<Pose> result;
   for (const auto& d : datas) {
-    result.push_back(Pose{d.time, 0, d.translation, d.rotation});
+    result.push_back(Pose{d.time, d.translation, d.rotation});
     // LOG(INFO)<<d.time;
   }
   return result;
@@ -267,7 +272,7 @@ std::vector<Pose> OdomToPose(const std::vector<OdomData>& datas) {
 std::vector<Pose> FusionToPose(const std::vector<FusionData>& datas) {
   std::vector<Pose> result;
   for (const auto& d : datas) {
-    result.push_back(Pose{d.time*1000,0, d.p*0.001 });
+    result.push_back(Pose{d.time*1000,d.p*0.001 });
   }
   return result;
 }
@@ -292,7 +297,7 @@ std::unique_ptr < jarvis_pic::PoseOptimization >
   for (int i = 0; pose_alignment.PoseSize() < lenth&&i<vio_data.size(); i++) {
     if(vio_data[i].time>(rt_data.back().time-1000))break;
     l++;
-    if(l>=50000)break;
+    if(l>=800)break;
     pose_alignment.AddPose(jarvis_pic::PoseData{
         common::FromUniversal(static_cast<int64_t>(vio_data[i].time / 100)),
         transform::Rigid3d(vio_data[i].p, vio_data[i].q)
@@ -336,9 +341,9 @@ void PubPoseWithMark(rclcpp::Node* nh,
 
     // mark.type = visualization_msgs::Marker::ARROW;
     // mark.lifetime = rclcpp::Duration(0);
-    mark.scale.x = 0.1;
-    mark.scale.y = 0.1;
-    mark.scale.z = 0.1;
+    mark.scale.x = 0.01;
+    mark.scale.y = 0.01;
+    mark.scale.z = 0.01;
     std::uniform_real_distribution<float> ran(0, 1);
     mark.color.r = 1;       // ran(e);//1.0;
     mark.color.a = 1;       // ran(e);
@@ -477,7 +482,7 @@ std::vector<Pose> TransformToPose(
     const std::vector<jarvis::transform::Rigid3d>& pose) {
   std::vector<Pose> result;
   for (const auto& p : pose) {
-    result.push_back(Pose{0,0, p.translation(), p.rotation()});
+    result.push_back(Pose{0,p.translation(), p.rotation()});
   }
 
   return result;
@@ -496,8 +501,8 @@ int main(int argc, char* argv[]) {
   //
   std::string vio_pose_file(argv[1]);
   std::string rtk_pose_file(argv[2]);
-  auto vio_data = OdomToPose( ReadFile<OdomData>(vio_pose_file));
-  // auto vio_data = ReadFile<Pose>(vio_pose_file);
+  // auto vio_data = OdomToPose(ReadFile<OdomData>(vio_pose_file));
+  auto vio_data = ReadFile<Pose>(vio_pose_file);
   // auto rtk_data =  FusionToPose(ReadFile<FusionData>(rtk_pose_file));
 
   auto rtk_data = RtkToPose(ReadFile<RtkData>(rtk_pose_file));
@@ -512,16 +517,16 @@ int main(int argc, char* argv[]) {
   for (auto& p : rtk_data) {
     auto correct_pose =
         (*local_to_rtk_transform) * transform::Rigid3d(p.p, p.q);
-    // p.p = correct_pose.translation();
-    // p.q = correct_pose.rotation();
-
+    p.p = correct_pose.translation();
+    p.q = correct_pose.rotation();
+    // LOG(INFO)<<p.p.transpose();
     correct_vio_pose_file << p.time << " " << p.p.x() << " " << p.p.y()
                           << " " << p.p.z() << std::endl;
   }
-  for(const auto &p:rtk_data){
-      correct_rtk_pose_file<< p.time << " " << p.p.x() << " " << p.p.y()
-                          << " " << p.p.z() << std::endl;
-  }
+  // for(const auto &p:rtk_data){
+  //     correct_rtk_pose_file<< p.time << " " << p.p.x() << " " << p.p.y()
+  //                         << " " << p.p.z() << std::endl;
+  // }
   correct_rtk_pose_file.close();
   correct_vio_pose_file.close();
   // ComputeErro(rtk_data, vio_data);

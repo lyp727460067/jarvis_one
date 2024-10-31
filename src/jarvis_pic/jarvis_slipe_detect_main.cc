@@ -318,7 +318,7 @@ int main(int argc, char* argv[]) {
     }
     data_record_->AddVioData(tracking_data.data->time,
                                tracking_data.data->imu_state.Pose(), flag);
-
+    LOG_EVERY_N(INFO,5) << "vio pose:" << tracking_data.data->imu_state;
     // jarvis_slam->AddStateToImuExtrapolator(tracking_data);
     // mpc.Write(
     //     tracking_data,

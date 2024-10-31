@@ -168,6 +168,10 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     ImageFeatureTrackerData featureFrame = feature_trackers_[0]->TrackImage(
         images.time, images.image[0], images.image[1]);
     auto init_result = initials_[0]->AddFeatureData(featureFrame);
+
+
+
+
     if (init_result) {
       slide_wondows_ = std::make_unique<SlideWindow>(
           options_.slide_windows_option, data_base_.get(),

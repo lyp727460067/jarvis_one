@@ -143,6 +143,12 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   const std::vector<sensor::ImuData> imu_datas =
       data_base_->GetImuIntervalData(last_feature_time_, current_time);
   //
+  // for (auto& i : imu_datas) {
+  //   LOG(INFO) << i.angular_velocity.transpose();
+  // }
+  // for (auto& i : imu_datas) {
+  //   LOG(INFO) << i.linear_acceleration.transpose()<<" "<<i.linear_acceleration.norm();
+  // }
   imu_states_.push_back(frame.data->imu_state);
 
   //
@@ -465,7 +471,7 @@ void SlideWindow::FrameDataToState() {
     para_Ex_Pose[i][6] = q.w();
   }
   // LOG(INFO) << extric_info.str();
-  LOG_EVERY_N(INFO,10)<<extric_info.str();
+  LOG_EVERY_N(INFO,5)<<extric_info.str();
   VLOG(kGlogLevel)<<extric_info.str();
 
   for (size_t i = 0; i < options_.opti_option.trace_sequence.size(); i++) {

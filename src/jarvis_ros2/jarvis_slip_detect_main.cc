@@ -22,7 +22,7 @@
 #include "std_msgs/msg/string.hpp"
 #include "unistd.h"
 //
-
+#include <sensor_msgs/msg/imu.hpp>
 #include "jarvis/estimator/featureTracker/pyramid_image.h"
 #include <glog/logging.h>
 
@@ -34,7 +34,7 @@ constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 std::unique_ptr<jarvis_ros::RosCompont> ros_compont;
 //
-
+rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub2_;
 namespace {
 double imu_cam_time_offset = 0;
 double image_sample = 1;
@@ -264,7 +264,25 @@ void WriteImuData(uint64_t time, std::map<uint64_t, Sensor>& imu_datas) {
   }
   imu_datas.erase(imu_datas.begin(), it);
 }
-
+void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
+  auto it = imu_datas.upper_bound(time);
+  for (auto itor = imu_datas.begin(); itor != it; ++itor) {
+      sensor_msgs::msg::Imu msg;
+        // uint64_t time;
+      msg.angular_velocity.set__x(itor->second.angular_velocity.x());
+      msg.angular_velocity.set__y(itor->second.angular_velocity.y());
+      msg.angular_velocity.set__z(itor->second.angular_velocity.z());
+      msg.linear_acceleration.set__x(itor->second.linear_acceleration.x());
+      msg.linear_acceleration.set__y(itor->second.linear_acceleration.y());
+      msg.linear_acceleration.set__z(itor->second.linear_acceleration.z());
+      msg.header.frame_id = "imu";
+      msg.header.stamp =  rclcpp::Time(itor->second.time);
+      imu_pub2_->publish(msg);
+      // LOG(INFO)<<"!";
+    order_queue_->AddData(ImuData::Name(), itor->second.ToPatchData());
+  }
+  imu_datas.erase(imu_datas.begin(), it);
+}
 //
 template <typename Sensor, typename OdomSensor>
 void Run(std::map<uint64_t, Sensor>& imu_datas,
@@ -282,7 +300,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   for (const auto& image : images_datas) {
     //
     time = image.second.time;
-    // if(time<22833527614000)continue;
+    // if(time<2177747441000)continue;
     // LOG(INFO) << "image time : " << image.second.time
     //           << " start imu t: " << imu_datas.begin()->first
     //           << ", end imu t: " << imu_datas.upper_bound(time)->first
@@ -324,6 +342,8 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
+        //     const cv::Mat vr_image1 =
+        // cv::imread(image.second.image_name + "_2.jpg", cv::IMREAD_GRAYSCALE);
     // cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
 
@@ -340,6 +360,10 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                 common::FromUniversal(time / 100) +
                     common::FromSeconds(imu_cam_time_offset),
                 {
+                  // lr_image,
+                  // vr_image,
+                  // vr_image1,
+                  // vr_image1
                     lr_image(cv::Rect(0, 0, 640, 544)).clone(),
                     lr_image(cv::Rect(640, 0, 640, 544)).clone(),
                     vr_image(cv::Rect(0, 0, 544, 640)).clone(),
@@ -378,7 +402,7 @@ int main(int argc, char* argv[]) {
     kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
     kSlipFile.open("/tmp/slep_vio_pose.txt", std::ios::out);
   }
-
+ 
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
   // KImuExtrapolator = std::make_unique<jarvis::estimator::ImuExtrapolator>();
@@ -391,7 +415,7 @@ int main(int argc, char* argv[]) {
   // std::unique_ptr<jarvis_ros::RosCompont> ros_compont =
   //     std::make_unique<jarvis_ros::RosCompont>(node.get());
   ros_compont = std::make_unique<jarvis_ros::RosCompont>(node.get());
-
+  imu_pub2_ = node->create_publisher<sensor_msgs::msg::Imu>("imu", 1000);
   //
   // /
   TrackingData tracking_data_temp;
@@ -488,12 +512,12 @@ int main(int argc, char* argv[]) {
                     << " " << int(flag) << std::endl;
 
           ros_compont->PubBoolMsg(flag);
-          slipe_alignment_pose =
-              ((tracking_data.data->imu_state.Pose()));
+           slipe_alignment_pose=
+               slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
         }
         // LOG(INFO) << tracking_data.data->imu_state;
         if (kRecordFlag) {
-          const auto pose = tracking_data.data->imu_state.Pose();
+          const auto pose =slipe_alignment_pose;// tracking_data.data->imu_state.Pose();
           std::stringstream info;
           info << std::to_string(uint64_t(
                       jarvis::common::ToUniversal(tracking_data.data->time) *
@@ -505,11 +529,11 @@ int main(int argc, char* argv[]) {
           kOPoseFile << info.str() << std::endl;
         }
 
-        // ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
-        ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}}, true);
+        ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
+        // ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}}, true);
         ros_compont->OnLocalTrackingResultCallback(
             tracking_data, nullptr, transform::Rigid3d::Identity());
-        ros_compont->PosePub(tracking_data.data->imu_state.Pose(),
+        ros_compont->PosePub( slip_detect->ToPoseInOdom(tracking_data.data->imu_state.Pose()),
                              transform::Rigid3d::Identity());
         rclcpp::spin_some(node);
         cond.notify_one();
