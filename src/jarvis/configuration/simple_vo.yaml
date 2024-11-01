@@ -7,7 +7,7 @@ max_disparity : 1
 imu_cam_time_offset : -0.1
 que_time_duration : 2
 zero_velocity_odom_delte_s_threash_hold : 0.1
-pose_odom_err_s_threash_hold : 0.15
+pose_odom_err_s_threash_hold : 0.4
 pose_odom_err_theta_threash_hold : 50  #deg
 ## simplevio
 ###
