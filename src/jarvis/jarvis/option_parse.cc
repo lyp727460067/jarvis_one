@@ -520,6 +520,8 @@ void ParseYAMLOption(const std::string &file,
             calib_option.extric_camera_to_imu[j]);
       }
 
+      stero_imu_init_option.init_ba_th = fsSettings["init_bas_normal_max"];
+      stero_imu_init_option.init_bg_th = fsSettings["init_bgs_normal_max"];
       stero_imu_init_option.init_v_th = fsSettings["init_velocity_th"];
       
       //

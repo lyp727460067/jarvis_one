@@ -344,7 +344,7 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   }
   //
   bool pnp_state = feature_manager_->InitFramePoseByPnP(
-                       frame_count, options_.extric_camera_to_imu, sw_pose_) &
+                       frame_count, options_.extric_camera_to_imu, sw_pose_) &&
                    (feature_manager_->GetFeatureCount() > 10);
   //
   init_pnp_states_.push_back(pnp_state);
