@@ -328,9 +328,21 @@ void ParseYAMLOption(const std::string &file_path,
  info << "Start parse " << mask_file << "\n";
  CheckNode paras = YAML::LoadFile(mask_file);
  calibrate_options->masks.resize(kCameraNum);
- calibrate_options->masks[0] =
-     GetMask(paras, "front_left_contour",
-             calibrate_options->camera_options[0].resolution);
+ try {
+   cv::Mat tmp = GetMask(paras, "front_left_contour",
+                         calibrate_options->camera_options[0].resolution);
+   calibrate_options->masks[0] = tmp;
+ }catch(...){
+   try {
+     cv::Mat tmp = GetMask(paras, "grass_front_contour",
+                           calibrate_options->camera_options[0].resolution);
+
+     calibrate_options->masks[0] = tmp;
+   }catch(...){
+
+   };
+ };
+
 //  /
 //  calibrate_options->masks[2] =
 //      GetMask(paras, "side_left_contour",
@@ -536,7 +548,9 @@ void ParseYAMLOption(const std::string &file,
     }
     // cv::imshow("mask1",option->feature_track_options[0].mask);
     // cv::imshow("mask2",calib_option.masks[0]);
-    option->feature_track_options[0].mask &= calib_option.masks[0];
+    if(!calib_option.masks[0].empty()){
+        option->feature_track_options[0].mask &= calib_option.masks[0];
+    }
     // cv::imshow("mask",option->feature_track_options[0].mask);
     //
     for (int i = 1; i < track_cam_num; i++, j++) {
