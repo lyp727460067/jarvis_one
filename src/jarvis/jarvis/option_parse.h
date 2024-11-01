@@ -27,8 +27,8 @@ struct CheckNode : public YAML::Node {
     try {
       return Node::as<T>();
     } catch (...) {
-      LOG(FATAL) << "[" << key_ << "]"
-                 << " not in the yaml_file or check key whitespace";
+      LOG(ERROR) <<  "[" << key_ << "]"
+                             << " not in the yaml_file or check key whitespace";
     }
     return Node::as<T>();
   }
