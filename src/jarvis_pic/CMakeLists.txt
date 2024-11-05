@@ -80,9 +80,26 @@ add_executable(mpslam  jarvis_slipe_detect_main.cc
 add_executable(jarvis_eigen_test  jarvis_eigen_test.cc
  )
 
+add_executable(calibrate_data_record  calibrate_data_record.cc  
+ data_capture.cc zmq_component.cc dev_socket.cc 
+ data_record.cc
+ socket_wrapper.cc 
+ glog_sink.cc
+ key_board.cc
+ )
 
 target_link_libraries(jarvis_eigen_test PUBLIC
   -ldl
+)
+
+
+target_link_libraries(calibrate_data_record PUBLIC
+  # glog
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+   mpc
+
 )
 
 
@@ -104,4 +121,15 @@ target_link_libraries(mpslam PUBLIC
   mpc
   ${OPENCL_LIBRARIES}
 )
+
+target_include_directories(calibrate_data_record  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(mpslam PUBLIC
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+  mpc
+  ${OPENCL_LIBRARIES}
+)
+
+
 target_include_directories(mpslam PUBLIC jarvis )

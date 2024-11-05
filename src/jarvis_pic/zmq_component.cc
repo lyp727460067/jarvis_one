@@ -74,6 +74,22 @@ cv::Mat GenerateImageWithKeyPoint(
   }
   return loop_match_img;
 }
+//
+cv::Mat VMergeImage(const cv::Mat &m1, const cv::Mat &m2) {
+  cv::Size resize{640, 544};
+  cv::Mat temp;
+  cv::Mat temp1;
+  cv::Mat merge_image;
+  cv::resize(m1, temp, resize);
+  if (m2.empty()) {
+    cv::hconcat(temp, m1, merge_image);
+  } else {
+    cv::resize(m2, temp1, resize);
+    cv::hconcat(temp, temp1, merge_image);
+  }
+  return merge_image;
+}
+//
 std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
                              uint8_t slip_data) {
   //
@@ -105,23 +121,24 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
     //   map_points.push_back(cam_feature.second.map_points[feature.first]);
     // }
   }
-  cv::Size resize{640,544};
+
+  cv::Size resize{640, 544};
   if (cvresult1.size() == 1) {
     merge_image = cvresult1[0];
   } else if (cvresult1.size() == 2) {
-    cv::Mat temp ;
-    cv::resize(cvresult1[1],temp,resize);
-    cv::hconcat(cvresult1[0], temp, merge_image);
+    merge_image = VMergeImage(cvresult1[0], cvresult1[1]);
   } else if (cvresult1.size() == 3) {
-    cv::Mat temp = cvresult1[1];
-    cv::Mat temp1 = cvresult1[2];
-    cv::resize(cvresult1[1],temp,resize);
-    cv::resize(cvresult1[2],temp1,resize);
-    cv::Mat back(640, 540,CV_8UC3,cv::Scalar::all(0));
-    cv::hconcat(cvresult1[0], temp, merge_image);
-    cv::Mat tmp_2_out;
-    cv::hconcat(temp1, back, tmp_2_out);
-    cv::vconcat(merge_image, tmp_2_out, merge_image);
+    auto merge_image0 = VMergeImage(cvresult1[0], cvresult1[1]);
+    cv::Mat merge_image1 = VMergeImage(cvresult1[2], cv::Mat());
+    cv::Mat temp;
+    cv::vconcat(merge_image0, merge_image1, temp);
+    merge_image = temp;
+  } else if (cvresult1.size() == 4) {
+    auto merge_image0 = VMergeImage(cvresult1[0], cvresult1[1]);
+    cv::Mat merge_image1 = VMergeImage(cvresult1[2], cvresult1[3]);
+    cv::Mat temp;
+    cv::vconcat(merge_image0, merge_image1, temp);
+    merge_image = temp;
   }
   // auto image_result = GenerateImageWithKeyPoint(
   //     tracking_data.data->features_datas[0].features.data->images[0],
