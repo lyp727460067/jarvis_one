@@ -370,15 +370,15 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
-        //     const cv::Mat vr_image1 =
-        // cv::imread(image.second.image_name + "_2.jpg", cv::IMREAD_GRAYSCALE);
+            const cv::Mat vr_image1 =
+        cv::imread(image.second.image_name + "_2.jpg", cv::IMREAD_GRAYSCALE);
     // cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
 
     if(lr_image.empty()||vr_image.empty() )continue;
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    cv::imshow("vr_image",vr_image);
-    cv::waitKey(0);
+    // cv::imshow("vr_image",vr_image);
+    // cv::waitKey(0);
     // LOG(INFO)<<imu_cam_time_offset;
 
     order_queue_->AddData(
@@ -388,14 +388,14 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                 common::FromUniversal(time / 100) +
                     common::FromSeconds(imu_cam_time_offset),
                 {
-                  // lr_image,
-                  // vr_image,
-                  // vr_image1,
-                  // vr_image1
-                    lr_image(cv::Rect(0, 0, 640, 544)).clone(),
-                    lr_image(cv::Rect(640, 0, 640, 544)).clone(),
-                    vr_image(cv::Rect(0, 0, 544, 640)).clone(),
-                    vr_image(cv::Rect(544, 0, 544, 640)).clone()
+                  lr_image,
+                  vr_image,
+                  vr_image1,
+                  vr_image1
+                    // lr_image(cv::Rect(0, 0, 640, 544)).clone(),
+                    // lr_image(cv::Rect(640, 0, 640, 544)).clone(),
+                    // vr_image(cv::Rect(0, 0, 544, 640)).clone(),
+                    // vr_image(cv::Rect(544, 0, 544, 640)).clone()
                 }}));
   // }catch(cv::Exception){
 
@@ -581,7 +581,7 @@ int main(int argc, char* argv[]) {
         // ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}}, true);
         ros_compont->OnLocalTrackingResultCallback(
             tracking_data, nullptr, transform::Rigid3d::Identity());
-        ros_compont->PosePub( tracking_data.data->imu_state.Pose(),
+        ros_compont->PosePub( slip_detect->ToPoseInOdom( tracking_data.data->imu_state.Pose()),
                              transform::Rigid3d::Identity());
         rclcpp::spin_some(node);
         cond.notify_one();

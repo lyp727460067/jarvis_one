@@ -199,139 +199,169 @@ void ParseYAMLOption(const std::string &file_path,
     CheckNode paras = YAML::LoadFile(cam_chain_file);
     CheckNode defalt_paras = YAML::Load(defalt_extric);
 
-    auto GetCameraExt = [](const CheckNode &cam_node) {
-      Eigen::Matrix4d camera_to_imu;
-      const std::vector<std::vector<double>> camera_to_imu_vector =
-          cam_node["T_imu_cam"].as<std::vector<std::vector<double>>>();
-      for (int i = 0; i < 4; i++) {
-        camera_to_imu.row(i) = Eigen::Vector4d(camera_to_imu_vector[i].data());
-      }
-      return transform::Rigid3d(
-          camera_to_imu.block<3, 1>(0, 3),
-          Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)));
-    };
-    //
-    for (int i = 0; i < kCameraNum; i++) {
+    auto GetCameraExt =
+        [](const CheckNode &cam_node) {
+          Eigen::Matrix4d camera_to_imu;
+          try {
+            const std::vector<std::vector<double>> camera_to_imu_vector =
+                cam_node["T_imu_cam"].as<std::vector<std::vector<double>>>();
+            for (int i = 0; i < 4; i++) {
+              camera_to_imu.row(i) =
+                  Eigen::Vector4d(camera_to_imu_vector[i].data());
+            }
+            return transform::Rigid3d(
+                camera_to_imu.block<3, 1>(0, 3),
+                Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)));
+          } catch (...) {
+            const std::vector<std::vector<double>> camera_to_imu_vector =
+                cam_node["T_cam_imu"].as<std::vector<std::vector<double>>>();
+            for (int i = 0; i < 4; i++) {
+              camera_to_imu.row(i) =
+                  Eigen::Vector4d(camera_to_imu_vector[i].data());
+            }
+            return transform::Rigid3d(
+                       camera_to_imu.block<3, 1>(0, 3),
+                       Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)))
+                .inverse();
+          }};
+          //
+          for (int i = 0; i < kCameraNum; i++) {
+            const CheckNode cam_node = paras["cam" + std::to_string(i)];
+            const transform::Rigid3d ext_para = GetCameraExt(cam_node);
 
-      const CheckNode cam_node = paras["cam" + std::to_string(i)];
-      const transform::Rigid3d ext_para = GetCameraExt(cam_node);
+            const CheckNode defalt_cam_node =
+                defalt_paras["cam" + std::to_string(i)];
+            const transform::Rigid3d defalt_ext_para =
+                GetCameraExt(defalt_cam_node);
+            LOG(INFO) << i;
+            // if (abs(defalt_ext_para.translation().norm() -
+            //         ext_para.translation().norm()) > 0.03) {
+            //   LOG(ERROR)
+            //       << "The calibration result is too far from the reference "
+            //          "value. defalt:"
+            //       << defalt_ext_para << "cal " << ext_para << ". distance:"
+            //       << abs(defalt_ext_para.translation().norm() -
+            //              ext_para.translation().norm())
+            //       << ".Load defalt para.";
+            //   calibrate_options->extric_camera_to_imu.push_back(
+            //       defalt_ext_para);
+            //   // calibrate_options->camera_options.push_back(
+            //   //     ParseYAMLOptionCameraOption(defalt_paras, i));
+            // } else {
+              calibrate_options->extric_camera_to_imu.push_back(ext_para);
+            // }
+            //
+            calibrate_options->camera_options.push_back(
+                ParseYAMLOptionCameraOption(paras, i));
+            LOG(INFO) << calibrate_options->camera_options.back().DebugInfo();
+            LOG(INFO) << "imu_to_cam:"
+                      << calibrate_options->extric_camera_to_imu.back();
 
-      const CheckNode defalt_cam_node = defalt_paras["cam" + std::to_string(i)];
-      const transform::Rigid3d defalt_ext_para = GetCameraExt(defalt_cam_node);
-      LOG(INFO)<<i;
-      if (abs(defalt_ext_para.translation().norm() -
-              ext_para.translation().norm()) > 0.03) {
-        LOG(ERROR) << "The calibration result is too far from the reference "
-                      "value. defalt:"
-                   << defalt_ext_para << "cal " << ext_para
-                   << ". distance:"
-                   << abs(defalt_ext_para.translation().norm() -
-                          ext_para.translation().norm())
-                   << ".Load defalt para.";
-        calibrate_options->extric_camera_to_imu.push_back(defalt_ext_para);
-        // calibrate_options->camera_options.push_back(
-        //     ParseYAMLOptionCameraOption(defalt_paras, i));
-      } else {
-        calibrate_options->extric_camera_to_imu.push_back(ext_para);
+            //
+            //
+          }
+          // Eigen::Matrix3d temp;
+          // temp << 9.9995443247882831e-01, 4.4208498469253781e-03,
+          //     8.4610314132053579e-03,
+          //     -4.4454512625568387e-03, 9.9998593988640494e-01,
+          //     2.8910192969837647e-03, -8.4481316879260245e-03,
+          //     -2.9285006631791207e-03, 9.9996002567845144e-01;
+          // Eigen::Vector3d
+          // temp_t(-7.9909196183143521e+01, 7.4353285997290131e-02,
+          //                        4.9535770968658988e-01);
 
-      }
-      //
-        calibrate_options->camera_options.push_back(
-            ParseYAMLOptionCameraOption(paras, i));
-      LOG(INFO) << calibrate_options->camera_options.back().DebugInfo();
-      LOG(INFO) << "imu_to_cam:"
-                << calibrate_options->extric_camera_to_imu.back();
+          // temp_t = temp_t * 0.001;
+          // transform::Rigid3d temp_ex(temp_t,
+          // Eigen::Quaterniond(temp).normalized());
+          // LOG(INFO)<<transform::Rot2ypr(temp.transpose());
+          // //
+          // temp_ex = temp_ex.inverse();
+          // LOG(INFO) << "cam0cam1: "
+          //           << calibrate_options->extric_camera_to_imu[0].inverse() *
+          //                  calibrate_options->extric_camera_to_imu[1];
+          // transform::Rigid3d diff_temp_ex =
+          // (calibrate_options->extric_camera_to_imu[0].inverse() *
+          //                  calibrate_options->extric_camera_to_imu[1]).inverse()*
+          //                  temp_ex;
+          // LOG(INFO)<<diff_temp_ex <<" diff_temp_ex
+          // "<<transform::Rot2ypr(diff_temp_ex.rotation().toRotationMatrix());
+          // LOG(INFO) << "rcam0cam1 " << temp_ex;
+          // //
 
-      //
-      //
-    }
-    // Eigen::Matrix3d temp;
-    // temp << 9.9995443247882831e-01, 4.4208498469253781e-03,
-    //     8.4610314132053579e-03, -4.4454512625568387e-03, 9.9998593988640494e-01,
-    //     2.8910192969837647e-03, -8.4481316879260245e-03,
-    //     -2.9285006631791207e-03, 9.9996002567845144e-01;
-    // Eigen::Vector3d temp_t(-7.9909196183143521e+01, 7.4353285997290131e-02,
-    //                        4.9535770968658988e-01);
+          // LOG(INFO) <<
+          // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
+          //                                     .rotation()
+          //                                     .toRotationMatrix()) ;
 
-    // temp_t = temp_t * 0.001;
-    // transform::Rigid3d temp_ex(temp_t, Eigen::Quaterniond(temp).normalized());
-    // LOG(INFO)<<transform::Rot2ypr(temp.transpose());
-    // //
-    // temp_ex = temp_ex.inverse();
-    // LOG(INFO) << "cam0cam1: "
-    //           << calibrate_options->extric_camera_to_imu[0].inverse() *
-    //                  calibrate_options->extric_camera_to_imu[1];
-    // transform::Rigid3d diff_temp_ex = (calibrate_options->extric_camera_to_imu[0].inverse() *
-    //                  calibrate_options->extric_camera_to_imu[1]).inverse()* temp_ex;
-    // LOG(INFO)<<diff_temp_ex <<" diff_temp_ex "<<transform::Rot2ypr(diff_temp_ex.rotation().toRotationMatrix());
-    // LOG(INFO) << "rcam0cam1 " << temp_ex;
-    // //
+          // // calibrate_options->extric_camera_to_imu[1] =
+          // //     calibrate_options->extric_camera_to_imu[0] * temp_ex;
+          // //
+          // LOG(INFO)<<calibrate_options->extric_camera_to_imu[0];
+          // LOG(INFO)<<calibrate_options->extric_camera_to_imu[1];
 
-    // LOG(INFO) << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
-    //                                     .rotation()
-    //                                     .toRotationMatrix()) ;
-                    
-    // // calibrate_options->extric_camera_to_imu[1] =
-    // //     calibrate_options->extric_camera_to_imu[0] * temp_ex;
-    // //
-    // LOG(INFO)<<calibrate_options->extric_camera_to_imu[0];
-    // LOG(INFO)<<calibrate_options->extric_camera_to_imu[1];
+          // LOG(INFO) <<
+          // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
+          //                                     .rotation()
+          //                                     .toRotationMatrix()) ;
+          // LOG(INFO) <<
+          // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[1]
+          //                                     .rotation()
+          //                                     .toRotationMatrix()) ;
 
-    // LOG(INFO) << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
-    //                                     .rotation()
-    //                                     .toRotationMatrix()) ;
-    // LOG(INFO) << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[1]
-    //                                     .rotation()
-    //                                     .toRotationMatrix()) ;
-    
-    std::swap(calibrate_options->extric_camera_to_imu[2],
-              calibrate_options->extric_camera_to_imu[3]);
-    std::swap(calibrate_options->camera_options[2],
-              calibrate_options->camera_options[3]);
-    //
-    // transform::Rigid3d cam2tocam0 =
-    //     calibrate_options->extric_camera_to_odom[0].inverse() *
-    //     calibrate_options->extric_camera_to_odom[1];
-    // LOG(INFO) << "camcham " << calibrate_options->extric_camera_to_imu[2] << " "
-    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
-    //                                     .rotation()
-    //                                     .toRotationMatrix())
-    //                  .transpose();
-    // calibrate_options->extric_camera_to_imu[2] =
-    //     calibrate_options->extric_camera_to_imu[0] * cam2tocam0;
-    // //
-    // LOG(INFO) << "camodom " << calibrate_options->extric_camera_to_imu[2] << " "
-    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
-    //                                     .rotation()
-    //                                     .toRotationMatrix())
-    //                  .transpose();
+          std::swap(calibrate_options->extric_camera_to_imu[2],
+                    calibrate_options->extric_camera_to_imu[3]);
+          std::swap(calibrate_options->camera_options[2],
+                    calibrate_options->camera_options[3]);
+          //
+          // transform::Rigid3d cam2tocam0 =
+          //     calibrate_options->extric_camera_to_odom[0].inverse() *
+          //     calibrate_options->extric_camera_to_odom[1];
+          // LOG(INFO) << "camcham " <<
+          // calibrate_options->extric_camera_to_imu[2] << " "
+          //           <<
+          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
+          //                                     .rotation()
+          //                                     .toRotationMatrix())
+          //                  .transpose();
+          // calibrate_options->extric_camera_to_imu[2] =
+          //     calibrate_options->extric_camera_to_imu[0] * cam2tocam0;
+          // //
+          // LOG(INFO) << "camodom " <<
+          // calibrate_options->extric_camera_to_imu[2] << " "
+          //           <<
+          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
+          //                                     .rotation()
+          //                                     .toRotationMatrix())
+          //                  .transpose();
 
-    // transform::Rigid3d cam3tocam0 =
-    //     calibrate_options->extric_camera_to_odom[0].inverse() *
-    //     calibrate_options->extric_camera_to_odom[2];
+          // transform::Rigid3d cam3tocam0 =
+          //     calibrate_options->extric_camera_to_odom[0].inverse() *
+          //     calibrate_options->extric_camera_to_odom[2];
 
-    // LOG(INFO) << "camcham " << calibrate_options->extric_camera_to_imu[3] << " "
-    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
-    //                                     .rotation()
-    //                                     .toRotationMatrix())
-    //                  .transpose();
-    // calibrate_options->extric_camera_to_imu[3] =
-    //     calibrate_options->extric_camera_to_imu[0] * cam3tocam0;
-    // LOG(INFO) << "camodom " << calibrate_options->extric_camera_to_imu[3] << " "
-    //           << transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
-    //                                     .rotation()
-    //                                     .toRotationMatrix())
-    //                  .transpose();
-
-    
- }
- info << "Start parse " << mask_file << "\n";
- CheckNode paras = YAML::LoadFile(mask_file);
- calibrate_options->masks.resize(kCameraNum);
- try {
-   cv::Mat tmp = GetMask(paras, "front_left_contour",
-                         calibrate_options->camera_options[0].resolution);
-   calibrate_options->masks[0] = tmp;
+          // LOG(INFO) << "camcham " <<
+          // calibrate_options->extric_camera_to_imu[3] << " "
+          //           <<
+          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
+          //                                     .rotation()
+          //                                     .toRotationMatrix())
+          //                  .transpose();
+          // calibrate_options->extric_camera_to_imu[3] =
+          //     calibrate_options->extric_camera_to_imu[0] * cam3tocam0;
+          // LOG(INFO) << "camodom " <<
+          // calibrate_options->extric_camera_to_imu[3] << " "
+          //           <<
+          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
+          //                                     .rotation()
+          //                                     .toRotationMatrix())
+          //                  .transpose();
+        } info
+        << "Start parse " << mask_file << "\n";
+    CheckNode paras = YAML::LoadFile(mask_file);
+    calibrate_options->masks.resize(kCameraNum);
+    try {
+      cv::Mat tmp = GetMask(paras, "front_left_contour",
+                            calibrate_options->camera_options[0].resolution);
+      calibrate_options->masks[0] = tmp;
  }catch(...){
    try {
      cv::Mat tmp = GetMask(paras, "grass_front_contour",
