@@ -141,7 +141,7 @@ SteroImuInitialization::OptimizationResult() {
   //
 
   // 固定第一帧位姿和相机相对IMU外参
-  // problem.SetParameterBlockConstant(para_pose[0].data());
+  problem.SetParameterBlockConstant(para_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[1].data());
   
@@ -344,9 +344,11 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
   }
   //
   bool pnp_state = feature_manager_->InitFramePoseByPnP(
-                       frame_count, options_.extric_camera_to_imu, sw_pose_) &&
-                   (feature_manager_->GetFeatureCount() > 10);
+                       frame_count, options_.extric_camera_to_imu, sw_pose_);
   //
+  if (sw_pose_.back().translation().norm() > 2) {
+    pnp_state = false;
+  }
   init_pnp_states_.push_back(pnp_state);
   feature_manager_->Triangulate(frame_count, sw_pose_,
                                 options_.extric_camera_to_imu);
@@ -423,7 +425,8 @@ std::unique_ptr<InitializationResult> SteroImuInitialization::AddFeatureData(
 
       Reset();
     }
-    RemoveBack();
+    Reset();
+    //RemoveBack();
   }
   last_time = cur_time;
   return nullptr;

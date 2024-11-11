@@ -112,6 +112,7 @@ int main(int argc, char* argv[]) {
   double sample = n / 10.;
   if(type ==0) sample =1.0;
   CalibrateDataRecord cali_data_record(sample, kDataDir);
+  jarvis::common::FixedRatioSampler  image_sample(0.2); 
   std::unique_ptr<DataCapture> data_capture = CreateDataCaputure({0});
   jarvis_pic::ZmqComponent zmq;
 
@@ -130,15 +131,18 @@ int main(int argc, char* argv[]) {
       LOG_EVERY_N(INFO, 1) << "Record frame data " << frame.time;
       cali_data_record.AddFrame(frame);
     }
-    for (int i = 0; i < 4; i++) {
-      tracking_data_temp.data->features_datas[i].features.data =
-          std::make_shared<jarvis::estimator::ImageFeatureTrackerData::Data>();
-      tracking_data_temp.data->features_datas[i]
-          .features.data->images.push_back(frame.images[i]);
+    if (image_sample.Pulse()) {
+      for (int i = 0; i < 4; i++) {
+        tracking_data_temp.data->features_datas[i].features.data =
+            std::make_shared<
+                jarvis::estimator::ImageFeatureTrackerData::Data>();
+        tracking_data_temp.data->features_datas[i]
+            .features.data->images.push_back(frame.images[i]);
+      }
+      zmq.PubLocalData(tracking_data_temp, 0);
     }
 
     start_record_ = false;
-    zmq.PubLocalData(tracking_data_temp, 0);
 
   });
   data_capture->Start();

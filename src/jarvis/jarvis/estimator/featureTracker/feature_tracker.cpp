@@ -414,7 +414,6 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   // auto shwo_image =
   //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
 
-  // cv::imshow("mask",mask);
   // cv::imshow("shwo_image", shwo_image);
   // cv::waitKey(0);
   TicToc tran_t_t;

@@ -449,10 +449,14 @@ void SlideWindow::FrameDataToState() {
     for (int j = 0; j < 3; j++) {
       para_Ex_Pose_Odom[0][j] = 0;//odo_to_imu_extric_.translation()[j];
     }
-    para_Ex_Pose_Odom[0][3] = odo_to_imu_extric_.rotation().x();
-    para_Ex_Pose_Odom[0][4] = odo_to_imu_extric_.rotation().y();
-    para_Ex_Pose_Odom[0][5] = odo_to_imu_extric_.rotation().z();
-    para_Ex_Pose_Odom[0][6] = odo_to_imu_extric_.rotation().w();
+    // para_Ex_Pose_Odom[0][3] = odo_to_imu_extric_.rotation().x();
+    // para_Ex_Pose_Odom[0][4] = odo_to_imu_extric_.rotation().y();
+    // para_Ex_Pose_Odom[0][5] = odo_to_imu_extric_.rotation().z();
+    // para_Ex_Pose_Odom[0][6] = odo_to_imu_extric_.rotation().w();
+    para_Ex_Pose_Odom[0][3] = 0;
+    para_Ex_Pose_Odom[0][4] = 0;
+    para_Ex_Pose_Odom[0][5] = 0;
+    para_Ex_Pose_Odom[0][6] = 1;
     extric_info << "Odom to imu extric:" << odo_to_imu_extric_ << " ";
   }
   //
