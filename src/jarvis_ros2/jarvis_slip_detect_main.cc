@@ -9,7 +9,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-
+#include "jarvis/imu_tracker.h"
 #include "fstream"
 #include "jarvis/common/fixed_ratio_sampler.h"
 #include "jarvis/sensor/data_process.h"
@@ -20,6 +20,7 @@
 #include "slip_detection/simple_vo.h"
 #include "slip_detection/slip_detect.h"
 #include "std_msgs/msg/string.hpp"
+
 #include "unistd.h"
 //
 #include <sensor_msgs/msg/imu.hpp>
@@ -34,6 +35,7 @@ constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 std::unique_ptr<jarvis_ros::RosCompont> ros_compont;
 //
+std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub2_;
 namespace {
 double imu_cam_time_offset = 0;
@@ -62,6 +64,7 @@ using namespace jarvis;
 
 std::unique_ptr<sensor::OrderedMultiQueue> order_queue_ = nullptr;
 std::unique_ptr<TrajectorBuilder> builder_ = nullptr;
+std::unique_ptr<ImuTracker> imu_tracker_= nullptr;
 
 std::set<std::string> ReadFileFromDir(const std::string& path) {
   std::set<std::string> fp_set;
@@ -277,9 +280,34 @@ void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
       msg.linear_acceleration.set__z(itor->second.linear_acceleration.z());
       msg.header.frame_id = "imu";
       msg.header.stamp =  rclcpp::Time(itor->second.time);
+      if (imu_tracker_ == nullptr) {
+        imu_tracker_ = std::make_unique<ImuTracker>(
+            10, common::FromUniversal(itor->second.time / 100));
+      }
+      //
+
+      imu_tracker_->AddImuData(sensor::ImuData{
+          common::FromUniversal(itor->second.time / 100),
+          itor->second.linear_acceleration, itor->second.angular_velocity});
+      //
+      imu_tracker_->Advance(common::FromUniversal(itor->second.time / 100));
+      //
+      const Eigen::Quaterniond q = imu_tracker_->orientation();
+      //
       imu_pub2_->publish(msg);
+      //
+      ::geometry_msgs::msg::TransformStamped tf_trans;
+      tf_trans.header.stamp = rclcpp::Time(itor->second.time);
+      tf_trans.header.frame_id = "map";
+      tf_trans.child_frame_id = "imu_link";
+      tf_trans.transform.rotation.x = q.x();
+      tf_trans.transform.rotation.y = q.y();
+      tf_trans.transform.rotation.z = q.z();
+      tf_trans.transform.rotation.w = q.w();
+      tf_broadcaster_->sendTransform(tf_trans);
+
       // LOG(INFO)<<"!";
-    order_queue_->AddData(ImuData::Name(), itor->second.ToPatchData());
+      order_queue_->AddData(ImuData::Name(), itor->second.ToPatchData());
   }
   imu_datas.erase(imu_datas.begin(), it);
 }
@@ -342,8 +370,8 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
         cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
     const cv::Mat vr_image =
         cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
-        //     const cv::Mat vr_image1 =
-        // cv::imread(image.second.image_name + "_2.jpg", cv::IMREAD_GRAYSCALE);
+            const cv::Mat vr_image1 =
+        cv::imread(image.second.image_name + "_2.jpg", cv::IMREAD_GRAYSCALE);
     // cv::imwrite("/home/lyp/mask.png",vr_image(cv::Rect(0, 0, 544, 640)).clone());
     // cv::imshow("l_image",lr_image);
 
@@ -360,14 +388,14 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                 common::FromUniversal(time / 100) +
                     common::FromSeconds(imu_cam_time_offset),
                 {
-                  // lr_image,
-                  // vr_image,
-                  // vr_image1,
-                  // vr_image1
-                    lr_image(cv::Rect(0, 0, 640, 544)).clone(),
-                    lr_image(cv::Rect(640, 0, 640, 544)).clone(),
-                    vr_image(cv::Rect(0, 0, 544, 640)).clone(),
-                    vr_image(cv::Rect(544, 0, 544, 640)).clone()
+                  lr_image,
+                  vr_image,
+                  vr_image1,
+                  vr_image1
+                    // lr_image(cv::Rect(0, 0, 640, 544)).clone(),
+                    // lr_image(cv::Rect(640, 0, 640, 544)).clone(),
+                    // vr_image(cv::Rect(0, 0, 544, 640)).clone(),
+                    // vr_image(cv::Rect(544, 0, 544, 640)).clone()
                 }}));
   // }catch(cv::Exception){
 
@@ -396,6 +424,7 @@ int main(int argc, char* argv[]) {
   //
   // LocalGlogSink glog_sink;
   // google::AddLogSink(&glog_sink);
+
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("jarvis_ros2");
   if (kRecordFlag) {
@@ -405,6 +434,24 @@ int main(int argc, char* argv[]) {
  
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
+  //
+  // Eigen::Vector2d rtk_start(-17.538,-5.120);
+  // Eigen::Vector2d odm_start(-27.193,-5.598);
+  // Eigen::Vector2d vio_start(-7.175,-8.858);
+
+  // Eigen::Vector2d rtk_end(-15.873,-4.996);
+  // Eigen::Vector2d odm_end(-26.046,-7.033);
+  // Eigen::Vector2d vio_end(-7.937,-9.761);
+
+
+
+
+  // auto vio_lenth = (vio_end-vio_start).norm();
+  // auto odo_lenth = (odm_end-odm_start).norm();
+  // auto rth_lenth = (rtk_end-rtk_start).norm();
+  // LOG(INFO) << "vio_lenth:" << vio_lenth << " " << "odo_lenth:" << odo_lenth
+  //           << " ,rtk lenth:" << rth_lenth << " vio err:" << odo_lenth - vio_lenth
+  //           << " rtk err:" << rth_lenth - odo_lenth;
   // KImuExtrapolator = std::make_unique<jarvis::estimator::ImuExtrapolator>();
   const std::string data_dir(argv[2]);
   CHECK_EQ(argc, 3);
@@ -416,6 +463,7 @@ int main(int argc, char* argv[]) {
   //     std::make_unique<jarvis_ros::RosCompont>(node.get());
   ros_compont = std::make_unique<jarvis_ros::RosCompont>(node.get());
   imu_pub2_ = node->create_publisher<sensor_msgs::msg::Imu>("imu", 1000);
+  tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node);
   //
   // /
   TrackingData tracking_data_temp;
@@ -476,7 +524,7 @@ int main(int argc, char* argv[]) {
   //   );
   // }
 
-  
+
   builder_ =
       std::make_unique<TrajectorBuilder>(option, [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
@@ -533,7 +581,7 @@ int main(int argc, char* argv[]) {
         // ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}}, true);
         ros_compont->OnLocalTrackingResultCallback(
             tracking_data, nullptr, transform::Rigid3d::Identity());
-        ros_compont->PosePub( slip_detect->ToPoseInOdom(tracking_data.data->imu_state.Pose()),
+        ros_compont->PosePub( slip_detect->ToPoseInOdom( tracking_data.data->imu_state.Pose()),
                              transform::Rigid3d::Identity());
         rclcpp::spin_some(node);
         cond.notify_one();

@@ -152,11 +152,11 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
       if (abs(options_.slide_windows_option.extric_camera_to_imu[i]
                   .translation()
                   .norm() -
-              ext.translation().norm()) > 0.1) {
+              ext.translation().norm()) > 0.5) {
 
 
         LOG(ERROR) <<"camera "<<i<<  " opti ex error,lost." << ext;
-        // frame_data.status = TrackState::LOST;
+        frame_data.status = TrackState::LOST;
       }
     }
 

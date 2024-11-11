@@ -320,10 +320,10 @@ PoseOptimization::AlignmentOptimization() {
     problem.SetParameterBlockConstant(node_poses[i].p.data());
   }
 
-    problem.SetParameterLowerBound(local_to_fix_rotation.data(),1,-0.001);
-    problem.SetParameterLowerBound(local_to_fix_rotation.data(),2,-0.001);
-    problem.SetParameterUpperBound(local_to_fix_rotation.data(),1,0.001);
-    problem.SetParameterUpperBound(local_to_fix_rotation.data(),2,0.001);
+    problem.SetParameterLowerBound(local_to_fix_rotation.data(),1,-0.00001);
+    problem.SetParameterLowerBound(local_to_fix_rotation.data(),2,-0.00001);
+    problem.SetParameterUpperBound(local_to_fix_rotation.data(),1,0.00001);
+    problem.SetParameterUpperBound(local_to_fix_rotation.data(),2,0.00001);
 
 
 

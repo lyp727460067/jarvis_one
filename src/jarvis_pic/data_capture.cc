@@ -89,7 +89,9 @@ void DataCapture::ReadImu() {
     int s = shm_mod_->GetModByID(MOD_ID_UI_BOARD_STATUS_FB, &mower_status);
     if (s == sizeof(ModUIBoardStatusFb)) {
       // std::lock_guard<std::mutex> lock(mutex_);
-      system_info_call_backs_({mower_status.MowerStatus});
+      if (system_info_call_backs_) {
+        system_info_call_backs_({mower_status.MowerStatus});
+      }
     }
     uint8_t event_buffer[512];
     int32_t recv_len = 0;
@@ -102,7 +104,9 @@ void DataCapture::ReadImu() {
             bool env_dark_data = 0;
             memcpy((void*)&env_dark_data, (void*)ev_msg.data, sizeof(bool));
             LOG(WARNING) << "evet dark recive " << int(env_dark_data);
-            system_info_event_call_backs_({0, uint8_t(env_dark_data)});
+            if (system_info_event_call_backs_) {
+              system_info_event_call_backs_({0, uint8_t(env_dark_data)});
+            }
             break;
         }
       }

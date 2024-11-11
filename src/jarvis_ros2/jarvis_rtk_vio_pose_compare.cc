@@ -297,7 +297,7 @@ std::unique_ptr < jarvis_pic::PoseOptimization >
   for (int i = 0; pose_alignment.PoseSize() < lenth&&i<vio_data.size(); i++) {
     if(vio_data[i].time>(rt_data.back().time-1000))break;
     l++;
-    if(l>=800)break;
+    // if(l>=800)break;
     pose_alignment.AddPose(jarvis_pic::PoseData{
         common::FromUniversal(static_cast<int64_t>(vio_data[i].time / 100)),
         transform::Rigid3d(vio_data[i].p, vio_data[i].q)
