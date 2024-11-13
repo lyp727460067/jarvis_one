@@ -8,7 +8,7 @@
 #include "jarvis/common/time.h"
 #include "opencv2/opencv.hpp"
 #include "zmq.h"
-
+using namespace jarvis;
 namespace jarvis_pic {
 
 namespace {
@@ -38,6 +38,101 @@ struct PoseData {
 };
 // namespace
 
+const std::map<std::string, cv::Scalar> kColors{
+    {"global", cv::Scalar(0, 0, 255)},
+    {"online", cv::Scalar(100, 10, 0)},
+    {"fack", cv::Scalar(0, 255, 0)}};
+cv::Mat ObjectToCvImage(const Eigen::AlignedBox2d &raw_image_size,
+                        const cv::Size &size,
+                        const object::ObjectImageResult &object_resut) {
+  // static std::mt19937 rng(42);
+
+  cv::Mat image(size, CV_8UC3, cv::Scalar::all(0));
+  // drawing a 3D cubic box
+  std::vector<cv::Point> points;
+
+  LOG(INFO) << "1";
+  for (size_t i = 0; i < object_resut.coners.size(); i++) {
+    if (!raw_image_size.contains(object_resut.coners[i])) return image;
+    points.push_back(
+        cv::Point(object_resut.coners[i].x(), object_resut.coners[i].y()));
+  }
+  //
+  // if (!raw_image_size.contains(object_resut.direction[0]) ||
+  //     !raw_image_size.contains(object_resut.direction[1])) {
+  //   return image;
+  // }
+
+  CHECK(kColors.count(object_resut.type));
+  for (int i = 0; i < 3; i++) {
+    cv::line(image, points[i], points[i + 1], kColors.at(object_resut.type), 5,
+             8, 0);
+  }
+  cv::line(image, points[3], points[0], kColors.at(object_resut.type), 5, 8, 0);
+  //
+  if (object_resut.type == "global") {
+    // for (int i = 4; i < 7; i++) {
+    //   cv::line(image, points[i], points[i + 1], cv::Scalar(255, 0, 0), 5, 8,
+    //   0);
+    // }
+    // cv::line(image, points[7], points[4], cv::Scalar(255, 0, 0), 5, 8, 0);
+    // for (int i = 0; i < 4; i++) {
+    //   cv::line(image, points[i], points[i + 4], cv::Scalar(255, 0, 0), 5, 8,
+    //   0);
+    // }
+    auto GetClolor = [&]() {
+      return kColors.at(object_resut.type);
+      //   std::uniform_int_distribution bound_distribution(1, 255);
+      //   std::uniform_int_distribution bound_distribution1(1, 255);
+      //   return cv::Scalar{bound_distribution(rng), bound_distribution(rng),
+      //                     bound_distribution(rng)};
+    };
+
+    cv::fillConvexPoly(image,
+                       std::vector<cv::Point>{points.begin() + 4, points.end()},
+                       GetClolor());
+
+    //
+    std::vector<cv::Point> temp(points.begin(), points.begin() + 2);
+    temp.insert(temp.end(), points.rbegin() + 2, points.rbegin() + 4);
+    cv::fillConvexPoly(image, temp, GetClolor());
+    //
+    temp.clear();
+    temp.insert(temp.end(), points.begin() + 2, points.begin() + 4);
+    temp.insert(temp.end(), points.rbegin(), points.rbegin() + 2);
+    cv::fillConvexPoly(image, temp, GetClolor());
+    //
+    temp.clear();
+    temp.push_back(points[0]);
+    temp.push_back(points[3]);
+    temp.push_back(points[7]);
+    temp.push_back(points[4]);
+    cv::fillConvexPoly(image, temp, GetClolor());
+
+    // //
+
+    // //
+    temp.clear();
+    temp.push_back(points[1]);
+    temp.push_back(points[2]);
+    temp.push_back(points[6]);
+    temp.push_back(points[5]);
+    cv::fillConvexPoly(image, temp, GetClolor());
+    //
+  }
+
+  cv::fillConvexPoly(image,
+                     std::vector<cv::Point>{points.begin(), points.begin() + 4},
+                     kColors.at(object_resut.type));
+
+  // cv::arrowedLine(
+  //     image,
+  //     {int(object_resut.direction[0].x()),
+  //     int(object_resut.direction[0].y())},
+  //     {int(object_resut.direction[1].x()),
+  //     int(object_resut.direction[1].y())}, cv::Scalar(255,0,0), 5, 8, 0,1);
+  return image;
+}
 cv::Mat GenerateImageWithKeyPoint(
     const cv::Mat &l_img, const std::map<uint64_t,cv::KeyPoint> &l_key_points,
      const std::map<uint64_t,cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
@@ -90,8 +185,10 @@ cv::Mat VMergeImage(const cv::Mat &m1, const cv::Mat &m2) {
   return merge_image;
 }
 //
-std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
-                             uint8_t slip_data) {
+
+std::vector<uint8_t> ToCData(
+    const jarvis::TrackingData &data, uint8_t slip_data,
+    std::vector<jarvis::object::ObjectImageResult> *object_result) {
   //
   //
   const auto &tracking_data = data;
@@ -113,13 +210,69 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
         GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
                                   cam_feature.second.key_points, {}, {}, {},
                                   "pre_imag", "curr_imag", {0});
-    cvresult1.emplace_back(image_result);
+
     // image_result.resize(640, 544);
     // cv::hconcat(image_result, image_result, merge_image);
     // CommpressedImagePub(cam_feature.first, image_result);
     // for (auto &feature : cam_feature.second.features.data->features) {
     //   map_points.push_back(cam_feature.second.map_points[feature.first]);
     // }
+   
+    if (object_result && cam_feature.first == 0) {
+      std::vector<transform::Rigid3d> mark_pose;
+      std::map<int, std::vector<object::ObjectImageResult>> same_marks;
+      cv::Mat image_object(image_result.size(), CV_8UC3, cv::Scalar::all(0));
+      if (object_result != nullptr && !object_result->empty()) {
+        for (const auto &result : *object_result) {
+          same_marks[result.id].push_back(result);
+          if (result.coners.empty()) continue;
+
+          int cols = tracking_data.data->features_datas[0]
+                         .features.data->images[0]
+                         .cols;
+          int rows = tracking_data.data->features_datas[0]
+                         .features.data->images[0]
+                         .rows;
+
+          image_object +=
+              ObjectToCvImage(Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},
+                                                  Eigen::Vector2d{cols, rows}),
+                              image_result.size(), result);
+          mark_pose.push_back(result.global_pose_cam);
+        }
+        // cv::imshow(" image_object", image_object);
+        // cv::waitKey(0);
+        std::stringstream info;
+        std::stringstream info1;
+        std::stringstream info2;
+        for (const auto &t2 : same_marks) {
+          transform::Rigid3d t1 = t2.second[0].global_pose_cam;
+          transform::Rigid3d t0 = t2.second[0].local_pose_cam;
+          if (t2.second.size() != 1) {
+            auto deta_pose = t2.second[0].global_pose_cam.inverse() *
+                             t2.second[1].global_pose_cam;
+            info << "err x = " << deta_pose.translation().x() * 1 << ""
+                 << "y = " << deta_pose.translation().y() * 1 << " ";
+            info1 << "err  z = " << deta_pose.translation().z() * 1 << " ";
+            info1 << "angle = "
+                  << common::RadToDeg(transform::GetAngle(deta_pose));
+          }
+          info2 << "l" << t0.translation().transpose()
+                << transform::Rot2ypr(t0.rotation().toRotationMatrix())
+                       .transpose();
+        }
+        cv::putText(image_object, info.str(), cv::Point(0, 30),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 0, 255), 2, 3);
+        cv::putText(image_object, info1.str(), cv::Point(0, 60),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 0, 255), 2, 3);
+        cv::putText(image_object, info2.str(), cv::Point(0, 90),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 0, 255), 2, 3);
+
+        image_result += image_object;
+      }
+    }
+    LOG(INFO)<<cam_feature.first;
+    cvresult1.emplace_back(image_result);
   }
 
   cv::Size resize{640, 544};
@@ -176,6 +329,8 @@ std::vector<uint8_t> ToCData(const jarvis::TrackingData &data,
 }
 //
 ZmqComponent::ZmqComponent() {
+
+  
   try {
     device_.emplace_back(
         new internal::DevSocket(host_ip, [](std::vector<uint8_t> &&d) {}));
@@ -193,14 +348,17 @@ ZmqComponent::ZmqComponent() {
 //
 //
 
-void ZmqComponent::PubLocalData(const jarvis::TrackingData &data,
-                                uint8_t slip_data) {
+void ZmqComponent::PubLocalData(
+    const jarvis::TrackingData &data, uint8_t slip_data,
+    const std::vector<jarvis::object::ObjectImageResult> object_result) {
   //
   std::lock_guard<std::mutex> lock(mutex_);
   tasks_.push([=]() {
+    std::vector<jarvis::object::ObjectImageResult> object_result1 =
+        object_result;
     for (auto &dev : device_) {
       if (dev->HasConnect()) {
-        dev->tx(ToCData(data, slip_data));
+        dev->tx(ToCData(data, slip_data, &object_result1));
       }
     }
   });

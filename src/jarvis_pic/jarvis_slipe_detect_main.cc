@@ -229,6 +229,7 @@ class JarvisBuilder {
         });
   }
   jarvis::slip_detect::SlipDetect* GetSlipDect() { return slip_detect_.get(); }
+  JarvisBrige* GetJarvisBrige() { return jarvis_brige_.get(); }
 
  private:
   const std::string config_path_;
@@ -246,7 +247,7 @@ class JarvisBuilder {
 };
 }  // namespace jarvis_pic
 std::string kDataDir = "/mnt/UDISK/jarvis/";
-
+std::vector<jarvis::object::ObjectImageResult> object_result;
 //
 int main(int argc, char* argv[]) {
   //
@@ -266,7 +267,7 @@ int main(int argc, char* argv[]) {
   LocalGlogSink glog_sink;
   google::AddLogSink(&glog_sink);
   CreateDir(kDataDir);
-
+  std::unique_ptr<jarvis::object::ObjectInterface> object_interface  =nullptr;
   //
   //
   const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
@@ -308,6 +309,7 @@ int main(int argc, char* argv[]) {
   jarvis_pic::ZmqComponent zmq;
   jarvis_pic::MpcComponent mpc;
   while (!kill_thread_) {
+    std::vector<jarvis::object::ObjectImageResult> object_result;
     uint8_t flag = 0;
     jarvis::TrackingData tracking_data;
     {
@@ -319,6 +321,24 @@ int main(int argc, char* argv[]) {
     data_record_->AddVioData(tracking_data.data->time,
                                tracking_data.data->imu_state.Pose(), flag);
     LOG_EVERY_N(INFO,5) << "vio pose:" << tracking_data.data->imu_state;
+
+    if (tracking_data.status == 2) {
+      if (object_interface == nullptr) {
+        object_interface = std::make_unique<jarvis::object::ObjectInterface>(
+            jarvis_slam->GetJarvisBrige()
+              ->EstimationOption()->feature_track_options[0].cameras[0]);
+      }
+      object_result = object_interface->Detect(
+          common::ToUniversal(tracking_data.data->time),
+          tracking_data.data->features_datas[0].features.data->images[0],
+          tracking_data.data->imu_state.Pose(),
+          jarvis_slam->GetJarvisBrige()
+              ->EstimationOption()
+              ->slide_windows_option.extric_camera_to_imu[0]);
+    } else {
+      object_interface = nullptr;
+    }
+
     // jarvis_slam->AddStateToImuExtrapolator(tracking_data);
     // mpc.Write(
     //     tracking_data,
@@ -331,7 +351,7 @@ int main(int argc, char* argv[]) {
               tracking_data.data->imu_state.Pose());
       tracking_data.data->imu_state.p =  pose.translation();
       tracking_data.data->imu_state.q =  pose.rotation();
-      zmq.PubLocalData(tracking_data, flag);
+      zmq.PubLocalData(tracking_data, flag,object_result);
     }
 #endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));

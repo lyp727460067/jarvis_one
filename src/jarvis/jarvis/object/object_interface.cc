@@ -10,44 +10,47 @@ namespace object {
 
 class ObjectInterface::ObjectImpl {
  public:
-  ObjectImpl(ObjectInterface *parent) {
-    // map_builder_ =
-    //     dynamic_cast<internal::MappingBuilder *>(parent->map_builder_);
-    // if (map_builder_) {
-    //   object_image_pross_ = std::make_unique<ObjectImageProcess>(
-    //       ObjectImageProcessOption{}, map_builder_->GetCameBase());
+  ObjectImpl(const camera_models::CameraPtr came_base,
+             ObjectInterface *parent) {
+    if (parent->map_builder_) {
+      // map_builder_ =
+          // dynamic_cast<internal::MappingBuilder *>(parent->map_builder_);
+    }
 
-    //   wap_pose_object_detect_ =
-    //       std::make_unique<WapObjectDetect>(std::make_unique<ObjectDetect>(
-    //           ObjectDetectOption{}, map_builder_->GetCameBase()));
-    // } else {
-    //   LOG(ERROR) << "map_builder_ is nullptr. ";
-    // }
-    //
+    object_image_pross_ = std::make_unique<ObjectImageProcess>(
+        ObjectImageProcessOption{}, came_base);
+
+    wap_pose_object_detect_ = std::make_unique<WapObjectDetect>(
+        std::make_unique<ObjectDetect>(ObjectDetectOption{}, came_base));
     //
   }
   std::vector<ObjectImageResult> Detect(const uint64_t &time,
                                         const cv::Mat &image,
-                                        const transform::Rigid3d &pose) {
-    if (map_builder_ == nullptr) return {};
+                                        const transform::Rigid3d &pose,
+                                        const transform::Rigid3d &imu_to_cam) {
+    transform::Rigid3d cam_pose = pose * imu_to_cam;
     auto mark_with_poses = wap_pose_object_detect_->AddImage(
-        common::FromUniversal(time), std::make_shared<cv::Mat>(image), pose);
-
+        common::FromUniversal(time), std::make_shared<cv::Mat>(image),
+        cam_pose);
+    LOG(INFO) << imu_to_cam;
     std::vector<ObjectImageResult> object_result;
     for (const auto &mark : mark_with_poses) {
-      if (pose_temp.empty()) break;
-      object_process_.AddLandMark(mark, *std::prev(pose_temp.end()));
+      // if (pose_temp.empty()) break;
+      object_process_.AddLandMark(
+          mark,
+          {KeyFrameId{0, time}, transform::TimestampedTransform{
+                                    common::FromUniversal(time), cam_pose}});
       //
       ObjectImageResult mark_project = object_image_pross_->ProjectObject(
-          pose, SimplePoseToObject(mark, pose));
+          cam_pose, SimplePoseToObject(mark, cam_pose));
       object_result.push_back(mark_project);
     }
 
     if (!object_process_.GetObjectData(0).empty()) {
       auto global_objects = object_process_.GetObjectData(0);
-      for (const auto object : global_objects) {
+      for (const auto &object : global_objects) {
         object_result.push_back(
-            object_image_pross_->ProjectObject(pose, object.second, true));
+            object_image_pross_->ProjectObject(cam_pose, object.second, true));
       }
     }
     return object_result;
@@ -70,13 +73,13 @@ class ObjectInterface::ObjectImpl {
 };
 
 //
-ObjectInterface::ObjectInterface(MapBuilderInterface *map_builder)
+ObjectInterface::ObjectInterface(const camera_models::CameraPtr came_base,
+                                 MapBuilderInterface *map_builder)
     : map_builder_(map_builder),
-      object_impl_(std::make_unique<ObjectImpl>(this)) {}
-//
+      object_impl_(std::make_unique<ObjectImpl>(came_base, this)) {}
+
 //
 void ObjectInterface::UpdateGloblePose() {
-  // 有可能内部不跑后端
   if (!map_builder_) return;
   // local_to_globle_transform_ = map_builder_->GetLocalToGlobleTransfrom();
   object_impl_->UpdateGloblePose();
@@ -84,13 +87,12 @@ void ObjectInterface::UpdateGloblePose() {
 //
 std::vector<ObjectImageResult> ObjectInterface::Detect(
     const uint64_t &time, const cv::Mat &image,
-    const transform::Rigid3d &pose) {
-  if (!map_builder_) return {};
-  return object_impl_->Detect(time, image, local_to_globle_transform_ * pose);
+    const transform::Rigid3d &pose,const transform::Rigid3d &imu_to_cam) {
+  return object_impl_->Detect(time, image, pose, imu_to_cam);
 }
 //
 //
 
 ObjectInterface::~ObjectInterface() {}
 }  // namespace object
-}
+}  // namespace jarvis

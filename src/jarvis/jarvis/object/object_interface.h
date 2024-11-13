@@ -6,6 +6,7 @@
 #include "jarvis/transform/timestamped_transform.h"
 #include "opencv2/opencv.hpp"
 
+#include "jarvis/camera_models/camera_models/camera.h"
 namespace jarvis {
 
 namespace object {
@@ -15,6 +16,7 @@ struct ObjectImageResult {
   std::vector<Eigen::Vector2d> coners;
   std::vector<Eigen::Vector2d> direction;
   transform::Rigid3d global_pose_cam;
+  transform::Rigid3d local_pose_cam;
   std::string type;
   uint64_t id;
 };
@@ -22,14 +24,14 @@ struct ObjectImageResult {
 //
 class ObjectInterface {
  public:
-  ObjectInterface(MapBuilderInterface *map_builder);
+  ObjectInterface(const camera_models::CameraPtr came_base,
+                  MapBuilderInterface *map_builder = nullptr);
   //
-  // 主要调用这个函数
   std::vector<ObjectImageResult> Detect(const uint64_t &time,
                                         const cv::Mat &image,
-                                        const transform::Rigid3d &pose);
+                                        const transform::Rigid3d &pose,
+                                        const transform::Rigid3d &imu_to_cam);
 
-  // 因为后端pose数据有可能比较大，可以频率低点调用一下这个函数去跟新一下所有的关键帧的pose
   void UpdateGloblePose();
 
   ~ObjectInterface();

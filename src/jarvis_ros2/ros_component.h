@@ -72,6 +72,9 @@ class RosCompont {
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub2_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       pose_mark_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      markpub_;
+
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr
       bool_publisher_;
   // ros::Publisher markpub_;

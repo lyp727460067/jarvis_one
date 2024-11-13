@@ -4,7 +4,7 @@
 #include <opencv2/highgui.hpp>
 
 #include "common/time.h"
-#include "jarvis/camera_models/camera_base_interface.h"
+#include "jarvis/camera_models/camera_models/camera.h"
 #include "opencv2/aruco.hpp"
 #include "opencv2/opencv.hpp"
 #include "transform/rigid_transform.h"
@@ -25,7 +25,7 @@ struct ObejectData {
 struct ObjectDetectOption {
   std::string opencv_aruco_dict = "DICT_6X6_1000";
   // float mark_lenth = 0.172;
-  float mark_lenth = 0.250;
+  float mark_lenth = 0.280;
 };
 
 class CvDetect {
@@ -50,7 +50,7 @@ class CvDetect {
 class ObjectDetect {
  public:
   ObjectDetect(const ObjectDetectOption& option,
-               const camera_models::CameraBase* came_base);
+               const camera_models::CameraPtr came_base);
   std::map<uint64_t, ObejectData> Detect(const cv::Mat& image);
 
  private:
@@ -61,7 +61,7 @@ class ObjectDetect {
   std::unique_ptr<CvDetect> cv_aruce_detect_;
   // std::unique_ptr<ArucoDetect> cv_aruce_detect_;
   const ObjectDetectOption option_;
-  const camera_models::CameraBase* came_base_;
+  const camera_models::CameraPtr came_base_;
 };
 }  // namespace object
 

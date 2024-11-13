@@ -2,6 +2,7 @@
 #define _JARVIS_PIC_ZMQ_COMPONET_H
 #include "jarvis/key_frame_data.h"
 //
+#include "jarvis/object/object_interface.h"
 #include <zmq.h>
 #include "data_protocol.h"
 #include <memory>
@@ -14,7 +15,9 @@ class ZmqComponent {
  public:
   ZmqComponent();
   // for debug
-  void PubLocalData(const jarvis::TrackingData& data,uint8_t slip_data);
+  void PubLocalData(
+      const jarvis::TrackingData& data, uint8_t slip_data,
+     const std::vector<jarvis::object::ObjectImageResult> object_result={});
   ~ZmqComponent();
 
  private:

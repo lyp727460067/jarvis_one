@@ -119,6 +119,7 @@ std::vector<ObejectDataPose> WapObjectDetect::AddImage(
   std::vector<ObejectDataPose> result;
   //
   for (const auto& object : objects) {
+    LOG(INFO)<< object.second.pose;
     result.emplace_back(
         ObejectDataPose{object.first, cam_pose * object.second.pose,
                         std::make_shared<const ObejectData>(object.second)});
@@ -239,21 +240,20 @@ std::map<int, ObjectPhysics> ObjectProcess::GetObjectData(int trajector) {
   std::map<int, ObjectPhysics> result;
   for (auto it = object_datas_.BeginOfTrajectory(trajector);
        it != object_datas_.EndOfTrajectory(trajector); ++it) {
-    for (const auto object : it->data->objects) {
+    for (const auto &object : it->data->objects) {
       result.emplace(object.object.local_id, object);
     }
   }
   return result;
 }
-ObjectImageProcess::ObjectImageProcess(
-    const ObjectImageProcessOption& option,
-    const camera_models::CameraBase* came_base)
+ObjectImageProcess::ObjectImageProcess(const ObjectImageProcessOption& option,
+                                       const camera_models::CameraPtr came_base)
     : cam_base_(came_base), bbox_(option.cube_min, option.cube_max) {}
 //
 
 //
-void ObjectProcess::Clear(int local_id) {
-  if (local_id == -1) {
+void ObjectProcess::Clear(uint64_t local_id) {
+  if (local_id == 0) {
     object_datas_ = MapById<KeyFrameId, ObjectsPhysicsData>();
   }
   for (auto const& object : object_datas_) {
@@ -291,9 +291,10 @@ ObjectImageResult ObjectImageProcess::ProjectObject(
     coners.emplace_back(cor.x, cor.y);
   }
   std::vector<Eigen::Vector2d> project_bbox_direction;
-  project_bbox_direction.push_back(cam_base_->Project(box_direction_origi));
-  project_bbox_direction.push_back(cam_base_->Project(box_direction));
-  return {coners, project_bbox_direction, object.global_pose, "online",
+  Eigen::Vector2d p;
+  project_bbox_direction.push_back(Project(box_direction_origi));
+  project_bbox_direction.push_back(Project(box_direction));
+  return {coners, project_bbox_direction, object.global_pose,delta_pose, "online",
           object.object.local_id};
   //
 }
@@ -315,7 +316,7 @@ ObjectImageResult ObjectImageProcess::ProjectObjectFaceMark(
   //   Eigen::AlignedBox3d bbox(delta_pose * bbox_.min(), delta_pose *
   //   bbox_.max());
   if (delta_pose.translation().norm() > 4 && limit) {
-    return {{}, {}, object.global_pose, "fack", object.object.local_id};
+    return {{}, {}, object.global_pose, delta_pose,"fack", object.object.local_id};
   }
   //
   std::vector<Eigen::Vector3d> bbox_coners;
@@ -339,14 +340,15 @@ ObjectImageResult ObjectImageProcess::ProjectObjectFaceMark(
   bbox_coners.push_back(bbox.corner(Eigen::AlignedBox3d::TopRightCeil));
   bbox_coners.push_back(bbox.corner(Eigen::AlignedBox3d::BottomRightCeil));
 
-  //
+  //i
   std::vector<Eigen::Vector2d> project_bbox_coners;
-  for (const auto coner : bbox_coners) {
+  for (const auto &coner : bbox_coners) {
     const auto t_coner = delta_pose * coner;
     if (t_coner.z() < 0.01f && limit) {
-      return {{}, {}, object.global_pose, "fack", object.object.local_id};
+      return {{}, {}, object.global_pose,delta_pose, "fack", object.object.local_id};
     }
-    project_bbox_coners.push_back(cam_base_->Project(t_coner));
+    Eigen::Vector2d p;
+    project_bbox_coners.push_back(Project(t_coner));
   };
   //   std::vector<Eigen::Vector2d> in_image_coners;
   //   for (const auto coner : project_bbox_coners) {
@@ -360,12 +362,16 @@ ObjectImageResult ObjectImageProcess::ProjectObjectFaceMark(
   std::vector<Eigen::Vector2d> project_bbox_direction;
   Eigen::Vector3d box_direction_origi = Eigen::Vector3d::Zero();
   box_direction_origi = delta_pose * box_direction_origi;
-  project_bbox_direction.push_back(cam_base_->Project(box_direction_origi));
-  project_bbox_direction.push_back(cam_base_->Project(box_direction));
+  project_bbox_direction.push_back(Project(box_direction_origi));
+  project_bbox_direction.push_back(Project(box_direction));
 
   ///
-  return {project_bbox_coners, project_bbox_direction, object.global_pose,
-          "fack", object.object.local_id};
+  return {project_bbox_coners,
+          project_bbox_direction,
+          object.global_pose,
+          delta_pose,
+          "fack",
+          object.object.local_id};
   //
 }
 }  // namespace object

@@ -17,6 +17,10 @@ class JarvisBrige {
               std::function<void(const jarvis::TrackingData&)> call_back);
    
   ~JarvisBrige();
+  jarvis::estimator::EstimatorOption* EstimationOption() {
+    return &esit_option_;
+  }
+
   private:
   DataCapture* data_capture_;
   std::unique_ptr<jarvis::TrajectorBuilder> builder_;
