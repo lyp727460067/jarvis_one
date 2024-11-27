@@ -93,11 +93,11 @@ class JarvisBuilder {
       //
       // LOG(INFO)<<encode.translation.transpose()<< " "<<
       // delta_encode.transpose();
-      if (abs(delta_encode.x()) < 0.001 && abs(delta_encode.y() < 0.001)) {
-        if (slip_detect_) {
-          slip_detect_->ClearData();
-        }
-      }
+      // if (abs(delta_encode.x()) < 0.001 && abs(delta_encode.y() < 0.001)) {
+      //   if (slip_detect_) {
+      //     slip_detect_->ClearData();
+      //   }
+      // }
       //
 
       if (slip_detect_) {
