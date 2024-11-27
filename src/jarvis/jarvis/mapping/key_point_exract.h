@@ -28,9 +28,7 @@ class KeyPointExtract {
   ~KeyPointExtract() {}
   virtual void Distribution(){}
   static std::unique_ptr<KeyPointExtract> Create(
-      const KeyPointExtractOption& option) {
-    CHECK(false) << "Need implement!!!";
-  }
+      const KeyPointExtractOption& option);
 
  protected:
   virtual std::vector<cv::KeyPoint> StrategyExtract(const cv::Mat& pyramid,

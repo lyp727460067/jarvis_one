@@ -572,7 +572,7 @@ std::unique_ptr<Eigen::Vector2d> MapManager::ProjectMapPointToKeyFrame(
 //
 //
 void MapManager::ComputeMapPointDistinctiveDescriptors(const MapPointId &id) {
-  auto obs = covisibility_->GetMapObservations(id);
+  auto &obs = covisibility_->GetMapObservations(id);
   if (obs.empty()) {
     LOG(WARNING) << " obs empty";
     return;

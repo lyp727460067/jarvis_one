@@ -91,7 +91,6 @@ if(PLATFORM_mr527)
 else()
 
   option(build_test "build test" ON)
-  option(build_mapping "build_mapping" ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)
@@ -129,7 +128,6 @@ list(APPEND ALL_LIBRARY_SRCS ${ARUCO_SRC})
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
-if(${build_mapping})
 file(GLOB_RECURSE ALL_PROTOS "jarvis/mapping/*.proto")
 set(ALL_PROTO_SRCS)
 set(ALL_PROTO_HDRS)
@@ -156,13 +154,11 @@ endforeach()
 set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENERATED TRUE)
 list(APPEND ALL_LIBRARY_HDRS ${ALL_PROTO_HDRS})
 list(APPEND ALL_LIBRARY_SRCS ${ALL_PROTO_SRCS})
-endif()
 
 
 
-# add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
-add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
 
+add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_include_directories( ${PROJECT_NAME}  PUBLIC           ${GLOG_INCLUDE_DIRS})
