@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(jarvis VERSION 1.0.0)
+# define GLOG_EXPORT __attribute__((visibility("default")))
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 # set(BUILD_TYPE Debug)
 
@@ -66,7 +67,7 @@ if(PLATFORM_mr527)
 
   )
   set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
-  set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
+  set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.so)
   add_library(glog::glog STATIC IMPORTED GLOBAL)
   set_target_properties( glog::glog PROPERTIES IMPORTED_LOCATION  ${glog_binary_dir})
   add_library(yaml-cpp STATIC IMPORTED GLOBAL)
@@ -86,7 +87,11 @@ if(PLATFORM_mr527)
   INCLUDE_DIRECTORIES(
     ${TOP_CMAKE_DIR}/vslam/
   )
+  file(GLOB_RECURSE NOT_USE_SRC_MAPPING  "jarvis/mapping/*.cc" )
 else()
+
+  option(build_test "build test" ON)
+  option(build_mapping "build_mapping" ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)
@@ -95,6 +100,7 @@ else()
   find_package(Glog REQUIRED) 
   find_package(yaml-cpp  REQUIRED) #version 0.7.0
   find_package(GTest  REQUIRED) #version 1.12.0
+  find_package(Protobuf  REQUIRED)  #v3.4.1
 endif()
 
 INCLUDE_DIRECTORIES(
@@ -105,6 +111,7 @@ INCLUDE_DIRECTORIES(
   ${YAML_INCLUDE_DIRS}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
+  ${PROTOBUF_INCLUDE_DIRS}
 )
 ##copy config
 
@@ -114,25 +121,61 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/rtm")
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
 
-file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc")
+file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc"  )
 ##
-list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC} ${NOT_USE_SRC_MAPPING})
 list(APPEND ALL_LIBRARY_SRCS ${ARUCO_SRC})
 ##
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
-add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
+if(${build_mapping})
+file(GLOB_RECURSE ALL_PROTOS "jarvis/mapping/*.proto")
+set(ALL_PROTO_SRCS)
+set(ALL_PROTO_HDRS)
+####
+##
+foreach(ABS_FIL ${ALL_PROTOS})
+message(${ABS_FIL})
+  file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${ABS_FIL})
+  get_filename_component(DIR ${REL_FIL} DIRECTORY)
+  get_filename_component(FIL_WE ${REL_FIL} NAME_WE)
+  list(APPEND ALL_PROTO_SRCS "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.cc")
+  list(APPEND ALL_PROTO_HDRS "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.h")
+  add_custom_command(
+    OUTPUT "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.cc"
+           "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.h"
+    COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
+    ARGS --cpp_out  ${PROJECT_BINARY_DIR} -I
+      ${PROJECT_SOURCE_DIR}/  ${ABS_FIL}
+    DEPENDS ${ABS_FIL}
+    COMMENT " C++ protocol buffer compiler on ${ABS_FIL}"
+    VERBATIM
+)
+endforeach()
+set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENERATED TRUE)
+list(APPEND ALL_LIBRARY_HDRS ${ALL_PROTO_HDRS})
+list(APPEND ALL_LIBRARY_SRCS ${ALL_PROTO_SRCS})
+endif()
+
+
+
+# add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
+add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
+
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_include_directories( ${PROJECT_NAME}  PUBLIC           ${GLOG_INCLUDE_DIRS})
+target_link_libraries (${PROJECT_NAME} PUBLIC glog::glog)
+# target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
+# target_compile_definitions (${PROJECT_NAME} INTERFACE GLOG_EXPORT=__attribute__((visibility("default"))))
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
-  glog::glog
   yaml-cpp
   ${OpenCV_LIBS}
-  ${CERES_LIBRARIES})
-
+  ${CERES_LIBRARIES}
+  ${PROTOBUF_LIBRARIES}
+)
 #
 if(${build_test})
   foreach(ABS_FIL ${ALL_TEST_SRCS})
