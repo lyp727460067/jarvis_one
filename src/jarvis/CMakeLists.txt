@@ -87,6 +87,8 @@ if(PLATFORM_mr527)
     ${TOP_CMAKE_DIR}/vslam/
   )
 else()
+
+  option(build_test "build test" ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)
@@ -95,6 +97,7 @@ else()
   find_package(Glog REQUIRED) 
   find_package(yaml-cpp  REQUIRED) #version 0.7.0
   find_package(GTest  REQUIRED) #version 1.12.0
+  find_package(Protobuf  REQUIRED)  #v3.4.1
 endif()
 
 INCLUDE_DIRECTORIES(
@@ -105,6 +108,7 @@ INCLUDE_DIRECTORIES(
   ${YAML_INCLUDE_DIRS}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
+  ${PROTOBUF_INCLUDE_DIRS}
 )
 ##copy config
 
@@ -122,6 +126,36 @@ list(APPEND ALL_LIBRARY_SRCS ${ARUCO_SRC})
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
+file(GLOB_RECURSE ALL_PROTOS "jarvis/mapping/*.proto")
+set(ALL_PROTO_SRCS)
+set(ALL_PROTO_HDRS)
+####
+##
+foreach(ABS_FIL ${ALL_PROTOS})
+message(${ABS_FIL})
+  file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${ABS_FIL})
+  get_filename_component(DIR ${REL_FIL} DIRECTORY)
+  get_filename_component(FIL_WE ${REL_FIL} NAME_WE)
+  list(APPEND ALL_PROTO_SRCS "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.cc")
+  list(APPEND ALL_PROTO_HDRS "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.h")
+  add_custom_command(
+    OUTPUT "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.cc"
+           "${PROJECT_BINARY_DIR}/${DIR}/${FIL_WE}.pb.h"
+    COMMAND  ${PROTOBUF_PROTOC_EXECUTABLE}
+    ARGS --cpp_out  ${PROJECT_BINARY_DIR} -I
+      ${PROJECT_SOURCE_DIR}/  ${ABS_FIL}
+    DEPENDS ${ABS_FIL}
+    COMMENT " C++ protocol buffer compiler on ${ABS_FIL}"
+    VERBATIM
+)
+endforeach()
+set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENERATED TRUE)
+list(APPEND ALL_LIBRARY_HDRS ${ALL_PROTO_HDRS})
+list(APPEND ALL_LIBRARY_SRCS ${ALL_PROTO_SRCS})
+
+
+
+
 add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
@@ -131,8 +165,9 @@ target_link_libraries(
   glog::glog
   yaml-cpp
   ${OpenCV_LIBS}
-  ${CERES_LIBRARIES})
-
+  ${CERES_LIBRARIES}
+  ${PROTOBUF_LIBRARIES}
+)
 #
 if(${build_test})
   foreach(ABS_FIL ${ALL_TEST_SRCS})

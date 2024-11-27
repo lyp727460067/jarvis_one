@@ -1,4 +1,5 @@
 #include "pnp_solver.h"
+
 #include <opencv2/core/types_c.h>
 #include <opencv2/highgui/highgui_c.h>
 
@@ -10,10 +11,11 @@
 #include <opencv2/core/core.hpp>
 #include <random>
 #include <vector>
+
 #include "DUtils/Random.h"
 #include "glog/logging.h"
 namespace jarvis {
-namespace estimator {
+namespace alg {
 //
 namespace {
 //
@@ -259,10 +261,9 @@ Eigen::MatrixXd BetasRequiresProcess::FillM(
           -alphas[i][j] * v;
     }
 
-    Eigen::Matrix<double, 2, 12> tmp ;
-    tmp<< m_portion[0], m_portion[1], m_portion[2], m_portion[3];
-    matrix.block<2,12>(i * 2,0) =tmp;
-
+    Eigen::Matrix<double, 2, 12> tmp;
+    tmp << m_portion[0], m_portion[1], m_portion[2], m_portion[3];
+    matrix.block<2, 12>(i * 2, 0) = tmp;
   }
   return matrix;
 }
@@ -388,7 +389,7 @@ BetasProcess::BetasProcess(const std::vector<Eigen::Vector2d> &key_points,
   const Eigen::MatrixXd m =
       betas_requires_process_->FillM(handle_point_->Alphas(), key_points_);
   //
- 
+
   Eigen::Matrix<double, 12, 12, Eigen::RowMajor> mtm_eigen = m.transpose() * m;
   Eigen::JacobiSVD<Eigen::Matrix<double, 12, 12, Eigen::RowMajor>> svd_holder(
       mtm_eigen, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -590,7 +591,7 @@ void PnpSolver::RestMinPoints(const std::vector<bool> &best_inliers) {
       }
     }
   }
-  LOG(INFO)<<"!";
+  LOG(INFO) << "!";
   handle_points_ = std::make_unique<HandlePoint>(min_set_points);
   betas_process_ =
       std::make_unique<BetasProcess>(min_set_key_points, handle_points_.get());
@@ -744,7 +745,6 @@ std::unique_ptr<PnPsolverResult> PnpSolver::operator()(
     const int inliers_size = std::count(inliers.begin(), inliers.end(), true);
     // LOG(INFO)<<inliers_size ;
 
- 
     if (inliers_size > options_.min_inliers) {
       if (inliers_size > best_inliers_size) {
         best_inliers_size = inliers_size;
@@ -815,5 +815,5 @@ std::unique_ptr<PnPsolverResult> PnpSolver::Find() {
   options_.iterations = options_.max_iterations;
   return this->operator()(transform::Rigid3d::Identity());
 }
-}  // namespace estimator
+}  // namespace alg
 }  // namespace jarvis
