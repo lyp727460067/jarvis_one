@@ -51,7 +51,6 @@ cv::Mat ObjectToCvImage(const Eigen::AlignedBox2d &raw_image_size,
   // drawing a 3D cubic box
   std::vector<cv::Point> points;
 
-  LOG(INFO) << "1";
   for (size_t i = 0; i < object_resut.coners.size(); i++) {
     if (!raw_image_size.contains(object_resut.coners[i])) return image;
     points.push_back(
@@ -257,7 +256,7 @@ std::vector<uint8_t> ToCData(
             info1 << "angle = "
                   << common::RadToDeg(transform::GetAngle(deta_pose));
           }
-          info2 << "l" << t0.translation().transpose()
+          info2 << "l  " << t0.translation().transpose().norm()
                 << transform::Rot2ypr(t0.rotation().toRotationMatrix())
                        .transpose();
         }
@@ -271,7 +270,6 @@ std::vector<uint8_t> ToCData(
         image_result += image_object;
       }
     }
-    LOG(INFO)<<cam_feature.first;
     cvresult1.emplace_back(image_result);
   }
 

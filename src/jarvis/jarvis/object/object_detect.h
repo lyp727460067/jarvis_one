@@ -25,7 +25,7 @@ struct ObejectData {
 struct ObjectDetectOption {
   std::string opencv_aruco_dict = "DICT_6X6_1000";
   // float mark_lenth = 0.172;
-  float mark_lenth = 0.280;
+  float mark_lenth = 0.35;
 };
 
 class CvDetect {

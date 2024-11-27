@@ -94,8 +94,8 @@ std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
   auto marker_poses = EstimatePose(marker_corners);
   std::map<uint64_t, ObejectData> result;
   for (size_t i = 0; i < marker_ids.size(); i++) {
-    if (marker_poses[i].translation().norm() > 0.6) continue;
-    if (common::RadToDeg(transform::GetYaw(marker_poses[i])) > 5) continue;
+    // if (marker_poses[i].translation().norm() > 0.6) continue;
+    // if (common::RadToDeg(transform::GetYaw(marker_poses[i])) > 5) continue;
     result.emplace(static_cast<uint64_t>(marker_ids[i]),
                    ObejectData{marker_poses[i],
                                std::make_shared<ObejectData::Appended>(
