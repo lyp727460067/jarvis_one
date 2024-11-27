@@ -60,7 +60,7 @@ class LocalMapTrack {
 
   //
 
-  int IsInFrame(const MapPoint& map_point, const TrackingData& track_data){}
+  int IsInFrame(const MapPoint& map_point, const TrackingData& track_data);
   bool MatchCandidate(const Candidate& candidate,
                       estimator::FeatureData& feature);
   //

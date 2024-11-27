@@ -47,7 +47,7 @@ class MappingBuilder {
   //
   LocalMapOptimizationData ParseLocalMapData(const KeyFrameId& frame_id);
   void LocalPorcess(const KeyFrameId& frame_id);
-  void LocalOptimization(){}
+  void LocalOptimization();
   void DrainWorkQueue();
   void KeyFrameDataFuse(const KeyFrameId& frame_id);
   void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
