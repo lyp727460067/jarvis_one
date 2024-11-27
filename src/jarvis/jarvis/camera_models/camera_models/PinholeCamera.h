@@ -89,7 +89,12 @@ class PinholeCamera : public Camera {
   // Projects 3D points to the image plane (Pi function)
   void spaceToPlane(const Eigen::Vector3d& P, Eigen::Vector2d& p) const;
   //%output p
-
+  virtual bool backProject3(const Eigen::Vector2d& keypoint,
+                            Eigen::Vector3d* out_point_3d) {return false;}
+  virtual const void project3(
+      const Eigen::Vector3d& point_3d,
+      Eigen::Vector2d* out_keypoint,
+      Eigen::Matrix<double, 2, 3>* out_jacobian_point = nullptr) {}
   // Projects 3D points to the image plane (Pi function)
   // and calculates jacobian
   void spaceToPlane(const Eigen::Vector3d& P, Eigen::Vector2d& p,

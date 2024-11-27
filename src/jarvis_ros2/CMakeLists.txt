@@ -41,6 +41,7 @@ find_package(OpenCV REQUIRED) #version 4.6.0
 
 include_directories(
   ${OpenCV_INCLUDE_DIRS}
+  ${PROJECT_BINARY_DIR}/../jarvis/
 )
 
 
@@ -67,6 +68,9 @@ add_executable(ld_${PROJECT_NAME}_pose_compare_main  jarvis_rtk_vio_pose_compare
 
 add_executable(ld_${PROJECT_NAME}_data_parse  jarvis_data_parse.cc
 )
+
+
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -107,6 +111,39 @@ target_link_libraries(ld_${PROJECT_NAME}_pose_compare_main
   yaml-cpp
   jarvis
 )
+set(ALL_TEST_SRCS  ${PROJECT_SOURCE_DIR}/dbow_test/vocabulary_test.cc
+${PROJECT_SOURCE_DIR}/dbow_test/to_dbow2_vocabulary_adptor_test.cc
+)
+
+# add_subdirectory(${PROJECT_SOURCE_DIR}/dbow_test/DBow2/DBoW2)
+file(GLOB_RECURSE ALL_PROTO_LIBRARY_SRCS "dbow_test/*.cc" "dbow_test/*.cpp")
+
+add_library(dbow_test ${ALL_PROTO_LIBRARY_SRCS})
+target_link_libraries(dbow_test
+  ${Boost_LIBRARIES}
+  glog::glog
+  jarvis
+)
+
+target_include_directories(dbow_test PUBLIC  ${PROJECT_SOURCE_DIR}/dbow_test/DBow2/DBoW2/include/DBoW2/)
+target_include_directories(dbow_test PUBLIC  ${PROJECT_SOURCE_DIR}/dbow_test/DBow2/DBoW2/include/)
+foreach(ABS_FIL ${ALL_TEST_SRCS})
+  file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${ABS_FIL})
+  get_filename_component(DIR ${REL_FIL} DIRECTORY)
+  get_filename_component(FIL_WE ${REL_FIL} NAME_WE)
+  string(REPLACE "/" "." TARGET_NAME "${DIR}/${FIL_WE}")
+  add_executable(${TARGET_NAME} ${ABS_FIL} )
+  target_link_libraries(${TARGET_NAME}
+    -lgtest_main
+    -lgtest
+    -lpthread
+    jarvis
+    dbow_test
+  )
+  target_include_directories(${TARGET_NAME} PUBLIC  ${PROJECT_SOURCE_DIR}/dbow_test/DBow2/DBoW2/include/)
+ endforeach()
+
+
 
 ament_target_dependencies(ld_${PROJECT_NAME}_pose_compare_main rclcpp std_msgs nav_msgs sensor_msgs
 visualization_msgs

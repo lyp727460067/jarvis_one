@@ -1,0 +1,46 @@
+syntax = "proto3";
+package  jarvis.mapping.dbow.proto;
+message  VocabularyOption
+{
+  uint32 score_type=1; 
+  uint32 weighting_type=2; 
+}
+
+message Descriptor {
+    repeated uint32 brif_bitset = 1;
+}
+
+
+
+message VocabularyData
+{
+  message Node
+  {
+    uint64 id=1;
+    uint64 parent_id=2;
+    repeated uint64   childrens_ids=4;
+  }
+  message  NodeData
+  {
+    double weight=1;
+    Descriptor descriptors=2;
+  }
+  message Info
+  {
+    string descriptor_type=1;
+    int32 descriptor_rotated=2;
+    int32 branching_factor =3;
+    int32 depth_levels=4;
+    VocabularyOption option=5;
+  }
+  Info info =1; 
+  map<uint64, NodeData> node_datas =2; 
+  map<uint64,Node> nodes =3; 
+  repeated uint64 word_ids=4;
+}
+
+message VocabularyDatas
+{
+  repeated  VocabularyData vocabulary_datas=1;
+}
+
