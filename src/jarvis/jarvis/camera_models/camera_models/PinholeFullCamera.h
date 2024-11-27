@@ -147,7 +147,12 @@ class PinholeFullCamera : public Camera {
 
   void undistToPlane(const Eigen::Vector2d& p_u, Eigen::Vector2d& p) const;
   //%output p
-
+  virtual bool backProject3(const Eigen::Vector2d& keypoint,
+                            Eigen::Vector3d* out_point_3d) {return false;}
+  virtual const void project3(
+      const Eigen::Vector3d& point_3d,
+      Eigen::Vector2d* out_keypoint,
+      Eigen::Matrix<double, 2, 3>* out_jacobian_point = nullptr) {}
   template <typename T>
   static void spaceToPlane(const T* const params, const T* const q,
                            const T* const t, const Eigen::Matrix<T, 3, 1>& P,

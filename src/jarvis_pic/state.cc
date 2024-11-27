@@ -108,7 +108,7 @@ class FileCheckState : public State<Entity> {
     //
     LOG(INFO) << "Enter " << name_;
     LOG(INFO) << "Read base path map paths.";
-    auto temp = io::ReadFileFromDir(base_path_);
+    auto temp = ReadFileFromDir(base_path_);
     sub_map_path_ = std::vector<std::string>(temp.begin(), temp.end());
   }
   void Execute(Entity* entity) {

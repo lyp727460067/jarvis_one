@@ -1,12 +1,12 @@
 
-#ifndef ESITMATOR_MAPPING_INTERNAL_PNPSOLVER_H
-#define ESITMATOR_MAPPING_INTERNAL_PNPSOLVER_H
+#ifndef JARVIS_ALG_INTERNAL_PNPSOLVER_H
+#define JARVIS_ALG_INTERNAL_PNPSOLVER_H
 
 #include <opencv2/core/core.hpp>
 
 #include "transform/transform.h"
 namespace jarvis {
-namespace estimator {
+namespace alg {
 //
 
 //
@@ -144,14 +144,12 @@ struct PnpSolverOption {
 class PnpSolverInterface {
  public:
   virtual std::unique_ptr<PnPsolverResult> Solve(
-      const std::vector<Eigen::Vector3d>& points,
-      const std::vector<Eigen::Vector2d>& key_points,
-      const transform::Rigid3d& init_pose) = 0;
- virtual  std::unique_ptr<PnPsolverResult> Find()=0;
+      const std::vector<Eigen::Vector3d> &points,
+      const std::vector<Eigen::Vector2d> &key_points,
+      const transform::Rigid3d &init_pose) = 0;
+  virtual std::unique_ptr<PnPsolverResult> Find() = 0;
   virtual ~PnpSolverInterface() {}
 };
-
-
 
 class PnpSolver : public PnpSolverInterface {
  public:
@@ -196,7 +194,7 @@ class PnpSolver : public PnpSolverInterface {
   std::vector<int> points_index_;
   int max_iterations = 0;
 };
-}  // namespace estimator
+}  // namespace alg
 }  // namespace jarvis
 
 #endif
