@@ -25,4 +25,4 @@ marker_depth_max : 0.6
 marker_depth_min : 0.4
 marker_angle_max : 5.0
 dis_error_thr : 0.006        # %（distance / scene_perimeter）
-angle_error_thr : 5.0      # degree
+angle_error_thr : 5.0      # degreescene_perimeter）
