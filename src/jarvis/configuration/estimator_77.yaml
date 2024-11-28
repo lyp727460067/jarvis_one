@@ -107,7 +107,7 @@ imu_option:
 
 odom_option :
   use_odom : 1
-  odom_optimization_weight: 50
+  odom_optimization_weight: 10
   angle_threas_hold : 10
 
 
