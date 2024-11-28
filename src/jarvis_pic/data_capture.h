@@ -10,6 +10,8 @@
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
 #include "event_bus.h"
+#include "jarvis/object/object_interface.h"
+
 namespace jarvis_pic {
 struct DataCaptureOption {
   int use_method = 0;
@@ -56,6 +58,7 @@ struct RtkData {
 struct SystmeInfo {
   uint8_t state;
   uint8_t env_dark_data=0;
+  uint8_t factory_state=0;
 };
 class DataCapture {
  public:
@@ -90,6 +93,8 @@ class DataCapture {
   void RemoveCallBack(const std::string& id);
   void ReadImu();
   void ReadImag();
+  void SendFactoryFinishEvent(const jarvis::object::VslamFactoryResult& result);
+
  protected:
 
   void Run();

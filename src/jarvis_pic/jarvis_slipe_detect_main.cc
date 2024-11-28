@@ -139,17 +139,39 @@ class JarvisBuilder {
     });
     //
     data_capture_->RigisterEvnt([this](const SystmeInfo& state) {
-      event_dark_ = state.env_dark_data;
-      LOG(INFO)<<int(event_dark_) ;
-      if (event_dark_ ==1) {
-        LOG(WARNING) << "event dark recive,delte jarvis."<<int(event_dark_);
-        jarvis_brige_.reset(nullptr);
-        slip_detect_.reset(nullptr);
-        kVioState = 0;
+      switch (state.factory_state)
+      {
+      case 0: // EV_FILL_LIGHT_CTRL
+        event_dark_ = state.env_dark_data;
+        LOG(INFO)<<int(event_dark_) ;
+        if (event_dark_ ==1) {
+          LOG(WARNING) << "event dark recive,delte jarvis."<<int(event_dark_);
+          jarvis_brige_.reset(nullptr);
+          slip_detect_.reset(nullptr);
+          kVioState = 0;
+        }
+        break;
+      
+      case 1: // EV_ALGORITHM_FACTORY_START
+        CreateJarvisBrige(true);    // 重啓slam节点且固定外参
+        factory_state_ = 1;
+        break;
+
+      case 2: // EV_VSLAM_FACTORY_ARUCO_PLANNING_FIRST_CHECK
+        factory_state_ = 2;
+        break;
+
+      case 3: // EV_VSLAM_FACTORY_ARUCO_PLANNING_END
+        factory_state_ = 3;
+        break;
+      
+      default:
+        LOG(ERROR) << "event receive error";
+        break;
       }
+      
     });
-    //
-    //
+    
     data_capture_->Rigister(
         "data_record", [this](const ImuData& imu) { data_record_->AddImu(imu); });
 
@@ -186,7 +208,7 @@ class JarvisBuilder {
     // }
   }
   //
-  void CreateJarvisBrige() {
+  void CreateJarvisBrige(bool factory_mode = false) {
     {
       std::lock_guard<std::mutex> lock(mutex_);
       // imu_extrapolator_ =
@@ -194,42 +216,124 @@ class JarvisBuilder {
     }
 
     slip_detect_ = jarvis::slip_detect::FactorSlipDetect(config_path_);
-    jarvis_brige_ = std::make_unique<JarvisBrige>(
-        config_path_, data_capture_.get(),
-        [&](const jarvis::TrackingData& data) {
-          data_record_->AddAtTimeFram(common::ToUniversal(
-              data.data->time -
-              common::FromSeconds(jarvis::GetTimeShiftCamImu())));
-          bool slip_flag = false;
-          if (slip_detect_) {
-            if (data.status != 2) {
-              slip_detect_->ClearData();
-              // std::lock_guard<std::mutex> lock(mutex_);
-              // imu_extrapolator_->Rest();
-            } else {
-              slip_detect_->AddPose(slip_detect::TimePose{
-                  data.data->time, data.data->imu_state.Pose()});
-              slip_flag = slip_detect_->Detect(data.data->time);
-            }
-            if (kWriteMpcPoseType == 0) {
-              transform::Rigid3d slipe_alignment_pose =
-                  slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
-              mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
-            }
-          }
-          //
 
-          kSlipeState = slip_flag;
-          kVioState = data.status;
-          // if (kWriteMpcPoseType) {
-          //   std::lock_guard<std::mutex> lock(mutex_);
-          //   imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
-          // }
-          call_back_(jarvis_pic_call_back_data{slip_flag, data});
-        });
+    // 工产模式才开啓arUco码检测,且固定外参不优化
+    if (factory_mode) {
+        jarvis_brige_ = std::make_unique<JarvisBrige>(
+            config_path_, data_capture_.get(),
+            [&](const jarvis::TrackingData &data) {
+                data_record_->AddAtTimeFram(common::ToUniversal(
+                    data.data->time -
+                    common::FromSeconds(jarvis::GetTimeShiftCamImu())));
+                bool slip_flag = false;
+                if (slip_detect_) {
+                    if (data.status != 2) {
+                        slip_detect_->ClearData();
+                        // std::lock_guard<std::mutex> lock(mutex_);
+                        // imu_extrapolator_->Rest();
+                    } else {
+                        slip_detect_->AddPose(slip_detect::TimePose{
+                            data.data->time, data.data->imu_state.Pose()});
+                        slip_flag = slip_detect_->Detect(data.data->time);
+                    }
+                    if (kWriteMpcPoseType == 0) {
+                        transform::Rigid3d slipe_alignment_pose =
+                            slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
+                        mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
+                    }
+                }
+                //
+
+                kSlipeState = slip_flag;
+                kVioState = data.status;
+                // if (kWriteMpcPoseType) {
+                //   std::lock_guard<std::mutex> lock(mutex_);
+                //   imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
+                // }
+                call_back_(jarvis_pic_call_back_data{slip_flag, data});
+                auto &tracking_data = data;
+                if (tracking_data.status == 2) {
+                    if (object_interface == nullptr) {
+                        // arUco码只用左前目观测
+                        object_interface = std::make_unique<jarvis::object::ObjectInterface>(
+                            this->GetJarvisBrige()
+                                ->EstimationOption()
+                                ->feature_track_options[0]
+                                .cameras[0]);
+                    }
+
+                    if (factory_state_ == 1) {
+                        // 第一圈只锚定
+                        object_result = object_interface->Detect(
+                            common::ToUniversal(tracking_data.data->time),
+                            tracking_data.data->features_datas[0].features.data->images[0],
+                            tracking_data.data->imu_state.Pose(),
+                            this->GetJarvisBrige()
+                                ->EstimationOption()
+                                ->slide_windows_option.extric_camera_to_imu[0]);
+                    } else if (factory_state_ == 2) {
+                        // 第二圈不锚定只计算误差
+                        object_result = object_interface->ComputeError(
+                            common::ToUniversal(tracking_data.data->time),
+                            tracking_data.data->features_datas[0].features.data->images[0],
+                            tracking_data.data->imu_state.Pose(),
+                            this->GetJarvisBrige()
+                                ->EstimationOption()
+                                ->slide_windows_option.extric_camera_to_imu[0]);
+                    } else if (factory_state_ == 3) {
+                        // 产测模式结束,发送结果
+                        data_capture_->SendFactoryFinishEvent(object_interface->GetFinalResult());
+                    } else {
+                        // 不再執行arUco码检测
+                    }
+
+                } else {
+                    object_interface = nullptr;
+                }
+            },
+            true);
+    } else {
+        jarvis_brige_ = std::make_unique<JarvisBrige>(
+            config_path_, data_capture_.get(),
+            [&](const jarvis::TrackingData &data) {
+                data_record_->AddAtTimeFram(common::ToUniversal(
+                    data.data->time -
+                    common::FromSeconds(jarvis::GetTimeShiftCamImu())));
+                bool slip_flag = false;
+                if (slip_detect_) {
+                    if (data.status != 2) {
+                        slip_detect_->ClearData();
+                        // std::lock_guard<std::mutex> lock(mutex_);
+                        // imu_extrapolator_->Rest();
+                    } else {
+                        slip_detect_->AddPose(slip_detect::TimePose{
+                            data.data->time, data.data->imu_state.Pose()});
+                        slip_flag = slip_detect_->Detect(data.data->time);
+                    }
+                    if (kWriteMpcPoseType == 0) {
+                        transform::Rigid3d slipe_alignment_pose =
+                            slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
+                        mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
+                    }
+                }
+                //
+
+                kSlipeState = slip_flag;
+                kVioState = data.status;
+                // if (kWriteMpcPoseType) {
+                //   std::lock_guard<std::mutex> lock(mutex_);
+                //   imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
+                // }
+                call_back_(jarvis_pic_call_back_data{slip_flag, data});
+            });
+    }
   }
   jarvis::slip_detect::SlipDetect* GetSlipDect() { return slip_detect_.get(); }
   JarvisBrige* GetJarvisBrige() { return jarvis_brige_.get(); }
+
+  const std::vector<jarvis::object::ObjectImageResult>& GetObjectResult() const{
+    return object_result;
+  }
 
  private:
   const std::string config_path_;
@@ -240,14 +344,16 @@ class JarvisBuilder {
   std::unique_ptr<JarvisBrige> jarvis_brige_;
   std::unique_ptr<jarvis::slip_detect::SlipDetect> slip_detect_;
   std::function<void(const jarvis_pic_call_back_data&)> call_back_;
+  std::unique_ptr<jarvis::object::ObjectInterface> object_interface = nullptr; // 提取arUco码的对象指针
+  std::vector<jarvis::object::ObjectImageResult> object_result; // 提取arUco码返回的结果
   // std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_=nullptr;  //=
   uint8_t system_state_ = 0xff;
   std::mutex mutex_;
   uint8_t event_dark_=0;
+  uint8_t factory_state_ = 0;
 };
 }  // namespace jarvis_pic
 std::string kDataDir = "/mnt/UDISK/jarvis/";
-std::vector<jarvis::object::ObjectImageResult> object_result;
 //
 int main(int argc, char* argv[]) {
   //
@@ -267,7 +373,6 @@ int main(int argc, char* argv[]) {
   LocalGlogSink glog_sink;
   google::AddLogSink(&glog_sink);
   CreateDir(kDataDir);
-  std::unique_ptr<jarvis::object::ObjectInterface> object_interface  =nullptr;
   //
   //
   const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
@@ -309,7 +414,6 @@ int main(int argc, char* argv[]) {
   jarvis_pic::ZmqComponent zmq;
   jarvis_pic::MpcComponent mpc;
   while (!kill_thread_) {
-    std::vector<jarvis::object::ObjectImageResult> object_result;
     uint8_t flag = 0;
     jarvis::TrackingData tracking_data;
     {
@@ -321,23 +425,6 @@ int main(int argc, char* argv[]) {
     data_record_->AddVioData(tracking_data.data->time,
                                tracking_data.data->imu_state.Pose(), flag);
     LOG_EVERY_N(INFO,5) << "vio pose:" << tracking_data.data->imu_state;
-
-    if (tracking_data.status == 2) {
-      if (object_interface == nullptr) {
-        object_interface = std::make_unique<jarvis::object::ObjectInterface>(
-            jarvis_slam->GetJarvisBrige()
-              ->EstimationOption()->feature_track_options[0].cameras[0]);
-      }
-      object_result = object_interface->Detect(
-          common::ToUniversal(tracking_data.data->time),
-          tracking_data.data->features_datas[0].features.data->images[0],
-          tracking_data.data->imu_state.Pose(),
-          jarvis_slam->GetJarvisBrige()
-              ->EstimationOption()
-              ->slide_windows_option.extric_camera_to_imu[0]);
-    } else {
-      object_interface = nullptr;
-    }
 
     // jarvis_slam->AddStateToImuExtrapolator(tracking_data);
     // mpc.Write(
@@ -351,7 +438,7 @@ int main(int argc, char* argv[]) {
               tracking_data.data->imu_state.Pose());
       tracking_data.data->imu_state.p =  pose.translation();
       tracking_data.data->imu_state.q =  pose.rotation();
-      zmq.PubLocalData(tracking_data, flag,object_result);
+      zmq.PubLocalData(tracking_data, flag, jarvis_slam->GetObjectResult());
     }
 #endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));

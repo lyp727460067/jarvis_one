@@ -18,14 +18,14 @@ struct ObejectData {
     std::string name;
     std::vector<cv::Point2f> corners;
   };
-  transform::Rigid3d pose;
+  transform::Rigid3d pose; //相机坐标系下
   std::shared_ptr<Appended> append;
 };
 
 struct ObjectDetectOption {
   std::string opencv_aruco_dict = "DICT_6X6_1000";
   // float mark_lenth = 0.172;
-  float mark_lenth = 0.35;
+  float mark_lenth = 0.3;
 };
 
 class CvDetect {

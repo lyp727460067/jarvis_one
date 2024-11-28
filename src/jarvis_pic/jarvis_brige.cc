@@ -24,7 +24,8 @@ void ParseOption(const std::string& config) {
 }
 
 JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
-                         std::function<void(const TrackingData&)> call_back)
+                         std::function<void(const TrackingData&)> call_back,
+                         bool is_estrinsic_fixed)
     : data_capture_(data_capture) {
   //
   LOG(INFO) << "Jarvis start...";
@@ -38,6 +39,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 
   //
   esit_option_ = estimator::ParseEstimatorOption(std::string(config));
+  if(is_estrinsic_fixed)
+    esit_option_.slide_windows_option.opti_option.estimate_extrinsic = 0;
 
   if (kuse_gpu) {
     for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {

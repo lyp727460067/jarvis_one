@@ -113,6 +113,7 @@ WapObjectDetect::WapObjectDetect(std::unique_ptr<ObjectDetect> detect)
 std::vector<ObejectDataPose> WapObjectDetect::AddImage(
     const common::Time& time, const std::shared_ptr<cv::Mat>& image,
     const transform::Rigid3d& cam_pose) {
+  // 获取当前帧检测到符合距离和角度要求的arUco码
   auto objects = detect_->Detect(*image);
   if (objects.empty()) return {};
   //
@@ -135,23 +136,26 @@ ObjectProcess::ObjectProcess()
 void ObjectProcess::AddLandMark(
     const ObejectDataPose& data,
     const std::pair<KeyFrameId, transform::TimestampedTransform>& kf_data) {
+  // 若此标码序号已存在则不再锚定
   if (insert_local_ids_.count(data.local_id)) return;
+
   insert_local_ids_.insert(data.local_id);
+  // 判断object_datas_中是否存在当前KeyFrameId
   if (object_datas_.Contains(kf_data.first)) {
     const auto& objects = object_datas_.at(kf_data.first)->objects;
     //
     object_datas_.at(kf_data.first)
         ->objects.push_back(
-            {data, kf_data.second.transform.inverse() * data.local_pose,
-             data.local_pose});
+            {data, kf_data.second.transform.inverse() * data.pose,
+             data.pose});
   } else {
     object_datas_.Insert(
         kf_data.first,
         std::make_shared<ObjectsPhysics>(ObjectsPhysics{
             kf_data.second.time,
             {ObjectPhysics{data,
-                           kf_data.second.transform.inverse() * data.local_pose,
-                           data.local_pose}}}));
+                           kf_data.second.transform.inverse() * data.pose,
+                           data.pose}}}));
   }
 }
 //
@@ -281,6 +285,7 @@ ObjectImageResult ObjectImageProcess::ProjectObject(
   Eigen::Vector3d box_direction = 0.1 * Eigen::Vector3d::UnitZ();
   Eigen::Vector3d box_direction_origi = Eigen::Vector3d::Zero();
 
+  // 此delta_pose是相机坐标系下的pose
   const transform::Rigid3d delta_pose = object.object.data->pose;
 
   box_direction = delta_pose * box_direction;

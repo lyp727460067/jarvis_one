@@ -10,6 +10,7 @@ namespace jarvis {
 namespace object {
 
 namespace {
+// 去畸变和投影到归一化平面
 std::vector<cv::Point2f> Normalize(const std::vector<cv::Point2f>& points,
                                    const camera_models::CameraPtr came_base) {
   std::vector<cv::Point2f> result;
@@ -42,7 +43,7 @@ CvDetect::CvDetect(const std::string& dict) {
 
 std::pair<std::vector<int>, std::vector<std::vector<cv::Point2f>>>
 CvDetect::Detect(const cv::Mat& image) {
-  std::vector<std::vector<cv::Point2f>> marker_corners;
+  std::vector<std::vector<cv::Point2f>> marker_corners; // 一个Id对应四个角点(左上,右上,右下,左下)
   std::vector<int> marker_ids;
 
   std::map<int, ObejectData> result;
@@ -87,15 +88,21 @@ ObjectDetect::ObjectDetect(const ObjectDetectOption& option,
 //
 
 std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
-  //
+  // [std::vector<int>, std::vector<std::vector<cv::Point2f>>]
   auto [marker_ids, marker_corners] = cv_aruce_detect_->Detect(image);
   if (marker_ids.empty()) return {};
 
   auto marker_poses = EstimatePose(marker_corners);
   std::map<uint64_t, ObejectData> result;
   for (size_t i = 0; i < marker_ids.size(); i++) {
-    // if (marker_poses[i].translation().norm() > 0.6) continue;
-    // if (common::RadToDeg(transform::GetYaw(marker_poses[i])) > 5) continue;
+    // 观测深度和角度
+    float marker_depth = marker_poses[i].translation().norm();
+    float marker_angle = abs(common::RadToDeg(transform::GetYaw(marker_poses[i])));
+
+    if (marker_depth > 0.6f || marker_depth < 0.4f || marker_angle > 5.0f) continue;
+
+    std::cout << "marker detect, id: " << marker_ids[i] << ", depth: " << marker_depth 
+              << ", angle: " << marker_angle << std::endl;
     result.emplace(static_cast<uint64_t>(marker_ids[i]),
                    ObejectData{marker_poses[i],
                                std::make_shared<ObejectData::Appended>(
@@ -104,6 +111,7 @@ std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
                                            std::to_string(marker_ids[i]),
                                        std::move(marker_corners[i])})});
   }
+  // 返回相机坐标系下标码的pose及其信息
   return result;
 }
 //
@@ -146,7 +154,7 @@ std::vector<transform::Rigid3d> ObjectDetect::EstimatePose(
     //
     //
     cv::Mat r;
-    cv::Rodrigues(rvecs[i], r);
+    cv::Rodrigues(rvecs[i], r); // 将旋转向量转换为旋转矩阵
     Eigen::Matrix3d R_pnp;
     cv::cv2eigen(r, R_pnp);
     Eigen::Vector3d T_pnp;

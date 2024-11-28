@@ -18,8 +18,8 @@ namespace jarvis {
 namespace object {
 //
 struct ObejectDataPose {
-  uint64_t local_id;
-  transform::Rigid3d local_pose;
+  uint64_t local_id; // 标码的标识ID
+  transform::Rigid3d pose; // 世界坐标系(IMU)
   std::shared_ptr<const ObejectData> data;
 };
 //
@@ -28,8 +28,8 @@ struct ObjectPhysics {
     Eigen::AlignedBox3f bound_box;
   };
   ObejectDataPose object;
-  transform::Rigid3d relative_kf_pose;
-  transform::Rigid3d global_pose;
+  transform::Rigid3d relative_kf_pose; //在camera坐标系下
+  transform::Rigid3d global_pose; // 在全局坐标系下(IMU)
 };
 //
 inline ObjectPhysics SimplePoseToObject(const transform::Rigid3d& pose) {
@@ -110,7 +110,7 @@ class ObjectImageProcess {
                                           bool limit = true);
 
   const camera_models::CameraPtr cam_base_;
-  Eigen::AlignedBox3d bbox_;
+  Eigen::AlignedBox3d bbox_; // 3d 边界, min: 最小角点, max: 最大角点, diagnol: 对角线长度
   //   const Eigen::AlignedBox2d image_box_;
 };
 

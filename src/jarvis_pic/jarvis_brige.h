@@ -14,7 +14,8 @@ class DataCapture;
 class JarvisBrige {
   public:
   JarvisBrige(const std::string& config,DataCapture* data_capture,
-              std::function<void(const jarvis::TrackingData&)> call_back);
+              std::function<void(const jarvis::TrackingData&)> call_back,
+              bool is_estrinsic_fixed = false);
    
   ~JarvisBrige();
   jarvis::estimator::EstimatorOption* EstimationOption() {
