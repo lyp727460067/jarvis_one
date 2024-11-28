@@ -218,7 +218,9 @@ class JarvisBuilder {
     slip_detect_ = jarvis::slip_detect::FactorSlipDetect(config_path_);
 
     // 工产模式才开啓arUco码检测,且固定外参不优化
-    if (factory_mode) {
+    if (1){
+        factory_state_ = 1;
+    // if (factory_mode) {
         jarvis_brige_ = std::make_unique<JarvisBrige>(
             config_path_, data_capture_.get(),
             [&](const jarvis::TrackingData &data) {
@@ -271,8 +273,19 @@ class JarvisBuilder {
                             this->GetJarvisBrige()
                                 ->EstimationOption()
                                 ->slide_windows_option.extric_camera_to_imu[0]);
+                        
+                        if (object_result.size() > 2){
+                            std::cout << "current code size: " << object_result.size() << std::endl;
+                            std::cout << "ids: ";
+                            for (size_t i = 0; i < object_result.size(); i++) {
+                              std::cout << object_result[i].id << ", ";
+                            }
+                            std::cout << std::endl;
+                          factory_state_ = 2;
+                        }
                     } else if (factory_state_ == 2) {
                         // 第二圈不锚定只计算误差
+                        std::cout << "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
                         object_result = object_interface->ComputeError(
                             common::ToUniversal(tracking_data.data->time),
                             tracking_data.data->features_datas[0].features.data->images[0],
@@ -283,6 +296,7 @@ class JarvisBuilder {
                     } else if (factory_state_ == 3) {
                         // 产测模式结束,发送结果
                         data_capture_->SendFactoryFinishEvent(object_interface->GetFinalResult());
+                        factory_state_ = 4;
                     } else {
                         // 不再執行arUco码检测
                     }

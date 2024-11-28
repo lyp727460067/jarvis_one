@@ -139,6 +139,10 @@ void ObjectProcess::AddLandMark(
   // 若此标码序号已存在则不再锚定
   if (insert_local_ids_.count(data.local_id)) return;
 
+  std::cout << "add land mark" << std::endl;
+  std::cout << "cam pose: " << kf_data.second.transform << std::endl;
+  std::cout << "mark pose: " << data.pose << std::endl;
+
   insert_local_ids_.insert(data.local_id);
   // 判断object_datas_中是否存在当前KeyFrameId
   if (object_datas_.Contains(kf_data.first)) {
