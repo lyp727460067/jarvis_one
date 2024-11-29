@@ -101,8 +101,8 @@ std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
 
     if (marker_depth > 0.6f || marker_depth < 0.4f || marker_angle > 5.0f) continue;
 
-    std::cout << "marker detect, id: " << marker_ids[i] << ", depth: " << marker_depth 
-              << ", angle: " << marker_angle << std::endl;
+    // std::cout << "marker detect, id: " << marker_ids[i] << ", depth: " << marker_depth 
+    //           << ", angle: " << marker_angle << std::endl;
     result.emplace(static_cast<uint64_t>(marker_ids[i]),
                    ObejectData{marker_poses[i],
                                std::make_shared<ObejectData::Appended>(

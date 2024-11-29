@@ -218,9 +218,9 @@ class JarvisBuilder {
     slip_detect_ = jarvis::slip_detect::FactorSlipDetect(config_path_);
 
     // 工产模式才开啓arUco码检测,且固定外参不优化
-    if (1){
-        factory_state_ = 1;
-    // if (factory_mode) {
+    // if (1){
+    //     factory_state_ = 1;
+    if (factory_mode) {
         jarvis_brige_ = std::make_unique<JarvisBrige>(
             config_path_, data_capture_.get(),
             [&](const jarvis::TrackingData &data) {
@@ -252,8 +252,8 @@ class JarvisBuilder {
                 //   std::lock_guard<std::mutex> lock(mutex_);
                 //   imu_extrapolator_->AddState(data.data->time, data.data->imu_state);
                 // }
-                call_back_(jarvis_pic_call_back_data{slip_flag, data});
-                auto &tracking_data = data;
+              
+                auto tracking_data = data;
                 if (tracking_data.status == 2) {
                     if (object_interface == nullptr) {
                         // arUco码只用左前目观测
@@ -266,6 +266,7 @@ class JarvisBuilder {
 
                     if (factory_state_ == 1) {
                         // 第一圈只锚定
+                        // LOG(ERROR) << "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
                         object_result = object_interface->Detect(
                             common::ToUniversal(tracking_data.data->time),
                             tracking_data.data->features_datas[0].features.data->images[0],
@@ -274,18 +275,18 @@ class JarvisBuilder {
                                 ->EstimationOption()
                                 ->slide_windows_option.extric_camera_to_imu[0]);
                         
-                        if (object_result.size() > 2){
-                            std::cout << "current code size: " << object_result.size() << std::endl;
-                            std::cout << "ids: ";
-                            for (size_t i = 0; i < object_result.size(); i++) {
-                              std::cout << object_result[i].id << ", ";
-                            }
-                            std::cout << std::endl;
-                          factory_state_ = 2;
-                        }
+                        // if (object_result.size() > 2){
+                        //     std::cout << "current code size: " << object_result.size() << std::endl;
+                        //     std::cout << "ids: ";
+                        //     for (size_t i = 0; i < object_result.size(); i++) {
+                        //       std::cout << object_result[i].id << ", ";
+                        //     }
+                        //     std::cout << std::endl;
+                        //   factory_state_ = 2;
+                        // }
                     } else if (factory_state_ == 2) {
                         // 第二圈不锚定只计算误差
-                        std::cout << "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
+                        // LOG(ERROR)<< "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
                         object_result = object_interface->ComputeError(
                             common::ToUniversal(tracking_data.data->time),
                             tracking_data.data->features_datas[0].features.data->images[0],
@@ -304,6 +305,7 @@ class JarvisBuilder {
                 } else {
                     object_interface = nullptr;
                 }
+                call_back_(jarvis_pic_call_back_data{slip_flag, data});
             },
             true);
     } else {

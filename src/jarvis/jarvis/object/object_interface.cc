@@ -28,7 +28,8 @@ class ObjectInterface::ObjectImpl {
   std::vector<ObjectImageResult> Detect(const uint64_t &time,
                                         const cv::Mat &image,
                                         const transform::Rigid3d &pose,
-                                        const transform::Rigid3d &imu_to_cam) {   
+                                        const transform::Rigid3d &imu_to_cam) { 
+    //  LOG(ERROR)<< "imu pose in object: " << pose << std::endl;  
     transform::Rigid3d cam_pose = pose * imu_to_cam;
     // std::vector<ObejectDataPose> 符合要求的在世界坐标系下的arUco码
     auto mark_with_poses = wap_pose_object_detect_->AddImage(
@@ -65,7 +66,7 @@ class ObjectInterface::ObjectImpl {
                                               const cv::Mat &image,
                                               const transform::Rigid3d &pose,
                                               const transform::Rigid3d &imu_to_cam) {
-      std::cout << "imu pose in object: " << pose << std::endl;
+      // LOG(ERROR)<< "imu pose in object: " << pose << std::endl;
       transform::Rigid3d cam_pose = pose * imu_to_cam;
       // std::vector<ObejectDataPose> 符合要求的在世界坐标系下的arUco码
       auto mark_with_poses = wap_pose_object_detect_->AddImage(
@@ -109,12 +110,12 @@ class ObjectInterface::ObjectImpl {
 
               if (max_error_.find(pair.first) != max_error_.end()) {
                   if (error_dis > max_error_[pair.first].first || error_angle > max_error_[pair.first].second){
-                    std::cout << "error change" << std::endl;
-                    std::cout << "vio pose: " << pose << std::endl;
-                    std::cout << "imu to cam: " << imu_to_cam << std::endl;
-                    std::cout << "cam pose: " << cam_pose << std::endl;
-                    std::cout << "cur pose: " << pair.second[0].global_pose_cam << std::endl;
-                    std::cout << "mark pose: " << pair.second[1].global_pose_cam << std::endl;
+                    // std::cout << "error change" << std::endl;
+                    // std::cout << "vio pose: " << pose << std::endl;
+                    // std::cout << "imu to cam: " << imu_to_cam << std::endl;
+                    // std::cout << "cam pose: " << cam_pose << std::endl;
+                    // std::cout << "cur pose: " << pair.second[0].global_pose_cam << std::endl;
+                    // std::cout << "mark pose: " << pair.second[1].global_pose_cam << std::endl;
                   }
 
                   if (error_dis > max_error_[pair.first].first)
@@ -123,12 +124,12 @@ class ObjectInterface::ObjectImpl {
                       max_error_[pair.first].second = error_angle;
               } else {
                   max_error_[pair.first] = std::make_pair(error_dis, error_angle);
-                  std::cout << "error change" << std::endl;
-                  std::cout << "vio pose: " << pose << std::endl;
-                  std::cout << "imu to cam: " << imu_to_cam << std::endl;
-                  std::cout << "cam pose: " << cam_pose << std::endl;
-                  std::cout << "cur pose: " << pair.second[0].global_pose_cam << std::endl;
-                  std::cout << "mark pose: " << pair.second[1].global_pose_cam << std::endl;
+                  // std::cout << "error change" << std::endl;
+                  // std::cout << "vio pose: " << pose << std::endl;
+                  // std::cout << "imu to cam: " << imu_to_cam << std::endl;
+                  // std::cout << "cam pose: " << cam_pose << std::endl;
+                  // std::cout << "cur pose: " << pair.second[0].global_pose_cam << std::endl;
+                  // std::cout << "mark pose: " << pair.second[1].global_pose_cam << std::endl;
               }
 
               // std::cout << "arUco id: " << pair.first << ", dis: " << error_dis << " / "
@@ -137,10 +138,10 @@ class ObjectInterface::ObjectImpl {
           }
       }
 
-      std::cout << "error" << std::endl;
-      for(auto it = max_error_.begin(); it != max_error_.end(); it++){
-        std::cout << it->first << ": " << it->second.first << " / " << it->second.second << std::endl;
-      }
+      // std::cout << "error" << std::endl;
+      // for(auto it = max_error_.begin(); it != max_error_.end(); it++){
+      //   std::cout << it->first << ": " << it->second.first << " / " << it->second.second << std::endl;
+      // }
 
       return object_result;
   }
@@ -148,14 +149,14 @@ class ObjectInterface::ObjectImpl {
   jarvis::object::VslamFactoryResult GetFinalResult() {
       jarvis::object::VslamFactoryResult factory_result;
 
-      std::cout << "max error list" << std::endl;
+      // std::cout << "max error list" << std::endl;
       int i = 0;
       for (auto it = max_error_.begin(); it != max_error_.end() && i < 4;
            it++, i++) {
           factory_result.err_dis[i] = it->second.first;
           factory_result.err_angle[i] = it->second.second;
-          std::cout << it->first << ": " << it->second.first << ", " << it->second.second
-                    << std::endl;
+          // std::cout << it->first << ": " << it->second.first << ", " << it->second.second
+          //           << std::endl;
       }
 
       float dis_thr = 0.2;
@@ -165,11 +166,11 @@ class ObjectInterface::ObjectImpl {
           if (global_objects.size() != 4) {
               // 第一圈锚定码数量不为4,设置狀态为255
               factory_result.status = 255;
-              std::cout << "arUco num is not equal to 4: " << global_objects.size() << std::endl;
+              LOG(ERROR) << "arUco num is not equal to 4: " << global_objects.size();
           } else if (max_error_.size() != 4) {
-              // 第一圈观察数量不为4,设置狀态为254
+              // 第二圈观察数量不为4,设置狀态为254
               factory_result.status = 255;
-              std::cout << "arUco num is not equal to 4: " << global_objects.size() << std::endl;
+              LOG(ERROR) << "arUco num in the second round is not equal to 4: " << global_objects.size();
           } else {
               // 一切正常,判断是否符合要求,0为合格,1为不合格
               float max_dis = .0;
