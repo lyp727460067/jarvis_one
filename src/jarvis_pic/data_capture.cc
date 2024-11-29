@@ -210,12 +210,12 @@ void DataCapture::ReadImag() {
 }
 //
 void DataCapture::SendFactoryFinishEvent(const jarvis::object::VslamFactoryResult &result) {
-    std::cout << "send result" << std::endl;
-    std::cout << "status: " << result.status << std::endl;
-    std::cout << "dis: " << result.err_dis[0] << ", " << result.err_dis[1] << ", "
-              << result.err_dis[2] << ", " << result.err_dis[3] << std::endl;
-    std::cout << "angle: " << result.err_angle[0] << ", " << result.err_angle[1] << ", "
-              << result.err_angle[2] << ", " << result.err_angle[3] << std::endl;
+    LOG(INFO) << "send result";
+    LOG(INFO) << "status: " << result.status;
+    LOG(INFO) << "dis: " << result.err_dis[0] << ", " << result.err_dis[1] << ", "
+              << result.err_dis[2] << ", " << result.err_dis[3];
+    LOG(INFO) << "angle: " << result.err_angle[0] << ", " << result.err_angle[1] << ", "
+              << result.err_angle[2] << ", " << result.err_angle[3];
     event_bus_->SendEvent(EV_VSLAM_FACTORY_ARUCO_RESULT, &result,
                           sizeof(jarvis::object::VslamFactoryResult));
 }
