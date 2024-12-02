@@ -10,7 +10,7 @@
 #include "shm_mpmc_frame.h"
 #include "shm_sensor_queue.h"
 #include "event_bus.h"
-#include "jarvis/object/object_interface.h"
+#include "data_protocol.h"
 
 namespace jarvis_pic {
 struct DataCaptureOption {
@@ -93,7 +93,7 @@ class DataCapture {
   void RemoveCallBack(const std::string& id);
   void ReadImu();
   void ReadImag();
-  void SendFactoryFinishEvent(const jarvis::object::VslamFactoryResult& result);
+  void SendFactoryFinishEvent(const ModVslamFactoryTestFb& result);
 
  protected:
 

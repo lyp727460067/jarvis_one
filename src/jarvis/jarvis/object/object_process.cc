@@ -139,7 +139,7 @@ void ObjectProcess::AddLandMark(
   // 若此标码序号已存在则不再锚定
   if (insert_local_ids_.count(data.local_id)) return;
 
-  // std::cout << "add land mark" << std::endl;
+  LOG(INFO) << "add land mark: " << data.local_id;
   // std::cout << "cam pose: " << kf_data.second.transform << std::endl;
   // std::cout << "mark pose: " << data.pose << std::endl;
 

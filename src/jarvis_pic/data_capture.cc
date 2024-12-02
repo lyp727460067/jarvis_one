@@ -105,6 +105,7 @@ void DataCapture::ReadImu() {
     if (recv_len > 0) {
         EvMsg ev_msg(event_buffer, recv_len);
         if (ev_msg.valid) {
+            std::cout << "event receive: " << ev_msg.id << std::endl;
             switch (ev_msg.id) {
             case EV_FILL_LIGHT_CTRL: {
                 bool env_dark_data = 0;
@@ -135,6 +136,12 @@ void DataCapture::ReadImu() {
                     system_info_event_call_backs_({0, 0, 3});
                 }
                 break;
+
+            // case EV_VSLAM_FACTORY_ARUCO_RESULT:
+            //     LOG(WARNING) << "test evet receive";
+
+            //     memcpy((void *)&env_dark_data, (void *)ev_msg.data, sizeof(bool));
+            //   break;
             }
         }
     }
@@ -209,15 +216,30 @@ void DataCapture::ReadImag() {
   }
 }
 //
-void DataCapture::SendFactoryFinishEvent(const jarvis::object::VslamFactoryResult &result) {
+void DataCapture::SendFactoryFinishEvent(const ModVslamFactoryTestFb &result) {
+    // uint8_t event_buf2[sizeof(jarvis::object::VslamFactoryResult)];
+    // jarvis::object::VslamFactoryResult *result2 = (jarvis::object::VslamFactoryResult *)event_buf2;
+    // result2->status = result.status;
+    // for (int i = 0; i < 4; i++) {
+    //     result2->err_dis[i] = result.err_dis[i];
+    //     result2->err_angle[i] = result.err_angle[i];
+    // }
+
     LOG(INFO) << "send result";
-    LOG(INFO) << "status: " << result.status;
+    LOG(INFO) << "status: " << (int)result.status;
     LOG(INFO) << "dis: " << result.err_dis[0] << ", " << result.err_dis[1] << ", "
               << result.err_dis[2] << ", " << result.err_dis[3];
     LOG(INFO) << "angle: " << result.err_angle[0] << ", " << result.err_angle[1] << ", "
               << result.err_angle[2] << ", " << result.err_angle[3];
+
+    // LOG(INFO) << "send result2";
+    // LOG(INFO) << "status: " << (int)result2->status;
+    // LOG(INFO) << "dis: " << result2->err_dis[0] << ", " << result2->err_dis[1] << ", "
+    //           << result2->err_dis[2] << ", " << result2->err_dis[3];
+    // LOG(INFO) << "angle: " << result2->err_angle[0] << ", " << result2->err_angle[1] << ", "
+    //           << result2->err_angle[2] << ", " << result2->err_angle[3];
     event_bus_->SendEvent(EV_VSLAM_FACTORY_ARUCO_RESULT, &result,
-                          sizeof(jarvis::object::VslamFactoryResult));
+                          sizeof(ModVslamFactoryTestFb));
 }
 
 //

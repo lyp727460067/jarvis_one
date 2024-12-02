@@ -35,7 +35,19 @@ class ObjectInterface::ObjectImpl {
     auto mark_with_poses = wap_pose_object_detect_->AddImage(
         common::FromUniversal(time), std::make_shared<cv::Mat>(image),
         cam_pose);
-    LOG(INFO) << imu_to_cam;
+    // LOG(INFO) << imu_to_cam;
+    // std::cout << "imu_to_cam: " << std::endl << imu_to_cam << std::endl;
+    // Eigen::Quaterniond q_raw = imu_to_cam.rotation();
+    // Eigen::Vector3d t_raw = imu_to_cam.translation();
+    // Eigen::AngleAxisd yawAngle(Eigen::AngleAxisd(1.0 / 180.0 * 3.14159, Eigen::Vector3d::UnitZ()));
+    // Eigen::Matrix3d rotation_matrix = q_raw.toRotationMatrix() * yawAngle.toRotationMatrix();
+
+    // std::cout << "before rotation: " << std::endl << "rotation: " << q_raw.toRotationMatrix()
+    //           << std::endl << "tanslation: " << t_raw << std::endl;
+    // std::cout << "after rotation: " << std::endl << "rotation: " << rotation_matrix
+    //           << std::endl << "tanslation: " << t_raw << std::endl;
+
+
     std::vector<ObjectImageResult> object_result;
     for (const auto &mark : mark_with_poses) {
       // if (pose_temp.empty()) break;
@@ -109,14 +121,14 @@ class ObjectInterface::ObjectImpl {
               float error_angle = common::RadToDeg(transform::GetAngle(delta_pose));
 
               if (max_error_.find(pair.first) != max_error_.end()) {
-                  if (error_dis > max_error_[pair.first].first || error_angle > max_error_[pair.first].second){
-                    // std::cout << "error change" << std::endl;
-                    // std::cout << "vio pose: " << pose << std::endl;
-                    // std::cout << "imu to cam: " << imu_to_cam << std::endl;
-                    // std::cout << "cam pose: " << cam_pose << std::endl;
-                    // std::cout << "cur pose: " << pair.second[0].global_pose_cam << std::endl;
-                    // std::cout << "mark pose: " << pair.second[1].global_pose_cam << std::endl;
-                  }
+                //   if (error_dis > max_error_[pair.first].first || error_angle > max_error_[pair.first].second){
+                //     std::cout << "error change" << std::endl;
+                //     std::cout << "vio pose: " << pose << std::endl;
+                //     std::cout << "imu to cam: " << imu_to_cam << std::endl;
+                //     std::cout << "cam pose: " << cam_pose << std::endl;
+                //     std::cout << "cur pose: " << pair.second[0].global_pose_cam << std::endl;
+                //     std::cout << "mark pose: " << pair.second[1].global_pose_cam << std::endl;
+                //   }
 
                   if (error_dis > max_error_[pair.first].first)
                       max_error_[pair.first].first = error_dis;
@@ -124,6 +136,7 @@ class ObjectInterface::ObjectImpl {
                       max_error_[pair.first].second = error_angle;
               } else {
                   max_error_[pair.first] = std::make_pair(error_dis, error_angle);
+                  LOG(INFO) << "add detect: " << pair.first;
                   // std::cout << "error change" << std::endl;
                   // std::cout << "vio pose: " << pose << std::endl;
                   // std::cout << "imu to cam: " << imu_to_cam << std::endl;
@@ -138,25 +151,73 @@ class ObjectInterface::ObjectImpl {
           }
       }
 
-      // std::cout << "error" << std::endl;
-      // for(auto it = max_error_.begin(); it != max_error_.end(); it++){
-      //   std::cout << it->first << ": " << it->second.first << " / " << it->second.second << std::endl;
-      // }
+    //   std::cout << "error" << std::endl;
+    //   for(auto it = max_error_.begin(); it != max_error_.end(); it++){
+    //     std::cout << it->first << ": " << it->second.first << " / " << it->second.second << std::endl;
+    //   }
 
       return object_result;
   }
+//
+//   VslamFactoryResult GetFinalResult() {
+//       VslamFactoryResult factory_result;
 
-  jarvis::object::VslamFactoryResult GetFinalResult() {
-      jarvis::object::VslamFactoryResult factory_result;
+//       std::cout << "max error list" << std::endl;
+//       int i = 0;
+//       for (auto it = max_error_.begin(); it != max_error_.end() && i < 4;
+//            it++, i++) {
+//           factory_result.err_dis[i] = it->second.first;
+//           factory_result.err_angle[i] = it->second.second;
+//           std::cout << it->first << ": " << it->second.first << ", " << it->second.second
+//                     << std::endl;
+//       }
 
-      // std::cout << "max error list" << std::endl;
+//       float dis_thr = 0.2;
+//       float angle_thr = 5.0;
+//       if (!object_process_.GetObjectData(0).empty()) {
+//           auto global_objects = object_process_.GetObjectData(0);
+//           if (global_objects.size() != 4) {
+//               // 第一圈锚定码数量不为4,设置狀态为255
+//               factory_result.status = 255;
+//               LOG(ERROR) << "arUco num is not equal to 4: " << global_objects.size();
+//           } else if (max_error_.size() != 4) {
+//               // 第二圈观察数量不为4,设置狀态为254
+//               factory_result.status = 254;
+//               LOG(ERROR) << "arUco num in the second round is not equal to 4: " << max_error_.size();
+//           } else {
+//               // 一切正常,判断是否符合要求,0为合格,1为不合格
+//               float max_dis = .0;
+//               float max_angle = .0;
+//               for (int i = 0; i < 4; i++) {
+//                   max_dis = (max_dis > factory_result.err_dis[i]) ? max_dis : factory_result.err_dis[i];
+//                   max_angle = (max_angle > factory_result.err_dis[i]) ? max_angle : factory_result.err_angle[i];
+//               }
+
+//               if (max_dis > dis_thr || max_angle > angle_thr)
+//                   factory_result.status = 1;
+//               else
+//                   factory_result.status = 0;
+//           }
+//       } else {
+//           // 异常狀态,没有标码
+//           factory_result.status = 253;
+//           LOG(ERROR) << "object process empty";
+//       }
+
+//       return factory_result;
+//   }
+//
+
+void GetFinalResult(uint8_t &status, float (&err_dis)[4], float (&err_angle)[4]) {
+
+      std::cout << "max error list" << std::endl;
       int i = 0;
       for (auto it = max_error_.begin(); it != max_error_.end() && i < 4;
            it++, i++) {
-          factory_result.err_dis[i] = it->second.first;
-          factory_result.err_angle[i] = it->second.second;
-          // std::cout << it->first << ": " << it->second.first << ", " << it->second.second
-          //           << std::endl;
+          err_dis[i] = it->second.first;
+          err_angle[i] = it->second.second;
+          std::cout << it->first << ": " << it->second.first << ", " << it->second.second
+                    << std::endl;
       }
 
       float dis_thr = 0.2;
@@ -165,33 +226,31 @@ class ObjectInterface::ObjectImpl {
           auto global_objects = object_process_.GetObjectData(0);
           if (global_objects.size() != 4) {
               // 第一圈锚定码数量不为4,设置狀态为255
-              factory_result.status = 255;
+              status = 255;
               LOG(ERROR) << "arUco num is not equal to 4: " << global_objects.size();
           } else if (max_error_.size() != 4) {
               // 第二圈观察数量不为4,设置狀态为254
-              factory_result.status = 255;
-              LOG(ERROR) << "arUco num in the second round is not equal to 4: " << global_objects.size();
+              status = 254;
+              LOG(ERROR) << "arUco num in the second round is not equal to 4: " << max_error_.size();
           } else {
               // 一切正常,判断是否符合要求,0为合格,1为不合格
               float max_dis = .0;
               float max_angle = .0;
               for (int i = 0; i < 4; i++) {
-                  max_dis = (max_dis > factory_result.err_dis[i]) ? max_dis : factory_result.err_dis[i];
-                  max_angle = (max_angle > factory_result.err_dis[i]) ? max_angle : factory_result.err_angle[i];
+                  max_dis = (max_dis > err_dis[i]) ? max_dis : err_dis[i];
+                  max_angle = (max_angle > err_dis[i]) ? max_angle : err_angle[i];
               }
 
               if (max_dis > dis_thr || max_angle > angle_thr)
-                  factory_result.status = 1;
+                  status = 1;
               else
-                  factory_result.status = 0;
+                  status = 0;
           }
       } else {
           // 异常狀态,没有标码
-          factory_result.status = 253;
+          status = 253;
           LOG(ERROR) << "object process empty";
       }
-
-      return factory_result;
   }
 
   void UpdateGloblePose() {
@@ -237,10 +296,15 @@ std::vector<ObjectImageResult> ObjectInterface::ComputeError(
   return object_impl_->ComputeError(time, image, pose, imu_to_cam);
 }
 //
-object::VslamFactoryResult ObjectInterface::GetFinalResult() {
-    return object_impl_->GetFinalResult();
-}
+// VslamFactoryResult ObjectInterface::GetFinalResult() {
+//     return object_impl_->GetFinalResult();
+// }
 //
+void ObjectInterface::GetFinalResult(uint8_t &status, float (&err_dis)[4],
+                                     float (&err_angle)[4]) {
+    return object_impl_->GetFinalResult(status, err_dis, err_angle);
+}
+
 ObjectInterface::~ObjectInterface() {}
 }  // namespace object
 }  // namespace jarvis

@@ -25,6 +25,8 @@
 #include "zmq_component.h"
 #include "data_record.h"
 #include "glog_sink.h"
+#include "data_protocol.h"
+
 //
 
 namespace {
@@ -275,7 +277,7 @@ class JarvisBuilder {
                                 ->EstimationOption()
                                 ->slide_windows_option.extric_camera_to_imu[0]);
                         
-                        // if (object_result.size() > 2){
+                        // if (object_result.size() > 3){
                         //     std::cout << "current code size: " << object_result.size() << std::endl;
                         //     std::cout << "ids: ";
                         //     for (size_t i = 0; i < object_result.size(); i++) {
@@ -296,7 +298,11 @@ class JarvisBuilder {
                                 ->slide_windows_option.extric_camera_to_imu[0]);
                     } else if (factory_state_ == 3) {
                         // 产测模式结束,发送结果
-                        data_capture_->SendFactoryFinishEvent(object_interface->GetFinalResult());
+                        ModVslamFactoryTestFb factory_result;
+                        object_interface->GetFinalResult(factory_result.status, factory_result.err_dis,
+                                                         factory_result.err_angle);
+
+                        data_capture_->SendFactoryFinishEvent(factory_result);
                         factory_state_ = 4;
                     } else {
                         // 不再執行arUco码检测

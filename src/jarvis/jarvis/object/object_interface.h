@@ -7,6 +7,7 @@
 #include "opencv2/opencv.hpp"
 
 #include "jarvis/camera_models/camera_models/camera.h"
+
 namespace jarvis {
 
 namespace object {
@@ -22,13 +23,16 @@ struct ObjectImageResult {
   uint64_t id;
 };
 
-// 产测模式输出最终结果
-struct VslamFactoryResult
-{
-  uint8_t status;  
-  float err_dis[4];
-  float err_angle[4];
-};
+// #pragma pack(push, 1)
+// // 产测模式输出最终结果
+// struct VslamFactoryResult
+// {
+//   uint8_t status;  
+//   float err_dis[4];
+//   float err_angle[4];
+// };
+
+// #pragma pack(pop)
 
 //
 class ObjectInterface {
@@ -46,7 +50,9 @@ class ObjectInterface {
                                               const transform::Rigid3d &pose,
                                               const transform::Rigid3d &imu_to_cam);
 
-  VslamFactoryResult GetFinalResult();
+  // VslamFactoryResult GetFinalResult();
+
+  void GetFinalResult(uint8_t &status, float (&err_dis)[4], float (&err_angle)[4]);
 
   void UpdateGloblePose();
 
