@@ -18,3 +18,11 @@ calibrate_path : /data/bin/sys_data/calibrate_file
 # calibrate_path : /home/lyp/config_back/mower_0017/calibrate_file
 estimator : estimator_77.yaml
 
+# factory param
+arUco_code_nums : 4
+scene_perimeter : 30      # m
+marker_depth_max : 0.6
+marker_depth_min : 0.4
+marker_angle_max : 5.0
+dis_error_thr : 0.006        # %（distance / scene_perimeter）
+angle_error_thr : 5.0      # degree

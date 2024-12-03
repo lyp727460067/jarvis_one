@@ -210,14 +210,13 @@ class ObjectInterface::ObjectImpl {
 
 void GetFinalResult(uint8_t &status, float (&err_dis)[4], float (&err_angle)[4]) {
 
-      std::cout << "max error list" << std::endl;
+      LOG(INFO) << "max error list";
       int i = 0;
       for (auto it = max_error_.begin(); it != max_error_.end() && i < 4;
            it++, i++) {
           err_dis[i] = it->second.first;
           err_angle[i] = it->second.second;
-          std::cout << it->first << ": " << it->second.first << ", " << it->second.second
-                    << std::endl;
+          LOG(INFO) << it->first << ": " << it->second.first << ", " << it->second.second;
       }
 
       float dis_thr = 0.2;
@@ -273,6 +272,7 @@ void GetFinalResult(uint8_t &status, float (&err_dis)[4], float (&err_angle)[4])
 
 //
 ObjectInterface::ObjectInterface(const camera_models::CameraPtr came_base,
+                                 const std::string config_path,
                                  MapBuilderInterface *map_builder)
     : map_builder_(map_builder),
       object_impl_(std::make_unique<ObjectImpl>(came_base, this)) {}

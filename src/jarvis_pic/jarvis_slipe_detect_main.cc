@@ -155,6 +155,7 @@ class JarvisBuilder {
         break;
       
       case 1: // EV_ALGORITHM_FACTORY_START
+        object_interface = nullptr;
         CreateJarvisBrige(true);    // 重啓slam节点且固定外参
         factory_state_ = 1;
         break;
@@ -263,7 +264,8 @@ class JarvisBuilder {
                             this->GetJarvisBrige()
                                 ->EstimationOption()
                                 ->feature_track_options[0]
-                                .cameras[0]);
+                                .cameras[0],
+                            config_path_);
                     }
 
                     if (factory_state_ == 1) {

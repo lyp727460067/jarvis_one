@@ -105,7 +105,6 @@ void DataCapture::ReadImu() {
     if (recv_len > 0) {
         EvMsg ev_msg(event_buffer, recv_len);
         if (ev_msg.valid) {
-            std::cout << "event receive: " << ev_msg.id << std::endl;
             switch (ev_msg.id) {
             case EV_FILL_LIGHT_CTRL: {
                 bool env_dark_data = 0;

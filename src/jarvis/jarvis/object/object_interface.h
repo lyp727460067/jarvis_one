@@ -38,6 +38,7 @@ struct ObjectImageResult {
 class ObjectInterface {
  public:
   ObjectInterface(const camera_models::CameraPtr came_base,
+                  const std::string config_path,
                   MapBuilderInterface *map_builder = nullptr);
   //
   std::vector<ObjectImageResult> Detect(const uint64_t &time,
