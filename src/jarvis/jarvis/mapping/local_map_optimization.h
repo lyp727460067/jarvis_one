@@ -43,11 +43,11 @@ struct LocalMapOptimizationData {
 
 class LocalMapOptimization {
  public:
-  LocalMapOptimization(const LocalMapOptimizationOption &option);
-  void AddFixData(const sensor::FixedFramePoseData& fix_data);
-  void AddImuData(sensor::ImuData& imu_data);
+  LocalMapOptimization(const LocalMapOptimizationOption &option){}
+  void AddFixData(const sensor::FixedFramePoseData& fix_data){}
+  void AddImuData(sensor::ImuData& imu_data){}
   //
-  void Optimize(LocalMapOptimizationData* data);
+  void Optimize(LocalMapOptimizationData* data){}
 
 };
 

@@ -92,8 +92,9 @@ class BetasProcess {
 
  private:
   const std::vector<Eigen::Vector2d> key_points_;
-  std::unique_ptr<const BetasRequiresProcess> betas_requires_process_ = nullptr;
   const HandlePoint *const handle_point_ = nullptr;
+
+  std::unique_ptr<const BetasRequiresProcess> betas_requires_process_ = nullptr;
   Eigen::Matrix<double, 6, 10> l_6x10_;
   Eigen::Matrix<double, 12, 4> m_svd_u_matrix_;
   int approx_ = 0;
