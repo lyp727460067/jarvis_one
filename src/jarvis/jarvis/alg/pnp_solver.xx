@@ -22,7 +22,7 @@ namespace {
 Eigen::MatrixXd StdVectorToEigen(const std::vector<Eigen::Vector3d> &vectors) {
   CHECK(!vectors.empty());
   Eigen::MatrixXd result(vectors.size(), 3);
-  for (int i = 0; i < vectors.size(); i++) {
+  for (size_t i = 0; i < vectors.size(); i++) {
     result.block<1, 3>(i, 0) = vectors[i];
   }
   return result;
@@ -252,7 +252,7 @@ Eigen::MatrixXd BetasRequiresProcess::FillM(
   CHECK_EQ(alphas.size(), key_points.size());
   //
   Eigen::MatrixXd matrix = Eigen::MatrixXd::Zero(key_points.size() * 2, 12);
-  for (int i = 0; i < key_points.size(); i++) {
+  for (size_t i = 0; i < key_points.size(); i++) {
     const auto u = key_points[i].x();
     const auto v = key_points[i].y();
     std::vector<Eigen::Matrix<double, 2, 3>> m_portion(4);
@@ -459,7 +459,7 @@ std::vector<Eigen::Vector3d> BetasProcess::CameraPoints() const {
 
   std::vector<Eigen::Vector3d> result(key_points_.size());
   int z = 1;
-  for (int i = 0; i < key_points_.size(); i++) {
+  for (size_t i = 0; i < key_points_.size(); i++) {
     Eigen::Vector3d point = Eigen::Vector3d::Zero();
     for (int j = 0; j < 4; j++) {
       point += alphas[i](j) * c_control.block(j * 3, 0, 3, 1);
@@ -553,7 +553,7 @@ PnpSolver::PnpSolver(const PnpSolverOption &option,
                      const std::vector<Eigen::Vector3d> &points,
                      const std::vector<Eigen::Vector2d> &key_points)
     : options_(option), points_(points), key_points_(key_points) {
-  for (int i = 0; i < points_.size(); i++) {
+  for (size_t i = 0; i < points_.size(); i++) {
     points_index_.push_back(i);
   }
   this->handle_points_ = nullptr;
@@ -584,7 +584,7 @@ void PnpSolver::RestMinPoints(const std::vector<bool> &best_inliers) {
   } else {
     // LOG(INFO) << "best inliers "
     //           << std::count(best_inliers.begin(), best_inliers.end(), true);
-    for (int i = 0; i < best_inliers.size(); i++) {
+    for (size_t i = 0; i < best_inliers.size(); i++) {
       if (best_inliers[i]) {
         min_set_points.push_back(points_[i]);
         min_set_key_points.push_back(key_points_[i]);
