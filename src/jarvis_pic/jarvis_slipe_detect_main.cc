@@ -121,11 +121,9 @@ class JarvisBuilder {
             system_state_ == MowStatus::MS_SLEEP) {
           LOG(WARNING) << "Rest jarvis brige...";
           jarvis_brige_.reset(nullptr);
-          // {
-          //   std::lock_guard<std::mutex> lock(mutex_);
-          //   imu_extrapolator_.reset(nullptr);
-          // }
+          LOG(WARNING) << "Rest  sliep detect...";
           slip_detect_.reset(nullptr);
+          LOG(WARNING) << "Rest  sliep done...";
           // global_odom_= transform::Rigid3d::Identity();
           kVioState = 0;
         } else {
@@ -327,10 +325,11 @@ int main(int argc, char* argv[]) {
     
 #ifdef __ZMQ_ENABLAE__
     if (tracking_data.status == 2) {
-     auto pose =   jarvis_slam->GetSlipDect()->ToPoseInOdom(
-              tracking_data.data->imu_state.Pose());
-      tracking_data.data->imu_state.p =  pose.translation();
-      tracking_data.data->imu_state.q =  pose.rotation();
+    //获取sliep的时候小心GetSlipDect可能在另外的线程被释放
+    //  auto pose =   jarvis_slam->GetSlipDect()->ToPoseInOdom(
+    //           tracking_data.data->imu_state.Pose());
+      // tracking_data.data->imu_state.p =  pose.translation();
+      // tracking_data.data->imu_state.q =  pose.rotation();
       zmq.PubLocalData(tracking_data, flag);
     }
 #endif
