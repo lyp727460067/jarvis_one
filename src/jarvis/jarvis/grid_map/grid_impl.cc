@@ -2,7 +2,7 @@
 //
 #include "jarvis/grid_map/2d/voxel_filter.h"
 #include "opencv2/opencv.hpp"
-
+#include "jarvis/utility/tic_toc.h"
 namespace jarvis {
 namespace grid_map {
 //
@@ -92,8 +92,10 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
 void GridImpl::Insert(const AiObject& objects) {
   transform::Rigid3f pose(objects.pose.tanslation.cast<float>(),
                           objects.pose.rotaion.cast<float>());
+  LOG(INFO)<<pose;
   last_pose_ = transform::Project2D(pose);
   for (auto& submap : active_submaps_) {
+    jarvis::estimator::TicToc feature_t_t;
     CHECK(active_submaps_.count(submap.first))
         << "Need construct register type";
     //
@@ -102,10 +104,14 @@ void GridImpl::Insert(const AiObject& objects) {
           ->InsertRangeData(
               ToRangeSensor(options_[submap.first], pose,
                             objects.points_clouds.at(submap.first)));
+      LOG(INFO) << "insert point size :"
+                << objects.points_clouds.at(submap.first).size()
+                << " cost:" << feature_t_t.toc() << "ms";
     } else {
       active_submaps_.at(submap.first)
           ->InsertRangeData(ToRangeSensor(options_[submap.first], pose, {}));
     }
+
   }
 }
 //
@@ -135,7 +141,7 @@ GridImpl::GridImpl(const std::map<int, GridMapOption>& option)
                       op.second.max_node_num,
                       op.second.resolution,
                       op.second.min_x_map_size,
-                      op.second.min_y_map_size
+                      op.second.min_y_map_size,
                   }));
   }
 }

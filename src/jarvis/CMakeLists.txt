@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(jarvis VERSION 1.0.0)
+# define GLOG_EXPORT __attribute__((visibility("default")))
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 # set(BUILD_TYPE Debug)
 
@@ -14,8 +15,8 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   # -Wshadow # shadow local variable
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
-set(BUILD_TYPE Release)
-set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+# set(BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 
 
@@ -66,7 +67,7 @@ if(PLATFORM_mr527)
 
   )
   set(GLOG_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/glog/include)
-  set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.a)
+  set(glog_binary_dir ${TOP_CMAKE_DIR}/third_party/glog/lib/libglog.so)
   add_library(glog::glog STATIC IMPORTED GLOBAL)
   set_target_properties( glog::glog PROPERTIES IMPORTED_LOCATION  ${glog_binary_dir})
   add_library(yaml-cpp STATIC IMPORTED GLOBAL)
@@ -86,6 +87,7 @@ if(PLATFORM_mr527)
   INCLUDE_DIRECTORIES(
     ${TOP_CMAKE_DIR}/vslam/
   )
+  file(GLOB_RECURSE NOT_USE_SRC_MAPPING  "jarvis/mapping/*.cc" )
 else()
 
   option(build_test "build test" ON)
@@ -119,10 +121,9 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/rtm")
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
 
-# file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc" "jarvis/mapping/*.cc" )
 file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc"  )
 ##
-list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC} ${NOT_USE_SRC_MAPPING})
 list(APPEND ALL_LIBRARY_SRCS ${ARUCO_SRC})
 ##
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
@@ -159,14 +160,17 @@ endif()
 
 
 
-add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
-# add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
+# add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
+add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
+
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_include_directories( ${PROJECT_NAME}  PUBLIC           ${GLOG_INCLUDE_DIRS})
+target_link_libraries (${PROJECT_NAME} PUBLIC glog::glog)
+# target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
+# target_compile_definitions (${PROJECT_NAME} INTERFACE GLOG_EXPORT=__attribute__((visibility("default"))))
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
-  glog::glog
   yaml-cpp
   ${OpenCV_LIBS}
   ${CERES_LIBRARIES}

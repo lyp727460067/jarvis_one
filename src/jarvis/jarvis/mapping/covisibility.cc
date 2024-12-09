@@ -48,6 +48,22 @@ void Covisibility::UpdateWithFrameData(
       frame_map_feature_data_id);
 }
 //
+std::set<KeyFrameId> Covisibility::GetMapObservations(
+    const MapPointId& map_point_id) {
+  std::set<KeyFrameId> r;
+  const auto& keyframezs = map_point_observe_frames_.at(map_point_id);
+  for (const auto& key_frame_id : keyframezs) {
+    r.insert(key_frame_id.first);
+  }
+  return r;
+}
+
+//
+
+FeatureId Covisibility::GetMapPointFeatureIndex(const KeyFrameId& key_frame_id,
+                                                const MapPointId& mp) {
+  return key_frame_feature_data_.at(key_frame_id).at(mp);
+}
 //
 void Covisibility::ReplaceFrameIndex(const MapPointId& sou,
                                      const MapPointId& tar) {
