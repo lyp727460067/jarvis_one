@@ -5,8 +5,8 @@ project(jarvis_pic)
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 
 set_target_properties(jarvis PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
-set(BUILD_TYPE Release)
-set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+# set(BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -68,7 +68,10 @@ option(view_debug " view_debug" ON)
 if(${view_debug})
 add_definitions(-D__ZMQ_ENABLAE__)
 endif()
-# add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc)
+add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc
+  gpu_pyramid_compute.cc
+  opencl_handler.cpp
+)
 add_executable(mpslam  jarvis_slipe_detect_main.cc  
  data_capture.cc zmq_component.cc dev_socket.cc 
  data_record.cc
@@ -87,6 +90,17 @@ add_executable(calibrate_data_record  calibrate_data_record.cc
  glog_sink.cc
  key_board.cc
  )
+###
+add_executable(jarvis_grid_test  jarvis_grid_test.cc  
+ )
+###
+
+target_link_libraries(jarvis_grid_test PUBLIC
+  ${OpenCV_LIBS}
+  jarvis
+  -ldl
+)
+##
 
 target_link_libraries(jarvis_eigen_test PUBLIC
   -ldl
@@ -101,15 +115,23 @@ target_link_libraries(calibrate_data_record PUBLIC
    mpc
 
 )
-
-
-
 target_link_libraries(mpslam PUBLIC
   # glog
   jarvis
   ${OpenCV_LIBS}
   -ldl
    mpc
+
+)
+
+
+target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
+  # glog
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+   mpc
+  ${OPENCL_LIBRARIES}
 
 )
 

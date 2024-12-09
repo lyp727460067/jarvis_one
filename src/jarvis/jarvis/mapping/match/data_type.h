@@ -21,8 +21,8 @@ struct Frame {
   std::shared_ptr<camera_models::Camera> cam;
   std::vector<cv::Mat> img_pyr;
   int num_features;
-  inline bool IsVisible(const Eigen::Vector3d& xyz_w, Eigen::Vector2d* pt);
-  inline bool IsKeypointVisibleWithMargin(const Eigen::Vector2d& pt,int margin);
+  bool IsVisible(const Eigen::Vector3d& xyz_w, Eigen::Vector2d* pt);
+  bool IsKeypointVisibleWithMargin(const Eigen::Vector2d& pt,int margin);
 };
 //
 enum class FeatureType : uint8_t {
