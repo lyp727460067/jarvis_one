@@ -13,7 +13,6 @@ std::vector<cv::KeyPoint> CvtoStrut(const std::vector<cv::Point2f>& points) {
   for (auto const& point : points) {
     result.push_back({{point.x, point.y}, 0, 0});
   }
-  LOG(INFO)<<result.size();
   return result;
 }
 
@@ -80,15 +79,21 @@ std::vector<cv::KeyPoint> KeyPointExtract::Extract(const cv::Mat& pyramid,
   // 多层金字塔提取和其他mask的预留处理
   return StrategyExtract(pyramid, mask);
 }
-
+//
+std::unique_ptr<KeyPointExtract> KeyPointExtract::Create(
+    const KeyPointExtractOption& option) {
+  return std::make_unique<KeyPointExtract>(option);
+}
+//
 std::vector<cv::KeyPoint> KeyPointExtract::StrategyExtract(
     const cv::Mat& pyramid, const cv::Mat& mask) {
   std::vector<cv::Point2f> tmp_pts;
   cv::goodFeaturesToTrack(pyramid, tmp_pts, options_.extend_key_points_num,
                           options_.minimal_accepted_quality_corners,
-                          options_.min_distance);
+                          options_.min_distance,mask);
 
   if (tmp_pts.empty()) {
+    LOG(WARNING)<<"goodFeaturesToTrack empty!!!";
     std::vector<cv::KeyPoint> pts_new;
     cv::FAST(pyramid, pts_new, 40, false);
     return pts_new;

@@ -17,14 +17,13 @@
     <build_depend>sensor_msgs</build_depend>
     <build_depend>tf2_ros</build_depend>
     <build_depend>visualization_msgs</build_depend>
-    <build_depend>cv_bridge</build_depend>
-    <build_depend>image_transport</build_depend>
+    <!-- <build_depend>cv_bridge</build_depend> -->
+    <!-- <build_depend>image_transport</build_depend> -->
 
     <exec_depend>example_interfaces</exec_depend>
     <exec_depend>rcl</exec_depend>
     <exec_depend>rmw_implementation</exec_depend>
     <exec_depend>rosidl_default_runtime</exec_depend>
-    <exec_depend>jarvis</exec_depend>
 
     <export>
         <build_type>ament_cmake</build_type>

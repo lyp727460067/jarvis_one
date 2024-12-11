@@ -229,9 +229,9 @@ void CalcOpticalFlowPyrLK::operator()(
   // cv::imshow("1",pre_image[0]);
   // cv::waitKey(0);
   //
-  cv::calcOpticalFlowPyrLK(pre_image, cur_image, v_prev_pts, v_cur_pts, status,
-                           err, options_.win_size, options_.level,
-                           options_.criteria, flags);
+  // cv::calcOpticalFlowPyrLK(pre_image, cur_image, v_prev_pts, v_cur_pts, status,
+  //                          err, options_.win_size, options_.level,
+  //                          options_.criteria, flags);
   cur_pts.clear();
   for (int i = 0; i < int(status.size()); i++) {
     if (status[i] && InBorder(v_cur_pts[i])) {
@@ -418,10 +418,10 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   // cv::waitKey(0);
   TicToc tran_t_t;
   auto result_data = TransToTrackerData(cur_pts, cur_right_pts);
-  result_data.data->images.push_back(_img);
-  if (_img1.empty()) {
-    result_data.data->images.push_back(_img1);
-  }
+  // result_data.data->images.push_back(_img);
+  // if (_img1.empty()) {
+  //   result_data.data->images.push_back(_img1);
+  // }
   result_data.data->tracker_features_num = std::move(tracker_features_num);
   result_data.data->time = curr_time_;
   prev_time_ = curr_time_;

@@ -60,6 +60,7 @@ class Optimization {
   OptimizationStateData* MutableData() { return &data_; }
   ~Optimization();
   double FinalCost() { return final_cost_; }
+  void SetPrior(const transform::Rigid3d& pose) { prior_pose_ = pose; }
 
  private:
   int AddCameraFactor(int id,ceres::Problem* Problem,
@@ -80,6 +81,7 @@ class Optimization {
   const OptimizationOption options_;
   double final_cost_=0; 
   int num_= 0;
+  std::optional<transform::Rigid3d> prior_pose_;
   // double** para_Pose = data_.pose;
   // double** para_SpeedBias = data_.speed_bias;
   // double** para_Ex_Pose = data_.ex_pose;

@@ -74,30 +74,37 @@ FeatureId SearchMatchesByProjection(
     const std::map<int, std::unique_ptr<AreaSearch>>& raius_search,
     const MapPointData& target_map_point) {
   //
-  for (int i = 0; i < key_frame_data.data->features.size(); i++) {
+  FeatureId r(-1,0);
+  auto sequence_feautes = key_frame_data.data->features.trajectory_ids();
+  for(auto const &i:sequence_feautes){
     const transform::Rigid3d cam_pose = key_frame_data.data->CameraPose(i);
-    const Eigen::Vector3d project_pose = cam_pose * target_map_point.globla_pos;
+    //
+    const Eigen::Vector3d project_pose =
+        cam_pose.inverse() * target_map_point.data->Pos();
+    //
     //
     if (project_pose.z() < 0.1) {
-      return {-1, 0};
+      continue;
     }
     const Eigen::Vector2d project_map_point =
         option.PorjectPoint(project_pose, i);
-    Eigen::AlignedBox2i image_box(Eigen::Vector2i{0, 0},
-                                  key_frame_data.data->image_sizes[i]);
+    //
+    Eigen::AlignedBox2i image_box = key_frame_data.data->image_sizes->at(i);
+    //
+    CHECK(key_frame_data.data->image_sizes);
     if (!image_box.contains(
             Eigen::Vector2i(std::ceil(project_map_point.x()),
                             std::ceil(project_map_point.y())))) {
-      return {-1, 0};
+      continue;
     }
+
     auto near_key_points_id = raius_search.at(i)->GetRadiusIndex(
         project_map_point, option.area_search_radius);
-
     int best_dist = 256;
     FeatureId best_idx{-1, 0};
     for (const FeatureId& index : near_key_points_id) {
+      CHECK(key_frame_data.data->features.Contains(index));
       const auto& kp = key_frame_data.data->features.at(index).key_point;
-      LOG(INFO) << "kp :" << kp.pt.x << " " << kp.pt.y;
       if (option.project_pix_err != 0.0) {
         const float& kpx = kp.pt.x;
         const float& kpy = kp.pt.y;
@@ -106,18 +113,23 @@ FeatureId SearchMatchesByProjection(
         const float e2 = ex * ex + ey * ey;
         if (e2 > option.project_pix_err) continue;
       }
+      //
+      CHECK(key_frame_data.data->descriptors.Contains(index))<<index;
+      //这里多线程可能导致出错
+      if(!target_map_point.data->HasDescriptor())continue;
       auto const dist = HammingDis(target_map_point.data->Descriptor(),
                                    key_frame_data.data->descriptors.at(index));
       if (dist < best_dist) {
         best_dist = dist;
         best_idx = index;
       }
+
     }
     if (best_dist < option.project_best_des_dis) {
       return best_idx;
     }
   }
-  return {-1, 0};
+  return r;
 }
 
 }  // namespace match

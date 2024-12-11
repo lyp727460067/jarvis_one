@@ -11,6 +11,7 @@ namespace match {
 
 //
 struct AreaSearchOption {
+  const Eigen::AlignedBox2i& image_box;
   Eigen::Vector2i area_grid_num{64, 40};
 };
 //

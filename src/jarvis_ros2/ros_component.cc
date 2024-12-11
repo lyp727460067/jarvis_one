@@ -21,7 +21,6 @@ cv::Mat GenerateImageWithKeyPoint(
     std::vector<uint64_t> outlier_pointclass_id) {
   int col = l_img.cols;
   int row = l_img.rows;
-
   // cv::Mat l_img_feat;
   // cv::cvtColor(l_img, l_img_feat, cv::COLOR_GRAY2RGB);
   // cv::Mat r_img_feat;
@@ -35,6 +34,7 @@ cv::Mat GenerateImageWithKeyPoint(
   //
   // common::FixedRatioSampler sampler(0.1);
   cvtColor(l_img, loop_match_img, cv::COLOR_GRAY2RGB);
+  
   std::mt19937 rng(42);
   std::uniform_int_distribution r_bound_distribution(1, 255);
   std::uniform_int_distribution b_bound_distribution(1, 255);
@@ -54,14 +54,9 @@ cv::Mat GenerateImageWithKeyPoint(
     // keypoint.pt,
     //             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0));
   }
+
   for (auto &&keypoint : r_key_points) {
     cv::circle(loop_match_img, keypoint.second.pt, 1, cv::Scalar(0, 255, 0), 1);
-  }
-  CHECK_EQ(outlier_pointclass_id.size(), 1)
-      << "Outlier_pointclass_id is used display zupt,please assignment it..";
-  if (outlier_pointclass_id[0]) {
-    cv::putText(loop_match_img, "ZUPT", cv::Point2f(20, 100),
-                cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(0, 255, 0), 3);
   }
 
   //   for (auto &&keypoint : predict_pts) {
@@ -244,7 +239,8 @@ RosCompont::RosCompont(rclcpp::Node *nh)
       nh->create_publisher<visualization_msgs::msg::MarkerArray>("poses", 10);
   markpub_ = nh->create_publisher<visualization_msgs::msg::MarkerArray>(
       "object_mark", 10);
-
+  pose_trajector_mark_publisher_ =
+      nh->create_publisher<visualization_msgs::msg::MarkerArray>("t_poses", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_local_tracking_result =
@@ -467,12 +463,15 @@ void RosCompont::OnLocalTrackingResultCallback(
     std::vector<object::ObjectImageResult> *object_result,
     const transform::Rigid3d &local_to_global) {
   //
+std::array<std::vector<int>, 3> ParaExPoseIndex{
+        std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};  
   std::vector<Eigen::Vector3d> map_points;
   for (auto &cam_feature : tracking_data.data->features_datas) {
-    auto image_result =
-        GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
-                                  cam_feature.second.key_points, {}, {}, {},
-                                  "pre_imag", "curr_imag", {0});
+    CHECK(tracking_data.data);
+    auto image_result = GenerateImageWithKeyPoint(
+        tracking_data.data->images.image[ParaExPoseIndex[cam_feature.first][0]],
+        cam_feature.second.key_points, {}, {}, {}, "pre_imag", "curr_imag",
+        {0});
 
     for (auto &feature : cam_feature.second.features.data->features) {
       if (cam_feature.second.map_points.count(feature.first) == 0) continue;
@@ -480,6 +479,7 @@ void RosCompont::OnLocalTrackingResultCallback(
     }
 
     if (object_result && cam_feature.first == 0) {
+      auto& image = tracking_data.data->images.image[ParaExPoseIndex[cam_feature.first][0]];
       std::vector<transform::Rigid3d> mark_pose;
       std::map<int, std::vector<object::ObjectImageResult>> same_marks;
       cv::Mat image_object(image_result.size(), CV_8UC3, cv::Scalar::all(0));
@@ -488,12 +488,8 @@ void RosCompont::OnLocalTrackingResultCallback(
           same_marks[result.id].push_back(result);
           if (result.coners.empty()) continue;
 
-          int cols = tracking_data.data->features_datas[0]
-                         .features.data->images[0]
-                         .cols;
-          int rows = tracking_data.data->features_datas[0]
-                         .features.data->images[0]
-                         .rows;
+          int cols = image.cols;
+          int rows = image.rows;
 
           image_object +=
               ObjectToCvImage(Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},
@@ -562,6 +558,8 @@ void RosCompont::PubMapPoints(const std::vector<Eigen::Vector3d> &points) {
   sensor_msgs::convertPointCloudToPointCloud2(point_cloud, point_cloud2);
   map_point_cloud_pub_->publish(point_cloud2);
 }
+
+
 void RosCompont::PubPoseWithMark(
     const std::map<std::string, std::vector<Eigen::Vector3d>> &poses) {
   //
@@ -600,6 +598,46 @@ void RosCompont::PubPoseWithMark(
     marks.markers.push_back(mark);
   }
   pose_mark_publisher_->publish(marks);
+}
+
+void RosCompont::PubTrajectorPoseWithMark(
+    const std::map<std::string, std::vector<Eigen::Vector3d>> &poses) {
+  //
+  visualization_msgs::msg::MarkerArray marks;
+  std::default_random_engine e;
+  int mark_id = 0;
+  for (const auto &pose_with_name : poses) {
+    visualization_msgs::msg::Marker mark;
+    mark.header.frame_id = "map";
+    mark.ns = pose_with_name.first.c_str();
+    mark.header.stamp = rclcpp::Time();
+    mark.id = mark_id++;
+    mark.action = visualization_msgs::msg::Marker::ADD;
+    mark.type = visualization_msgs::msg::Marker::POINTS;
+
+    // mark.type = visualization_msgs::Marker::ARROW;
+    // mark.lifetime = rclcpp::Duration(0);
+    mark.scale.x = 0.05;
+    mark.scale.y = 0.05;
+    mark.scale.z = 0.05;
+    std::uniform_real_distribution<float> ran(0, 1);
+    mark.color.r = 1;       // ran(e);//1.0;
+    mark.color.a = 1;       // ran(e);
+    mark.color.g = ran(e);  //(mark_id / sizeofils);
+    mark.color.b = ran(e);  //(sizeofils- mark_id) / sizeofils;
+    // LOG(INFO)<<mark.color.g<<mark.color.b;
+    int cnt = 0;
+    //
+    for (const auto &pose : pose_with_name.second) {
+      geometry_msgs::msg::Point point;
+      point.x = pose.x();
+      point.y = pose.y();
+      point.z = pose.z();
+      mark.points.push_back(point);
+    }
+    marks.markers.push_back(mark);
+  }
+  pose_trajector_mark_publisher_->publish(marks);
 }
 
 //

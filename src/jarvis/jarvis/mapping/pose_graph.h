@@ -2,6 +2,8 @@
 #define JARVIS_MAPPING_POSE_GRAPH_H
 namespace jarvis {
 namespace mapping {
+
+struct PoseGraphOption {};
 class PoseGraph {};
 }
 }  // namespace jarvis

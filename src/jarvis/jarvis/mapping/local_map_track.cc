@@ -14,10 +14,14 @@ struct ReProjectionErr {
       : nor_point_(nor_poit), map_point_(map_point), factor_(factor) {}
 
   template <typename T>
-  bool operator()(const T* t1_, const T* q1_, T* residul) const {
+  bool operator()(const T* t1_, const T* q1_, const T* te_, const T* qe_,
+                  T* residul) const {
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> t1(t1_);
     Eigen::Map<const Eigen::Quaternion<T>> q1(q1_);
-    Eigen::Matrix<T, 3, 1> project_p = q1 * map_point_.template cast<T>() + t1;
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> te(te_);
+    Eigen::Map<const Eigen::Quaternion<T>> qe(qe_);
+    Eigen::Matrix<T, 3, 1> project_p =
+        q1 * qe * map_point_.template cast<T>() + q1 * te + t1;
     T x_normal = project_p[0] / project_p[2];
     T y_normal = project_p[1] / project_p[2];
     residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));
@@ -29,7 +33,7 @@ struct ReProjectionErr {
   static ceres::CostFunction* Creat(const Eigen::Vector2d& nor_poit,
                                     const Eigen::Vector3d& map_point,
                                     double factor) {
-    return new ceres::AutoDiffCostFunction<ReProjectionErr, 2, 3, 4>(
+    return new ceres::AutoDiffCostFunction<ReProjectionErr, 2, 3, 4,3,4>(
         new ReProjectionErr(nor_poit.head<2>(), map_point, factor));
   }
 
@@ -39,16 +43,26 @@ struct ReProjectionErr {
   const Eigen::Vector3d map_point_;
 };
 
-void ToFrame(const TrackingData& track_data, match::Frame& fram, int index) {}
+void ToFrame(const TrackingData& track_data, match::Frame& fram, int index) {
+  
+
+  // fram.image_size = track_data.data->
+}
 //
 void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
              int index) {}
 }  // namespace
 //
-transform::Rigid3d LocalMapTrack::Track(const TrackingData& track_data) {
+LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
+    : options_(option) {}
+//
+//
+std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
+    const TrackingData& track_data) {
   const auto& all_kf_frames = map_manager_->AllKeyFrameDatas();
   const auto& all_map_points = map_manager_->AllMapPoints();
-
+  if (all_kf_frames.size() < options_.min_track_frame_num) return nullptr;
+  //
   std::vector<std::vector<KeyFrameId>> overlap_kfs;
   overlap_kfs.resize(track_data.data->features_datas.size());
   //
@@ -64,7 +78,7 @@ transform::Rigid3d LocalMapTrack::Track(const TrackingData& track_data) {
   //
   for (const auto& kf : all_kf_frames) {
     const auto& map_point_feature_ids =
-        map_manager_->GetCovisibility()->GetKeyFrameMapPointId(kf.id);
+        map_manager_->Covisibility()->GetKeyFrameMapPointId(kf.id);
     // 这里选择领域和公视的关键帧，还有只能投影一个点的3D点的
     for (auto& id : map_point_feature_ids.first) {
       auto& map_point = all_map_points.at(id);
@@ -75,15 +89,20 @@ transform::Rigid3d LocalMapTrack::Track(const TrackingData& track_data) {
       }
     }
   }
-
+  std::map<int, std::vector<LocalMapTrack::MatchData>> matchs;
+  //
   for (int i = 0; i < cur_frames.size(); i++) {
     auto match_result = MatchCandidates(
         PickCandidates(overlap_kfs[i], cur_frames[i]), cur_frames[i]);
   }
 
+  WriteCheckMatchResult(matchs);
   //
-
+  transform::Rigid3d pose =
+      Optimize(track_data.data->imu_state.Pose(), matchs,
+               std::array<float, 2>{options_.op_weight, options_.op_weight});
   //
+  return std::make_unique<transform::Rigid3d>(pose);
 }
 
 //
@@ -95,7 +114,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
   const auto& all_map_points = map_manager_->AllMapPoints();
   for (const auto& ref_frame_id : overlap_kfs) {
     const auto& map_point_feature_ids =
-        map_manager_->GetCovisibility()->GetKeyFrameMapPointId(ref_frame_id);
+        map_manager_->Covisibility()->GetKeyFrameMapPointId(ref_frame_id);
     for (int i = 0; i < map_point_feature_ids.first.size(); i++) {
       const auto& point = all_map_points.at(map_point_feature_ids.first[i]);
       if (point.data->ObNum() < 2 && options_.remove_unconstrained_points) {
@@ -139,8 +158,9 @@ std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
     }
     auto math_result = MatchCandidate(candidate, cur_frame);
     if (math_result.state == match::MatchResultState::kSuccess) {
-      result.push_back(
-          {math_result.norm.head<2>(), all_map_points.at(candidate.mp_id).data->Pos()});
+      result.push_back({math_result.norm.head<2>(),
+                        all_map_points.at(candidate.mp_id).data->Pos(),
+                        candidate});
     }
     //
   }
@@ -156,7 +176,7 @@ match::MatchResult LocalMapTrack::MatchCandidate(
   auto& ref_frame_data = all_kf_frames.at(candidate.frame_id);
   //
   const auto& map_point_feature_ids =
-      map_manager_->GetCovisibility()->GetKeyFrameMapPointId(
+      map_manager_->Covisibility()->GetKeyFrameMapPointId(
           candidate.frame_id);
 
   if (ref_frams_catch_.count(candidate.frame_id) == 0 ||
@@ -194,24 +214,49 @@ match::MatchResult LocalMapTrack::MatchCandidate(
 transform::Rigid3d LocalMapTrack::Optimize(
     const transform::Rigid3d& init_pose,
     std::map<int, std::vector<LocalMapTrack::MatchData>> constraints,
-    const std::array<double, 2>& weight) {
+    const std::array<float, 2>& weight) {
   ceres::Problem problem;
-  // ceres::LocalParameterization* quaternion_manifold = new
-  // ceres::EigenQuaternionManifold;
   ceres::LocalParameterization* quaternion_local =
       new ceres::EigenQuaternionParameterization;
   Eigen::Quaterniond rotation = init_pose.rotation();
   Eigen::Vector3d traslation = init_pose.translation();
 
-  for (int i = 0; i < constraints.size(); i++) {
-    for (int j = 0; j < constraints[i].size(); j++) {
-      // problem.AddResidualBlock(
-      //     ReProjectionErr::Creat(normal_2d[i], map_points[i], weight[0]),
-      //     new ceres::HuberLoss(0.5), traslation.data(),
-      //     rotation.coeffs().data());
-
-      problem.SetParameterization(rotation.coeffs().data(), quaternion_local);
+  //
+  std::vector<Eigen::Quaterniond> ex_rotation;
+  std::vector<Eigen::Vector3d> ex_traslation;
+  //
+  for (int i = 0; i < extric_camera_to_imu_.size(); i++) {
+    ex_rotation.push_back(extric_camera_to_imu_[i].rotation());
+    ex_traslation.push_back(extric_camera_to_imu_[i].translation());
+  }
+  for (const auto& constraist_seq : constraints) {
+    for (int j = 0; j < constraist_seq.second.size(); j++) {
+      //
+      problem.AddResidualBlock(
+          ReProjectionErr::Creat(constraist_seq.second[j].cur_normal_px,
+                                 constraist_seq.second[j].map_point, weight[0]),
+          new ceres::HuberLoss(0.5), traslation.data(),
+          rotation.coeffs().data(),
+          ex_rotation[options_.track_sequence[constraist_seq.first][0]]
+              .coeffs()
+              .data(),
+          ex_traslation[options_.track_sequence[constraist_seq.first][0]]
+              .data());
     }
+    problem.SetParameterization(rotation.coeffs().data(), quaternion_local);
+    //
+    problem.SetParameterization(
+        ex_rotation[options_.track_sequence[constraist_seq.first][0]]
+            .coeffs()
+            .data(),
+        quaternion_local);
+    //
+    problem.SetParameterBlockConstant(
+        ex_rotation[options_.track_sequence[constraist_seq.first][0]]
+            .coeffs()
+            .data());
+    problem.SetParameterBlockConstant(
+        ex_traslation[options_.track_sequence[constraist_seq.first][0]].data());
   }
 
   // problem.SetManifold(rotation.coeffs().data(), quaternion_manifold);
@@ -228,6 +273,9 @@ transform::Rigid3d LocalMapTrack::Optimize(
   return {traslation, rotation};
 }
 //
+
+void LocalMapTrack::WriteCheckMatchResult(
+    const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs) {}
 
 }  // namespace mapping
 }  // namespace jarvis
