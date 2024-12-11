@@ -1,6 +1,6 @@
 #ifndef __JARVIS_MAPPING_COVISIBILITY_H
 #define __JARVIS_MAPPING_COVISIBILITY_H
-
+#include <mutex>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -49,6 +49,7 @@ class Covisibility {
 
  private:
   //
+  std::mutex mutex_;
   std::map<KeyFrameId, std::map<KeyFrameId, int>>
       covisible_frames_;
 

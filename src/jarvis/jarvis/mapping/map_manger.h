@@ -18,6 +18,7 @@
 #include "jarvis/transform/transform.h"
 #include "jarvis/common/id.h"
 #include "jarvis/mapping/covisibility.h"
+#include "jarvis/mapping/match/des_matcher.h"
 namespace jarvis {
 namespace mapping {
 //
@@ -36,22 +37,33 @@ struct LocalTrackData {
   MapById<MapPointId, MapPointData> map_points_;
 };
 struct MapManagerOption {
-  bool extend_point = false;
+  bool extend_point = true;
   KeyFrameDataBaseOption key_frame_data_option;
   KeyPointExtractOption key_points_extract_option;
   DescriptorExtractOption descriptor_option;
-  double check_dist_epipolar_line_cos_parallax = 0.998;
+  match::ProjectionOption local_track_project_search_option;
   int dbow_trasform_level = 4;
   bool print_trim_info = true;
   std::vector<Eigen::AlignedBox2i> image_boxs;
-  float dbow_match_min_distance = 80;
-  int construct_map_point_near_keframd_num =10;
+  float dbow_match_min_distance = 100;
+  int construct_map_point_near_keframd_num = 10;
+  int compute_map_point_min_des_num = 5;
+  struct DistEpipolarLineOption {
+    float check_dist_epipolar_line_cos_parallax = 0.9998;
+    float first_cam_min_z_distance = 0.05;
+    float first_cam_chi_squared = 5.991;
+    float second_cam_min_z_distance = 0.05;
+    float second_cam_chi_squared = 5.991;
+  } point_check_dist_epipolar_option;
+  int area_search_grid_lenth =10;
+  float con_struct_map_point_frame_min_distance =0.1;
+  std::vector<cv::Mat> masks;
 };
 //
 class MapManager {
  public:
   MapManager(const MapManagerOption &option,
-             std::map<int, camera_models::CameraPtr> cameras,
+             const std::map<int, camera_models::CameraPtr> &cameras,
              std::unique_ptr<dbow::Vocabulary> voc);
   //
   mapping::MapPointData *MapPointMutable(const MapPointId &id) {
@@ -62,9 +74,11 @@ class MapManager {
   KeyFrameId AddTrackingData(int t, const TrackingData &data);
   //
   //
+
   //
   //计算的慢可能比ExtractKeyFrameData慢好多
-  void GenerateForExtendKeyPoint(const KeyFrameId&id );
+
+  void ExtendKeyFrameData(const KeyFrameId&id);
   //
 
   //
@@ -108,7 +122,6 @@ class MapManager {
 
   //
   //
-  const Covisibility *GetCovisibility() const { return covisibility_.get(); }
   const KeyFrameDataBase *GetKeyFrameDataBase() const {
     return key_frame_data_base_.get();
   }
@@ -119,8 +132,11 @@ class MapManager {
   transform::Rigid3d GetLocalToGlobleTransfrom() {
     return globle_to_local_transform_;
   }
-
+  mapping::Covisibility *Covisibility()const { return covisibility_.get(); }
+  
  private:
+
+  void GenerateForExtendKeyPoint(const KeyFrameId&id );
   //
   KeyFrameData ExtractKeyFrameData(
       const TrackingData &data,
@@ -142,7 +158,6 @@ class MapManager {
                          const mapping::MapPointData &map_point);
 
   //
-  void ExtendKeyFrameData(const KeyFrameId&id);
   bool CheckDistEpipolarLine(const FeatureData &kp1, const FeatureData &kp2,
                              const transform::Rigid3d &relative_pose,
                              const std::vector<camera_models::Camera *>& camera,
@@ -152,9 +167,10 @@ class MapManager {
   //
 
   void ComputeMapPointDistinctiveDescriptors(const MapPointId &id);
+  void UpadateExtendMapPointDes(const KeyFrameId &id);
   //
   //
-  FeatureId UpdateConnectMapPointProjectMatchSearch(
+  void UpdateConnectMapPointProjectMatchSearch(
       const KeyFrameId &id);
   //
   void ConStructExtendMapPoints(const KeyFrameId &id);
@@ -170,7 +186,7 @@ class MapManager {
   //
   //
   MapManagerOption options_;
-  std::unique_ptr<Covisibility> covisibility_;
+  std::unique_ptr<mapping::Covisibility> covisibility_;
   std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
   //
   std::unique_ptr<DescriptorExtract> des_extractor_;
@@ -188,6 +204,7 @@ class MapManager {
       map_point_id_corresponding_to_tracking_id_;
   //
   //
+  std::mutex mutex_;
   std::map<int, std::set<uint64_t>> last_key_points_class_ids_;
 
   MapById<MapPointId, MapPointData> map_points_;

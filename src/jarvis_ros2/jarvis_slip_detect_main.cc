@@ -329,7 +329,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   for (const auto& image : images_datas) {
     //
     time = image.second.time;
-    // if(time<2177747441000)continue;
+    if(time<22709841922900)continue;
     // LOG(INFO) << "image time : " << image.second.time
     //           << " start imu t: " << imu_datas.begin()->first
     //           << ", end imu t: " << imu_datas.upper_bound(time)->first
@@ -378,7 +378,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 
     if(lr_image.empty()||vr_image.empty() )continue;
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    // cv::imshow("vr_image",vr_image);
+    // // cv::imshow("vr_image",vr_image);
     // cv::waitKey(0);
     // LOG(INFO)<<imu_cam_time_offset;
 
@@ -480,46 +480,31 @@ int main(int argc, char* argv[]) {
   auto slip_detect = slip_detect::FactorSlipDetect(vslam_yaml_file);
   //
   std::vector<bool> slip_states;
-  estimator::EstimatorOption option =
-      estimator::ParseEstimatorOption(std::string(argv[1]));
+
+
+  TrajectorBuilderOption trajectorbuilder_option ;
+  
+  ParseYAMLOption(std::string(argv[1]),&trajectorbuilder_option );
   //
-  imu_cam_time_offset  = jarvis::GetTimeShiftCamImu();
-  LOG(INFO)<<"imu_cam_time_offset   "<<imu_cam_time_offset  ;
+  estimator::EstimatorOption& option = trajectorbuilder_option.esti_option;
+
+  //
+  std::vector<std::shared_ptr<jarvis::estimator::PyramidImage>> pry_impls;
+  auto& esit_option_ = option;
+  imu_cam_time_offset = jarvis::GetTimeShiftCamImu();
+  LOG(INFO)<<imu_cam_time_offset ;
   if (kuse_gpu) {
+    for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+      for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+        esit_option_.feature_track_options[i].pyramid_image.push_back(
+            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+                esit_option_.feature_track_options[i].pyrmid_option));
+        pry_impls.push_back(std::make_shared<jarvis::estimator::PyramidImage>(
+            option.feature_track_options[i].pyrmid_option));
+      }
+    }
     //
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
-        extend_pyramid_image0 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                option.feature_track_options[0].pyrmid_option);
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
-        extend_pyramid_image00 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                option.feature_track_options[0].pyrmid_option);
-
-    std::shared_ptr<jarvis::estimator::ExtendPyramidImage>
-        extend_pyramid_image1 =
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                option.feature_track_options[1].pyrmid_option);
-
-    LOG(INFO) << '1';
-    option.feature_track_options[0].pyramid_image.push_back(
-        extend_pyramid_image0);
-    option.feature_track_options[0].pyramid_image.push_back(
-        extend_pyramid_image00);
-    option.feature_track_options[1].pyramid_image.push_back(
-        extend_pyramid_image1);
   }
-  std::shared_ptr<jarvis::estimator::PyramidImage> extend_pyramid_image0_tmp =
-      std::make_shared<jarvis::estimator::PyramidImage>(
-          option.feature_track_options[0].pyrmid_option);
-  std::shared_ptr<jarvis::estimator::PyramidImage> extend_pyramid_image00_tmp =
-      std::make_shared<jarvis::estimator::PyramidImage>(
-          option.feature_track_options[0].pyrmid_option);
-
-  std::shared_ptr<jarvis::estimator::PyramidImage> extend_pyramid_image1_tmp =
-      std::make_shared<jarvis::estimator::PyramidImage>(
-          option.feature_track_options[1].pyrmid_option);
-
   // for (int i = 0; i < option.track_sequence.size(); i++) {
   //   option.feature_track_options[i].pyramid_image.push_back(
   //       std::make_shared<ExtendPyramidImage>
@@ -527,238 +512,243 @@ int main(int argc, char* argv[]) {
   // }
 
 std::unique_ptr<jarvis::object::ObjectInterface> object_interface  =nullptr;
-  builder_ =
-      std::make_unique<TrajectorBuilder>(option, [&](const TrackingData& data) {
-        std::lock_guard<std::mutex> lock(mutex);
-        //
-        VLOG(kGlogLevel)<<data.data->imu_state;
-        CHECK(!isnan( data.data->imu_state.p.x()));
-        auto tracking_data = data;
-        Eigen::Matrix3d rotaion;
-        rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
-        // LOG(INFO) << rotaion;
-        // auto extric =
-        // transform::Rigid3d::Rotation(Eigen::Quaterniond(rotaion));
-        // tracking_data_temp.data->imu_state.data->pose =
-        //     extric * tracking_data_temp.data->imu_state.data->pose;
-        // {
-        //   std::unique_lock<std::mutex> lock(mutex);
-        //   cond.wait(lock);
-        //   tracking_data = tracking_data_temp;
-        // }
-        // if(tracking_data.status==2){
-        //   KImuExtrapolator->AddState(data.data->time, data.data->imu_state);
-        // }
-
-        auto start = std::chrono::high_resolution_clock::now();
-        auto slipe_alignment_pose = tracking_data.data->imu_state.Pose();
-        if (slip_detect) {
-          slip_detect->AddPose(slip_detect::TimePose{
-              tracking_data.data->time, tracking_data.data->imu_state.Pose()});
-          auto flag = slip_detect->Detect(tracking_data.data->time);
-          kSlipFile << std::to_string(uint64_t(jarvis::common::ToUniversal(
-                                                   tracking_data.data->time) *
-                                               1e2))
-                    << " " << int(flag) << std::endl;
-
-          ros_compont->PubBoolMsg(flag);
-           slipe_alignment_pose=
-               slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
-        }
-        // LOG(INFO) << tracking_data.data->imu_state;
-        if (kRecordFlag) {
-          const auto pose =slipe_alignment_pose;// tracking_data.data->imu_state.Pose();
-          std::stringstream info;
-          info << std::to_string(uint64_t(
-                      jarvis::common::ToUniversal(tracking_data.data->time) *
-                      1e2))
-               << " " << pose.translation().x() << " " << pose.translation().y()
-               << " " << pose.translation().z() << " " << pose.rotation().w()
-               << " " << pose.rotation().x() << " " << pose.rotation().y()
-               << " " << pose.rotation().z();
-          kOPoseFile << info.str() << std::endl;
-        }
-
-        ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
-
-        // ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}}, true);
-        //
-        std::vector<jarvis::object::ObjectImageResult> object_result;
-        if (tracking_data.status == 2) {
-          if (object_interface == nullptr) {
-            object_interface =
-                std::make_unique<jarvis::object::ObjectInterface>(
-                    option.feature_track_options[0].cameras[0],"");
-          }
-           object_result =
-              object_interface->Detect(
-                  common::ToUniversal(tracking_data.data->time),
-                  tracking_data.data->features_datas[0]
-                      .features.data->images[0],
-                  tracking_data.data->imu_state.Pose(),
-                  option.slide_windows_option.extric_camera_to_imu[0]);
-          ros_compont->OnLocalTrackingResultCallback(
-              tracking_data, &object_result, transform::Rigid3d::Identity());
-        }else {
-          object_interface = nullptr;
-        }
-        ros_compont->PosePub( tracking_data.data->imu_state.Pose(),
-                             transform::Rigid3d::Identity());
-        rclcpp::spin_some(node);
-        cond.notify_one();
-      });
-
-  //
-  order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
-  order_queue_->AddQueue(kOdomTopic,
-                         [&](const sensor::OdometryData& odom_data) {
-                           // LOG(INFO)<<odom_data.pose<<odom_data.time;;
-                           ros_compont->PushMark({{"odom", odom_data.pose}});
-                           builder_->AddOdometryData(
-                               jarvis::sensor::OdometryData{
-                                   odom_data.time + common::FromSeconds(0.1),
-                                   odom_data.pose});
-                           slip_detect->AddOdometry(odom_data);
-                         });
-  //
-
-  std::vector<std::pair<bool, sensor::ImageData>> image_datas_pry;
-  std::mutex mutex_py;
-  order_queue_->AddQueue(
-      kImagTopic0,
-      [&](const sensor::ImageData& imag_data) {
-        // slip_detect->AddImage(imag_data);
-        // auto flag = slip_detect->Detect(imag_data.time);
-        // ros_compont->PubBoolMsg(flag);
-
-        if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
-            imag_data.image[2].empty() || imag_data.image[3].empty()) {
-          LOG(WARNING) << "Input Image empty..";
-          return;
-        }
-        if (kuse_gpu) {
-          if (image_datas_pry.size() >= 1) {
-            bool ok = false;
-            {
-              std::lock_guard<std::mutex> lock(mutex_py);
-              ok = image_datas_pry.back().first;
-            }
-
-            while (!ok) {
-              {
-                usleep(10);
-                {
-                  std::lock_guard<std::mutex> lock(mutex_py);
-                  ok = image_datas_pry.back().first;
-                }
-              }
-            }
-
-            //
-            option.feature_track_options[0].pyramid_image[0]->SetCurrPyram(
-                extend_pyramid_image0_tmp->CurrPyram());
-            option.feature_track_options[0].pyramid_image[1]->SetCurrPyram(
-                extend_pyramid_image00_tmp->CurrPyram());
-            // option.feature_track_options[1].pyramid_image[0]->SetCurrPyram(
-            //     extend_pyramid_image1_tmp->CurrPyram());
-            //
-            if (image_datas_pry.size() == 2) {
-              image_datas_pry.erase(image_datas_pry.begin());
-            }
-            image_datas_pry.push_back({false, imag_data});
-            std::thread thread([=, &image_datas_pry, &mutex_py]() {
-              extend_pyramid_image0_tmp->Build(imag_data.image[0]);
-              extend_pyramid_image00_tmp->Build(imag_data.image[1]);
-              extend_pyramid_image1_tmp->Build(imag_data.image[2]);
-              std::lock_guard<std::mutex> lock(mutex_py);
-              image_datas_pry.back().first = true;
-            });
-
-            builder_->AddImageData(image_datas_pry[0].second);
-            thread.detach();
-          } else {
-            image_datas_pry.push_back({false, imag_data});
-            std::thread thread([=, &image_datas_pry, &mutex_py]() {
-              extend_pyramid_image0_tmp->Build(imag_data.image[0]);
-              extend_pyramid_image00_tmp->Build(imag_data.image[1]);
-              // extend_pyramid_image1_tmp->Build(imag_data.image[2]);
-              std::lock_guard<std::mutex> lock(mutex_py);
-              image_datas_pry.back().first = true;
-            });
-            thread.detach();
-          }
-
-        } else {
-          builder_->AddImageData(imag_data);
-        }
-      }
-
-  );
-  order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
-    builder_->AddImuData(jarvis::sensor::ImuData{
-        imu.time + common::FromSeconds(0.1),
-        imu.linear_acceleration,
-        imu.angular_velocity,
-    });
-  });
-  LOG(INFO) << "Parse image dir: " << image_file;
-  LOG(INFO) << "Parse imu dir: " << odom_file;
-  auto image_datas = ImageData::Parse(image_file);
-  auto odom_datas = SesorDataParse<OdomData>(odom_file);
-  auto imu_datas = SesorDataParse<ImuData>(odom_file);
-  //
-  //
-  LOG(INFO) << "Start run...";
-  std::thread pub_map_points([&]() {
-    while (!kill_thread) {
-      TrackingData tracking_data;
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
+//
+builder_ = std::make_unique<TrajectorBuilder>(
+    trajectorbuilder_option, [&](const TrackingData& data) {
+      std::lock_guard<std::mutex> lock(mutex);
       //
-      static uint8_t count = 0;
-      // if (kReciveTempGoal)
-      if (++count > 30) {
-        count = 0;
-        std::map<int, std::map<KeyFrameId, transform::TimestampedTransform>>
-            poses;
-      }
+      VLOG(kGlogLevel) << data.data->imu_state;
+      CHECK(!isnan(data.data->imu_state.p.x()));
+      auto tracking_data = data;
+      Eigen::Matrix3d rotaion;
+      rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+      // LOG(INFO) << rotaion;
+      // auto extric =
+      // transform::Rigid3d::Rotation(Eigen::Quaterniond(rotaion));
+      // tracking_data_temp.data->imu_state.data->pose =
+      //     extric * tracking_data_temp.data->imu_state.data->pose;
       // {
       //   std::unique_lock<std::mutex> lock(mutex);
       //   cond.wait(lock);
       //   tracking_data = tracking_data_temp;
       // }
-      // slip_detect->AddPose(slip_detect::TimePose {
-      //   tracking_data.data->time, tracking_data.data->imu_state.data->pose
-      // });
-      // auto flag = slip_detect->Detect(tracking_data.data->time);
-      // // LOG(INFO) << flag;
-      // // if (tracking_data.status == 1) {
-      //   // LOG(INFO) << tracking_data.data->imu_state.data->pose;
-      // //
-      // ros_compont->OnLocalTrackingResultCallback(
-      //     tracking_data, nullptr, transform::Rigid3d::Identity());
-
-      // ros_compont->PosePub(tracking_data.data->imu_state.data->pose,
-      //                      transform::Rigid3d::Identity());
-      // ros_compont->PushMark(
-      //     {{"vo", slip_detect->ToPoseInOdom(
-      //                   tracking_data.data->imu_state.data->pose)}},true);
-
-      // rclcpp::spin_some(node);
+      // if(tracking_data.status==2){
+      //   KImuExtrapolator->AddState(data.data->time, data.data->imu_state);
       // }
-    }
-  });
-  order_queue_->Start();
-  Run(imu_datas, odom_datas, image_datas);
 
-  order_queue_->Stop();
-  builder_ = nullptr;
-  kill_thread = true;
-  sleep(1);
-  cond.notify_all();
-  pub_map_points.join();
-  if (kRecordFlag) {
-    kOPoseFile.close();
+      auto start = std::chrono::high_resolution_clock::now();
+      auto slipe_alignment_pose = tracking_data.data->imu_state.Pose();
+      if (slip_detect) {
+        slip_detect->AddPose(slip_detect::TimePose{
+            tracking_data.data->time, tracking_data.data->imu_state.Pose()});
+        auto flag = slip_detect->Detect(tracking_data.data->time);
+        kSlipFile << std::to_string(uint64_t(
+                         jarvis::common::ToUniversal(tracking_data.data->time) *
+                         1e2))
+                  << " " << int(flag) << std::endl;
+
+        ros_compont->PubBoolMsg(flag);
+        slipe_alignment_pose =
+            slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
+      }
+      // LOG(INFO) << tracking_data.data->imu_state;
+      if (kRecordFlag) {
+        const auto pose =
+            slipe_alignment_pose;  // tracking_data.data->imu_state.Pose();
+        std::stringstream info;
+        info << std::to_string(uint64_t(
+                    jarvis::common::ToUniversal(tracking_data.data->time) *
+                    1e2))
+             << " " << pose.translation().x() << " " << pose.translation().y()
+             << " " << pose.translation().z() << " " << pose.rotation().w()
+             << " " << pose.rotation().x() << " " << pose.rotation().y() << " "
+             << pose.rotation().z();
+        kOPoseFile << info.str() << std::endl;
+      }
+
+      ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
+
+      // ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}},
+      // true);
+      //
+      std::vector<jarvis::object::ObjectImageResult> object_result;
+      if (tracking_data.status == 2) {
+        if (object_interface == nullptr) {
+          object_interface = std::make_unique<jarvis::object::ObjectInterface>(
+              option.feature_track_options[0].cameras[0]);
+        }
+        object_result = object_interface->Detect(
+            common::ToUniversal(tracking_data.data->time),
+            tracking_data.data->images.image[0],
+            // tracking_data.data->features_datas[0].features.data->images[0],
+            tracking_data.data->imu_state.Pose(),
+            option.slide_windows_option.extric_camera_to_imu[0]);
+        ros_compont->OnLocalTrackingResultCallback(
+            tracking_data, &object_result, transform::Rigid3d::Identity());
+      } else {
+        object_interface = nullptr;
+      }
+      ros_compont->PosePub(tracking_data.data->imu_state.Pose(),
+                           transform::Rigid3d::Identity());
+      rclcpp::spin_some(node);
+      cond.notify_one();
+    });
+
+//
+order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
+order_queue_->AddQueue(kOdomTopic, [&](const sensor::OdometryData& odom_data) {
+  // LOG(INFO)<<odom_data.pose<<odom_data.time;;
+  ros_compont->PushMark({{"odom", odom_data.pose}});
+  builder_->AddOdometryData(jarvis::sensor::OdometryData{
+      odom_data.time + common::FromSeconds(0.1), odom_data.pose});
+  slip_detect->AddOdometry(odom_data);
+});
+//
+
+std::vector<std::pair<bool, sensor::ImageData>> image_datas_pry;
+std::mutex mutex_py;
+  std::mutex pyramid_mutex_;
+  std::thread  pyramid_thread_;
+  std::vector<std::pair<bool, jarvis::sensor::ImageData> > image_datas_pyra_;
+  
+order_queue_->AddQueue(
+    kImagTopic0,
+    [&](const sensor::ImageData& imag_data) {
+      // slip_detect->AddImage(imag_data);
+      // auto flag = slip_detect->Detect(imag_data.time);
+      // ros_compont->PubBoolMsg(flag);
+
+      if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
+          imag_data.image[2].empty() || imag_data.image[3].empty()) {
+        LOG(WARNING) << "Input Image empty..";
+        return;
+      }
+      if (kuse_gpu) {
+       if (image_datas_pyra_.size() >= 1) {
+        if (pyramid_thread_.joinable()) {
+          auto start = std::chrono::high_resolution_clock::now();
+          pyramid_thread_.join();
+          VLOG(1) << "join frame cost: "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::high_resolution_clock::now() - start)
+                           .count();
+        }
+
+        //
+        if (image_datas_pyra_.size() == 2) {
+          image_datas_pyra_.erase(image_datas_pyra_.begin());
+        }
+        
+        image_datas_pyra_.push_back({false, imag_data});
+        image_datas_pyra_.back().second.pyramid_derive.resize(
+            image_datas_pyra_.back().second.image.size());
+        //
+        pyramid_thread_ = std::thread([&,imag_data]() {
+          for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+            for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+              pry_impls[esit_option_.track_sequence[i][j]]->Build(
+                  imag_data.image[esit_option_.track_sequence[i][j]]);
+              std::vector<cv::Mat> pyrmd_drev =
+                  pry_impls[esit_option_.track_sequence[i][j]]->CurrPyram();
+
+              image_datas_pyra_.back()
+                  .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
+                  pyrmd_drev;
+            }
+          }
+          image_datas_pyra_.back().first = true;
+        });
+        for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+          for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+            esit_option_.feature_track_options[i]
+                .pyramid_image[j]
+                ->SetCurrPyram(
+                    image_datas_pyra_[0]
+                        .second
+                        .pyramid_derive[esit_option_.track_sequence[i][j]]);
+          }
+        }
+        auto start = std::chrono::high_resolution_clock::now();
+        builder_->AddImageData(image_datas_pyra_[0].second);
+        VLOG(1) << "One frame cost: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::high_resolution_clock::now() - start)
+                         .count();
+      } else {
+        image_datas_pyra_.push_back({false, imag_data});
+        image_datas_pyra_.back().second.pyramid_derive.resize(
+            image_datas_pyra_.back().second.image.size());
+         pyramid_thread_ = std::thread([&, imag_data]() {
+          for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+            for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+              pry_impls[esit_option_.track_sequence[i][j]]->Build(
+                  imag_data.image[esit_option_.track_sequence[i][j]]);
+              std::vector<cv::Mat> pyrmd_drev =
+                  pry_impls[esit_option_.track_sequence[i][j]]->PrePyram();
+
+              image_datas_pyra_.back()
+                  .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
+                  pyrmd_drev;
+            }
+          }
+          image_datas_pyra_.back().first = true;
+        });
+      }
+
+      } else {
+        builder_->AddImageData(imag_data);
+      }
+    }
+
+);
+order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
+  builder_->AddImuData(jarvis::sensor::ImuData{
+      imu.time + common::FromSeconds(0.1),
+      imu.linear_acceleration,
+      imu.angular_velocity,
+  });
+});
+LOG(INFO) << "Parse image dir: " << image_file;
+LOG(INFO) << "Parse imu dir: " << odom_file;
+auto image_datas = ImageData::Parse(image_file);
+auto odom_datas = SesorDataParse<OdomData>(odom_file);
+auto imu_datas = SesorDataParse<ImuData>(odom_file);
+//
+//
+LOG(INFO) << "Start run...";
+std::thread pub_map_points([&]() {
+  while (!kill_thread) {
+    TrackingData tracking_data;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    //
+    ros_compont->PubMapPoints(builder_->GetMapPoints());
+
+    auto global_pose = builder_->GetKeyFrameGlobalPose();
+    std::map<std::string, std::vector<Eigen::Vector3d>> pub_poses;
+    for (const auto& pose : global_pose) {
+      pub_poses["trajctor_" + std::to_string(pose.first.trajectory_id)]
+          .push_back(pose.second.transform.translation());
+    }
+    ros_compont->PubTrajectorPoseWithMark(pub_poses);
+    // ros_compont->PushMark(
+    //     {{"vo", slip_detect->ToPoseInOdom(
+    //                   tracking_data.data->imu_state.data->pose)}},true);
+
+    // rclcpp::spin_some(node);
+    // }
+  }
+});
+order_queue_->Start();
+Run(imu_datas, odom_datas, image_datas);
+
+order_queue_->Stop();
+builder_ = nullptr;
+kill_thread = true;
+sleep(1);
+cond.notify_all();
+pub_map_points.join();
+if (kRecordFlag) {
+  kOPoseFile.close();
   }
 
   LOG(INFO) << "Done";

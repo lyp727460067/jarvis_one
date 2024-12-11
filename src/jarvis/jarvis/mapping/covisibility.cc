@@ -2,7 +2,7 @@
 namespace jarvis {
 namespace mapping {
 //
-constexpr int kMinCoviNumm = 30;
+constexpr int kMinCoviNumm = 10;
 //
 
 //
@@ -11,7 +11,8 @@ constexpr int kMinCoviNumm = 30;
 void Covisibility::UpdateWithFrameData(
     const KeyFrameId& key_frame_id,
     std::map<MapPointId, FeatureId>&& frame_map_feature_data_id) {
-  CHECK(!key_frame_feature_data_.empty());
+  std::lock_guard<std::mutex> lock(mutex_);
+  CHECK(!frame_map_feature_data_id.empty());
   for (auto const& feature_id : frame_map_feature_data_id) {
     //
     if (map_point_observe_frames_.count(feature_id.first) != 0) {
@@ -32,9 +33,9 @@ void Covisibility::UpdateWithFrameData(
       }
     }
     //
-    CHECK(map_point_observe_frames_[feature_id.first].count(
-              key_frame_id) == 0)
-        << "Duplicate map points";
+    CHECK(map_point_observe_frames_[feature_id.first].count(key_frame_id) == 0)
+        << "Duplicate map points" << "[m:" << feature_id.first << ",k"
+        << key_frame_id << "]";
     //
     map_point_observe_frames_[feature_id.first].emplace(key_frame_id,
                                                              feature_id.second);
@@ -48,13 +49,33 @@ void Covisibility::UpdateWithFrameData(
       frame_map_feature_data_id);
 }
 //
+std::set<KeyFrameId> Covisibility::GetMapObservations(
+    const MapPointId& map_point_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::set<KeyFrameId> r;
+  const auto& keyframezs = map_point_observe_frames_.at(map_point_id);
+  for (const auto& key_frame_id : keyframezs) {
+    r.insert(key_frame_id.first);
+  }
+  return r;
+}
+
+//
+
+FeatureId Covisibility::GetMapPointFeatureIndex(const KeyFrameId& key_frame_id,
+                                                const MapPointId& mp) {
+   std::lock_guard<std::mutex> lock(mutex_);
+  CHECK(key_frame_feature_data_.count(key_frame_id))<< key_frame_id;
+  CHECK(key_frame_feature_data_[key_frame_id].count(mp))<<mp;
+  return key_frame_feature_data_.at(key_frame_id).at(mp);
+}
 //
 void Covisibility::ReplaceFrameIndex(const MapPointId& sou,
                                      const MapPointId& tar) {
   const auto& sour_mp_abserve_frames = map_point_observe_frames_[sou];
   CHECK_NE(sou, tar);
   for (const auto& frame_id_pair : sour_mp_abserve_frames) {
-const   KeyFrameId & frame_id  = frame_id_pair.first;  
+    const KeyFrameId& frame_id = frame_id_pair.first;
     if (key_frame_feature_data_.count(frame_id) == 0) continue;
     //
     auto& frames_indexs = key_frame_feature_data_[frame_id];
@@ -137,22 +158,23 @@ std::set<MapPointId> Covisibility::TrimKeyFrame(const KeyFrameId& id) {
   }
   covisible_frames_.erase(id);
   // 删除mappoint 观察到的这个id的frame
-  auto const &map_points_for_frame = key_frame_feature_data_[id];
+  auto const& map_points_for_frame = key_frame_feature_data_[id];
   for (auto const& map_point_id : map_points_for_frame) {
     CHECK_NE(map_point_observe_frames_.count(map_point_id.first), 0);
     CHECK_NE(map_point_observe_frames_[map_point_id.first].count(id), 0);
     map_point_observe_frames_[map_point_id.first].erase(id);
   }
-  key_frame_feature_data_.erase(id);
 
   // 判断mappoint共视如果小于2的话返回除去ID
   std::set<MapPointId> result;
   for (auto const& map_point_id : map_points_for_frame) {
-    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), 0);
+    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), 0)
+        << map_point_id.first << " Not exist";
     if (map_point_observe_frames_[map_point_id.first].size() <= 2) {
       result.insert(map_point_id.first);
     }
   }
+  key_frame_feature_data_.erase(id);
   return result;
 }
 //
@@ -176,7 +198,6 @@ std::vector<std::pair<KeyFrameId,int>>
 Covisibility::GetOrderConnectedKeyFrames(const KeyFrameId& frame_id,
                                          int n) const {
   std::vector<std::pair<KeyFrameId, int>> result;
-  if (covisible_frames_.count(frame_id) == 0) return {};
   CHECK(covisible_frames_.count(frame_id)) << frame_id;
   for (auto frame : covisible_frames_.at(frame_id)) {
     if (frame.second > kMinCoviNumm) {
@@ -205,7 +226,18 @@ int Covisibility::GetConnectedWeigt(const KeyFrameId& id_i,
 }
 
 std::pair<std::vector<MapPointId>, std::vector<FeatureId>>
-Covisibility::GetKeyFrameMapPointId(const KeyFrameId& frame_id)const {}
+Covisibility::GetKeyFrameMapPointId(const KeyFrameId& frame_id) const {
+  CHECK(key_frame_feature_data_.count(frame_id));
+
+  auto& key_frame_data_id = key_frame_feature_data_.at(frame_id);
+  std::vector<MapPointId> map_point_ids;
+  std::vector<FeatureId> feat_ids;
+  for (const auto& ids : key_frame_data_id) {
+    map_point_ids.push_back(ids.first);
+    feat_ids.push_back(ids.second);
+  }
+  return {map_point_ids, feat_ids};
+}
 
 }  // namespace mapping
 }  // namespace jarvis

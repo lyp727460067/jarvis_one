@@ -2,7 +2,12 @@
 #define JARVIS_MAPPING_BUNDLE_ADJUSTMENT_H
 namespace jarvis {
 namespace mapping {}
-class BundleAdjustment {};
+
+struct BundleAdjustmentOption {};
+
+class BundleAdjustment {
+
+};
 }  // namespace jarvis
 
 #endif

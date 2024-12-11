@@ -76,7 +76,7 @@ void FillFrameData(const int cam_id,
 }  // namespace
 //
 
-std::unique_ptr<TrackingData> Estimator::AddImageData(
+std::unique_ptr<EstimatorResult> Estimator::AddImageData(
     const sensor::ImageData &images) {
   TicToc add_image_data_cost;
   //
@@ -85,7 +85,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   common::Time cur_time = images.time + common::FromSeconds(estimator_td_);
   TrackState state = TrackState::INIT;
   FrameData frame_data;
-
+  EstimatorResult result;
   if (slide_wondows_) {
       TicToc t_t;
     imu_state_ = pose_predit_->PreditDataBase(imu_state_, data_base_.get(),
@@ -98,6 +98,8 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
         frame_id_,
         imu_state_,
     })};
+    
+    frame_data.data->images  = images;
     TicToc track_t_t;
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       CHECK(!images.image[options_.track_sequence[i][0]].empty());
@@ -127,7 +129,9 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
     frame_data = slie_result->frame_data;
     imu_state_ = frame_data.data->imu_state;
     frame_data.status = TrackState::TRACKING;
-
+    //
+    result.slide_out_data = slie_result->slide_out_data;
+    //
     TicToc other_t_t;
     auto rejection_outliers = slide_wondows_->RejectionOutliers();
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
@@ -156,7 +160,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
 
 
         LOG(ERROR) <<"camera "<<i<<  " opti ex error,lost." << ext;
-        frame_data.status = TrackState::LOST;
+        // frame_data.status = TrackState::LOST;
       }
     }
 
@@ -186,6 +190,7 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
                         {{0, FrameData::FeatureData{featureFrame}}}})};
 
     frame_data.status = TrackState::INIT;
+    frame_data.data->images  = images;
   }
   //
   TicToc transform_t_t;
@@ -197,8 +202,12 @@ std::unique_ptr<TrackingData> Estimator::AddImageData(
   //
 
   data_base_->TrimData(cur_time);
-  VLOG(kGlogCostTimeLevel) << "transform costs " << transform_t_t.toc() << " ms";
-  return std::make_unique<FrameData>(frame_data);
+  VLOG(kGlogCostTimeLevel) << "transform costs " << transform_t_t.toc()
+                           << " ms";
+  result.front_data = frame_data;
+  // result.front_data.data->images =  images;
+  return std::make_unique<EstimatorResult>(result);
+  // return std::make_unique<FrameData>(frame_data);
 }
 //
 void Estimator::PredictPtsInNextFrame(const FrameData &frame_data,
@@ -245,18 +254,6 @@ void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {
 }
 
 //
-
-EstimatorOption ParseEstimatorOption(const std::string &config_file) {
-  EstimatorOption option;
-
-  ParseYAMLOption(config_file, &option);
-  return option;
-}
-
-// std::unique_ptr<Estimator> TrackerFactory(const std::string &config_file) {
-
-//   return std::make_unique<Estimator>(option);
-// }
 
 }  // namespace estimator
 }  // namespace jarvis

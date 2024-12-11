@@ -11,21 +11,20 @@ namespace mapping {
 
 struct LocalMapTrackOption {
   match::DirectMatchOption derect_match_option;
+  int min_track_frame_num =30;
   bool remove_unconstrained_points;
   int cell_size;
   int max_n_features_per_frame = 120;
   std::vector<std::vector<int>> track_sequence;
+  std::vector<transform::Rigid3d> extric_camera_to_imu;
+  float op_weight =10;
 };
 
 class LocalMapTrack {
  public:
-  transform::Rigid3d Track(const TrackingData& track_data);
+  LocalMapTrack(const LocalMapTrackOption&option);
+  std::unique_ptr<transform::Rigid3d> Track(const TrackingData& track_data);
   //
-  struct MatchData {
-    Eigen::Vector2d cur_normal_px;
-    Eigen::Vector3d map_point;
-  };
-
  private:
   struct Candidate {
     KeyFrameId frame_id;
@@ -37,7 +36,14 @@ class LocalMapTrack {
     int n_obs;
     MapPointId mp_id;
   };
+  struct MatchData {
+    Eigen::Vector2d cur_normal_px;
+    Eigen::Vector3d map_point;
+    std::optional<Candidate> candidate;  // for check
+  };
 
+  void WriteCheckMatchResult(
+      const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs);
   //
   int MapPointIsInFrame(const Eigen::Vector3d pws,
                         const transform::Rigid3d& frame_pose);
@@ -60,13 +66,16 @@ class LocalMapTrack {
 
   //
 
-  int IsInFrame(const MapPoint& map_point, const TrackingData& track_data);
+  int IsInFrame(const MapPoint& map_point, const TrackingData& track_data){
+    CHECK(false);
+    return false;
+  }
   bool MatchCandidate(const Candidate& candidate,
                       estimator::FeatureData& feature);
   //
   transform::Rigid3d Optimize(const transform::Rigid3d& init_pose,
                               std::map<int, std::vector<MatchData>> constraints,
-                              const std::array<double, 2>& weight);
+                              const std::array<float, 2>& weight);
   //
   std::vector<camera_models::Camera> cameras_;
   std::shared_ptr<match::svo::OccupandyGrid2D> grid_;

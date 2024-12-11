@@ -103,11 +103,15 @@ struct CalibrateOption {
 
 template <typename Option>
 void ParseYAMLOption(const std::string &file, Option *option);
+
+//
 double GetTimeShiftCamImu();
 //
 // template <typename Option>
 // void ParseYAMLOption(const std::string &file, Option *option,
 //                      const CalibrateOption &calib_option);
+
+//
 
 }  // namespace jarvis
 #endif

@@ -4,10 +4,9 @@
 #include <ceres/ceres.h>
 
 #include "Eigen/Dense"
-
-#include "../estimator/parameters.h"
-#include "../utility/tic_toc.h"
-#include "../utility/utility.h"
+#include "jarvis/estimator/parameters.h"
+#include "jarvis/utility/tic_toc.h"
+#include "jarvis/utility/utility.h"
 namespace jarvis {
 namespace estimator {
 class InitialPoseFactor : public ceres::SizedCostFunction<6, 7> {

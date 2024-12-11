@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 14)
 #if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #  add_compile_options(-Wall -Wextra -Wpedantic)
 #endif()
-
+set(BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -37,14 +38,14 @@ find_package(Ceres REQUIRED)
 find_package(GTest REQUIRED)
 find_package(jarvis REQUIRED)
 #
-find_package(OpenCV REQUIRED) #version 4.6.0
+
+find_package(OpenCV REQUIRED COMPONENTS  core imgproc calib3d video imgcodecs highgui) 
+find_package(Protobuf  REQUIRED) 
 
 include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_BINARY_DIR}/../jarvis/
 )
-
-
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/LoopDetection_ros.cpp
@@ -89,12 +90,15 @@ add_executable(ld_${PROJECT_NAME}_data_parse  jarvis_data_parse.cc
 #   yaml-cpp
 #   jarvis
 # )
+
 target_link_libraries(ld_${PROJECT_NAME}_slip_main
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
+  ${PROTOBUF_LIBRARIES}
   glog::glog
   yaml-cpp
   jarvis
+  ${OpenCV_LIBS}
 )
 target_link_libraries(ld_${PROJECT_NAME}_data_parse
   ${catkin_LIBRARIES}
@@ -138,6 +142,7 @@ foreach(ABS_FIL ${ALL_TEST_SRCS})
     -lgtest
     -lpthread
     jarvis
+    ${OpenCV_LIBS}
     dbow_test
   )
   target_include_directories(${TARGET_NAME} PUBLIC  ${PROJECT_SOURCE_DIR}/dbow_test/DBow2/DBoW2/include/)
@@ -149,7 +154,6 @@ ament_target_dependencies(ld_${PROJECT_NAME}_pose_compare_main rclcpp std_msgs n
 visualization_msgs
 tf2_ros
 cv_bridge
-image_transport
 )
 
 ament_target_dependencies(ld_${PROJECT_NAME}_data_parse rclcpp std_msgs nav_msgs sensor_msgs

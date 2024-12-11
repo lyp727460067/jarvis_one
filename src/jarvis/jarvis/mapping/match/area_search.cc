@@ -81,12 +81,9 @@ Eigen::AlignedBox2f AreaSearchGrid::GetBound(float x, float y, double r) {
 AreaSearch::AreaSearch(const AreaSearchOption& options, int s,
                        const KeyFrameData& target_frame)
     : option_(options), target_points_(target_frame.data->features) {
-  auto sequence_feautes = target_points_.trajectory_ids();
   const auto one_sequence_feautes = target_points_.trajectory(s);
   grid_ = std::make_unique<AreaSearchGrid>(
-      Eigen::AlignedBox2i{Eigen::Vector2i(0, 0),
-                          target_frame.data->image_sizes[s]},
-      option_.area_grid_num, one_sequence_feautes);
+      option_.image_box, option_.area_grid_num, one_sequence_feautes);
 }
 
 std::vector<FeatureId> AreaSearchGrid::GetNear(const cv::KeyPoint& point,
@@ -125,7 +122,8 @@ std::vector<FeatureId> AreaSearch::GetRadiusIndex(const Eigen::Vector2d& point,
   return grid_->GetNear(cv::KeyPoint(point.x(), point.y(), 2), r);
 }
 
-AreaSearch::~AreaSearch() {}
+AreaSearch::~AreaSearch() {
+}
 
 std::map<int, std::unique_ptr<match::AreaSearch>>
 AreaSearch::CreateAreaSearchFromeKeyFrameData(
@@ -136,7 +134,8 @@ AreaSearch::CreateAreaSearchFromeKeyFrameData(
   auto sequence_feautes = data.data->features.trajectory_ids();
   for (const auto& sequence_id : sequence_feautes) {
     area_searchs[sequence_id] = std::make_unique<match::AreaSearch>(
-        match::AreaSearchOption{image_bboxs[sequence_id].sizes() / grid_lenth},
+        match::AreaSearchOption{image_bboxs[sequence_id],
+                                image_bboxs[sequence_id].sizes() / grid_lenth},
         sequence_id, data);
   }
   return std::move(area_searchs);

@@ -49,14 +49,20 @@ struct EstimatorOption {
   //
   int win_size=6;
 };
-
+struct EstimatorResult {
+  TrackingData front_data;
+  TrackingData slide_out_data;
+};
 class Estimator {
  public:
   enum TrackState { LOST = 0, INIT = 1, TRACKING = 2 };
   Estimator(const EstimatorOption &options);
   //   Estimator(const std::string &config_file);
-  std::unique_ptr<TrackingData> AddImageData(const sensor::ImageData &images);
+  std::unique_ptr<EstimatorResult> AddImageData(const sensor::ImageData &images);
   //
+  void SetPriorFactorFunction(PriorFactorFunction prior_factor) {
+    prior_factor_ = std::move(prior_factor);
+  }
   void AddImuData(const sensor::ImuData &imu_data);
   ~Estimator();
   void AddOdometryData(const sensor::OdometryData &odometry_data);
@@ -84,9 +90,9 @@ class Estimator {
   double estimator_td_ = 0;
   uint64_t frame_id_ = 0;
   int testnum_  =0;
+  PriorFactorFunction prior_factor_;
 };
 
-EstimatorOption  ParseEstimatorOption(const std::string &config_file);
 
 }  // namespace estimator
 }  // namespace jarvis
