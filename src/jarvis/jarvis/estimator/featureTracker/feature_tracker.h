@@ -51,7 +51,6 @@ struct ImageFeatureTrackerData {
     common::Time time;
     std::map<TrackFeatureId, FeatureData> features;  // feature_id
     std::map<TrackFeatureId, int> tracker_features_num;
-    std::vector<cv::Mat> images;
   };
   std::shared_ptr<Data> data;
 };

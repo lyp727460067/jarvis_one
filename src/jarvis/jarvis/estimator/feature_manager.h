@@ -92,7 +92,7 @@ class FeatureManager {
       int frame_count_l, int frame_count_r);
   // void updateDepth(const VectorXd &x);
   void SetDepth(const std::vector<double> &x);
-  void RemoveFailures();
+  std::set<TrackFeatureId> RemoveFailures();
   void ClearDepth();
   std::vector<double> GetDepthVector();
 
@@ -134,6 +134,7 @@ class FeatureManager {
                             const transform::Rigid3d &new_p);
   // /
   void RemoveBack();
+  std::vector<TrackFeatureId> GetBack();
   void RemoveFront(int frame_count);
   void RemoveOutlier(const std::set<TrackFeatureId> &outlierIndex);
   std::set<TrackFeatureId> OutliersRejection(const std::vector<ImuState> &pose,
@@ -190,6 +191,10 @@ class FeatureManagers {
   // FeatureManagers(const std::map<uint64_t, FeatureManager> &feat_ms)
   //     : feature_managers_(feat_ms) {}
   //
+  const std::map<uint64_t, std::shared_ptr<FeatureManager>> &
+  GetFeatureManagers() {
+    return feature_managers_;
+  }
   //
   //
   void AddFeatureManger(int cam_track_id, std::shared_ptr<FeatureManager> fm);
@@ -215,7 +220,7 @@ class FeatureManagers {
                    const std::vector<transform::Rigid3d> &ex_came_to_imu);
   //
   FeatTrackInfo GetFeatTrackInfo();
-  void RemoveFailures();
+  void RemoveFailures(std::map<CameraId, std::set<TrackFeatureId>>*ids);
   void RemoveBack();
   void RemoveBackShiftDepth(const transform::Rigid3d &marg_p,
                             const transform::Rigid3d &new_p);

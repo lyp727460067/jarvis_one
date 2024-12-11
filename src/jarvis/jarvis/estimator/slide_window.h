@@ -37,13 +37,17 @@ struct SlideWindowResult {
   FrameData frame_data;
   double final_cost;
   FeatTrackInfo feat_track_info;
-  std::optional<double>latest_odo_distance= 0;
+  std::optional<double> latest_odo_distance = 0;
+  TrackingData slide_out_data;
 };
 
+using PriorFactorFunction = std::function<std::unique_ptr<transform::Rigid3d>(
+    const TrackingData& track_data)>;
 class SlideWindow {
  public:
   SlideWindow(const SlideWindowOption& option, DataBase* data_base,
-              const std::unique_ptr<InitializationResult>& init_data);
+              const std::unique_ptr<InitializationResult>& init_data,
+              PriorFactorFunction prior_factor = nullptr);
   //
   std::unique_ptr<SlideWindowResult> AddFeatureData(const FrameData&);
   //
@@ -53,9 +57,11 @@ class SlideWindow {
 
  private:
   void SlideData(bool);
+  TrackingData GetratePriorData(bool generate_point=false);
   SlideWindowOption options_;
   //
   std::vector<ImuState> imu_states_;
+  std::map<common::Time, sensor::ImageData> images_;
   //
   std::vector<std::shared_ptr<IntegrationBase>> integration_base_;
   std::vector<std::shared_ptr<OdomFactor>>odoms_factor_;
@@ -69,6 +75,7 @@ class SlideWindow {
   std::unique_ptr<Optimization> optimization_;
   std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
   std::unique_ptr<Marginalization> marginalizer_;
+
   void SlideNew(); 
   DataBase* data_base_;
   //
@@ -80,8 +87,9 @@ class SlideWindow {
   double camera_imu_time_offset_ = 0;
   std::map<CameraId, std::set<TrackFeatureId>> rejection_outliers_;
   //
+  PriorFactorFunction prior_factor_;
   //
-
+  
   int init_slide_new_num  =0;
   // std::vector<FrameData> frames_datas_;
   common::Time last_feature_time_;

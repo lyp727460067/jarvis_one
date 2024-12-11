@@ -220,20 +220,23 @@ void FeatureManager::SetDepth(const std::vector<double> &x) {
 }
 //
 //
-void FeatureManager::RemoveFailures() {
+std::set<TrackFeatureId> FeatureManager::RemoveFailures() {
   std::stringstream info;
   info << "Total features_ size: " << features_.size() << " ";
+  std::set<TrackFeatureId> result;
   for (auto it = features_.begin(), it_next = features_.begin();
        it != features_.end(); it = it_next) {
     it_next++;
     if (it->second.solve_flag == 2) {
       info<<it->first<<' ';
+      result.insert(it->first);
       features_.erase(it);
     }
   }
   if(!info.str().empty()){
     VLOG(kGlogLevel) <<  info.str();
   }
+  return result;
 }
 
 //
@@ -922,6 +925,16 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
       it++;
     }
   }
+  std::vector<TrackFeatureId> FeatureManager::GetBack() {
+    std::vector<TrackFeatureId> result;
+    for (auto it = features_.begin(); it != features_.end(); it++) {
+      if (it->second.start_frame == 0 && it->second.solve_flag != 2 &&
+          it->second.UsedNum() >= options_.convin_used_num) {
+        result.push_back(it->first);
+      }
+    }
+    return result;
+  }
 
   void FeatureManager::RemoveBack() {
     for (auto it = features_.begin(), it_next = features_.begin();
@@ -949,8 +962,9 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
         it->second.start_frame--;
       } else {
         //
-        int j = options_.sw_size - 1 - it->second.start_frame;
         if (it->second.EndFrame() < frame_count - 1) continue;
+        //
+        int j = options_.sw_size - 1 - it->second.start_frame;
         //
         it->second.feature_per_frame.erase(
             it->second.feature_per_frame.begin() + j);
@@ -1118,9 +1132,15 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
       f_m.second->RemoveFront(frame_count);
     }
   }
-  void FeatureManagers::RemoveFailures() {
+  void FeatureManagers::RemoveFailures(std::map<CameraId, std::set<TrackFeatureId>>*ids) {
     for (auto &f_m : feature_managers_) {
-      f_m.second->RemoveFailures();
+
+   auto fail_ids =     f_m.second->RemoveFailures();
+   if(!fail_ids.empty())
+      for(const auto &id:fail_ids ){
+
+      ids->at(f_m.first).insert(id);
+      }
     }
   }
 

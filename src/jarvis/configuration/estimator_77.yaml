@@ -132,7 +132,7 @@ UpdataZeroVelocityOption:
 
 track_feat_lost_min_num: 10
 track_feat_lost_win_size :  10
-bas_norm_max : 0.6
+bas_norm_max : 1.6
 bgs_norm_max : 0.5
 translation_norm_max : 0.5
 translation_z_max : 0.4

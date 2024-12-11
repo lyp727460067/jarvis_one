@@ -5,9 +5,9 @@
 #include <list>
 #include <unordered_map>
 //
-#include "common/id.h"
+#include "jarvis/common/id.h"
 #include "jarvis/mapping/dbow/vocabulary.h"
-#include "mapping/mapping_data.h"
+#include "jarvis/mapping/mapping_data.h"
 #include "memory"
 namespace jarvis {
 namespace mapping {

@@ -1,8 +1,8 @@
 
 #include "jarvis/option_parse.h"
-
+#include "jarvis/estimator/estimator.h"
 #include <jarvis/estimator/featureTracker/feature_tracker.h>
-
+#include "jarvis/mapping/map_builder.h"
 #include <sstream>
 
 #include "jarvis/estimator/estimator.h"
@@ -10,7 +10,7 @@
 #include "opencv2/core/eigen.hpp"
 #include "opencv2/opencv.hpp"
 #include "yaml-cpp/yaml.h"
-
+#include "jarvis/trajectory_builder.h"
 namespace jarvis {
 
 double timeshift_cam_imu = 0;
@@ -498,16 +498,13 @@ void ParseYAMLOptionFetureOption(
 //
 
 //
-
+CalibrateOption calib_option;
 template <>
 void ParseYAMLOption(const std::string &file,
                      estimator::EstimatorOption *option) {
   info.clear();
+
   auto opencv_file = CheckFile(file);
-  std::string cali_path = opencv_file["calibrate_path"];
-  //
-  CalibrateOption calib_option;
-  ParseYAMLOption(cali_path, &calib_option);
   //
   timeshift_cam_imu   = calib_option.camera_options[0].timeshift_cam_imu;
   int pn = file.find_last_of('/');
@@ -798,8 +795,33 @@ void ParseYAMLOption(const std::string &file,
 //   }
 // }
 //
-
+template <>
+void ParseYAMLOption(const std::string &file,
+                     mapping::MapBuilderOption *option) {}
 //
+template <>
+void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
+  auto opencv_file = CheckFile(file);
+  std::string cali_path = opencv_file["calibrate_path"];
+  //
+  ParseYAMLOption(cali_path, &calib_option);
+  ParseYAMLOption(file, &option->esti_option);
+  ParseYAMLOption(file, &option->mapping_option);
+  for (int i = 0; i < option->esti_option.feature_track_options.size(); i++) {
+    option->mapping_option.cameras.emplace(
+        i, option->esti_option.feature_track_options[i].cameras[0]);
+    option->mapping_option.map_manager_option.image_boxs.emplace_back(
+        Eigen::Vector2i{0, 0},
+        option->esti_option.feature_track_options[i].pyrmid_option.image_size);
 
+    //mask
+    option->mapping_option.map_manager_option.masks.push_back(
+        option->esti_option.feature_track_options[i].mask);
+  }
+  option->mapping_option.data_culling_option.image_bboxs =
+      option->mapping_option.map_manager_option.image_boxs;
+
+}
+//
 //
 }  // namespace jarvis

@@ -8,6 +8,7 @@
 #include "jarvis/estimator/factor/projectionTwoFrameOneCamFactor.h"
 #include "jarvis/estimator/factor/projectionTwoFrameTwoCamFactor.h"
 #include "marginalization.h"
+#include "jarvis/estimator/factor/initial_pose_factor.h"
 namespace jarvis {
 namespace estimator {
 //
@@ -330,7 +331,17 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
       // problem.SetParameterBlockConstant(para_Ex_Pose[2]);
     }
 
-    VLOG(kGlogCostTimeLevel) << "add camera factor costs " << t_t.toc() << " ms";
+    VLOG(kGlogCostTimeLevel)
+        << "add camera factor costs " << t_t.toc() << " ms";
+  }
+  {
+    if (prior_pose_.has_value()) {
+      const transform::Rigid3d &pose = prior_pose_.value();
+      InitialPoseFactor *f =
+          new InitialPoseFactor(pose.translation(), pose.rotation());
+      problem.AddResidualBlock(f, loss_function, para_Pose[0]);
+      prior_pose_.reset();
+    }
   }
   VLOG(kGlogCostTimeLevel) << "opti factor costs "
                            << Optimization_result_t_t.toc() << " ms";

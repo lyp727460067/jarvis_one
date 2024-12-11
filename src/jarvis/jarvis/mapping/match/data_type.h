@@ -3,7 +3,7 @@
 #include "Eigen/Eigen"
 #include "jarvis/camera_models/camera_models/camera.h"
 #include "jarvis/transform/transform.h"
-#include "mapping/mapping_data.h"
+#include "jarvis/mapping/mapping_data.h"
 namespace jarvis {
 namespace mapping {
 namespace match {

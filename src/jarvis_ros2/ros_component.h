@@ -50,6 +50,9 @@ class RosCompont {
       const jarvis::transform::Rigid3d &local_to_globle);
   //
   void PubBoolMsg(bool msg);
+ void PubTrajectorPoseWithMark(
+                     const std::map<std::string, std::vector<Eigen::Vector3d>>& poses);
+  
  private:
  void PubPoseWithMark(
                      const std::map<std::string, std::vector<Eigen::Vector3d>>& poses);
@@ -72,6 +75,8 @@ class RosCompont {
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub2_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       pose_mark_publisher_;
+   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      pose_trajector_mark_publisher_;     
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       markpub_;
 

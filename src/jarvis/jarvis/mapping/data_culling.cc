@@ -21,14 +21,11 @@ DataCulling::SearchMatchesKeyFrames(
     const MapById<MapPointId, MapPointData>& map_points, const KeyFrameId& id) {
   std::map<MapPointId, std::map<KeyFrameId, FeatureId>> result;
   //
-
-  //
-
   //
   for (const auto& key_frame : key_frame_datas) {
     auto sequence_feautes = key_frame.data.data->features.trajectory_ids();
     //
-    //
+  CHECK(!options_.image_bboxs.empty());
     std::map<int, std::unique_ptr<match::AreaSearch>> area_searchs =
         match::AreaSearch::CreateAreaSearchFromeKeyFrameData(
             options_.image_bboxs, options_.grid_lenth, key_frame.data);
@@ -42,6 +39,8 @@ DataCulling::SearchMatchesKeyFrames(
 
     for (const auto& map_point : map_points) {
       if (key_frame.id == id) continue;
+
+        CHECK(data_fuse_);
       if (data_fuse_->GetMapObservations(map_point.id).count(key_frame.id))
         continue;
       FeatureId index = match::SearchMatchesByProjection(
@@ -54,7 +53,6 @@ DataCulling::SearchMatchesKeyFrames(
     }
     // if(one_feature.id)
   }
-
   return result;
 }
 
@@ -148,7 +146,7 @@ void DataCulling::CullingMapSimilarMap(const KeyFrameId& id) {
   MapById<KeyFrameId, KeyFrameData> curr_frame_data;
   curr_frame_data.Insert(id, all_key_frame_datas.at(id));
   fuse_result =
-      SearchMatchesKeyFrames(curr_frame_data, data_fuse_->GetMapPoints(id), id);
+      SearchMatchesKeyFrames(curr_frame_data, covisibility_map_points, id);
 
   result.insert(fuse_result.begin(), fuse_result.end());
   if (result.empty()) return;

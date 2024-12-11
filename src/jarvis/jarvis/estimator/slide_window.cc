@@ -14,8 +14,11 @@ namespace estimator {
 // std::array<int,3> ParaExPoseIndex { 0, 2, 3 };
 //
 SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
-                         const std::unique_ptr<InitializationResult>& init_data)
-    : options_(option), data_base_(data_base) {
+                         const std::unique_ptr<InitializationResult>& init_data,
+                         PriorFactorFunction factor)
+    : options_(option),
+      data_base_(data_base),
+      prior_factor_(factor) {
   //
   CHECK(init_data);
   CHECK_EQ(options_.win_size + 1, int(init_data->states.size()));
@@ -72,7 +75,48 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   //       imu_states_, extric_camera_to_imu_);
   camera_imu_time_offset_ =  options_.camera_imu_time_offset;
 }
+//
+TrackingData SlideWindow::GetratePriorData(bool generate_point) {
+  if (images_.count(imu_states_[0].time) == 0) return {};
+  TrackingData result;
+  result.data = std::make_shared<TrackingData::Data>();
+  result.data->imu_state = imu_states_[0];
+  result.data->time = imu_states_[0].time;
+  result.data->extric_camera_to_imu = extric_camera_to_imu_;
+  result.data->images = images_[imu_states_[0].time];
+  if (generate_point) {
+    auto const feature_managers = feature_managers_->GetFeatureManagers();
+    for (auto const f_manger : feature_managers) {
+      auto feat_ids = f_manger.second->GetBack();
+      if (feat_ids.empty()) continue;
+      result.data->features_datas[f_manger.first].features.data =
+          std::make_shared<ImageFeatureTrackerData::Data>();
+      //
+      for (const auto& feat_id : feat_ids) {
+        const auto feat_data = f_manger.second->Features().at(feat_id);
 
+        const double depth = f_manger.second->GetDepth(feat_id);
+        // if(depth <0)continue;
+        result.data->features_datas[f_manger.first]
+            .features.data->features[feat_id] =
+            feat_data.feature_per_frame[0].feature;
+
+        //
+        const Eigen::Vector3d cam_map_point = feat_data.feature_per_frame[0]
+                                                  .feature.camera_features[0]
+                                                  .normal_points *
+                                              depth;
+        result.data->features_datas[f_manger.first].map_points[feat_id] =
+            imu_states_[0].Pose() *
+            extric_camera_to_imu_[options_.opti_option
+                                      .trace_sequence[f_manger.first][0]] *
+            cam_map_point;
+      }
+    }
+  }
+  return result;
+}
+//
 std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     const FrameData& frame) {
   //
@@ -81,6 +125,9 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   const double dt = camera_imu_time_offset_;
   //
   const int frame_count = imu_states_.size();
+  //
+
+  images_.emplace(frame.data->time, frame.data->images);
   //
   //
   TicToc feature_t_t;
@@ -103,6 +150,19 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
 
   //
   bool is_keyframe = feature_managers_->CheckParallax();
+
+  if (is_keyframe) {
+    if (prior_factor_) {
+      const auto prior_pose = prior_factor_(GetratePriorData());
+      //
+      // if (prior_pose) {
+      //   LOG_EVERY_N(INFO, 10)
+      //       << "Prior pose: " << *prior_pose
+      //       << ",fisrt imu pose:" << imu_states_.begin()->Pose();
+      //   optimization_->SetPrior(*prior_pose);
+      // }
+    }
+  }
   for (auto& f : frame.data->features_datas) {
     if (!feature_managers_->Exist(f.first)) {
       CHECK(init_feature_managers_.count(f.first));
@@ -220,10 +280,13 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   TicToc fram_result_t_t;
   rejection_outliers_ = feature_managers_->RemoveOutliersRejection(
       imu_states_, extric_camera_to_imu_);
-
+  TrackingData front_data;
+  if (is_keyframe) {
+    front_data = GetratePriorData(true);
+  }
   SlideData(is_keyframe);
 
-  feature_managers_->RemoveFailures();
+  feature_managers_->RemoveFailures(&rejection_outliers_);
   //
   FrameData fram_result = frame;
 
@@ -271,7 +334,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
                         feature_managers_->GetFeatTrackInfo(),
                         odoms_factor_.back() != nullptr
                             ? odoms_factor_.back()->GetObserveDistance()
-                            : 100});
+                            : 100,
+                        front_data});
 }
  //
  void SlideWindow::SlideNew() {
@@ -298,16 +362,17 @@ void SlideWindow::SlideData(bool is_keyframe) {
   //
   CHECK_EQ(int(imu_states_.size() - 1), options_.win_size);
   //
-  if(init_slide_new_num<options_.win_size+1){
-    init_slide_new_num++;
-  }
+
   if (is_keyframe /*&& init_slide_new_num==options_.win_size+1*/) {
     //
+
+    if (images_.count(imu_states_[0].time)) {
+      images_.erase(imu_states_[0].time);
+    }
     transform::Rigid3d marg_pose = imu_states_[0].Pose();
     imu_states_.erase(imu_states_.begin());
     transform::Rigid3d new_pose = imu_states_[0].Pose();
     //
-
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       //
       if (feature_managers_->Exist(i)) {
@@ -323,6 +388,9 @@ void SlideWindow::SlideData(bool is_keyframe) {
   } else {
     // CHECK(false);
     //
+    if (images_.count(imu_states_[0].time)) {
+      images_.erase(imu_states_[0].time);
+    }
     SlideNew();
     feature_managers_->RemoveFront(options_.win_size);
   }

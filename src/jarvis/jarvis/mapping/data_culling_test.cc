@@ -67,7 +67,7 @@ class DataFuseTest : public DataFuse {
     return result;
   }
   //
-  const std::set<KeyFrameId>& GetMapObservations(
+  const std::set<KeyFrameId> GetMapObservations(
       const MapPointId& map_point_id) {
     return observations_[map_point_id];
   }

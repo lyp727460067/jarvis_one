@@ -157,7 +157,7 @@ class MapById {
     }
 
     explicit ConstIterator(const MapById& map_by_id, const IdType& id)
-        : current_trajectory_(map_by_id.trajectories_.find(id.trajectory_id_)),
+        : current_trajectory_(map_by_id.trajectories_.find(id.trajectory_id)),
           end_trajectory_(map_by_id.trajectories_.end()) {
       if (current_trajectory_ != end_trajectory_) {
         current_data_ =
@@ -381,10 +381,10 @@ class MapById {
       return EndOfTrajectory(trajectory_id);
     }
 
-    const std::map<int, DataType>& trajectory =
+    const std::map<uint64_t, DataType>& trajectory =
         trajectories_.at(trajectory_id).data_;
 
-    if (internal::GetTime(std::prev(trajectory.end())->second) < time) {
+    if (internal::GetTime(*(std::prev(trajectory.end())->second.data)) < time) {
       return EndOfTrajectory(trajectory_id);
     }
 
@@ -400,7 +400,7 @@ class MapById {
         CHECK(lower_bound_middle != left);
         lower_bound_middle = std::prev(lower_bound_middle);
       }
-      if (internal::GetTime(lower_bound_middle->second) < time) {
+      if (internal::GetTime(*(lower_bound_middle->second.data)) < time) {
         left = std::next(lower_bound_middle);
       } else {
         right = lower_bound_middle;

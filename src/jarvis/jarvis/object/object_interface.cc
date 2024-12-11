@@ -32,7 +32,6 @@ class ObjectInterface::ObjectImpl {
     auto mark_with_poses = wap_pose_object_detect_->AddImage(
         common::FromUniversal(time), std::make_shared<cv::Mat>(image),
         cam_pose);
-    LOG(INFO) << imu_to_cam;
     std::vector<ObjectImageResult> object_result;
     for (const auto &mark : mark_with_poses) {
       // if (pose_temp.empty()) break;

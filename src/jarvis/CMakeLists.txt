@@ -15,10 +15,17 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   # -Wshadow # shadow local variable
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
-# set(BUILD_TYPE Release)
-# set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+set(BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 
+
+set(ARUCO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/aruco/include/
+${PROJECT_SOURCE_DIR}/video/include/
+)
+file(GLOB_RECURSE ARUCO_SRC "aruco/src/*.cpp"
+"video/src/*.cpp"
+)
 
 
 if(PLATFORM_mr527)
@@ -28,8 +35,7 @@ if(PLATFORM_mr527)
   ##ofast编译会有问题，需要查看原因
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s  -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
   option(build_test "build test" OFF)
-  set(ARUCO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/aruco/include/)
-  file(GLOB_RECURSE ARUCO_SRC "aruco/src/*.cpp")
+
   set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
   set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
   set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
@@ -95,12 +101,19 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)
-  find_package(OpenCV REQUIRED)
+  # set(OpenCV_DIR "/home/lyp/third_part/opencv/build") 
+  ## export PKG_CONFIG_PATH=/home/lyp/third_part/opencv/build/:$PKG_CONFIG_PATH
+  find_package(OpenCV REQUIRED COMPONENTS highgui core imgproc calib3d  imgcodecs ) 
+  message( "Found OpenCV version: ${OpenCV_VERSION}")
+message( "OpenCV Include Dir: ${OpenCV_INCLUDE_DIRS}")
+message( "OpenCV Libraries: ${OpenCV_LIBS}")
+
   find_package(Ceres REQUIRED)
   find_package(Glog REQUIRED) 
   find_package(yaml-cpp  REQUIRED) #version 0.7.0
   find_package(GTest  REQUIRED) #version 1.12.0
-  find_package(Protobuf  REQUIRED)  #v3.4.1
+  
+find_package(Protobuf  REQUIRED) 
 endif()
 
 INCLUDE_DIRECTORIES(
@@ -158,23 +171,26 @@ list(APPEND ALL_LIBRARY_HDRS ${ALL_PROTO_HDRS})
 list(APPEND ALL_LIBRARY_SRCS ${ALL_PROTO_SRCS})
 endif()
 
+add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
 
-
-# add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
-add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
 
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_include_directories( ${PROJECT_NAME}  PUBLIC           ${GLOG_INCLUDE_DIRS})
 target_link_libraries (${PROJECT_NAME} PUBLIC glog::glog)
+# message(${PROTOBUF_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROTOBUF_LIBRARIES})
+# link_directories(${OpenCV_DIR}/lib/)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
+
+message(${OpenCV_LIBS})
 # target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
 # target_compile_definitions (${PROJECT_NAME} INTERFACE GLOG_EXPORT=__attribute__((visibility("default"))))
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
   yaml-cpp
-  ${OpenCV_LIBS}
   ${CERES_LIBRARIES}
-  ${PROTOBUF_LIBRARIES}
+  
 )
 #
 if(${build_test})
@@ -188,8 +204,8 @@ if(${build_test})
       -lgtest_main
       -lgtest
       -lpthread
-
       ${PROJECT_NAME}
+      ${OpenCV_LIBS}
     )
    endforeach()
 endif()

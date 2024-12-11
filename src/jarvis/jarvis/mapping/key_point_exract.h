@@ -13,8 +13,8 @@ namespace mapping {
 struct KeyPointExtractOption {
   int type = 0;
   int extend_key_points_num = 1000;
-  int minimal_accepted_quality_corners = 5;
-  int min_distance = 5;
+  double minimal_accepted_quality_corners = 0.01;
+  double min_distance = 2;
 };
 //
 //
@@ -28,9 +28,7 @@ class KeyPointExtract {
   ~KeyPointExtract() {}
   virtual void Distribution(){}
   static std::unique_ptr<KeyPointExtract> Create(
-      const KeyPointExtractOption& option) {
-    CHECK(false) << "Need implement!!!";
-  }
+      const KeyPointExtractOption& option) ;
 
  protected:
   virtual std::vector<cv::KeyPoint> StrategyExtract(const cv::Mat& pyramid,
