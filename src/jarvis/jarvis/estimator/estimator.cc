@@ -179,7 +179,7 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
     if (init_result) {
       slide_wondows_ = std::make_unique<SlideWindow>(
           options_.slide_windows_option, data_base_.get(),
-          std::move(init_result));
+          std::move(init_result),prior_factor_);
       //
       imu_state_ = init_result->states.back();
     }

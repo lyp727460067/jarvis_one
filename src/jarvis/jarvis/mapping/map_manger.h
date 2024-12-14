@@ -133,10 +133,6 @@ class MapManager {
     return globle_to_local_transform_;
   }
   mapping::Covisibility *Covisibility()const { return covisibility_.get(); }
-  
- private:
-
-  void GenerateForExtendKeyPoint(const KeyFrameId&id );
   //
   KeyFrameData ExtractKeyFrameData(
       const TrackingData &data,
@@ -145,6 +141,11 @@ class MapManager {
                                              mapping::Descriptor, FeatureId>>>
           *front_map_points);
   //
+ private:
+
+  void GenerateForExtendKeyPoint(const KeyFrameId&id );
+  //
+  
   //
   void StructureMapPoints(
       const KeyFrameId &id,

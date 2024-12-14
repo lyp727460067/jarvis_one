@@ -332,7 +332,7 @@ void EquidistantCamera::liftSphere(const Eigen::Vector2d& p,
  */
 void EquidistantCamera::liftProjective(const Eigen::Vector2d& p,
                                        Eigen::Vector3d& P) const {
-#if 1
+#if 0
   // single precision is enough for undistortion
   cv::Mat uv_mat(1, 2, CV_32F);
   uv_mat.ptr<float>(0)[0] = static_cast<float>(p.x());

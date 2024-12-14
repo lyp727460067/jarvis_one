@@ -8,28 +8,31 @@ namespace match {
 //
 using namespace svo;
 using BearingVector = Eigen::Vector3d;
-bool Frame::IsVisible(const Eigen::Vector3d& xyz_w,
-                                Eigen::Vector2d* pt) {
+bool Frame::IsVisible(const Eigen::Vector3d& xyz_w, Eigen::Vector2d* pt) {
   Eigen::Vector3d xyz_f = pose * xyz_w;
   //
-  Eigen::Vector2d px_top_left(0.0, 0.0);
-  Eigen::Vector3d f_top_left;
-  // cam_->backProject3(px_top_left, &f_top_left);
-  f_top_left.normalize();
+  if(xyz_f.z()<0)return false;
+  // Eigen::Vector2d px_top_left(0.01, 0.01);
+  // Eigen::Vector3d f_top_left;
+  // cam->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
   const Eigen::Vector3d z(0.0, 0.0, 1.0);
-  const double min_cos = f_top_left.dot(z);
+  const double min_cos = f_top_left->dot(z);
   const double cur_cos = xyz_f.normalized().dot(z);
-  if (cur_cos < min_cos) {
+  if (cur_cos > min_cos) {
     return false;
   }
-  if (pt == nullptr) {
+  if (pt) {
+    Eigen::Vector2d b;
+    cam->spaceToPlane(xyz_w, *pt);
   }
+  return true;
 }
 
 bool Frame::IsKeypointVisibleWithMargin(const Eigen::Vector2d& keypoint,
                                         int margin) {
-  int image_with = cam->imageWidth();
-  int image_height = cam->imageWidth();
+
+  int image_with = image_size.x();
+  int image_height = image_size.y();
   return keypoint[0] >= margin && keypoint[1] >= margin &&
          keypoint[0] < (image_with - margin) &&
          keypoint[1] < (image_height - margin);

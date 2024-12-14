@@ -26,14 +26,12 @@ struct ReProjectionErr {
     T y_normal = project_p[1] / project_p[2];
     residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));
     residul[1] = T(factor_) * (y_normal - T(nor_point_.y()));
-    // LOG(INFO)<<residul[0];
-    // LOG(INFO)<<residul[1];
     return true;
   }
   static ceres::CostFunction* Creat(const Eigen::Vector2d& nor_poit,
                                     const Eigen::Vector3d& map_point,
                                     double factor) {
-    return new ceres::AutoDiffCostFunction<ReProjectionErr, 2, 3, 4,3,4>(
+    return new ceres::AutoDiffCostFunction<ReProjectionErr, 2, 3, 4, 3, 4>(
         new ReProjectionErr(nor_poit.head<2>(), map_point, factor));
   }
 
@@ -43,64 +41,116 @@ struct ReProjectionErr {
   const Eigen::Vector3d map_point_;
 };
 
-void ToFrame(const TrackingData& track_data, match::Frame& fram, int index) {
-  
-
-  // fram.image_size = track_data.data->
-}
 //
-void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
-             int index) {}
+
 }  // namespace
 //
+void LocalMapTrack::ToFrame(const KeyFrameData& key_frame_data,
+                            match::Frame& fram, int index) {
+  fram.cam = cameras_.at(index);
+  fram.image_size = key_frame_data.data->image_sizes->at(index).sizes();
+  fram.pose = key_frame_data.data->CameraPose(index);
+  fram.f_pose = key_frame_data.data->pose;
+  fram.img_pyr = key_frame_data.data->Pyramid(index);
+  fram.f_top_left = &px_top_lefts_[index];
+}
+int LocalMapTrack::IsInFrame(const MapPoint& map_point,
+                             const KeyFrameData& track_data) {
+  const Eigen::Vector3d xyz_w = map_point.Pos();
+  //
+  //
+  for (int sequence_id = 0; sequence_id < options_.track_sequence.size();
+       sequence_id++) {
+    const auto& pose = track_data.data->CameraPose(sequence_id);
+
+    Eigen::Vector3d xyz_f = pose * xyz_w;
+    //
+    if(xyz_f.z()<0)return -1;
+    // Eigen::Vector2d px_top_left(0.0, 0.0);
+    Eigen::Vector3d& f_top_left = px_top_lefts_[sequence_id];
+    // cameras_.at(sequence_id)
+        // ->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
+    const Eigen::Vector3d z(0.0, 0.0, 1.0);
+    const double min_cos = f_top_left.dot(z);
+    const double cur_cos = xyz_f.normalized().dot(z);
+    if (cur_cos < min_cos) {
+      return sequence_id;
+    }
+  }
+  return -1;
+}
+
 LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
-    : options_(option) {}
+    : options_(option), cameras_(options_.cameras) {
+  direct_match_ =
+      std::make_unique<match::DirectMatch>(options_.derect_match_option);
+  local_map_ = std::make_unique<LocalMapTrackMap>(options_.map_option);
+  for (int i = 0; i < options_.track_sequence.size(); i++) {
+    Eigen::Vector3d f_top_left;
+    Eigen::Vector2d px_top_left(0.0, 0.0);
+    cameras_.at(i)
+        ->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
+
+    px_top_lefts_.push_back( f_top_left/ f_top_left.z());
+    LOG(INFO)<<px_top_lefts_.back();
+  }
+}
 //
+void LocalMapTrack::AddTracingData(const KeyFrameData& key_frame_data,
+                                   const FrontMapPointData& map_points_data) {
+  local_map_->AddKeyFrameData(key_frame_data, map_points_data);
+}
+
 //
 std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
-    const TrackingData& track_data) {
-  const auto& all_kf_frames = map_manager_->AllKeyFrameDatas();
-  const auto& all_map_points = map_manager_->AllMapPoints();
+    const KeyFrameData& track_data) {
+  const auto& all_kf_frames = local_map_->AllKeyFrameDatas();
   if (all_kf_frames.size() < options_.min_track_frame_num) return nullptr;
   //
-  std::vector<std::vector<KeyFrameId>> overlap_kfs;
-  overlap_kfs.resize(track_data.data->features_datas.size());
-  //
-  //
-  //
-  std::vector<std::shared_ptr<match::Frame>> cur_frames(
-      track_data.data->features_datas.size());
-  //
 
-  for (int i = 0; i < track_data.data->features_datas.size(); i++) {
-    ToFrame(track_data, *cur_frames[i], i);
+  const auto sequence_feautes = track_data.data->features.trajectory_ids();
+  std::map<int, std::vector<KeyFrameId>> overlap_kfs;
+  std::map<int, std::shared_ptr<match::Frame>> cur_frames;
+  //
+  for (int i = 0; i < options_.track_sequence.size(); i++) {
+    cur_frames[i] = std::make_shared<match::Frame>();
+    ToFrame(track_data, *cur_frames[i],i);
   }
   //
+
   for (const auto& kf : all_kf_frames) {
-    const auto& map_point_feature_ids =
-        map_manager_->Covisibility()->GetKeyFrameMapPointId(kf.id);
+    const auto map_points = local_map_->GetKeyFrameMapPoints(kf.id);
     // 这里选择领域和公视的关键帧，还有只能投影一个点的3D点的
-    for (auto& id : map_point_feature_ids.first) {
-      auto& map_point = all_map_points.at(id);
-      int index = IsInFrame(*map_point.data, track_data);
+    for (const auto& map_point : map_points) {
+      int index = IsInFrame(*map_point.second.data, track_data);
       if (index >= 0) {
-        overlap_kfs.at(index).push_back(kf.id);
+        overlap_kfs[index].push_back(kf.id);
         break;
       }
     }
   }
   std::map<int, std::vector<LocalMapTrack::MatchData>> matchs;
   //
+
+  int match_sum_num = 0;
+  std::stringstream info;
   for (int i = 0; i < cur_frames.size(); i++) {
     auto match_result = MatchCandidates(
         PickCandidates(overlap_kfs[i], cur_frames[i]), cur_frames[i]);
+    match_sum_num += match_result.size();
+    info << "s:n=" << match_result.size() << " ";
+    matchs[i] = std::move(match_result);
   }
+  LOG(INFO) << log_info::YELLOW << "Total match num :" << match_sum_num
+            << " Seperate: " << info.str() << log_info::RESET;
 
+  //
+  if (match_sum_num == 0) return nullptr;
   WriteCheckMatchResult(matchs);
   //
-  transform::Rigid3d pose =
-      Optimize(track_data.data->imu_state.Pose(), matchs,
-               std::array<float, 2>{options_.op_weight, options_.op_weight});
+  transform::Rigid3d pose = Optimize(
+      track_data.data->pose, track_data.data->extric_camera_to_imu, matchs,
+      std::array<float, 2>{options_.op_weight, options_.op_weight});
   //
   return std::make_unique<transform::Rigid3d>(pose);
 }
@@ -110,16 +160,21 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
     std::vector<KeyFrameId> overlap_kfs,
     const std::shared_ptr<match::Frame>& frame) {
   std::vector<LocalMapTrack::Candidate> candidates;
-  // const auto& all_kf_frames = map_manager_->AllKeyFrameDatas();
-  const auto& all_map_points = map_manager_->AllMapPoints();
   for (const auto& ref_frame_id : overlap_kfs) {
     const auto& map_point_feature_ids =
-        map_manager_->Covisibility()->GetKeyFrameMapPointId(ref_frame_id);
+        local_map_->GetCovisibility()->GetKeyFrameMapPointId(ref_frame_id);
     for (int i = 0; i < map_point_feature_ids.first.size(); i++) {
-      const auto& point = all_map_points.at(map_point_feature_ids.first[i]);
-      if (point.data->ObNum() < 2 && options_.remove_unconstrained_points) {
+      const auto& point =
+          local_map_->AllMapPoints().at(map_point_feature_ids.first[i]);
+      int map_ob_kf_num =
+          local_map_->GetCovisibility()
+              ->GetMapPointObserv(map_point_feature_ids.first[i])
+              .size();
+      //
+      if (map_ob_kf_num < 2 && options_.remove_unconstrained_points) {
         continue;
       }
+      //
       Eigen::Vector3d point_world = point.data->Pos();
       Eigen::Vector2d px;
       if (!frame->IsVisible(point_world, &px)) continue;
@@ -127,9 +182,11 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
       if (!frame->IsKeypointVisibleWithMargin(px, kPatchSize)) continue;
       candidates.push_back(LocalMapTrack::Candidate{
           ref_frame_id, map_point_feature_ids.second[i], px, 0, 0,
-          point.data->ObNum(), map_point_feature_ids.first[i]});
+          map_ob_kf_num, map_point_feature_ids.first[i]});
     }
   }
+  LOG(INFO) << log_info::MAGENTA << "Candidate size: " << candidates.size()
+            << log_info::RESET;
   return candidates;
 }
 //
@@ -146,9 +203,8 @@ std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
         match::svo::OccupandyGrid2D::getNCell(cur_frame->image_size.y(),
                                               options_.cell_size)));
   }
-  grid_->reset();
   std::vector<LocalMapTrack::MatchData> result;
-  const auto& all_map_points = map_manager_->AllMapPoints();
+  const auto& all_map_points = local_map_->AllMapPoints();
   for (auto& candidate : candidates) {
     size_t grid_index =
         grid_->getCellIndex(candidate.cur_px.x(), candidate.cur_px.y(), 1);
@@ -164,31 +220,32 @@ std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
     }
     //
   }
+  grid_->reset();
   return result;
 }
 //
 match::MatchResult LocalMapTrack::MatchCandidate(
     const Candidate& candidate, const std::shared_ptr<match::Frame>& frame) {
   match::GradientVector grad_ref;
-  const auto& all_kf_frames = map_manager_->AllKeyFrameDatas();
-  const auto& all_map_points = map_manager_->AllMapPoints();
+  //
+  const auto& all_kf_frames = local_map_->AllKeyFrameDatas();
+  const auto& all_map_points = local_map_->AllMapPoints();
 
   auto& ref_frame_data = all_kf_frames.at(candidate.frame_id);
   //
-  const auto& map_point_feature_ids =
-      map_manager_->Covisibility()->GetKeyFrameMapPointId(
-          candidate.frame_id);
+  // const auto& map_point_feature_ids =
+  //     local_map_->GetCovisibility()->GetKeyFrameMapPointId(candidate.frame_id);
 
-  if (ref_frams_catch_.count(candidate.frame_id) == 0 ||
-      ref_frams_catch_[candidate.frame_id].count(
-          candidate.feature_id.sequence_id) == 0) {
-    auto& ref_frame =
-        ref_frams_catch_[candidate.frame_id][candidate.feature_id.sequence_id];
-    ref_frame = std::make_shared<match::Frame>();
+  // if (ref_frams_catch_.count(candidate.frame_id) == 0 ||
+  //     ref_frams_catch_[candidate.frame_id].count(
+  //         candidate.feature_id.sequence_id) == 0) {
+    // auto& ref_frame =
+    //     ref_frams_catch_[candidate.frame_id][candidate.feature_id.sequence_id];
+    auto ref_frame = std::make_shared<match::Frame>();
     ToFrame(all_kf_frames.at(candidate.frame_id), *ref_frame,
             candidate.feature_id.sequence_id);
-  }
-
+  // }
+  LOG(INFO)<<candidate.feature_id;
   int track_id = -1;
   auto ref_feature = all_kf_frames.at(candidate.frame_id)
                          .data->features.at(candidate.feature_id);
@@ -197,11 +254,11 @@ match::MatchResult LocalMapTrack::MatchCandidate(
                                   ref_feature.f,
                                   int(0),
                                   *all_map_points.at(candidate.mp_id).data};
+  
+  // auto ref_frame =
+  //     ref_frams_catch_[candidate.frame_id][candidate.feature_id.sequence_id];
 
-  auto ref_frame =
-      ref_frams_catch_[candidate.frame_id][candidate.feature_id.sequence_id];
-
-  double ref_depth = (all_kf_frames.at(candidate.frame_id).data->pose *
+  double ref_depth = (all_kf_frames.at(candidate.frame_id).data->pose.inverse() *
                       all_map_points.at(candidate.mp_id).data->Pos())
                          .z();
   //
@@ -213,7 +270,8 @@ match::MatchResult LocalMapTrack::MatchCandidate(
 //
 transform::Rigid3d LocalMapTrack::Optimize(
     const transform::Rigid3d& init_pose,
-    std::map<int, std::vector<LocalMapTrack::MatchData>> constraints,
+    const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+    const std::map<int, std::vector<LocalMapTrack::MatchData>>& constraints,
     const std::array<float, 2>& weight) {
   ceres::Problem problem;
   ceres::LocalParameterization* quaternion_local =
@@ -225,10 +283,14 @@ transform::Rigid3d LocalMapTrack::Optimize(
   std::vector<Eigen::Quaterniond> ex_rotation;
   std::vector<Eigen::Vector3d> ex_traslation;
   //
+  //
   for (int i = 0; i < extric_camera_to_imu_.size(); i++) {
-    ex_rotation.push_back(extric_camera_to_imu_[i].rotation());
-    ex_traslation.push_back(extric_camera_to_imu_[i].translation());
+    ex_rotation.push_back(
+        extric_camera_to_imu[track_sequence[i][0]].rotation());
+    ex_traslation.push_back(
+        extric_camera_to_imu[track_sequence[i][0]].translation());
   }
+  //
   for (const auto& constraist_seq : constraints) {
     for (int j = 0; j < constraist_seq.second.size(); j++) {
       //

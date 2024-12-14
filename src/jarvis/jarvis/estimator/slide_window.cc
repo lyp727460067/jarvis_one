@@ -154,13 +154,12 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   if (is_keyframe) {
     if (prior_factor_) {
       const auto prior_pose = prior_factor_(GetratePriorData());
-      //
-      // if (prior_pose) {
-      //   LOG_EVERY_N(INFO, 10)
-      //       << "Prior pose: " << *prior_pose
-      //       << ",fisrt imu pose:" << imu_states_.begin()->Pose();
-      //   optimization_->SetPrior(*prior_pose);
-      // }
+      if (prior_pose) {
+        LOG_EVERY_N(INFO, 10)
+            << "Prior pose: " << *prior_pose
+            << ",fisrt imu pose:" << imu_states_.begin()->Pose();
+        // optimization_->SetPrior(*prior_pose);
+      }
     }
   }
   for (auto& f : frame.data->features_datas) {

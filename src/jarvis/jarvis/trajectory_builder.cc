@@ -36,6 +36,7 @@ void TrajectorBuilder::ReSet() {
         [&](const TrackingData &track_data)
             -> std::unique_ptr<transform::Rigid3d> {
           if (track_data.data) {
+            LOG(INFO)<<"!";
             return map_builder_->TrackLocalMap(track_data);
           }
           return nullptr;

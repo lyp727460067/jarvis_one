@@ -233,7 +233,6 @@ void ParseYAMLOption(const std::string &file_path,
                 defalt_paras["cam" + std::to_string(i)];
             const transform::Rigid3d defalt_ext_para =
                 GetCameraExt(defalt_cam_node);
-            LOG(INFO) << i;
             // if (abs(defalt_ext_para.translation().norm() -
             //         ext_para.translation().norm()) > 0.03) {
             //   LOG(ERROR)
@@ -498,6 +497,7 @@ void ParseYAMLOptionFetureOption(
 //
 
 //
+std::vector<std::vector<int>> track_sequence;
 CalibrateOption calib_option;
 template <>
 void ParseYAMLOption(const std::string &file,
@@ -522,7 +522,7 @@ void ParseYAMLOption(const std::string &file,
     // std::vector<std::vector<int>> trace_sequence =
     // fsSettings["trace_sequence"]; CHECK_EQ(trace_sequence.size(), 3);
     std::string track_sequence_str = fsSettings["track_sequence"];
-    std::vector<std::vector<int>> track_sequence;
+ 
     for (size_t i = 0; i < track_sequence_str.size(); i++) {
       if (track_sequence_str[i] == '{') {
         track_sequence.push_back(std::vector<int>{});
@@ -807,9 +807,30 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   ParseYAMLOption(cali_path, &calib_option);
   ParseYAMLOption(file, &option->esti_option);
   ParseYAMLOption(file, &option->mapping_option);
+  //前后段不能共用一个相机模型
   for (int i = 0; i < option->esti_option.feature_track_options.size(); i++) {
-    option->mapping_option.cameras.emplace(
+    //
+
+    {
+      camera_models::CameraPtr camera =
+          camera_models::CameraFactory::instance()->GenerateCameraFromOption(
+              calib_option.camera_options[track_sequence[i][0]]);
+      option->mapping_option.cameras.emplace(i, camera);
+    }
+
+    // {
+    //   camera_models::CameraPtr camera =
+    //       camera_models::CameraFactory::instance()->GenerateCameraFromOption(
+    //           calib_option.camera_options[track_sequence[i][0]]);
+    //   option->mapping_option.local_map_track_option.cameras.emplace(i, camera);
+    //   //
+    // }
+
+    //跟踪的可以跟前端公用一个相机模型
+    option->mapping_option.local_map_track_option.cameras.emplace(
         i, option->esti_option.feature_track_options[i].cameras[0]);
+    //
+
     option->mapping_option.map_manager_option.image_boxs.emplace_back(
         Eigen::Vector2i{0, 0},
         option->esti_option.feature_track_options[i].pyrmid_option.image_size);
@@ -820,7 +841,8 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   }
   option->mapping_option.data_culling_option.image_bboxs =
       option->mapping_option.map_manager_option.image_boxs;
-
+  option->mapping_option.local_map_track_option.track_sequence =
+      option->esti_option.slide_windows_option.track_sequence;
 }
 //
 //

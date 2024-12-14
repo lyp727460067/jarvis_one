@@ -30,8 +30,8 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option)
   //
   local_map_optimization_ = std::make_unique<LocalMapOptimization>(
       option.local_map_optimization_option);
-  local_map_track_ =
-      std::make_unique<LocalMapTrack>(option.local_map_track_option);
+  local_map_track_ = std::make_unique<LocalMapTrack>(
+      option.local_map_track_option);
   //
   key_frame_filter_ =
       std::make_unique<KeyFrameFilter>(option.key_frame_filter_option);
@@ -101,7 +101,14 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
   if (!key_frame_filter_->IsKeyFrame(data)) {
     return;
   }
-  
+  //
+  std::map<int, std::map<uint64_t, std::tuple<Eigen::Vector3d,
+                                              mapping::Descriptor, FeatureId>>>
+      front_map_points_data;
+  auto key_frame_data =
+      map_manager_->ExtractKeyFrameData(data, &front_map_points_data);
+  local_map_track_->AddTracingData(key_frame_data, front_map_points_data);
+  //
   //
   AddWorkItem([=]() {
     //前端的匹配的地图单独维护，AddTrackingData和后端地图保持一直，要不另外的线程有问题
@@ -157,7 +164,8 @@ void MappingBuilder::AddOdometryData(const sensor::OdometryData &odo_data) {}
 //
 std::unique_ptr<transform::Rigid3d> MappingBuilder::TrackLocalMap(
     const TrackingData &frame_data) {
-  return local_map_track_->Track(frame_data);
+  return local_map_track_->Track(
+      map_manager_->ExtractKeyFrameData(frame_data, nullptr));
 }
 transform::Rigid3d MappingBuilder::Relocaiton(const TrackingData &frame_data) {
   CHECK(false);
