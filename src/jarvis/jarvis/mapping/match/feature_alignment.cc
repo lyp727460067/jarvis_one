@@ -203,19 +203,19 @@ bool align1D(const cv::Mat& cur_img,
 //------------------------------------------------------------------------------
 bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
              uint8_t* ref_patch, const int n_iter, const bool affine_est_offset,
-             const bool affine_est_gain, Keypoint& cur_px_estimate,
+             const bool affine_est_gain, Keypoint& cur_px_estimate,double min_update_squared,
              bool no_simd, std::vector<Eigen::Vector2f>* each_step) {
 #ifdef __ARM_NEON__
   if (!no_simd)
     return align2D_NEON(cur_img, ref_patch_with_border, ref_patch, n_iter,
-                        cur_px_estimate);
+                        cur_px_estimate,min_update_squared);
 #endif
 
   if (each_step) each_step->clear();
 
-  const int halfpatch_size_ = 4;
-  const int patch_size_ = 8;
-  const int patch_area_ = 64;
+  const int halfpatch_size_ = kHalfPatchSize;
+  const int patch_size_ = kHalfPatchSize*2;
+  const int patch_area_ = patch_size_*patch_size_;
   bool converged = false;
 
   // We optimize feature position and two affine parameters.
@@ -265,13 +265,14 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
   if (each_step) each_step->push_back(Eigen::Vector2f(u, v));
 
   // termination condition
-  const float min_update_squared =
-      0.03 *
-      0.03;  // TODO I suppose this depends on the size of the image (ate)
+  // const float min_update_squared =
+  //     0.04 *
+  //     0.04;  // TODO I suppose this depends on the size of the image (ate)
   const int cur_step = cur_img.step.p[0];
   // float chi2 = 0;
   Eigen::Vector4f update;
   update.setZero();
+
   for (int iter = 0; iter < n_iter; ++iter) {
     int u_r = std::floor(u);
     int v_r = std::floor(v);
@@ -351,12 +352,12 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
 
     if (each_step) each_step->push_back(Eigen::Vector2f(u, v));
 
-#if SUBPIX_VERBOSE
-    cout << "Iter " << iter << ":"
-         << "\t u=" << u << ", v=" << v << "\t update = " << update[0] << ", "
-         << update[1] << "\t new chi2 = " << new_chi2 << endl;
-#endif
-
+// #if SUBPIX_VERBOSE
+  //  LOG(INFO)<< "Iter " << iter << ":"
+  //        << "\t u=" << u << ", v=" << v << "\t update = " << update[0] << ", "
+  //        << update[1] ;
+// #endif
+  
     if (update[0] * update[0] + update[1] * update[1] < min_update_squared) {
 #if SUBPIX_VERBOSE
       cout << "converged." << endl;
@@ -378,7 +379,7 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
 //------------------------------------------------------------------------------
 bool align2D_SSE2(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
                   uint8_t* ref_patch, const int n_iter,
-                  Keypoint& cur_px_estimate) {
+                  Keypoint& cur_px_estimate,double min_update_squared) {
   // TODO: This function should not be used as the alignment is not robust to
   // illumination changes!
   const int halfpatch_size = 4;
@@ -414,7 +415,7 @@ bool align2D_SSE2(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
   float v = cur_px_estimate.y();
 
   // termination condition
-  const float min_update_squared = 0.03 * 0.03;
+  // const float min_update_squared = 0.1 * 0.1;
 #ifdef __SSE2__
   const int cur_step = cur_img.step.p[0];
 #endif
@@ -552,7 +553,6 @@ bool align2D_SSE2(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
          << "\t u=" << u << ", v=" << v << "\t update = " << update_u << ", "
          << update_v << "\t new chi2 = " << new_chi2 << endl;
 #endif
-
     if (update_u * update_u + update_v * update_v < min_update_squared) {
 #if SUBPIX_VERBOSE
       cout << "converged." << endl;
@@ -575,7 +575,7 @@ bool align2D_SSE2(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
 //------------------------------------------------------------------------------
 bool align2D_NEON(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
                   uint8_t* ref_patch, const int n_iter,
-                  Keypoint& cur_px_estimate) {
+                  Keypoint& cur_px_estimate,const float min_update_squared) {
   const int halfpatch_size = 4;
   const int patch_size = 8;
   const int patch_area = 64;
@@ -610,7 +610,7 @@ bool align2D_NEON(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
   float v = cur_px_estimate.y();
 
   // termination condition
-  const float min_update_squared = 0.03 * 0.03;
+  // const float min_update_squared = 0.03 * 0.03;
   const int cur_step = cur_img.step.p[0];
   Eigen::Vector3f update;
   Eigen::Vector3f Jres;

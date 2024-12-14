@@ -6,7 +6,7 @@ use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
 win_size : 6
 data_base_lenth : 1
 
-track_sequence: "{0,1},{2}"
+track_sequence: "{0,1},{2},{3}"
 #feature traker paprameters
 
 feattrack0:
@@ -39,9 +39,9 @@ feattrack1:
   back_flow_min_distance : 0.3
   mask : mask0.png
 feattrack2:
-  max_cnt: 20          # max feature number in feature tracking
-  min_dist:  45           # min distance between two features 
-  mask_min_dist:  30  
+  max_cnt: 30          # max feature number in feature tracking
+  min_dist:  35           # min distance between two features 
+  mask_min_dist: 50  
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
@@ -50,8 +50,8 @@ feattrack2:
   grid_size_x : 68
   grid_size_y : 64
   klt_type : 1
+  back_flow_min_distance : 0.3
   mask : mask0.png
-
 
 optimization: 
 #optimization parameters

@@ -154,13 +154,14 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   if (is_keyframe) {
     if (prior_factor_) {
       const auto prior_pose = prior_factor_(GetratePriorData());
-      //
-      // if (prior_pose) {
-      //   LOG_EVERY_N(INFO, 10)
-      //       << "Prior pose: " << *prior_pose
-      //       << ",fisrt imu pose:" << imu_states_.begin()->Pose();
-      //   optimization_->SetPrior(*prior_pose);
-      // }
+      if (prior_pose) {
+
+        LOG(WARNING)
+            << "Prior pose: " << *prior_pose
+            << ",fisrt imu pose:" << imu_states_.begin()->Pose();
+        optimization_->SetPrior(*prior_pose);
+        has_prio_pose =  true;
+      }
     }
   }
   for (auto& f : frame.data->features_datas) {
@@ -289,7 +290,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   feature_managers_->RemoveFailures(&rejection_outliers_);
   //
   FrameData fram_result = frame;
-
+  has_prio_pose =  false;
   //
   for (auto& cam_feature_data : fram_result.data->features_datas) {
     const CameraId cam_id = cam_feature_data.first;
@@ -404,6 +405,7 @@ void SlideWindow::StateToFrameData() {
   //
   //
   Eigen::Quaterniond rotation0 = imu_state0.q;
+
   Eigen::Vector3d origin_R0 = Utility::R2ypr(rotation0.toRotationMatrix());
   Eigen::Vector3d origin_P0 = imu_state0.p;
   std::stringstream info;
@@ -428,7 +430,11 @@ void SlideWindow::StateToFrameData() {
                                .toRotationMatrix()
                                .transpose();
   }
-
+  if (has_prio_pose) {
+    rot_diff = Eigen::Matrix3d::Identity();
+    origin_P0 =
+        Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
+  }
   for (int i = 0; i <= options_.win_size; i++) {
     const Eigen::Quaterniond r =
         (Eigen::Quaterniond(rot_diff) *

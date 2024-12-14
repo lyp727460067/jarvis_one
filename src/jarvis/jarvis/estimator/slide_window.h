@@ -94,6 +94,7 @@ class SlideWindow {
   // std::vector<FrameData> frames_datas_;
   common::Time last_feature_time_;
   uint64_t global_id_ = 0;
+  bool has_prio_pose = false;
 };
 }  // namespace estimator
 }  // namespace jarvis

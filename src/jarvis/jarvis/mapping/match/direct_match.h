@@ -31,16 +31,18 @@ struct FrameWarp {
 
 struct DirectMatchOption {
   bool use_affine_warp = true;
-  size_t cell_size = 30;
-  int align_max_iter;
-  bool affine_est_offset;
-  bool affine_est_gain;
-  bool no_simd;
-  double max_patch_diff_ratio;
-  bool subpix_refinement;
+  bool affine_est_offset=true;
+  bool affine_est_gain=true;
+  
+  int align_max_iter=10;
+
+  bool no_simd=true;
+  double max_patch_diff_ratio=0.9;
+  bool subpix_refinement=true;
   bool align_1d = false;
-  bool scan_on_unit_sphere;
-  int max_epi_search_steps;
+  bool scan_on_unit_sphere=false;
+  int max_epi_search_steps=1;
+  double min_update_squared=0.03*0.03;
 };
 
 enum class MatchResultState {
@@ -69,7 +71,9 @@ struct MatchResult {
 class DirectMatch {
  public:
   typedef svo::patch_score::ZMSSD<kHalfPatchSize> PatchScore;
-
+  //
+  DirectMatch(const DirectMatchOption&option):options_(option){
+  }
   MatchResult FindMatch(const Frame& ref_frame, const Frame& cur_frame,
                         const FeatureWrapper& ref_ftr, const double& ref_depth,
                         const Keypoint& pr);
@@ -119,7 +123,7 @@ class DirectMatch {
 
   std::set<MapPointId> last_project_kf_id_;
   // static constexpr int kHalfPatchSize = 4;
-  static constexpr int kPatchSize = 8;
+  static constexpr int kPatchSize =kHalfPatchSize*2;
 
   uint8_t patch_[kPatchSize * kPatchSize] __attribute__((aligned(16)));
   uint8_t patch_with_border_[(kPatchSize + 2) * (kPatchSize + 2)]

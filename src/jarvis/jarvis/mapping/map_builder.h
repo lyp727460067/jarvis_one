@@ -22,7 +22,8 @@ namespace jarvis {
 namespace mapping {
 //
 struct MapBuilderOption {
-  bool enable = true;
+  bool enable_local_track =false;
+  bool enable_local_opimization =false;
   MapManagerOption map_manager_option;
   DataCullingOption data_culling_option;
   LocalMapTrackOption local_map_track_option;

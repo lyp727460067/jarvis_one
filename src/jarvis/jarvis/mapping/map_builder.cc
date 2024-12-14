@@ -16,10 +16,17 @@ namespace mapping {
 MappingBuilder::MappingBuilder(const MapBuilderOption &option)
     : options_(option) {
   //
-  map_manager_ = std::make_unique<MapManager>(
-      option.map_manager_option, option.cameras,
-      std::make_unique<dbow::Vocabulary>(
-          dbow::GetVocabulary(0, option.vocabulary_filebrif)));
+  if (!option.enable_local_opimization) {
+    map_manager_ = std::make_unique<MapManager>(option.map_manager_option,
+                                                option.cameras, nullptr);
+
+    LOG(INFO) << "Local op false..";
+  } else {
+    map_manager_ = std::make_unique<MapManager>(
+        option.map_manager_option, option.cameras,
+        std::make_unique<dbow::Vocabulary>(
+            dbow::GetVocabulary(0, option.vocabulary_filebrif)));
+  }
   //
   //
   //
@@ -98,11 +105,23 @@ void MappingBuilder::LocalPorcess(const KeyFrameId &frame_id) {
 };
 //
 void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
+   
   if (!key_frame_filter_->IsKeyFrame(data)) {
     return;
   }
-  
   //
+  if (options_.enable_local_track) {
+    std::map<int,
+             std::map<uint64_t, std::tuple<Eigen::Vector3d, mapping::Descriptor,
+                                           FeatureId>>>
+        front_map_points_data;
+    auto key_frame_data =
+        map_manager_->ExtractKeyFrameData(data, &front_map_points_data);
+    local_map_track_->AddTracingData(key_frame_data, front_map_points_data);
+    //
+  }
+
+  if(!options_.enable_local_opimization)return ;
   AddWorkItem([=]() {
     //前端的匹配的地图单独维护，AddTrackingData和后端地图保持一直，要不另外的线程有问题
     auto key_frame_id = map_manager_->AddTrackingData(t, data);
@@ -157,7 +176,8 @@ void MappingBuilder::AddOdometryData(const sensor::OdometryData &odo_data) {}
 //
 std::unique_ptr<transform::Rigid3d> MappingBuilder::TrackLocalMap(
     const TrackingData &frame_data) {
-  return local_map_track_->Track(frame_data);
+  return local_map_track_->Track(
+      map_manager_->ExtractKeyFrameData(frame_data, nullptr));
 }
 transform::Rigid3d MappingBuilder::Relocaiton(const TrackingData &frame_data) {
   CHECK(false);

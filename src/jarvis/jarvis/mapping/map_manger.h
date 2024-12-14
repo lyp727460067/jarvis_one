@@ -58,6 +58,7 @@ struct MapManagerOption {
   int area_search_grid_lenth =10;
   float con_struct_map_point_frame_min_distance =0.1;
   std::vector<cv::Mat> masks;
+  std::string test_match_pic_write_path = "";
 };
 //
 class MapManager {
@@ -133,10 +134,6 @@ class MapManager {
     return globle_to_local_transform_;
   }
   mapping::Covisibility *Covisibility()const { return covisibility_.get(); }
-  
- private:
-
-  void GenerateForExtendKeyPoint(const KeyFrameId&id );
   //
   KeyFrameData ExtractKeyFrameData(
       const TrackingData &data,
@@ -145,6 +142,11 @@ class MapManager {
                                              mapping::Descriptor, FeatureId>>>
           *front_map_points);
   //
+ private:
+
+  void GenerateForExtendKeyPoint(const KeyFrameId&id );
+  //
+  
   //
   void StructureMapPoints(
       const KeyFrameId &id,
