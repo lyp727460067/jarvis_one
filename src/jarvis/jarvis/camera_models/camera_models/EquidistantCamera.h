@@ -103,12 +103,18 @@ class EquidistantCamera : public Camera {
   //%output p
   //%output J
   bool backProject3(const Eigen::Vector2d& keypoint,
-                            Eigen::Vector3d* out_point_3d) {return false;}
+                    Eigen::Vector3d* out_point_3d) {
+    Eigen::Vector3d pt;
+    liftProjective(keypoint, pt);
+    *out_point_3d = pt / pt.z();
+    return true;
+  }
   //
   const void project3(
-      const Eigen::Vector3d& point_3d,
-      Eigen::Vector2d* out_keypoint,
-      Eigen::Matrix<double, 2, 3>* out_jacobian_point = nullptr) {}
+      const Eigen::Vector3d& point_3d, Eigen::Vector2d* out_keypoint,
+      Eigen::Matrix<double, 2, 3>* out_jacobian_point = nullptr) {
+    spaceToPlane(point_3d, *out_keypoint);
+  }
   //
   void undistToPlane(const Eigen::Vector2d& p_u, Eigen::Vector2d& p) const;
   //%output p

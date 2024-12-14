@@ -17,7 +17,7 @@ namespace match {
 //
 struct ProjectionOption {
   double viewing_angle_threash_hold = 0.5;
-  double area_search_radius = 8;
+  double area_search_radius = 8 ;
   double project_pix_err = 0.0;
   double project_best_des_dis = 80;
   //

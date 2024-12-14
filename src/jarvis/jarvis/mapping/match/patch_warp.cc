@@ -31,9 +31,11 @@ void getWarpMatrixAffine(const CameraPtr& cam_ref, const CameraPtr& cam_cur,
   // NOTE: project3 has no guarantee that the returned vector is unit length
   // - for pinhole: z component is 1 (unit plane)
   // - for omnicam: norm is 1 (unit sphere)
+  CHECK(cam_ref);
   cam_ref->backProject3(
       px_ref + Eigen::Vector2d(kHalfPatchSize, 0) * (1 << level_ref),
       &xyz_du_ref);
+
   cam_ref->backProject3(
       px_ref + Eigen::Vector2d(0, kHalfPatchSize) * (1 << level_ref),
       &xyz_dv_ref);
@@ -95,7 +97,8 @@ int getBestSearchLevel(const AffineTransformation2& A_cur_ref,
   // Compute patch level in other image
   int search_level = 0;
   double D = A_cur_ref.determinant();
-  while (D > 3.0 && search_level < max_level) {
+  // LOG(INFO)<<D;
+  while (D > 0.5 && search_level < max_level) {
     search_level += 1;
     D *= 0.25;
   }

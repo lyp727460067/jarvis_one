@@ -6,7 +6,7 @@ namespace jarvis {
 namespace mapping {
 namespace match {
 
-void WriteImageWithKeyPoint(
+void WriteImageWithKeyPoint(const std::string &path,
     const KeyFrameData::Data& first_data, const KeyFrameData::Data& sencod_data,
     const std::vector<std::pair<FeatureId, FeatureId>>& match_pair);
 }

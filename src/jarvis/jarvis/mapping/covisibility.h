@@ -25,6 +25,11 @@ class Covisibility {
   const std::set<KeyFrameId>& GetMapObservations(
       const MapPointId& map_point_id);
   //
+  const std::map<KeyFrameId, FeatureId>& GetMapPointObserv(
+      const MapPointId& mp) const {
+    CHECK(map_point_observe_frames_.count(mp));
+    return map_point_observe_frames_.at(mp);
+  }
   bool IsMapPointConnectKeyFrame(const MapPointId& mp_id,
                                              const KeyFrameId& kf_id) const;
 

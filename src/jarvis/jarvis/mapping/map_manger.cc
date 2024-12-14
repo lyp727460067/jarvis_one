@@ -92,10 +92,16 @@ KeyFrameData MapManager::ExtractKeyFrameData(
       Eigen::Vector3d b;
       cameras_.at(senqu_features.first)
           ->liftProjective(a, b);  // 注意这里找对应的相机
+      Eigen::Vector2d px_top_left(0.0, 0.0);
+
+      Eigen::Vector3d b1;
+      cameras_.at(senqu_features.first)
+          ->liftProjective( px_top_left, b1);  // 注意这里找对应的相机
       //
+      // LOG(INFO)<<b.transpose();
       track_ids[senqu_features.first][feat_datas.size()] = feature_point.first;
       feat_datas.emplace_back(
-          FeatureData{cv::KeyPoint(feature.x(), feature.y(), 2), b});
+          FeatureData{cv::KeyPoint(feature.x(), feature.y(), 2), b/b.z()});
       //
     }
     for (int j = 0; j < feat_datas.size(); j++) {
@@ -103,11 +109,13 @@ KeyFrameData MapManager::ExtractKeyFrameData(
       result.data->features.Insert(feat_id, feat_datas[j]);
       //
       const uint64_t track_id = track_ids.at(senqu_features.first).at(j);
+      if (front_map_points) {
+        (*front_map_points)[senqu_features.first].emplace(
+            track_id,
+            std::make_tuple(senqu_features.second.map_points.at(track_id),
+                            Descriptor{}, feat_id));
+      }
 
-      (*front_map_points)[senqu_features.first].emplace(
-          track_id,
-          std::make_tuple(senqu_features.second.map_points.at(track_id),
-                          Descriptor{}, feat_id));
       //
     }
   }
@@ -210,7 +218,7 @@ void MapManager::GenerateForExtendKeyPoint(const KeyFrameId &id) {
         Eigen::Vector3d b;
         cameras_.at(sequence_id)->liftProjective(a, b);  // 注意这里找对应的相机
         key_frames_datas_.at(id).data->features.Insert(
-            feat_id, FeatureData{exist_key_points[i], b});
+            feat_id, FeatureData{exist_key_points[i], b/b.z()});
       }
       //
       key_frames_datas_.at(id).data->descriptors.Insert(feat_id,
@@ -255,6 +263,8 @@ void MapManager::ExtendKeyFrameData(const KeyFrameId &id) {
 }
 //
 //
+
+
 void MapManager::StructureMapPoints(
     const KeyFrameId &id,
     const std::map<
@@ -444,26 +454,30 @@ void MapManager::UpdateConnectMapPointProjectMatchSearch(
       index_map_point_ids[id].emplace(map_point_id, index);
       track_point_size++;
       info << map_point_id;
-      // auto feture_id = covisibility_->GetMapPointFeatureIndex(
-          // map_points_.at(map_point_id).data->reference_frame_id_, map_point_id);
-      //
-      //
-      // auto &connect_id_data =
-      //     key_frames_datas_
-      //         .at(map_points_.at(map_point_id).data->reference_frame_id_)
-      //         .data;
-      // //
-      // std::vector<std::pair<FeatureId, FeatureId>> pair_index{
-      //     std::make_pair(index, feture_id)};
-      // match::WriteImageWithKeyPoint(*current_id_data, *connect_id_data,
-      //                               pair_index);
+
+      if (!options_.test_match_pic_write_path.empty()) {
+        auto feture_id = covisibility_->GetMapPointFeatureIndex(
+            map_points_.at(map_point_id).data->reference_frame_id_,
+            map_point_id);
+
+        auto &connect_id_data =
+            key_frames_datas_
+                .at(map_points_.at(map_point_id).data->reference_frame_id_)
+                .data;
+        //
+        std::vector<std::pair<FeatureId, FeatureId>> pair_index{
+            std::make_pair(index, feture_id)};
+        match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
+                                      *current_id_data, *connect_id_data,
+                                      pair_index);
+      }
     }
   }
 
    //
-  LOG(INFO) << log_info::GREEN
-            <<"cur_kf"<<id<< "Track near map point size: " << track_point_size << "-->"
-            << info.str() << log_info::RESET;
+  // LOG(INFO) << log_info::GREEN
+  //           <<"cur_kf"<<id<< "Track near map point size: " << track_point_size << "-->"
+  //           << info.str() << log_info::RESET;
   if (!index_map_point_ids.empty()) {
     for (auto &&frame_index_map_point_ids : index_map_point_ids) {
       if(frame_index_map_point_ids.second.empty())continue;
@@ -553,8 +567,12 @@ void MapManager::ConStructExtendMapPoints(const KeyFrameId &id) {
         options_.dbow_match_min_distance);
     if (paired_idex.size() < 4) continue;
     //
-    // match::WriteImageWithKeyPoint(*current_id_data, *connect_id_data,
-    //                               paired_idex);
+    if (!options_.test_match_pic_write_path.empty()) {
+      match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
+                                    *current_id_data, *connect_id_data,
+                                    paired_idex);
+    }
+
     const auto current_id_map_data = GetKeyFrameMapPointsData(id);
     const auto connect_id_map_data = GetKeyFrameMapPointsData(frame_id.first);
 
@@ -690,47 +708,47 @@ std::unique_ptr<Eigen::Vector2d> MapManager::ProjectMapPointToKeyFrame(
 //
 //
 void MapManager::ComputeMapPointDistinctiveDescriptors(const MapPointId &id) {
-  // auto obs = covisibility_->GetMapObservations(id);
-  // if (obs.empty()) {
-  //   LOG(WARNING) << " obs empty";
-  //   return;
-  // }
-  // std::vector<BrifBitset> descriptors;
-  // int obs_size = obs.size();
-  // descriptors.reserve(obs_size);
-  // for (auto &ob : obs) {
-  //   auto const &key_frame_data = key_frames_datas_.at(ob);
-  //   auto feat_id = covisibility_->GetMapPointFeatureIndex(ob, id);
-  //   if (key_frame_data.data->descriptors.Contains(feat_id)) {
-  //     descriptors.push_back(key_frame_data.data->descriptors.at(feat_id));
-  //   }
-  // }
-  // // Compute distances between them
-  // //
-  // obs_size  =  descriptors.size();
-  // if (obs_size < options_.compute_map_point_min_des_num) return;
-  // std::vector<std::vector<int>> distances(obs_size, std::vector<int>(obs_size));
-  // for (size_t i = 0; i < obs_size; i++) {
-  //   distances[i][i] = 0;
-  //   for (size_t j = i + 1; j < obs_size; j++) {
-  //     int distij = HammingDis(descriptors[i], descriptors[j]);
-  //     distances[i][j] = distij;
-  //     distances[j][i] = distij;
-  //   }
-  // }
-  // // Take the descriptor with least median distance to the rest
-  // int best_median = INT_MAX;
-  // int best_idx = 0;
-  // for (size_t i = 0; i < obs_size; i++) {
-  //   auto median = distances[i].begin() + obs_size / 2;
-  //   std::nth_element(distances[i].begin(), median, distances[i].end());
-  //   if (*median < best_median) {
-  //     best_median = *median;
-  //     best_idx = i;
-  //   }
-  // }
-  // //
-  // map_points_.at(id).data->SetDes(descriptors[best_idx]);
+  auto obs = covisibility_->GetMapObservations(id);
+  if (obs.empty()) {
+    LOG(WARNING) << " obs empty";
+    return;
+  }
+  std::vector<BrifBitset> descriptors;
+  int obs_size = obs.size();
+  descriptors.reserve(obs_size);
+  for (auto &ob : obs) {
+    auto const &key_frame_data = key_frames_datas_.at(ob);
+    auto feat_id = covisibility_->GetMapPointFeatureIndex(ob, id);
+    if (key_frame_data.data->descriptors.Contains(feat_id)) {
+      descriptors.push_back(key_frame_data.data->descriptors.at(feat_id));
+    }
+  }
+  // Compute distances between them
+  //
+  obs_size  =  descriptors.size();
+  if (obs_size < options_.compute_map_point_min_des_num) return;
+  std::vector<std::vector<int>> distances(obs_size, std::vector<int>(obs_size));
+  for (size_t i = 0; i < obs_size; i++) {
+    distances[i][i] = 0;
+    for (size_t j = i + 1; j < obs_size; j++) {
+      int distij = HammingDis(descriptors[i], descriptors[j]);
+      distances[i][j] = distij;
+      distances[j][i] = distij;
+    }
+  }
+  // Take the descriptor with least median distance to the rest
+  int best_median = INT_MAX;
+  int best_idx = 0;
+  for (size_t i = 0; i < obs_size; i++) {
+    auto median = distances[i].begin() + obs_size / 2;
+    std::nth_element(distances[i].begin(), median, distances[i].end());
+    if (*median < best_median) {
+      best_median = *median;
+      best_idx = i;
+    }
+  }
+  //
+  map_points_.at(id).data->SetDes(descriptors[best_idx]);
 }
 
 //

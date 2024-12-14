@@ -4,8 +4,8 @@
 namespace jarvis {
 namespace mapping {
 namespace match {
-constexpr char kTestImageDir[] = "/home/lyp/project/vslam/jarvis/test/image/";
-void WriteImageWithKeyPoint(
+// constexpr char kTestImageDir[] = "/home/lyp/project/vslam/jarvis/test/image/";
+void WriteImageWithKeyPoint(const std::string &path,
     const KeyFrameData::Data& first_data, const KeyFrameData::Data& sencod_data,
     const std::vector<std::pair<FeatureId, FeatureId>>& match_pair) {
 //  srand(static_cast<unsigned>(time(0)));
@@ -80,16 +80,22 @@ void WriteImageWithKeyPoint(
     cv::line(image, point1, se_point, color, 1, 1, 0);
   }
 
-
   for (auto& image : catch_iamges) {
     for (auto& image2 : image.second) {
       const std::string file_name =
-          kTestImageDir +
-          std::to_string(common::ToUniversal(first_data.time) * 100) + "_" +
-          std::to_string(image.first) + "_" + std::to_string(image2.first) +
-          ".png";
-    //   cv::imshow(file_name,image2.second.first);
-    //   cv::waitKey(0);
+          path + std::to_string(common::ToUniversal(first_data.time) * 100) +
+          "_" + std::to_string(image.first) + "_" +
+          std::to_string(image2.first) + ".png";
+
+      // cv::putText(image2.second.first,
+      //             std::to_string(common::ToUniversal(first_data.time) * 100) +
+      //                 "_" + std::to_string(image.first) + "_" +
+      //                 std::to_string(image2.first),
+      //             cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1,
+      //             cv::Scalar(0, 0, 255), 2, 3);
+      // cv::imshow("match", image2.second.first);
+
+      // cv::waitKey(0);
       cv::imwrite(file_name, image2.second.first);
     }
   }

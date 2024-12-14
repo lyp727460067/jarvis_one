@@ -12,8 +12,8 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
     : options_(option),
       tracker_(std::make_unique<estimator::Estimator>(options_.esti_option)),
       call_back_(call_back) {
-  if (option.mapping_option.enable) {
-    map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option);
+  map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option);
+  if (options_.mapping_option.enable_local_track) {
     tracker_->SetPriorFactorFunction(
         [&](const TrackingData &track_data)
             -> std::unique_ptr<transform::Rigid3d> {
@@ -28,10 +28,8 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
 
 void TrajectorBuilder::ReSet() {
   tracker_ = std::make_unique<estimator::Estimator>(options_.esti_option);
-  if (options_.mapping_option.enable) {
-    if (map_builder_->GetAllKeyFramePose().size() < 100) {
-      map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option);
-    }
+  map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option);
+  if (options_.mapping_option.enable_local_track) {
     tracker_->SetPriorFactorFunction(
         [&](const TrackingData &track_data)
             -> std::unique_ptr<transform::Rigid3d> {
