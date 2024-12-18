@@ -38,14 +38,18 @@ class TrajectorBuilder {
   //
   std::vector<Eigen::Vector3d> GetMapPoints();
   std::map<KeyFrameId, transform::TimestampedTransform> GetKeyFrameGlobalPose();
+
+  std::vector<Eigen::Vector3d> GetLocalMapPoints();
+  std::vector<transform::Rigid3d > GetLocalKeyFramePose();
+
   transform::Rigid3d GetLocalToGlobalTransform();
   // /
   virtual ~TrajectorBuilder();
  private:
   void ReSet();
   TrajectorBuilderOption options_;
-  std::unique_ptr<estimator::Estimator> tracker_;
   std::unique_ptr<mapping::MappingBuilder> map_builder_;
+  std::unique_ptr<estimator::Estimator> tracker_;
   CallBack call_back_;
   int trajector_ =0;
 };

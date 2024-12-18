@@ -83,16 +83,17 @@ void WriteImageWithKeyPoint(const std::string &path,
   for (auto& image : catch_iamges) {
     for (auto& image2 : image.second) {
       const std::string file_name =
-          path + std::to_string(common::ToUniversal(first_data.time) * 100) +
+          path + std::to_string(common::ToUniversal(first_data.time) * 100) + 
+          " "+std::to_string(common::ToUniversal(sencod_data.time) * 100) +
           "_" + std::to_string(image.first) + "_" +
           std::to_string(image2.first) + ".png";
-
-      // cv::putText(image2.second.first,
-      //             std::to_string(common::ToUniversal(first_data.time) * 100) +
-      //                 "_" + std::to_string(image.first) + "_" +
-      //                 std::to_string(image2.first),
-      //             cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1,
-      //             cv::Scalar(0, 0, 255), 2, 3);
+      cv::putText(image2.second.first,
+                  std::to_string(common::ToUniversal(first_data.time) * 100) +
+                  " "+std::to_string(common::ToUniversal(sencod_data.time) * 100) +
+                      "_" + std::to_string(image.first) + "_" +
+                      std::to_string(image2.first),
+                  cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1,
+                  cv::Scalar(0, 0, 255), 2, 3);
       // cv::imshow("match", image2.second.first);
 
       // cv::waitKey(0);

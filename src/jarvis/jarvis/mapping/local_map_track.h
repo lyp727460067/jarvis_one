@@ -45,6 +45,10 @@ class LocalMapTrack {
   void AddTracingData(const KeyFrameData& key_frame_data,
                       const FrontMapPointData& map_points_data);
   //
+  //for debug
+  std::vector<Eigen::Vector3d> GetMapPoints()const;
+  std::vector<transform::Rigid3d> GetKfPose()const ;
+
  private:
   struct Candidate {
     KeyFrameId frame_id;
@@ -101,6 +105,14 @@ void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
       const std::map<int, std::vector<MatchData>>& constraints,
       const std::array<float, 2>& weight);
   //
+
+    transform::Rigid3d PnpSolver(
+      const transform::Rigid3d& init_pose,
+      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+      const std::map<int, std::vector<MatchData>>& constraints,
+      const std::array<float, 2>& weight);
+
+
   // std::shared_ptr<match::svo::OccupandyGrid2D> grid_;
   std::map<int,std::shared_ptr<match::svo::OccupandyGrid2D> > grids_;
   std::unique_ptr<match::DirectMatch> direct_match_;
@@ -111,6 +123,8 @@ void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
   std::vector<transform::Rigid3d> extric_camera_to_imu_;
   std::map<int, camera_models::CameraPtr> cameras_;
   std::vector<Eigen::Vector3d> px_top_lefts_;
+  //for debug
+   mutable std::mutex mutex_;
 };
 
 }  // namespace mapping

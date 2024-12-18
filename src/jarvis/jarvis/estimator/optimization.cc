@@ -336,10 +336,10 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   }
   {
     if (prior_pose_.has_value()) {
-      const transform::Rigid3d &pose = prior_pose_.value();
+      const transform::Rigid3d pose = prior_pose_.value();
       InitialPoseFactor *f =
           new InitialPoseFactor(pose.translation(), pose.rotation());
-      problem.AddResidualBlock(f, loss_function, para_Pose[0]);
+      problem.AddResidualBlock(f, nullptr, para_Pose[0]);
       prior_pose_.reset();
     }
   }
