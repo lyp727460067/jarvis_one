@@ -5,38 +5,38 @@ enable_local_opimization: 0
 
 
 local_map_track_option:
- test_match_pic_write_path : "" #""/home/lyp/project/vslam/jarvis/test/image/"
+ test_match_pic_write_path :  "" # "/home/lyp/project/vslam/jarvis/test/image/"
  min_track_frame_num : 5
- remove_unconstrained_points : true
- min_convi_num : 2
+ remove_unconstrained_points : 1
+ min_convi_num : 6
  max_n_features_per_frame : 420
- op_weight : 100
- op_init_t_weight : 500
- op_init_r_weight : 4
- min_match_size : 7
+ op_weight : 1
+ op_init_t_weight : 20
+ op_init_r_weight : 15
+ min_match_size : 15
  one_frame_pick_candidates_min_num : 5
  one_frame_match_candidates_min_num : 2
  one_kf_match_candidates_min_num : 5
  sequence_match : "{0,1,2}"
- match_senquence0_alone: true
- huber_loss : 0.01
+ match_senquence0_alone: 1
+ huber_loss : 0.1
  kf_max_distance : 5
  cell_sizes : "{0, 100}, {1, 20}, {2, 20}"
- out_time : 20
+ out_time : 5
  derect_match_option:
   use_affine_warp : 1
-  affine_est_offset: 1
+  affine_est_offset: 1 
   affine_est_gain : 1
-  align_max_iter: 10
+  align_max_iter: 10 
   no_simd: 0
   max_patch_diff_ratio: 0.9
   subpix_refinement: 1
   align_1d : 0
   scan_on_unit_sphere: 0
   max_epi_search_steps : 1
-  min_update_squared : 0.010   #0.03*0.03
+  min_update_squared : 0.009   #0.03*0.03
  map_option:
-  kf_num : 400
+  kf_num : 50
 
 
 # constant_local_process_num: 10

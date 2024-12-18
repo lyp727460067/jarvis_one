@@ -95,6 +95,15 @@ TrajectorBuilder::GetKeyFrameGlobalPose() {
   return map_builder_->GetAllKeyFramePose();
 }
 //
+std::vector<Eigen::Vector3d> TrajectorBuilder::GetLocalMapPoints() {
+  if (map_builder_->GetLocalMapTrack() == nullptr) return {};
+  return map_builder_->GetLocalMapTrack()->GetMapPoints();
+}
+//
+std::vector<transform::Rigid3d> TrajectorBuilder::GetLocalKeyFramePose() {
+  if (map_builder_->GetLocalMapTrack() == nullptr) return {};
+  return map_builder_->GetLocalMapTrack()->GetKfPose();
+}
 
 //
 transform::Rigid3d TrajectorBuilder::GetLocalToGlobalTransform() {

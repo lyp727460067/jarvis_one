@@ -13,7 +13,15 @@ void LocalMapTrackMap::AddKeyFrameData(
   if (key_frames_datas_.size() > options_.kf_num) {
     auto it = key_frames_datas_.begin();
     key_frames_datas_.Trim(it->id);
-    covisibility_->TrimKeyFrame(it->id);
+    auto rm_map_points = covisibility_->TrimKeyFrame(it->id);
+    for (auto mp : rm_map_points) {
+      CHECK(map_points_.Contains(mp))<<mp;
+      if (std::prev(map_points_.EndOfTrajectory(mp.trajectory_id))->id == mp) {
+        continue;
+      }
+      map_points_.Trim(mp);
+      covisibility_->TrimMapPoint(mp);
+    }
   }
 }
 //
@@ -29,8 +37,12 @@ void LocalMapTrackMap::StructureMapPoints(
       const FeatureId feat_id = std::get<2>(map_point.second);
       key_point_map_point_index.emplace(mp_id, feat_id);
       if (!map_points_.Contains(mp_id)) {
+
         map_points_.Insert(mp_id, MapPointData{std::make_unique<MapPoint>(
                                       id, std::get<0>(map_point.second))});
+      } else {
+        map_points_.at(mp_id).data->UpdatePos(id,
+                                              std::get<0>(map_point.second));
       }
     }
   }

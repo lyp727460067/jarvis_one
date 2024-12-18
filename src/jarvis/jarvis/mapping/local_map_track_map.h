@@ -30,7 +30,7 @@ class LocalMapTrackMap {
   const MapById<KeyFrameId, KeyFrameData>& AllKeyFrameDatas() {
     return key_frames_datas_;
   }
-
+  
  private:
   void StructureMapPoints(const KeyFrameId& id,
                           const FrontMapPointData& front_map_points);

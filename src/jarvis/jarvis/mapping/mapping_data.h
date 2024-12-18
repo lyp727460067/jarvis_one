@@ -54,6 +54,10 @@ struct MapPoint {
       *descriptor_ = des;
     }
   }
+  void UpdatePos(const KeyFrameId &ref_frame_id, const Eigen::Vector3d &p) {
+    local_pos_ = p;
+    reference_frame_id_ = ref_frame_id;
+  }
   //
   bool Fix() { return fix_; }
   void ComputeMapPointDistinctiveDescriptors(

@@ -721,15 +721,27 @@ std::thread pub_map_points([&]() {
     TrackingData tracking_data;
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     //
-    ros_compont->PubMapPoints(builder_->GetMapPoints());
-
-    auto global_pose = builder_->GetKeyFrameGlobalPose();
-    std::map<std::string, std::vector<Eigen::Vector3d>> pub_poses;
-    for (const auto& pose : global_pose) {
-      pub_poses["trajctor_" + std::to_string(pose.first.trajectory_id)]
-          .push_back(pose.second.transform.translation());
+    {
+      ros_compont->PubMapPoints(builder_->GetMapPoints());
+      auto global_pose = builder_->GetKeyFrameGlobalPose();
+      std::map<std::string, std::vector<Eigen::Vector3d>> pub_poses;
+      for (const auto& pose : global_pose) {
+        pub_poses["trajctor_" + std::to_string(pose.first.trajectory_id)]
+            .push_back(pose.second.transform.translation());
+      }
+      ros_compont->PubTrajectorPoseWithMark(pub_poses);
     }
-    ros_compont->PubTrajectorPoseWithMark(pub_poses);
+    {
+      ros_compont->PubLocalMapPoints(builder_->GetLocalMapPoints());
+      auto local_track_pose = builder_->GetLocalKeyFramePose();
+
+      std::map<std::string, std::vector<Eigen::Vector3d>> pub_poses;
+      for (const auto& pose : local_track_pose) {
+        pub_poses["trajctor_0"].push_back(pose.translation());
+      }
+      ros_compont->PubLocalTrajectorPoseWithMark(pub_poses);
+    }
+
     // ros_compont->PushMark(
     //     {{"vo", slip_detect->ToPoseInOdom(
     //                   tracking_data.data->imu_state.data->pose)}},true);

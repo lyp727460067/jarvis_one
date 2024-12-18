@@ -212,7 +212,8 @@ RosCompont::RosCompont(rclcpp::Node *nh)
   map_point_cloud_pub_ =
       nh_->create_publisher<sensor_msgs::msg::PointCloud2>("map_points", 10);
   //
-
+  local_map_point_cloud_pub_ =
+      nh_->create_publisher<sensor_msgs::msg::PointCloud2>("local_map_points", 10);
   // pub_mark_points_ =
   //     nh->advertise<sensor_msgs::PointCloud2>("plan_mark_points", 10);
 
@@ -241,6 +242,9 @@ RosCompont::RosCompont(rclcpp::Node *nh)
       "object_mark", 10);
   pose_trajector_mark_publisher_ =
       nh->create_publisher<visualization_msgs::msg::MarkerArray>("t_poses", 10);
+
+   pose_local_trajector_mark_publisher_ =
+      nh->create_publisher<visualization_msgs::msg::MarkerArray>("local_poses", 10);     
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_local_tracking_result =
@@ -558,7 +562,21 @@ void RosCompont::PubMapPoints(const std::vector<Eigen::Vector3d> &points) {
   sensor_msgs::convertPointCloudToPointCloud2(point_cloud, point_cloud2);
   map_point_cloud_pub_->publish(point_cloud2);
 }
-
+void RosCompont::PubLocalMapPoints(const std::vector<Eigen::Vector3d> &points) {
+  sensor_msgs::msg::PointCloud point_cloud;
+  sensor_msgs::msg::PointCloud2 point_cloud2;
+  for (auto point : points) {
+    geometry_msgs::msg::Point32 geo_point;
+    geo_point.x = point.x();
+    geo_point.y = point.y();
+    geo_point.z = point.z();
+    point_cloud.points.push_back(geo_point);
+  }
+  point_cloud.header.frame_id = "map";
+  point_cloud.header.stamp = rclcpp::Time();
+  sensor_msgs::convertPointCloudToPointCloud2(point_cloud, point_cloud2);
+  local_map_point_cloud_pub_->publish(point_cloud2);
+}
 
 void RosCompont::PubPoseWithMark(
     const std::map<std::string, std::vector<Eigen::Vector3d>> &poses) {
@@ -617,9 +635,9 @@ void RosCompont::PubTrajectorPoseWithMark(
 
     // mark.type = visualization_msgs::Marker::ARROW;
     // mark.lifetime = rclcpp::Duration(0);
-    mark.scale.x = 0.05;
-    mark.scale.y = 0.05;
-    mark.scale.z = 0.05;
+    mark.scale.x = 0.1;
+    mark.scale.y = 0.1;
+    mark.scale.z = 0.1;
     std::uniform_real_distribution<float> ran(0, 1);
     mark.color.r = 1;       // ran(e);//1.0;
     mark.color.a = 1;       // ran(e);
@@ -638,6 +656,46 @@ void RosCompont::PubTrajectorPoseWithMark(
     marks.markers.push_back(mark);
   }
   pose_trajector_mark_publisher_->publish(marks);
+}
+
+void RosCompont::PubLocalTrajectorPoseWithMark(
+    const std::map<std::string, std::vector<Eigen::Vector3d>> &poses) {
+  //
+  visualization_msgs::msg::MarkerArray marks;
+  std::default_random_engine e;
+  int mark_id = 0;
+  for (const auto &pose_with_name : poses) {
+    visualization_msgs::msg::Marker mark;
+    mark.header.frame_id = "map";
+    mark.ns = pose_with_name.first.c_str();
+    mark.header.stamp = rclcpp::Time();
+    mark.id = mark_id++;
+    mark.action = visualization_msgs::msg::Marker::ADD;
+    mark.type = visualization_msgs::msg::Marker::POINTS;
+
+    // mark.type = visualization_msgs::Marker::ARROW;
+    // mark.lifetime = rclcpp::Duration(0);
+    mark.scale.x = 0.1;
+    mark.scale.y = 0.1;
+    mark.scale.z = 0.1;
+    std::uniform_real_distribution<float> ran(0, 1);
+    mark.color.r = 1;       // ran(e);//1.0;
+    mark.color.a = 1;       // ran(e);
+    mark.color.g = ran(e);  //(mark_id / sizeofils);
+    mark.color.b = ran(e);  //(sizeofils- mark_id) / sizeofils;
+    // LOG(INFO)<<mark.color.g<<mark.color.b;
+    int cnt = 0;
+    //
+    for (const auto &pose : pose_with_name.second) {
+      geometry_msgs::msg::Point point;
+      point.x = pose.x();
+      point.y = pose.y();
+      point.z = pose.z();
+      mark.points.push_back(point);
+    }
+    marks.markers.push_back(mark);
+  }
+  pose_local_trajector_mark_publisher_->publish(marks);
 }
 
 //

@@ -23,6 +23,7 @@ struct LocalMapOptimizationOption {
   bool optimize_intric = false;
   bool use_rtk = false;
   bool only_pose_graph = false;
+  int kf_num =100;
 };
 
 //
@@ -47,7 +48,10 @@ class LocalMapOptimization {
   void AddFixData(const sensor::FixedFramePoseData& fix_data);
   void AddImuData(sensor::ImuData& imu_data);
   //
-  void Optimize(LocalMapOptimizationData* data);
+  std::queue<sensor::ImuData> imu_datas_;
+  std::queue<sensor::FixedFramePoseData> fix_datas_;
+  void Optimize(LocalMapOptimizationData* data){}
+
 
 };
 

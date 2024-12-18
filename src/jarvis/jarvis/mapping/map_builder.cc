@@ -304,6 +304,12 @@ MappingBuilder::MappingDataFuse::GetKeyLevelConnectedKeyFrames(
   return result;
 }
 
+  MappingBuilder::~MappingBuilder(){
+    kill_thread_ = true;
+    if (thread_.joinable()) {
+      thread_.join();
+    }
+  }
   
 }  // namespace mapping
 }  // namespace jarvis

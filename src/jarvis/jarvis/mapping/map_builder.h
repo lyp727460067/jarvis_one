@@ -55,6 +55,7 @@ struct WorkItem {
 class MappingBuilder {
  public:
   MappingBuilder(const MapBuilderOption& option);
+  ~MappingBuilder();
   void AddTrackingData(const int t, const TrackingData& track_data);
   //
   void AddFixData(const sensor::FixedFramePoseData& fix_data);
@@ -74,6 +75,8 @@ class MappingBuilder {
     return {};
   }
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
+  //
+  LocalMapTrack const* GetLocalMapTrack() { return local_map_track_.get(); }
 
  private:
   //

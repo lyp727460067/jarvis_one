@@ -161,6 +161,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
             << ",fisrt imu pose:" << imu_states_.begin()->Pose();
         optimization_->SetPrior(*prior_pose);
         has_prio_pose =  true;
+        // CHECK(false);
       }
     }
   }
@@ -431,6 +432,7 @@ void SlideWindow::StateToFrameData() {
                                .transpose();
   }
   if (has_prio_pose) {
+    LOG(INFO)<<y_diff ;
     rot_diff = Eigen::Matrix3d::Identity();
     origin_P0 =
         Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);

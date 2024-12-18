@@ -2,13 +2,13 @@
 #define _ROS_COMPONET_H
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-#include <visualization_msgs/msg/marker.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <nav_msgs/msg/path.hpp>
 #include <sensor_msgs/msg/point_cloud.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud_conversion.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "jarvis/transform/transform.h"
 #include "opencv2/opencv.hpp"
@@ -16,16 +16,16 @@
 #include "sensor_msgs/msg/compressed_image.hpp"
 #include "sensor_msgs/msg/image.hpp"
 //
-#include "std_msgs/msg/bool.hpp"
 #include "jarvis/key_frame_data.h"
 #include "jarvis/object/object_interface.h"
+#include "std_msgs/msg/bool.hpp"
 //
 namespace jarvis_ros {
 class RosCompont {
  public:
   RosCompont(rclcpp::Node *nh_);
 
-  void CommpressedImagePub(int pub,const cv::Mat&image);
+  void CommpressedImagePub(int pub, const cv::Mat &image);
   //
   void OnMapPointsCallback(const std::vector<Eigen::Vector3d> &points,
                            const jarvis::transform::Rigid3d &local_to_globle);
@@ -34,6 +34,7 @@ class RosCompont {
                const jarvis::transform::Rigid3d &local_to_globle);
 
   void PubMapPoints(const std::vector<Eigen::Vector3d> &points);
+  void PubLocalMapPoints(const std::vector<Eigen::Vector3d> &points);
   //
   void PubPointPlan(const std::vector<Eigen::Vector3f> &points,
                     const Eigen::Vector4f &vector,
@@ -41,7 +42,8 @@ class RosCompont {
 
   );
   //
-  void PushMark(const std::map<std::string, jarvis::transform::Rigid3d> &makes,bool emd=false);
+  void PushMark(const std::map<std::string, jarvis::transform::Rigid3d> &makes,
+                bool emd = false);
   void MarkPub(
       std::map<int, std::vector<jarvis::object::ObjectImageResult>> &t);
   void OnLocalTrackingResultCallback(
@@ -50,18 +52,24 @@ class RosCompont {
       const jarvis::transform::Rigid3d &local_to_globle);
   //
   void PubBoolMsg(bool msg);
- void PubTrajectorPoseWithMark(
-                     const std::map<std::string, std::vector<Eigen::Vector3d>>& poses);
-  
+  void PubTrajectorPoseWithMark(
+      const std::map<std::string, std::vector<Eigen::Vector3d>> &poses);
+  void PubLocalTrajectorPoseWithMark(
+      const std::map<std::string, std::vector<Eigen::Vector3d>> &poses);
+
  private:
- void PubPoseWithMark(
-                     const std::map<std::string, std::vector<Eigen::Vector3d>>& poses);
+  void PubPoseWithMark(
+      const std::map<std::string, std::vector<Eigen::Vector3d>> &poses);
   rclcpp::Node *nh_;
   // std::vector<std::shared_ptr<rclcpp::PublisherBase>> publishers_;
   std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>>
       point_cloud_pub_;
   std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>>
       map_point_cloud_pub_;
+
+  std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>>
+      local_map_point_cloud_pub_;
+
   // ros::Publisher point_cloud_pub_;
   // ros::Publisher map_point_cloud_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path_;
@@ -69,23 +77,23 @@ class RosCompont {
   // ros::Publisher pub_mark_points_arrow_;
   // ros::Publisher compressed_image_pub_;
   // rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr
-      // compressed_image_pub_;
+  // compressed_image_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub0_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub1_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub2_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       pose_mark_publisher_;
-   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
-      pose_trajector_mark_publisher_;     
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
-      markpub_;
+      pose_trajector_mark_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      pose_local_trajector_mark_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markpub_;
 
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr
-      bool_publisher_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr bool_publisher_;
   // ros::Publisher markpub_;
   // ros::Publisher pub_local_tracking_result_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  std::map<std::string,std::vector<Eigen::Vector3d>> poses_;
+  std::map<std::string, std::vector<Eigen::Vector3d>> poses_;
   nav_msgs::msg::Path path_;
 };
 

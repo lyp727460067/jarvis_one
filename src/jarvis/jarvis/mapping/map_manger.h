@@ -58,7 +58,7 @@ struct MapManagerOption {
   int area_search_grid_lenth =10;
   float con_struct_map_point_frame_min_distance =0.1;
   std::vector<cv::Mat> masks;
-  std::string test_match_pic_write_path = "";
+  std::string test_match_pic_write_path= "";//= "/home/lyp/project/vslam/jarvis/test/image/";
 };
 //
 class MapManager {
