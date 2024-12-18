@@ -34,7 +34,7 @@ struct GridMapOption {
   double max_distance = 2;         // 超过3米距离的点直接不插
   float hit_probability = 0.55;    // hit 每次概率插入多大
   float miss_probability = 0.45;
-  bool min_probability = 70;  //
+  uint8_t min_probability = 70;  //
   //在使用insert_free_space=true的时候 max_angle  min_angle 决定
   //投影在平面视角的大小，多少度的分辨率angle_size
   float max_angle = 50;

@@ -16,10 +16,10 @@ sensor::PointCloud ToLaserData(const GridMapOption& option,
   //
   const int index_size =
       static_cast<int>((max_angle - min_angle + 0.5) / ang_size);
-
   std::vector<int> his_index(index_size, -1);
   std::vector<double> xy_normal(index_size, 100);
   for (size_t i = 0; i < point_cloud.size(); i++) {
+    
     const auto& p = point_cloud[i];
     float angle =
         common::RadToDeg(common::atan2(Eigen::Vector2f{p.x(), p.y()}));
@@ -63,10 +63,13 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
     sensor::PointCloud miss;
     sensor::PointCloud hit;
     for (const auto& p : point_clouds) {
-      if (p.position.head<2>().norm() > option.max_distance) {
-        miss.push_back(pose * p);
+      CHECK(!isnan(p.position.norm()));
+      // CHECK(p.position.norm() < 1e4) << p.position.norm() << " point valid!!!!";
+      Eigen::Vector3f pos(p.position.x(), p.position.y(), 0);
+      if (pos.norm() > option.max_distance) {
+        miss.push_back({pose * pos});
       } else {
-        hit.push_back(pose * p);
+        hit.push_back({pose * pos});
       }
     }
     return sensor::RangeData{origin, hit, miss};
@@ -74,12 +77,15 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
   sensor::PointCloud result;
 
   for (auto const& p : point_cloud) {
-    if (p.head<2>().norm() < option.max_distance) {
-      result.push_back({pose * p});
+    CHECK(!isnan(p.norm())) << "nan";
+    // CHECK(p.norm() < 1e4) << p.norm()<< " point valid!!!!";
+    Eigen::Vector3f pos = p;
+    pos.z() = 0.0;
+    if (pos.norm() < option.max_distance) {
+      result.push_back({pose * pos});
     }
   }
   //
-  //   LOG(INFO)<<result.size();
   if (result.size() > 200) {
     return sensor::RangeData{
         origin, sensor::VoxelFilter(result, option.point_votex), {}};
@@ -96,22 +102,22 @@ void GridImpl::Insert(const AiObject& objects) {
   last_pose_ = transform::Project2D(pose);
   for (auto& submap : active_submaps_) {
     jarvis::estimator::TicToc feature_t_t;
-    CHECK(active_submaps_.count(submap.first))
-        << "Need construct register type";
-    //
+    // CHECK(active_submaps_.count(submap.first))
+    //     << "Need construct register type";
+    // //
     if (objects.points_clouds.count(submap.first)) {
+      LOG(INFO) << "[" <<int(submap.first) << "]" << "insert point size :"
+                << objects.points_clouds.at(submap.first).size();
+
       active_submaps_.at(submap.first)
           ->InsertRangeData(
               ToRangeSensor(options_[submap.first], pose,
                             objects.points_clouds.at(submap.first)));
-      LOG(INFO) << "insert point size :"
-                << objects.points_clouds.at(submap.first).size()
-                << " cost:" << feature_t_t.toc() << "ms";
+      LOG(INFO) << "Inser Cost " << feature_t_t.toc();
     } else {
       active_submaps_.at(submap.first)
           ->InsertRangeData(ToRangeSensor(options_[submap.first], pose, {}));
     }
-
   }
 }
 //
