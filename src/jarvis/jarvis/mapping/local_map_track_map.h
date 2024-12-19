@@ -8,9 +8,7 @@
 #include "jarvis/mapping/match/occupancy_grid_2d.h"
 namespace jarvis {
 namespace mapping {
-using FrontMapPointData = std::map<
-    int, std::map<uint64_t,
-                  std::tuple<Eigen::Vector3d, mapping::Descriptor, FeatureId>>>;
+
 struct LocalMapTrackMapOption {
   int kf_num = 400;
 };
@@ -35,11 +33,12 @@ class LocalMapTrackMap {
   void StructureMapPoints(const KeyFrameId& id,
                           const FrontMapPointData& front_map_points);
   //
+
+  LocalMapTrackMapOption options_;
+  std::unique_ptr<mapping::Covisibility> covisibility_;
   int trajector_default = 0;
   MapById<KeyFrameId, KeyFrameData> key_frames_datas_;
-  std::unique_ptr<mapping::Covisibility> covisibility_;
   MapById<MapPointId, MapPointData> map_points_;
-  LocalMapTrackMapOption options_;
 };
 
 }  // namespace mapping

@@ -54,7 +54,7 @@ std::vector<BrifBitset> ComputeBriefDescriptror::Compute(
   for (const auto &point : key_points) {
     const Eigen::Vector2f cos_sine{cos(point.angle), sin(point.angle)};
     BrifBitset des;
-    for (int i = 0; i < pattern_.size(); i++) {
+    for (size_t i = 0; i < pattern_.size(); i++) {
       //
       const auto p1 =
           RotationPoint(point.pt, pattern_[i].p1, cos_sine, options_.rotated);

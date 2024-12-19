@@ -35,12 +35,13 @@ struct LocalMapTrackOption {
   std::map<int,int> cell_sizes{{0, 100}, {1, 20}, {2, 20}};
   double out_time=20;
   std::string test_match_pic_write_path = "";
-
+  int max_num_iterations =3;
+  int op_type  =0;//o  four
 };
 
 class LocalMapTrack {
  public:
-  LocalMapTrack(const LocalMapTrackOption& option);
+  explicit LocalMapTrack(const LocalMapTrackOption& option);
   std::unique_ptr<transform::Rigid3d> Track(const KeyFrameData& track_data);
   void AddTracingData(const KeyFrameData& key_frame_data,
                       const FrontMapPointData& map_points_data);
@@ -48,8 +49,6 @@ class LocalMapTrack {
   //for debug
   std::vector<Eigen::Vector3d> GetMapPoints()const;
   std::vector<transform::Rigid3d> GetKfPose()const ;
-
- private:
   struct Candidate {
     KeyFrameId frame_id;
     FeatureId feature_id;
@@ -65,6 +64,21 @@ class LocalMapTrack {
     Eigen::Vector3d map_point;
     std::optional<Candidate> candidate;  // for check
   };
+
+    transform::Rigid3d Optimize(
+      const transform::Rigid3d& init_pose,
+      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+      const std::map<int, std::vector<MatchData>>& constraints,
+      const std::array<float, 2>& weight);
+
+
+    transform::Rigid3d FourOptimize(
+      const transform::Rigid3d& init_pose,
+      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+      const std::map<int, std::vector<MatchData>>& constraints,
+      const std::array<float, 2>& weight);
+ private:
+
 
   void WriteCheckMatchResult(const KeyFrameData& key_frame_data,
       const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs);
@@ -99,11 +113,7 @@ void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
                       estimator::FeatureData& feature);
   //
   //
-  transform::Rigid3d Optimize(
-      const transform::Rigid3d& init_pose,
-      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
-      const std::map<int, std::vector<MatchData>>& constraints,
-      const std::array<float, 2>& weight);
+
   //
 
     transform::Rigid3d PnpSolver(

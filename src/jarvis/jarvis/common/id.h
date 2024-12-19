@@ -392,7 +392,7 @@ class MapById {
     auto right = std::prev(trajectory.end());
     while (left != right) {
       // This is never 'right' which is important to guarantee progress.
-      const int middle = left->first + (right->first - left->first) / 2;
+      const uint64_t middle = left->first + (right->first - left->first) / 2;
       // This could be 'right' in the presence of gaps, so we need to use the
       // previous element in this case.
       auto lower_bound_middle = trajectory.lower_bound(middle);

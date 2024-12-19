@@ -143,7 +143,7 @@ std::unique_ptr<proto::VocabularyData> GetVocabulary(
       std::make_unique<proto::VocabularyData>(proto.vocabulary_datas()[type]);
 
   LOG(INFO) << info.str() << "\n";
-  return std::move(result);
+  return result;
 }
 
 const Descriptor& Vocabulary::VocabularyDes(const uint64_t& id) {

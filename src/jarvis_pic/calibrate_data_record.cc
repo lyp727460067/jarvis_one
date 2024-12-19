@@ -136,8 +136,9 @@ int main(int argc, char* argv[]) {
         tracking_data_temp.data->features_datas[i].features.data =
             std::make_shared<
                 jarvis::estimator::ImageFeatureTrackerData::Data>();
-        tracking_data_temp.data->features_datas[i]
-            .features.data->images.push_back(frame.images[i]);
+        
+        // tracking_data_temp.data->features_datas[i]
+        //     .features.data->images.push_back(frame.images[i]);
       }
       zmq.PubLocalData(tracking_data_temp, 0);
     }

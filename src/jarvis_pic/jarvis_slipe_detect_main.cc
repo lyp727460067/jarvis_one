@@ -399,6 +399,10 @@ int main(int argc, char* argv[]) {
   //
   const std::string config_file("/oem/mowpack/vslam_param/vslam.yaml");
   //
+
+    std::array<std::vector<int>, 3> ParaExPoseIndex{
+        std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};  
+
   //
   //
   ParseOption(config_file);

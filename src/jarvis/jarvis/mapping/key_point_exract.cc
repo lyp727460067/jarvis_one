@@ -106,9 +106,9 @@ std::vector<cv::KeyPoint> KeyPointExtract::StrategyExtract(
 
 //
 DescriptorExtract::DescriptorExtract(const DescriptorExtractOption& option)
-    : umax_(Umax()),
+    :options_(option),
       brief_(std::make_unique<des::ComputeBriefDescriptror>(
-          des::ComputeBriefDescriptrorOption{})) {}
+          option.des_option)),umax_(Umax()) {}
 //
 std::vector<BrifBitset> DescriptorExtract::Extract(
     const cv::Mat& img, const std::vector<cv::KeyPoint>& key_points) {

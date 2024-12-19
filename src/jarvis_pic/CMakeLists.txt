@@ -24,7 +24,7 @@ set(OpenCV_LIBS
 # 手动指定 OpenCL 的位置
 set(OPENCL_INCLUDE_DIRS ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/include)
 # set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/third_party/opencl/lib/libOpenCL.so)
-
+set(PROTOBUF_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/protobuf/)
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
@@ -62,16 +62,17 @@ INCLUDE_DIRECTORIES(
   ${TOP_CMAKE_DIR}/libs/libmpc/include/
   ${TOP_CMAKE_DIR}/libs/libimageproc/include/
   ${TOP_CMAKE_DIR}/libs/mpsdk/
+  ${PROTOBUF_INCLUDE_DIRS}/
 )
 
 option(view_debug " view_debug" ON)
 if(${view_debug})
 add_definitions(-D__ZMQ_ENABLAE__)
 endif()
-add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc
-  gpu_pyramid_compute.cc
-  opencl_handler.cpp
-)
+# add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc
+#   gpu_pyramid_compute.cc
+#   opencl_handler.cpp
+# )
 add_executable(mpslam  jarvis_slipe_detect_main.cc  
  data_capture.cc zmq_component.cc dev_socket.cc 
  data_record.cc
@@ -125,15 +126,15 @@ target_link_libraries(mpslam PUBLIC
 )
 
 
-target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
-  # glog
-  jarvis
-  ${OpenCV_LIBS}
-  -ldl
-   mpc
-  ${OPENCL_LIBRARIES}
+# target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
+#   # glog
+#   jarvis
+#   ${OpenCV_LIBS}
+#   -ldl
+#    mpc
+#   ${OPENCL_LIBRARIES}
 
-)
+# )
 
 target_include_directories(mpslam  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(mpslam PUBLIC

@@ -566,7 +566,7 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
   return result;
 }
 SimpleVo::SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back)
-    : TrajectorBuilder({}, nullptr) {
+    {
   jarvis::estimator::FeatureTrackerOption feat_option;
   ParseYAMLOption(option.config_file, &feat_option);
   feature_tracker_ =
@@ -588,23 +588,24 @@ void SimpleVo::AddImageData(const jarvis::sensor::ImageData& images) {
 SimpleVo::~SimpleVo() {}
 std::unique_ptr<jarvis::TrajectorBuilder> FactorSimipleVo(
     const std::string& file, jarvis::CallBack call_back) {
-  cv::FileStorage fsSettings(file, cv::FileStorage::READ);
-  int type;
-  std::string vio_yam;
-  fsSettings["type"] >> type;
-  fsSettings["vio_yam"] >> vio_yam;
+  return nullptr;
+  // cv::FileStorage fsSettings(file, cv::FileStorage::READ);
+  // int type;
+  // std::string vio_yam;
+  // fsSettings["type"] >> type;
+  // fsSettings["vio_yam"] >> vio_yam;
 
-  if (type == 2) {
-    int pn = file.find_last_of('/');
-    std::string config_path = file.substr(0, pn);
-    auto const vio_yaml_file = config_path + "/" + vio_yam;
-    LOG(INFO) << vio_yaml_file;
-    // return std::make_unique<TrajectorBuilder>(vio_yaml_file,
-    //                                           std::move(call_back));
-  }
-  SimpleVoOption simple_vo_option{file};
-  ParseYAMLOption(file, &simple_vo_option);
-  return std::make_unique<SimpleVo>(simple_vo_option, std::move(call_back));
+  // if (type == 2) {
+  //   int pn = file.find_last_of('/');
+  //   std::string config_path = file.substr(0, pn);
+  //   auto const vio_yaml_file = config_path + "/" + vio_yam;
+  //   LOG(INFO) << vio_yaml_file;
+  //   // return std::make_unique<TrajectorBuilder>(vio_yaml_file,
+  //   //                                           std::move(call_back));
+  // }
+  // SimpleVoOption simple_vo_option{file};
+  // ParseYAMLOption(file, &simple_vo_option);
+  // return std::make_unique<SimpleVo>(simple_vo_option, std::move(call_back));
 }
 }  // namespace slip_detect
 }  // namespace jarvis

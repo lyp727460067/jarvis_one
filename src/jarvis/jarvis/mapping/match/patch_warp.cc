@@ -98,7 +98,7 @@ int getBestSearchLevel(const AffineTransformation2& A_cur_ref,
   int search_level = 0;
   double D = A_cur_ref.determinant();
   // LOG(INFO)<<D;
-  while (D > 0.5 && search_level < max_level) {
+  while (D > 3 && search_level < max_level) {
     search_level += 1;
     D *= 0.25;
   }

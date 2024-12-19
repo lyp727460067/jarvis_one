@@ -347,7 +347,7 @@ std::vector<BriefPoint> GenerateBriiefPattern(const int type) {
   std::vector<BriefPoint> result;
   if (type == 0) {
     result.reserve(sizeof(kG1BriefPatternx1));
-    for (int i = 0; i < sizeof(kG1BriefPatternx1); i++) {
+    for (size_t i = 0; i < sizeof(kG1BriefPatternx1); i++) {
       BriefPoint point;
       point.p1.x() = kG1BriefPatternx1[i];
       point.p1.y() = kG1BriefPatterny1[i];
@@ -358,7 +358,7 @@ std::vector<BriefPoint> GenerateBriiefPattern(const int type) {
   } else if (type == 1) {
     const int lenth = (sizeof(kG2BriefPattern) >> 2);
     result.reserve(lenth);
-    for (int i = 0; i < sizeof(kG2BriefPattern);) {
+    for (size_t i = 0; i < sizeof(kG2BriefPattern);) {
       BriefPoint point;
       point.p1.x() = kG2BriefPattern[i];
       point.p1.y() = kG2BriefPattern[i + 1];

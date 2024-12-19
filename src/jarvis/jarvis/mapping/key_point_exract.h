@@ -38,7 +38,9 @@ class KeyPointExtract {
   KeyPointExtractOption options_;
 };
 //
-struct DescriptorExtractOption {};
+struct DescriptorExtractOption {
+  des::ComputeBriefDescriptrorOption des_option;
+};
 //
 class DescriptorExtract {
  public:

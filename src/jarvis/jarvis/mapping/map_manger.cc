@@ -29,7 +29,7 @@ Eigen::Vector3d TriangulatePoint(
   Eigen::MatrixXd H(poses.size() * 2, 4);
   // CHECK_EQ(poses.size(), 2) << "Function Just adoptor 2 size pose";
   // Eigen::MatrixXd H;
-  for (int i = 0; i < poses.size(); i++) {
+  for (size_t i = 0; i < poses.size(); i++) {
     Eigen::Matrix<double, 3, 4> pose_matrix;
     pose_matrix.block<3, 3>(0, 0) = poses[i].rotation().toRotationMatrix();
     pose_matrix.block<3, 1>(0, 3) = poses[i].translation();
@@ -104,7 +104,7 @@ KeyFrameData MapManager::ExtractKeyFrameData(
           FeatureData{cv::KeyPoint(feature.x(), feature.y(), 2), b/b.z()});
       //
     }
-    for (int j = 0; j < feat_datas.size(); j++) {
+    for (size_t j = 0; j < feat_datas.size(); j++) {
       FeatureId feat_id{senqu_features.first, j};
       result.data->features.Insert(feat_id, feat_datas[j]);
       //
@@ -211,7 +211,7 @@ void MapManager::GenerateForExtendKeyPoint(const KeyFrameId &id) {
     exist_key_points.insert(exist_key_points.end(), key_points.begin(),
                             key_points.end());
     Descriptors descriptors = des_extractor_->Extract(image, exist_key_points);
-    for (int i = 0; i < exist_key_points.size(); i++) {
+    for (size_t i = 0; i < exist_key_points.size(); i++) {
       const FeatureId feat_id(sequence_id, i);
       if (!key_frames_datas_.at(id).data->features.Contains(feat_id)) {
         Eigen::Vector2d a(exist_key_points[i].pt.x, exist_key_points[i].pt.y);
@@ -235,7 +235,7 @@ void MapManager::GenerateForExtendKeyPoint(const KeyFrameId &id) {
 
 void MapManager::UpadateExtendMapPointDes(const KeyFrameId &id) {
   auto map_point_id = covisibility_->GetKeyFrameMapPointId(id);
-  for (int i = 0; i < map_point_id.first.size(); i++) {
+  for (size_t i = 0; i < map_point_id.first.size(); i++) {
     auto &map_point_data = map_points_.at(map_point_id.first[i]);
     if (!map_point_data.data->HasDescriptor()) {
       map_point_data.data->SetDes(key_frames_datas_.at(id).data->descriptors.at(
@@ -532,7 +532,7 @@ void MapManager::ConStructExtendMapPoints(const KeyFrameId &id) {
   // //
   KeyFrameId min_key_frame_id(-1, 0);
   KeyFrameId senco_min_key_frame_id(-1, 0);
-  for (const auto id : connect_frames_temp) {
+  for (const auto& id : connect_frames_temp) {
     auto delta_pose = (key_frames_datas_.at(id.first).data->pose.inverse() *
                        current_id_data->pose)
                           .translation()
@@ -714,7 +714,7 @@ void MapManager::ComputeMapPointDistinctiveDescriptors(const MapPointId &id) {
     return;
   }
   std::vector<BrifBitset> descriptors;
-  int obs_size = obs.size();
+  int obs_size = int(obs.size());
   descriptors.reserve(obs_size);
   for (auto &ob : obs) {
     auto const &key_frame_data = key_frames_datas_.at(ob);
@@ -725,12 +725,12 @@ void MapManager::ComputeMapPointDistinctiveDescriptors(const MapPointId &id) {
   }
   // Compute distances between them
   //
-  obs_size  =  descriptors.size();
+  obs_size  = int(descriptors.size());
   if (obs_size < options_.compute_map_point_min_des_num) return;
   std::vector<std::vector<int>> distances(obs_size, std::vector<int>(obs_size));
-  for (size_t i = 0; i < obs_size; i++) {
+  for (int i = 0; i < obs_size; i++) {
     distances[i][i] = 0;
-    for (size_t j = i + 1; j < obs_size; j++) {
+    for (int j = i + 1; j < obs_size; j++) {
       int distij = HammingDis(descriptors[i], descriptors[j]);
       distances[i][j] = distij;
       distances[j][i] = distij;
@@ -739,7 +739,7 @@ void MapManager::ComputeMapPointDistinctiveDescriptors(const MapPointId &id) {
   // Take the descriptor with least median distance to the rest
   int best_median = INT_MAX;
   int best_idx = 0;
-  for (size_t i = 0; i < obs_size; i++) {
+  for (int i = 0; i < obs_size; i++) {
     auto median = distances[i].begin() + obs_size / 2;
     std::nth_element(distances[i].begin(), median, distances[i].end());
     if (*median < best_median) {

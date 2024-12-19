@@ -84,7 +84,7 @@ void WriteImageWithKeyPoint(const std::string &path,
     for (auto& image2 : image.second) {
       const std::string file_name =
           path + std::to_string(common::ToUniversal(first_data.time) * 100) + 
-          " "+std::to_string(common::ToUniversal(sencod_data.time) * 100) +
+          "_"+std::to_string(common::ToUniversal(sencod_data.time) * 100) +
           "_" + std::to_string(image.first) + "_" +
           std::to_string(image2.first) + ".png";
       cv::putText(image2.second.first,

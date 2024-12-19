@@ -126,6 +126,7 @@ add_library(dbow_test ${ALL_PROTO_LIBRARY_SRCS})
 target_link_libraries(dbow_test
   ${Boost_LIBRARIES}
   glog::glog
+  ${PROTOBUF_LIBRARIES}
   jarvis
 )
 

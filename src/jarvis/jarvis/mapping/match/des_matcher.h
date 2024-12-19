@@ -22,7 +22,7 @@ struct ProjectionOption {
   double project_best_des_dis = 80;
   //
   std::function<Eigen::Vector2d(const Eigen::Vector3d& point, int s)>
-      PorjectPoint;
+      PorjectPoint=nullptr;
 };
 
 //

@@ -82,7 +82,7 @@ class OccupandyGrid2D {
   inline void fillWithKeypoints(const std::vector<Keypoint>& keypoints) {
     // TODO(cfo): could be implemented using block operations.
 
-    for (int i = 0; i < keypoints.size(); i++) {
+    for (size_t i = 0; i < keypoints.size(); i++) {
       const int int_x = static_cast<int>(keypoints[i].x());
       const int int_y = static_cast<int>(keypoints[i].y());
       const size_t idx = getCellIndex(int_x, int_y, 1);

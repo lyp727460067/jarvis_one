@@ -15,8 +15,6 @@
 #include "jarvis/common/time.h"
 #include "jarvis/sensor/data_process.h"
 #include "jarvis/sensor/stereo_sync.h"
-#include "jarvis/trajectory_builder.h"
-#include "jarvis_brige.h"
 #include "mutex"
 #include "ostream"
 #include "slip_detection/slip_detect.h"

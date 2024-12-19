@@ -31,11 +31,44 @@ inline T NormalizeAngle(const T& angle_radians) {
 //   R[8] = cos(p) * cos(r);
 // };
 
-
-
 struct ReProjectionErr {
  public:
   ReProjectionErr(const Eigen::Vector2d& nor_poit,
+                  const Eigen::Vector3d& map_point, const double& factor)
+      : nor_point_(nor_poit), map_point_(map_point), factor_(factor) {}
+
+  template <typename T>
+  bool operator()(const T* t1_, const T* q1_, const T* te_, const T* qe_,
+                  T* residul) const {
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> t1(t1_);
+    Eigen::Map<const Eigen::Quaternion<T>> q1(q1_);
+
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> te(te_);
+    Eigen::Map<const Eigen::Quaternion<T>> qe(qe_);
+    Eigen::Matrix<T, 3, 1> project_p =
+        qe * q1 * map_point_.template cast<T>() + qe * t1 + te;
+    T x_normal = project_p[0] / project_p[2];
+    T y_normal = project_p[1] / project_p[2];
+    residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));
+    residul[1] = T(factor_) * (y_normal - T(nor_point_.y()));
+    return true;
+  }
+  static ceres::CostFunction* Creat(const Eigen::Vector2d& nor_poit,
+                                    const Eigen::Vector3d& map_point,
+                                    double factor) {
+    return new ceres::AutoDiffCostFunction<ReProjectionErr, 2, 3, 4, 3, 4>(
+        new ReProjectionErr(nor_poit.head<2>(), map_point, factor));
+  }
+
+ private:
+  const Eigen::Vector2d nor_point_;
+  const Eigen::Vector3d map_point_;
+  const double factor_;
+};
+
+struct FourReProjectionErr {
+ public:
+  FourReProjectionErr(const Eigen::Vector2d& nor_poit,
                   const Eigen::Vector3d& map_point, const double& roll,
                   const double& pitch, const double& factor)
       : nor_point_(nor_poit),
@@ -70,16 +103,16 @@ struct ReProjectionErr {
                                     const Eigen::Vector3d& map_point,
                                     const double& roll, const double& pitch,
                                     double factor) {
-    return new ceres::AutoDiffCostFunction<ReProjectionErr, 2, 3, 1, 3, 4>(
-        new ReProjectionErr(nor_poit.head<2>(), map_point, roll, pitch,
+    return new ceres::AutoDiffCostFunction<FourReProjectionErr, 2, 3, 1, 3, 4>(
+        new FourReProjectionErr(nor_poit.head<2>(), map_point, roll, pitch,
                             factor));
   }
 
  private:
-  const double factor_;
-  const Eigen::Quaterniond pith_roll_rotation_;
   const Eigen::Vector2d nor_point_;
   const Eigen::Vector3d map_point_;
+  const double factor_;
+  const Eigen::Quaterniond pith_roll_rotation_;
 };
 
 
@@ -182,7 +215,7 @@ int LocalMapTrack::IsInFrame(const MapPoint& map_point,
   const Eigen::Vector3d xyz_w = map_point.Pos();
   //
   //
-  for (int sequence_id = 0; sequence_id < options_.track_sequence.size();
+  for (size_t sequence_id = 0; sequence_id < options_.track_sequence.size();
        sequence_id++) {
     const auto pose = track_data.data->CameraPose(sequence_id);
 
@@ -209,8 +242,7 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
   direct_match_ =
       std::make_unique<match::DirectMatch>(options_.derect_match_option);
   local_map_ = std::make_unique<LocalMapTrackMap>(options_.map_option);
-  LOG(INFO)<<options_.track_sequence.size();
-  for (int i = 0; i < options_.track_sequence.size(); i++) {
+  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     Eigen::Vector3d f_top_left;
     Eigen::Vector2d px_top_left(0.0, 0.0);
     cameras_.at(i)
@@ -219,8 +251,6 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
     px_top_lefts_.push_back( (f_top_left/ f_top_left.z()).normalized());
     LOG(INFO)<<px_top_lefts_.back();
   }
-  
-    // CHECK(false);
 }
 //
 void LocalMapTrack::AddTracingData(const KeyFrameData& key_frame_data,
@@ -233,15 +263,15 @@ void LocalMapTrack::AddTracingData(const KeyFrameData& key_frame_data,
 std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
     const KeyFrameData& track_data) {
   const auto& all_kf_frames = local_map_->AllKeyFrameDatas();
-  LOG(INFO) << "Local map size: " << all_kf_frames.size();
-  if (all_kf_frames.size() < options_.min_track_frame_num) return nullptr;
+  // LOG(INFO) << "Local map size: " << all_kf_frames.size();
+  if (all_kf_frames.size() <size_t(options_.min_track_frame_num)) return nullptr;
   //
 
   const auto sequence_feautes = track_data.data->features.trajectory_ids();
   std::map<int, std::vector<KeyFrameId>> overlap_kfs;
   std::map<int, std::shared_ptr<match::Frame>> cur_frames;
   //
-  for (int i = 0; i < options_.track_sequence.size(); i++) {
+  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     cur_frames[i] = std::make_shared<match::Frame>();
     ToFrame(track_data, *cur_frames[i],i);
   }
@@ -272,13 +302,12 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
 
   int match_sum_num = 0;
   std::stringstream info;
-  for (int i = 0; i < cur_frames.size(); i++) {
+  for (size_t i = 0; i < cur_frames.size(); i++) {
     //
     if (options_.sequence_match.count(i) == 0) continue;
     //
     auto const candidates = PickCandidates(overlap_kfs[i], cur_frames[i],i);
-    LOG(INFO)<<"i "<<i<<" "<<candidates.size();
-    if (candidates.size() < options_.one_frame_pick_candidates_min_num)
+    if (candidates.size() < size_t(options_.one_frame_pick_candidates_min_num))
       continue;
     auto& grid = grids_[i];
     if (!grid) {
@@ -292,7 +321,7 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
     auto match_result = MatchCandidates(candidates, cur_frames[i], grid);
     //
     grid->reset();
-    if (match_result.size() < options_.one_frame_match_candidates_min_num)
+    if (match_result.size() < size_t(options_.one_frame_match_candidates_min_num))
       continue;
 
     info << "s(" << i << ")" << "pick canditate size:" << candidates.size()
@@ -310,11 +339,20 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
   WriteCheckMatchResult(track_data, matchs);
   //
   // CHECK(false);
-  transform::Rigid3d pose = Optimize(
-      track_data.data->pose, track_data.data->extric_camera_to_imu, matchs,
-      std::array<float, 2>{options_.op_weight, options_.op_weight});
-  //
-  return std::make_unique<transform::Rigid3d>(pose);
+  if (options_.op_type == 1) {
+    transform::Rigid3d pose = Optimize(
+        track_data.data->pose, track_data.data->extric_camera_to_imu, matchs,
+        std::array<float, 2>{options_.op_weight, options_.op_weight});
+    //
+    return std::make_unique<transform::Rigid3d>(pose);
+  } else {
+    transform::Rigid3d pose = FourOptimize(
+        track_data.data->pose, track_data.data->extric_camera_to_imu, matchs,
+        std::array<float, 2>{options_.op_weight, options_.op_weight});
+    //
+    return std::make_unique<transform::Rigid3d>(pose);
+  }
+  return {};
 }
 
 //
@@ -336,7 +374,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
     
     const auto& map_point_feature_ids =
         local_map_->GetCovisibility()->GetKeyFrameMapPointId(ref_frame_id);
-    for (int i = 0; i < map_point_feature_ids.first.size(); i++) {
+    for (size_t i = 0; i < map_point_feature_ids.first.size(); i++) {
       //
       if (eixst_map_point_ids.count(map_point_feature_ids.first[i])) continue;
       //
@@ -373,15 +411,16 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
           ref_frame_id, map_point_feature_ids.second[i], px, 0, distance,
           map_ob_kf_num, map_point_feature_ids.first[i]});
     }
-    if (candidates_temp.size() > options_.one_kf_match_candidates_min_num) {
+    if (candidates_temp.size() > size_t(options_.one_kf_match_candidates_min_num)) {
       candidates.insert(candidates.end(), candidates_temp.begin(),
                         candidates_temp.end());
     }
   }
-  std::sort(
-      candidates.begin(), candidates.end(),
-      [](const LocalMapTrack::Candidate& c,
-         const LocalMapTrack::Candidate& c1) { return c.score < c1.score; }
+  std::sort(candidates.begin(), candidates.end(),
+            [](const LocalMapTrack::Candidate& c,
+               const LocalMapTrack::Candidate& c1) {
+              return c.n_obs > c1.n_obs;
+            }
 
   );
   return candidates;
@@ -480,20 +519,13 @@ transform::Rigid3d LocalMapTrack::Optimize(
     const std::vector<transform::Rigid3d>& extric_camera_to_imu,
     const std::map<int, std::vector<LocalMapTrack::MatchData>>& constraints,
     const std::array<float, 2>& weight) {
+
+  //
   ceres::Problem problem;
   ceres::LocalParameterization* quaternion_local =
       new ceres::EigenQuaternionParameterization;
-  //
-  //
-  Eigen::Vector3d ypr =
-      transform::Rot2ypr(init_pose.inverse().rotation().toRotationMatrix());
-  //
-  double yaw = common::DegToRad(ypr[0]);
-  const double pitch = common::DegToRad(ypr[1]);
-  const double roll = common::DegToRad(ypr[2]);
-  //
 
-  // Eigen::Quaterniond rotation = init_pose.inverse().rotation();
+  Eigen::Quaterniond rotation = init_pose.inverse().rotation();
   Eigen::Vector3d traslation = init_pose.inverse().translation();
 
   //
@@ -502,11 +534,11 @@ transform::Rigid3d LocalMapTrack::Optimize(
   //
   //
   problem.AddParameterBlock(traslation.data(), 3);
-  // problem.AddParameterBlock(rotation.coeffs().data(), 4);
-  
-  // problem.SetParameterization(rotation.coeffs().data(), quaternion_local);
+  problem.AddParameterBlock(rotation.coeffs().data(), 4);
+  problem.SetParameterization(rotation.coeffs().data(), quaternion_local);
   //
-  for (int i = 0; i < options_.track_sequence.size(); i++) {
+  
+  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     // LOG(INFO)<<extric_camera_to_imu[options_.track_sequence[i][0]];
     transform::Rigid3d extir_iverse =
         extric_camera_to_imu[options_.track_sequence[i][0]].inverse();
@@ -522,56 +554,119 @@ transform::Rigid3d LocalMapTrack::Optimize(
                                 quaternion_local);
   }
 
-  //
   for (const auto& constraist_seq : constraints) {
-    for (int j = 0; j < constraist_seq.second.size(); j++) {
+    for (size_t j = 0; j < constraist_seq.second.size(); j++) {
       //
       problem.AddResidualBlock(
           ReProjectionErr::Creat(constraist_seq.second[j].cur_normal_px,
-                                 constraist_seq.second[j].map_point, roll, pitch,
-                                 weight[0]),
-          new ceres::HuberLoss(options_.huber_loss), traslation.data(), &yaw,
-          ex_traslation[constraist_seq.first].data(),
+                                 constraist_seq.second[j].map_point, weight[0]),
+          new ceres::HuberLoss(options_.huber_loss), traslation.data(),
+          rotation.coeffs().data(), ex_traslation[constraist_seq.first].data(),
           ex_rotation[constraist_seq.first].coeffs().data());
     }
-    //
   }
 
-  // problem.AddResidualBlock(
-  //     RotationDeltaCostFunctor::Create(init_pose.inverse().rotation(),
-  //                                      options_.op_init_r_weight),
-  //     nullptr, rotation.coeffs().data());
+    problem.AddResidualBlock(
+        RotationDeltaCostFunctor::Create(init_pose.inverse().rotation(),
+                                         options_.op_init_r_weight),
+        nullptr, rotation.coeffs().data());
 
-  problem.AddResidualBlock(
-      YawRotationDeltaCostFunctor::Create(common::DegToRad(ypr[0]),
-                                          options_.op_init_r_weight),
-      nullptr, &yaw);
-
-  problem.AddResidualBlock(
-      TranslationCostFunctor::Create(init_pose.inverse().translation(),
-                                     options_.op_init_t_weight),
-      nullptr, traslation.data());
-  // problem.SetManifold(rotation.coeffs().data(), quaternion_manifold);
-  // problem.SetManifold (rotation, quaternion_manifold);
-  //
-  ceres::Solver::Options options;
-  options.minimizer_progress_to_stdout = false;
-  options.max_num_iterations = 1;
-  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-  ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
-  const auto pose =
-      transform::Rigid3d(traslation,
-                         transform::RollPitchYaw(roll, pitch, yaw).normalized())
-          .inverse();
-  LOG(INFO) << log_info::RED << "yaw " << ypr[0] << " -> " <<common::RadToDeg(yaw) 
-            << " t:" << init_pose.translation().transpose() << "-> " << pose.translation().transpose();
-  LOG(INFO) << log_info::RED << summary.BriefReport() << log_info::RESET;
-
-  return pose;
-}
+    problem.AddResidualBlock(
+        TranslationCostFunctor::Create(init_pose.inverse().translation(),
+                                       options_.op_init_t_weight),
+        nullptr, traslation.data());
+    // problem.SetManifold(rotation.coeffs().data(), quaternion_manifold);
+    // problem.SetManifold (rotation, quaternion_manifold);
+    //
+    ceres::Solver::Options options;
+    options.minimizer_progress_to_stdout = false;
+    options.max_num_iterations = options_.max_num_iterations;
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+    return transform::Rigid3d(traslation,rotation).inverse();
+  }
 //
+  transform::Rigid3d LocalMapTrack::FourOptimize(
+      const transform::Rigid3d& init_pose,
+      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+      const std::map<int, std::vector<LocalMapTrack::MatchData>>& constraints,
+      const std::array<float, 2>& weight) {
+    ceres::Problem problem;
+    ceres::LocalParameterization* quaternion_local =
+        new ceres::EigenQuaternionParameterization;
+    //
+    //
 
+    Eigen::Quaterniond rotation = init_pose.inverse().rotation();
+    Eigen::Vector3d traslation = init_pose.inverse().translation();
+
+    Eigen::Vector3d ypr =
+        transform::Rot2ypr(rotation.toRotationMatrix());
+    //
+    double yaw = common::DegToRad(ypr[0]);
+    const double pitch = common::DegToRad(ypr[1]);
+    const double roll = common::DegToRad(ypr[2]);
+    Eigen::Quaterniond ex_rotation[options_.track_sequence.size()];
+    Eigen::Vector3d ex_traslation[options_.track_sequence.size()];
+    for (size_t i = 0; i < options_.track_sequence.size(); i++) {
+      // LOG(INFO)<<extric_camera_to_imu[options_.track_sequence[i][0]];
+      transform::Rigid3d extir_iverse =
+          extric_camera_to_imu[options_.track_sequence[i][0]].inverse();
+      ex_rotation[i] = extir_iverse.rotation();
+      ex_traslation[i] = extir_iverse.translation();
+      problem.AddParameterBlock(ex_rotation[i].coeffs().data(), 4);
+      problem.AddParameterBlock(ex_traslation[i].data(), 3);
+      problem.SetParameterBlockConstant(ex_rotation[i].coeffs().data());
+      problem.SetParameterBlockConstant(ex_traslation[i].data());
+
+      //
+      problem.SetParameterization(ex_rotation[i].coeffs().data(),
+                                  quaternion_local);
+    }
+
+    for (const auto& constraist_seq : constraints) {
+      for (size_t j = 0; j < constraist_seq.second.size(); j++) {
+        //
+        problem.AddResidualBlock(
+            FourReProjectionErr::Creat(constraist_seq.second[j].cur_normal_px,
+                                       constraist_seq.second[j].map_point, roll,
+                                       pitch, weight[0]),
+            new ceres::HuberLoss(options_.huber_loss), traslation.data(), &yaw,
+            ex_traslation[constraist_seq.first].data(),
+            ex_rotation[constraist_seq.first].coeffs().data());
+      }
+      //
+    }
+
+    problem.AddResidualBlock(
+        TranslationCostFunctor::Create(init_pose.inverse().translation(),
+                                       options_.op_init_t_weight),
+        nullptr, traslation.data());
+
+    problem.AddResidualBlock(
+        YawRotationDeltaCostFunctor::Create(common::DegToRad(ypr[0]),
+                                            options_.op_init_r_weight),
+        nullptr, &yaw);
+
+    ceres::Solver::Options options;
+    options.minimizer_progress_to_stdout = false;
+    options.max_num_iterations = options_.max_num_iterations;
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+    const auto pose =
+        transform::Rigid3d(
+            traslation, transform::RollPitchYaw(roll, pitch, yaw).normalized())
+            .inverse();
+    LOG(INFO) << log_info::RED << "yaw " << ypr[0] << " -> "
+              << common::RadToDeg(yaw)
+              << " t:" << init_pose.translation().transpose() << "-> "
+              << pose.translation().transpose();
+    LOG(INFO) << log_info::RED << summary.BriefReport() << log_info::RESET;
+    return pose;
+  }
+    //
 void LocalMapTrack::WriteCheckMatchResult(
     const KeyFrameData& key_frame_data,
     const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs) {
@@ -582,7 +677,7 @@ void LocalMapTrack::WriteCheckMatchResult(
   KeyFrameData key_frame_data_tem = key_frame_data;
 
   for (auto& match : matchs) {
-    for (int i = 0; i < match.second.size(); i++) {
+    for (size_t i = 0; i < match.second.size(); i++) {
       auto& candidata = match.second[i].candidate.value();
       auto cur_feature_id = key_frame_data_tem.data->features.Append(
           match.first, FeatureData({cv::KeyPoint(candidata.cur_px.x(),

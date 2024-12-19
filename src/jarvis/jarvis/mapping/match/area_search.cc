@@ -33,7 +33,7 @@ AreaSearchGrid::AreaSearchGrid(
       static_cast<float>(area_grid_num.y()) / (image_box.sizes().y());
   //
   grid_.resize(area_grid_num.x());
-  for (unsigned int i = 0; i < area_grid_num.x(); i++) {
+  for (int i = 0; i < area_grid_num.x(); i++) {
     grid_[i].resize(area_grid_num.y());
   }
   for (const auto& pt : target_points) {
@@ -138,7 +138,7 @@ AreaSearch::CreateAreaSearchFromeKeyFrameData(
                                 image_bboxs[sequence_id].sizes() / grid_lenth},
         sequence_id, data);
   }
-  return std::move(area_searchs);
+  return area_searchs;
 }
 
 }  // namespace match

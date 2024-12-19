@@ -9,7 +9,7 @@ namespace mapping {
 KeyFrameDataBase::KeyFrameDataBase(
     const KeyFrameDataBaseOption& option,
     std::shared_ptr<dbow::Vocabulary> voc)
-    : voc_(std::move(voc)), options_(option) {}
+    : options_(option) ,voc_(std::move(voc)) {}
 //
 KeyFrameDataBase::~KeyFrameDataBase() {}
 //
