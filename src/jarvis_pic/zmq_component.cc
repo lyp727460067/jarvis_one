@@ -203,10 +203,12 @@ std::vector<uint8_t> ToCData(
   params[6] = cv::IMWRITE_JPEG_RST_INTERVAL;
   params[7] = 0;
   cv::Mat merge_image;
+  std::array<std::vector<int>, 3> ParaExPoseIndex{
+        std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};  
   std::vector<cv::Mat> cvresult1;
   for (auto &cam_feature : tracking_data.data->features_datas) {
     auto image_result =
-        GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
+        GenerateImageWithKeyPoint(tracking_data.data->images.image[ParaExPoseIndex[cam_feature.first][0]],
                                   cam_feature.second.key_points, {}, {}, {},
                                   "pre_imag", "curr_imag", {0});
 
@@ -225,13 +227,9 @@ std::vector<uint8_t> ToCData(
         for (const auto &result : *object_result) {
           same_marks[result.id].push_back(result);
           if (result.coners.empty()) continue;
-
-          int cols = tracking_data.data->features_datas[0]
-                         .features.data->images[0]
-                         .cols;
-          int rows = tracking_data.data->features_datas[0]
-                         .features.data->images[0]
-                         .rows;
+  auto& image = tracking_data.data->images.image[ParaExPoseIndex[cam_feature.first][0]];
+          int cols = image.cols;
+          int rows = image.rows;
 
           image_object +=
               ObjectToCvImage(Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},

@@ -61,7 +61,7 @@ bool DataCulling::DataCulling::IsRedundant(
   int redundant_observations = 0;
   for (const auto& map_point : map_points) {
     if (data_fuse_->GetMapObservations(map_point.id).size() >
-        options_.map_culling_obs) {
+        size_t(options_.map_culling_obs)) {
       ++redundant_observations;
     }
   }

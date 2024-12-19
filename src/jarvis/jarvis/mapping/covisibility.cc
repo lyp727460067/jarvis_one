@@ -160,17 +160,17 @@ std::set<MapPointId> Covisibility::TrimKeyFrame(const KeyFrameId& id) {
   // 删除mappoint 观察到的这个id的frame
   auto const& map_points_for_frame = key_frame_feature_data_[id];
   for (auto const& map_point_id : map_points_for_frame) {
-    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), 0);
-    CHECK_NE(map_point_observe_frames_[map_point_id.first].count(id), 0);
+    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), size_t(0));
+    CHECK_NE(map_point_observe_frames_[map_point_id.first].count(id), size_t(0));
     map_point_observe_frames_[map_point_id.first].erase(id);
   }
 
   // 判断mappoint共视如果小于2的话返回除去ID
   std::set<MapPointId> result;
   for (auto const& map_point_id : map_points_for_frame) {
-    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), 0)
+    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), size_t(0))
         << map_point_id.first << " Not exist";
-    if (map_point_observe_frames_[map_point_id.first].size() <= 2) {
+    if (map_point_observe_frames_[map_point_id.first].size() <= size_t(2)) {
       result.insert(map_point_id.first);
     }
   }
@@ -188,7 +188,7 @@ std::vector<KeyFrameId> Covisibility::GetConnectedKeyFrames(
       result.push_back(frame.first);
     }
   }
-  if (n == -1 || result.size() < n) {
+  if (n == -1 || int(result.size()) < n) {
     return result;
   }
   return {result.begin(), result.begin() + n};
@@ -209,7 +209,7 @@ Covisibility::GetOrderConnectedKeyFrames(const KeyFrameId& frame_id,
                const std::pair<KeyFrameId, int>& rhs) {
               return lhs.second > rhs.second;
             });
-  if (n == -1 || result.size() < n) return result;
+  if (n == -1 || int(result.size()) < n) return result;
   return {result.begin(), result.begin() + n};
 }
 //

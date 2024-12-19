@@ -22,15 +22,15 @@
 namespace jarvis {
 namespace mapping {
 //
+
+using FrontMapPointData = std::map<
+    int, std::map<uint64_t,
+                  std::tuple<Eigen::Vector3d, mapping::Descriptor, FeatureId>>>;
+
 class DataCulling;
 //
-struct SubMap {
-  struct Data {
-    std::vector<KeyFrameId> key_frame_id;
-    std::shared_ptr<KeyFrameDataBase> key_frame_data_base_;
-  };
-  std::shared_ptr<Data> data;
-};
+
+//
 
 struct LocalTrackData {
   MapById<KeyFrameId, KeyFrameData> key_frame_datas_;
@@ -188,13 +188,16 @@ class MapManager {
   //
   //
   MapManagerOption options_;
+  std::map<int, camera_models::CameraPtr> cameras_;
+  std::unique_ptr<DescriptorExtract> des_extractor_; 
+  std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;  
   std::unique_ptr<mapping::Covisibility> covisibility_;
-  std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
+
   //
-  std::unique_ptr<DescriptorExtract> des_extractor_;
+
   std::unique_ptr<KeyPointExtract> key_points_extractor_;
   //
-  std::map<int, camera_models::CameraPtr> cameras_;
+
   MapById<KeyFrameId, KeyFrameData> key_frames_datas_;
   //
 

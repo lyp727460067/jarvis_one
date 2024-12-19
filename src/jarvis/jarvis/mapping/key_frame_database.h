@@ -6,7 +6,6 @@
 #include <unordered_map>
 //
 #include "jarvis/common/id.h"
-#include "jarvis/mapping/dbow/vocabulary.h"
 #include "jarvis/mapping/mapping_data.h"
 #include "memory"
 namespace jarvis {
@@ -19,7 +18,9 @@ struct KeyFrameDataBaseOption {
   double min_distance_threash_hold=5;
 
 };
-
+namespace dbow{
+class Vocabulary;
+}
 class KeyFrameDataBase {
  public:
   KeyFrameDataBase(const KeyFrameDataBaseOption& option,

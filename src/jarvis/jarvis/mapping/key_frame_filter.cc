@@ -15,7 +15,7 @@ bool KeyFrameFilter::IsKeyFrame(const TrackingData &tracking_data) {
   if (delta_pose.translation().norm() <= options_.max_distance &&
       common::RadToDeg(transform::GetAngle(delta_pose)) <= options_.max_angle &&
       common::ToSeconds(tracking_data.data->time - last_time_) <=
-          options_.max_time &
+          options_.max_time &&
       IsCoviLasttrackingFrame(tracking_ids)) {
     return false;
   }
@@ -45,7 +45,7 @@ bool KeyFrameFilter::IsCoviLasttrackingFrame(
   std::set_intersection(tracking_ids.begin(), tracking_ids.end(),
                         last_tracking_ids_.begin(), last_tracking_ids_.end(),
                         std::back_inserter(result));
-  if (result.size() > static_cast<int>(tracking_ids.size() *
+  if (result.size() > static_cast<size_t>(tracking_ids.size() *
                                        options_.min_intersection_ration)) {
     return true;
   }

@@ -68,19 +68,28 @@ struct MapPoint {
 
   KeyFrameId reference_frame_id_;
  private:
+  Eigen::Vector3d local_pos_;
+  std::shared_ptr<mapping::Descriptor> descriptor_=nullptr;
   bool fix_;
   bool extend_=false;
   //
-  Eigen::Vector3d local_pos_;
+
   //
-  std::shared_ptr<mapping::Descriptor> descriptor_;
   int obs_num_=0;
 };
+
+
+
 //
 //应该把地图点绑定在一个局部坐标下面，后面在改把
 struct MapPointData {
   std::shared_ptr<MapPoint> data;
   Eigen::Vector3d globla_pos;
+  //
+  // Eigen::Vector3d p;
+  // mapping::Descriptor des;
+  // bool extend=false;
+
 };
 
 //
@@ -93,7 +102,7 @@ struct FeatureData {
   }
   Eigen::Vector3d f;
   cv::KeyPoint r_key_point_normal;
-  Eigen::Vector3d r_normal;
+  Eigen::Vector3d r_normal{0,0,0};
 };
 //
 
@@ -119,6 +128,7 @@ struct KeyFrameData {
     transform::Rigid3d CameraPose(int s) {
       return pose * extric_camera_to_imu[track_sequence[s][0]];
     }
+    bool extend_data_compute = false;
   };
   std::shared_ptr<Data> data;
 };

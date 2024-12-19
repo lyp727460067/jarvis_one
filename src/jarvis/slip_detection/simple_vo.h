@@ -35,11 +35,11 @@ struct SimpleVoOption {
   //
 };
 
-class SimpleVo : public jarvis::TrajectorBuilder {
+class SimpleVo {
  public:
   SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back);
   ~SimpleVo();
-  void AddImageData(const jarvis::sensor::ImageData& images) override;
+  void AddImageData(const jarvis::sensor::ImageData& images) ;
   void AddImuData(const jarvis::sensor::ImuData& imu_data) {}
 
  private:

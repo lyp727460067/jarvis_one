@@ -205,6 +205,11 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
   VLOG(kGlogCostTimeLevel) << "transform costs " << transform_t_t.toc()
                            << " ms";
   result.front_data = frame_data;
+  // if (result.slide_out_data.data) {
+  //   result.slide_out_data.data->extric_camera_to_imu =
+  //       options_.slide_windows_option.extric_camera_to_imu;
+  // }
+
   // result.front_data.data->images =  images;
   return std::make_unique<EstimatorResult>(result);
   // return std::make_unique<FrameData>(frame_data);

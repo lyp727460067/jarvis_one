@@ -43,16 +43,19 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     esit_option_.slide_windows_option.opti_option.estimate_extrinsic = 0;
 
   if (kuse_gpu) {
-    for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
-      for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-        esit_option_.feature_track_options[i].pyramid_image.push_back(
+    for (size_t i = 0; i < esit_option.track_sequence.size(); i++) {
+      for (size_t j = 0; j < esit_option.track_sequence[i].size(); j++) {
+        esit_option.feature_track_options[i].pyramid_image.push_back(
             std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                esit_option_.feature_track_options[i].pyrmid_option));
+                esit_option.feature_track_options[i].pyrmid_option));
       }
     }
     //
   }
-  builder_ = std::make_unique<jarvis::TrajectorBuilder>(esit_option_,
+  //
+  esit_option_ = trajectorbuilder_option.esti_option;
+
+  builder_ = std::make_unique<jarvis::TrajectorBuilder>(trajectorbuilder_option,
                                                         std::move(call_back));
 
   imu_cam_time_offset  = jarvis::GetTimeShiftCamImu();

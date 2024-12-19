@@ -904,7 +904,10 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
   op_option.map_option.kf_num = fsSettings["map_option"]["kf_num"];
 
   op_option.out_time = fsSettings["out_time"];
-  
+
+  op_option.max_num_iterations = fsSettings["max_num_iterations"];
+  op_option.op_type = fsSettings["op_type"];
+
   return op_option;
 }
 //
@@ -939,7 +942,7 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   ParseYAMLOption(file, &option->esti_option);
   ParseYAMLOption(file, &option->mapping_option);
   // 前后段不能共用一个相机模型
-  for (int i = 0; i < option->esti_option.feature_track_options.size(); i++) {
+  for (size_t i = 0; i < option->esti_option.feature_track_options.size(); i++) {
     //
 
     {

@@ -82,11 +82,12 @@ TrackingData SlideWindow::GetratePriorData(bool generate_point) {
   result.data = std::make_shared<TrackingData::Data>();
   result.data->imu_state = imu_states_[0];
   result.data->time = imu_states_[0].time;
+  // result.data->extric_camera_to_imu = options_.extric_camera_to_imu;
   result.data->extric_camera_to_imu = extric_camera_to_imu_;
   result.data->images = images_[imu_states_[0].time];
   if (generate_point) {
     auto const feature_managers = feature_managers_->GetFeatureManagers();
-    for (auto const f_manger : feature_managers) {
+    for (auto const &f_manger : feature_managers) {
       auto feat_ids = f_manger.second->GetBack();
       if (feat_ids.empty()) continue;
       result.data->features_datas[f_manger.first].features.data =

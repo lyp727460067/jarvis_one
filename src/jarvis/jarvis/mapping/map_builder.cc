@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <unistd.h>
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
@@ -304,7 +305,7 @@ MappingBuilder::MappingDataFuse::GetKeyLevelConnectedKeyFrames(
   return result;
 }
 
-  MappingBuilder::~MappingBuilder(){
+MappingBuilder::~MappingBuilder(){
     kill_thread_ = true;
     if (thread_.joinable()) {
       thread_.join();
