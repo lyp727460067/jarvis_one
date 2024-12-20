@@ -212,10 +212,14 @@ void GetFinalResult(uint8_t &status, float (&err_dis)[4], float (&err_angle)[4])
 
       LOG(INFO) << "max error list";
       int i = 0;
+      for (int i = 0; i < 4; i++) {
+          err_dis[i] = 0;
+          err_angle[i] = 0;
+      }
       for (auto it = max_error_.begin(); it != max_error_.end() && i < 4;
            it++, i++) {
-          err_dis[i] = it->second.first;
-          err_angle[i] = it->second.second;
+          err_dis[it->first] = it->second.first;
+          err_angle[it->first] = it->second.second;
           LOG(INFO) << it->first << ": " << it->second.first << ", " << it->second.second;
       }
 
@@ -235,12 +239,19 @@ void GetFinalResult(uint8_t &status, float (&err_dis)[4], float (&err_angle)[4])
               // 一切正常,判断是否符合要求,0为合格,1为不合格
               float max_dis = .0;
               float max_angle = .0;
+              float avg_dis = .0;
+              float avg_angle = .0;
               for (int i = 0; i < 4; i++) {
                   max_dis = (max_dis > err_dis[i]) ? max_dis : err_dis[i];
-                  max_angle = (max_angle > err_dis[i]) ? max_angle : err_angle[i];
+                  max_angle = (max_angle > err_angle[i]) ? max_angle : err_angle[i];
+                  avg_dis += err_dis[i];
+                  avg_angle += err_angle[i];
               }
 
-              if (max_dis > dis_thr || max_angle > angle_thr)
+              avg_dis = avg_dis / 4.0;
+              avg_angle = avg_angle / 4.0;
+
+              if (max_dis > err_dis_max_thr_ || max_angle > err_angle_max_thr_ || avg_dis > err_dis_avg_thr_ || avg_angle > err_angle_avg_thr_)
                   status = 1;
               else
                   status = 0;
@@ -275,7 +286,14 @@ ObjectInterface::ObjectInterface(const camera_models::CameraPtr came_base,
                                  const std::string config_path,
                                  MapBuilderInterface *map_builder)
     : map_builder_(map_builder),
-      object_impl_(std::make_unique<ObjectImpl>(came_base, this)) {}
+      object_impl_(std::make_unique<ObjectImpl>(came_base, this)) {
+    // cv::FileStorage fsSettings(config_path, cv::FileStorage::READ);
+    // fsSettings["err_dis_avg_thr"] >> err_dis_avg_thr_;
+    // fsSettings["err_dis_max_thr"] >> err_dis_max_thr_;
+    // fsSettings["err_angle_avg_thr"] >> err_angle_avg_thr_;
+    // fsSettings["err_angle_max_thr"] >> err_angle_max_thr_;
+    // std::cout << "error param: " << err_dis_avg_thr_ << ", " << err_dis_max_thr_ << ", " << err_angle_avg_thr_ << ", " << err_angle_max_thr_ << std::endl;
+}
 
 //
 void ObjectInterface::UpdateGloblePose() {

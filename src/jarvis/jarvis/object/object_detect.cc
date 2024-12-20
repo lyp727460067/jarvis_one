@@ -99,7 +99,7 @@ std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
     float marker_depth = marker_poses[i].translation().norm();
     float marker_angle = abs(common::RadToDeg(transform::GetYaw(marker_poses[i])));
 
-    if (marker_depth > 0.6f || marker_depth < 0.4f || marker_angle > 5.0f) continue;
+    if (marker_depth > 0.6f || marker_depth < 0.3f || marker_angle > 5.0f) continue;
 
     // std::cout << "marker detect, id: " << marker_ids[i] << ", depth: " << marker_depth 
     //           << ", angle: " << marker_angle << std::endl;
