@@ -15,6 +15,7 @@
 #include "jarvis/sensor/data_process.h"
 #include "jarvis/sensor/stereo_sync.h"
 #include "jarvis/trajectory_builder.h"
+#include "jarvis/object/object_interface.h"
 #include "rclcpp/rclcpp.hpp"
 #include "ros_component.h"
 #include "slip_detection/simple_vo.h"
@@ -524,7 +525,7 @@ int main(int argc, char* argv[]) {
   //   );
   // }
 
-
+std::unique_ptr<jarvis::object::ObjectInterface> object_interface  =nullptr;
   builder_ =
       std::make_unique<TrajectorBuilder>(option, [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
@@ -578,10 +579,29 @@ int main(int argc, char* argv[]) {
         }
 
         ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
+
         // ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}}, true);
-        ros_compont->OnLocalTrackingResultCallback(
-            tracking_data, nullptr, transform::Rigid3d::Identity());
-        ros_compont->PosePub( slip_detect->ToPoseInOdom( tracking_data.data->imu_state.Pose()),
+        //
+        std::vector<jarvis::object::ObjectImageResult> object_result;
+        if (tracking_data.status == 2) {
+          if (object_interface == nullptr) {
+            object_interface =
+                std::make_unique<jarvis::object::ObjectInterface>(
+                    option.feature_track_options[0].cameras[0]);
+          }
+           object_result =
+              object_interface->Detect(
+                  common::ToUniversal(tracking_data.data->time),
+                  tracking_data.data->features_datas[0]
+                      .features.data->images[0],
+                  tracking_data.data->imu_state.Pose(),
+                  option.slide_windows_option.extric_camera_to_imu[0]);
+          ros_compont->OnLocalTrackingResultCallback(
+              tracking_data, &object_result, transform::Rigid3d::Identity());
+        }else {
+          object_interface = nullptr;
+        }
+        ros_compont->PosePub( tracking_data.data->imu_state.Pose(),
                              transform::Rigid3d::Identity());
         rclcpp::spin_some(node);
         cond.notify_one();

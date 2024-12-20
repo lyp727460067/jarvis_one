@@ -16,6 +16,10 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                    -Wmultistatement-macros)
 set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+
+
+
+
 if(PLATFORM_mr527)
   add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
   add_definitions(-D__ARM_NEON__)
@@ -23,7 +27,8 @@ if(PLATFORM_mr527)
   ##ofast编译会有问题，需要查看原因
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s  -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
   option(build_test "build test" OFF)
-
+  set(ARUCO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/aruco/include/)
+  file(GLOB_RECURSE ARUCO_SRC "aruco/src/*.cpp")
   set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
   set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
   set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
@@ -93,6 +98,7 @@ else()
 endif()
 
 INCLUDE_DIRECTORIES(
+  ${ARUCO_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
   ${PROJECT_SOURCE_DIR}/rtm/includes/
@@ -107,11 +113,11 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/rtm")
 
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
+
 file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc")
 ##
-file(GLOB_RECURSE OJBECT_LIBRARY_SRCS "jarvis/object*.cc")
-list(REMOVE_ITEM ALL_LIBRARY_SRCS ${OJBECT_LIBRARY_SRCS})
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC})
+list(APPEND ALL_LIBRARY_SRCS ${ARUCO_SRC})
 ##
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
