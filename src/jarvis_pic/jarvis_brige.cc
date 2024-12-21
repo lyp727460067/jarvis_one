@@ -161,12 +161,12 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         });
       }
     } else {
-      // auto start = std::chrono::high_resolution_clock::now();
+      auto start = std::chrono::high_resolution_clock::now();
       builder_->AddImageData(imag_data);
-      // LOG(INFO) << "One frame cost: "
-                // << std::chrono::duration_cast<std::chrono::milliseconds>(
-                      //  std::chrono::high_resolution_clock::now() - start)
-                      //  .count();
+      LOG(INFO) << "One frame cost: "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::high_resolution_clock::now() - start)
+                       .count();
     }
     // auto start = std::chrono::high_resolution_clock::now();
     // builder_->AddImageData(imag_data);

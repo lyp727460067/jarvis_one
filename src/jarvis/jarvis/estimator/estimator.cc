@@ -160,7 +160,7 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
 
 
         LOG(ERROR) <<"camera "<<i<<  " opti ex error,lost." << ext;
-        // frame_data.status = TrackState::LOST;
+        frame_data.status = TrackState::LOST;
       }
     }
 
