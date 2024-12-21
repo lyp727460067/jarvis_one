@@ -18,6 +18,7 @@
 #include "ros_component.h"
 #include "std_msgs/msg/string.hpp"
 #include "unistd.h"
+#include "jarvis/object/object_interface.h"
 //
 #include <glog/logging.h>
 

@@ -1,7 +1,8 @@
 #include "jarvis/object/object_detect.h"
 
-#include "opencv2/core/eigen.hpp"
 #include <vector>
+#include "jarvis/estimator/parameters.h"
+#include "opencv2/core/eigen.hpp"
 
 // #include "ippe.h"
 #include "transform/transform.h"
@@ -9,16 +10,16 @@ namespace jarvis {
 namespace object {
 
 namespace {
+// 去畸变和投影到归一化平面
 std::vector<cv::Point2f> Normalize(const std::vector<cv::Point2f>& points,
-                                   const camera_models::CameraBase* came_base) {
-  std::vector<cv::KeyPoint> temp;
-  for (const auto point : points) {
-    temp.emplace_back(point, 2);
-  }
-  auto normals = came_base->UndistortPointsNormal(temp);
+                                   const camera_models::CameraPtr came_base) {
   std::vector<cv::Point2f> result;
-  for (const auto nor : normals) {
-    result.emplace_back(nor.x(), nor.y());
+  for (const auto point : points) {
+    Eigen::Vector2d a(point.x, point.y);
+    Eigen::Vector3d b;
+    came_base->liftProjective(a, b);
+    Eigen::Vector3d norm_point = b / b.z();
+    result.emplace_back(norm_point.x(), norm_point.y());
   }
   return result;
 }
@@ -42,12 +43,11 @@ CvDetect::CvDetect(const std::string& dict) {
 
 std::pair<std::vector<int>, std::vector<std::vector<cv::Point2f>>>
 CvDetect::Detect(const cv::Mat& image) {
-  std::vector<std::vector<cv::Point2f>> marker_corners;
+  std::vector<std::vector<cv::Point2f>> marker_corners; // 一个Id对应四个角点(左上,右上,右下,左下)
   std::vector<int> marker_ids;
 
   std::map<int, ObejectData> result;
-  cv::aruco::detectMarkers(image, dictionary_, marker_corners,
-                                      marker_ids);
+  cv::aruco::detectMarkers(image, dictionary_, marker_corners, marker_ids);
 
   VLOG(kGlogLevel) << "Detect mark size: " << marker_ids.size();
 
@@ -80,7 +80,7 @@ CvDetect::Detect(const cv::Mat& image) {
 //
 //
 ObjectDetect::ObjectDetect(const ObjectDetectOption& option,
-                           const camera_models::CameraBase* came_base)
+                           const camera_models::CameraPtr came_base)
     : option_(option), came_base_(came_base) {
   cv_aruce_detect_ = std::make_unique<CvDetect>(option_.opencv_aruco_dict);
   // cv_aruce_detect_ = std::make_unique<ArucoDetect>(0);
@@ -88,15 +88,21 @@ ObjectDetect::ObjectDetect(const ObjectDetectOption& option,
 //
 
 std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
-  //
+  // [std::vector<int>, std::vector<std::vector<cv::Point2f>>]
   auto [marker_ids, marker_corners] = cv_aruce_detect_->Detect(image);
   if (marker_ids.empty()) return {};
 
   auto marker_poses = EstimatePose(marker_corners);
   std::map<uint64_t, ObejectData> result;
-  for (int i = 0; i < marker_ids.size(); i++) {
-    if (marker_poses[i].translation().norm() > 3) continue;
-    if (common::RadToDeg(transform::GetYaw(marker_poses[i])) > 40) continue;
+  for (size_t i = 0; i < marker_ids.size(); i++) {
+    // 观测深度和角度
+    float marker_depth = marker_poses[i].translation().norm();
+    float marker_angle = abs(common::RadToDeg(transform::GetYaw(marker_poses[i])));
+
+    if (marker_depth > 0.6f || marker_depth < 0.3f || marker_angle > 5.0f) continue;
+
+    // std::cout << "marker detect, id: " << marker_ids[i] << ", depth: " << marker_depth 
+    //           << ", angle: " << marker_angle << std::endl;
     result.emplace(static_cast<uint64_t>(marker_ids[i]),
                    ObejectData{marker_poses[i],
                                std::make_shared<ObejectData::Appended>(
@@ -105,7 +111,8 @@ std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
                                            std::to_string(marker_ids[i]),
                                        std::move(marker_corners[i])})});
   }
-  return std::move(result);
+  // 返回相机坐标系下标码的pose及其信息
+  return result;
 }
 //
 //
@@ -113,8 +120,7 @@ void estimatePoseSingleMarkers(
     const std::vector<std::vector<cv::Point2f>>& points, const double& lenth,
     const cv::Mat& K, const cv::Mat& D, std::vector<cv::Vec3d>& rvecs,
     std::vector<cv::Vec3d>& tvecs) {
-  cv::aruco::estimatePoseSingleMarkers(points, lenth, K, D, rvecs,
-                                                  tvecs);
+  cv::aruco::estimatePoseSingleMarkers(points, lenth, K, D, rvecs, tvecs);
   // for (const auto& point : points) {
   //   auto solutions = aruco::solvePnP_(lenth, aruco::Marker(point), K, D);
   //   tvecs.push_back(solutions[0].first.rowRange(0, 3).colRange(3, 4));
@@ -144,11 +150,11 @@ std::vector<transform::Rigid3d> ObjectDetect::EstimatePose(
 
   //
   std::vector<transform::Rigid3d> result;
-  for (int i = 0; i < coners.size(); i++) {
+  for (size_t i = 0; i < coners.size(); i++) {
     //
     //
     cv::Mat r;
-    cv::Rodrigues(rvecs[i], r);
+    cv::Rodrigues(rvecs[i], r); // 将旋转向量转换为旋转矩阵
     Eigen::Matrix3d R_pnp;
     cv::cv2eigen(r, R_pnp);
     Eigen::Vector3d T_pnp;

@@ -13,7 +13,13 @@
 //
 
 #define FRAME_MAX_LEN (4116580)
-const EV_ID kVioEventList[] = {EV_FILL_LIGHT_CTRL};
+const EV_ID kVioEventList[] = {
+  EV_FILL_LIGHT_CTRL,                           // 补光灯控制
+  EV_ALGORITHM_FACTORY_START,                   // 算法产测开始
+  EV_VSLAM_FACTORY_ARUCO_PLANNING_FIRST_CHECK,  // 工厂测试，第一圈完成
+  EV_VSLAM_FACTORY_ARUCO_PLANNING_END,          // 工厂测试，全部完成
+  EV_VSLAM_FACTORY_ARUCO_RESULT                 // vslam返回数据显示
+  };
 // #define NEED_SYNC
 namespace jarvis_pic {
 namespace {
@@ -97,19 +103,46 @@ void DataCapture::ReadImu() {
     int32_t recv_len = 0;
     recv_len = event_bus_->WaitEvent(event_buffer, sizeof(event_buffer), 10);
     if (recv_len > 0) {
-      EvMsg ev_msg(event_buffer, recv_len);
-      if (ev_msg.valid) {
-        switch (ev_msg.id) {
-          case EV_FILL_LIGHT_CTRL:
-            bool env_dark_data = 0;
-            memcpy((void*)&env_dark_data, (void*)ev_msg.data, sizeof(bool));
-            LOG(WARNING) << "evet dark recive " << int(env_dark_data);
-            if (system_info_event_call_backs_) {
-              system_info_event_call_backs_({0, uint8_t(env_dark_data)});
+        EvMsg ev_msg(event_buffer, recv_len);
+        if (ev_msg.valid) {
+            switch (ev_msg.id) {
+            case EV_FILL_LIGHT_CTRL: {
+                bool env_dark_data = 0;
+                memcpy((void *)&env_dark_data, (void *)ev_msg.data, sizeof(bool));
+                LOG(WARNING) << "evet dark recive " << int(env_dark_data);
+                if (system_info_event_call_backs_) {
+                    system_info_event_call_backs_({0, uint8_t(env_dark_data)});
+                }
+            } break;
+
+            case EV_ALGORITHM_FACTORY_START:
+                LOG(WARNING) << "evet factory start recive.";
+                if (system_info_event_call_backs_) {
+                    system_info_event_call_backs_({0, 0, 1});
+                }
+                break;
+
+            case EV_VSLAM_FACTORY_ARUCO_PLANNING_FIRST_CHECK:
+                LOG(WARNING) << "evet factory first round finished recive.";
+                if (system_info_event_call_backs_) {
+                    system_info_event_call_backs_({0, 0, 2});
+                }
+                break;
+
+            case EV_VSLAM_FACTORY_ARUCO_PLANNING_END:
+                LOG(WARNING) << "evet factory all finished recive.";
+                if (system_info_event_call_backs_) {
+                    system_info_event_call_backs_({0, 0, 3});
+                }
+                break;
+
+            // case EV_VSLAM_FACTORY_ARUCO_RESULT:
+            //     LOG(WARNING) << "test evet receive";
+
+            //     memcpy((void *)&env_dark_data, (void *)ev_msg.data, sizeof(bool));
+            //   break;
             }
-            break;
         }
-      }
     }
 
     {
@@ -181,6 +214,33 @@ void DataCapture::ReadImag() {
     // }
   }
 }
+//
+void DataCapture::SendFactoryFinishEvent(const ModVslamFactoryTestFb &result) {
+    // uint8_t event_buf2[sizeof(jarvis::object::VslamFactoryResult)];
+    // jarvis::object::VslamFactoryResult *result2 = (jarvis::object::VslamFactoryResult *)event_buf2;
+    // result2->status = result.status;
+    // for (int i = 0; i < 4; i++) {
+    //     result2->err_dis[i] = result.err_dis[i];
+    //     result2->err_angle[i] = result.err_angle[i];
+    // }
+
+    LOG(INFO) << "send result";
+    LOG(INFO) << "status: " << (int)result.status;
+    LOG(INFO) << "dis: " << result.err_dis[0] << ", " << result.err_dis[1] << ", "
+              << result.err_dis[2] << ", " << result.err_dis[3];
+    LOG(INFO) << "angle: " << result.err_angle[0] << ", " << result.err_angle[1] << ", "
+              << result.err_angle[2] << ", " << result.err_angle[3];
+
+    // LOG(INFO) << "send result2";
+    // LOG(INFO) << "status: " << (int)result2->status;
+    // LOG(INFO) << "dis: " << result2->err_dis[0] << ", " << result2->err_dis[1] << ", "
+    //           << result2->err_dis[2] << ", " << result2->err_dis[3];
+    // LOG(INFO) << "angle: " << result2->err_angle[0] << ", " << result2->err_angle[1] << ", "
+    //           << result2->err_angle[2] << ", " << result2->err_angle[3];
+    event_bus_->SendEvent(EV_VSLAM_FACTORY_ARUCO_RESULT, &result,
+                          sizeof(ModVslamFactoryTestFb));
+}
+
 //
 void* ReadImuPtread(void* p) {
   DataCapture* data_capture = (DataCapture*)p;

@@ -39,11 +39,11 @@ common::Time GetTime(const T& t) {
 struct KeyFrameId {
   // trajectory_id: different glasses or times
   // keyframe_index: id in this trajectory
-  KeyFrameId(int trajectory_id, int keyframe_index)
+  KeyFrameId(int trajectory_id, uint64_t keyframe_index)
       : trajectory_id_(trajectory_id), keyframe_index_(keyframe_index) {}
 
   int trajectory_id_;
-  int keyframe_index_;
+  uint64_t keyframe_index_;
 
   bool operator==(const KeyFrameId& other) const {
     return std::forward_as_tuple(trajectory_id_, keyframe_index_) ==
@@ -217,7 +217,7 @@ class MapById {
 
     typename std::map<int, MapByIndex>::const_iterator current_trajectory_;
     typename std::map<int, MapByIndex>::const_iterator end_trajectory_;
-    typename std::map<int, DataType>::const_iterator current_data_;
+    typename std::map<uint64_t, DataType>::const_iterator current_data_;
   };
 
   class ConstTrajectoryIterator {
@@ -275,8 +275,8 @@ class MapById {
 
   // Inserts data (which must not exist already) into a trajectory.
   void Insert(const IdType& id, const DataType& data) {
-    CHECK_GE(id.trajectory_id_, 0);
-    CHECK_GE(GetIndex(id), 0);
+    // CHECK_GE(id.trajectory_id_, 0);
+    CHECK_GE(GetIndex(id), uint64_t(0));
     auto& trajectory = trajectories_[id.trajectory_id_];
     trajectory.can_append_ = false;
     CHECK(trajectory.data_.emplace(GetIndex(id), data).second) << id;
@@ -399,11 +399,11 @@ class MapById {
  private:
   struct MapByIndex {
     bool can_append_ = true;
-    std::map<int, DataType> data_;
+    std::map<uint64_t, DataType> data_;
   };
 
-  static int GetIndex(const KeyFrameId& id) { return id.keyframe_index_; }
-  static int GetIndex(const MapPointId& id) { return id.mappoint_index_; }
+  static uint64_t GetIndex(const KeyFrameId& id) { return id.keyframe_index_; }
+  static uint64_t GetIndex(const MapPointId& id) { return id.mappoint_index_; }
 
   std::map<int, MapByIndex> trajectories_;
 };
@@ -415,7 +415,7 @@ struct hash<jarvis::KeyFrameId> {
   std::size_t operator()(const jarvis::KeyFrameId& k) const {
     using std::hash;
     return ((hash<int>()(k.trajectory_id_) ^
-             (hash<int>()(k.keyframe_index_) << 1)) >>
+             (hash<uint64_t>()(k.keyframe_index_) << 1)) >>
             1);
   }
 };

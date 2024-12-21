@@ -1,7 +1,7 @@
 
 
 #ifndef JARVIS__VIO_IO_KEY_BOARD_
-#define JARVIS_VIO_IO_KEY_BOARD_
+#define JARVIS__VIO_IO_KEY_BOARD_
 #include <math.h>
 #include <signal.h>
 #include <signal.h>  // signal functions

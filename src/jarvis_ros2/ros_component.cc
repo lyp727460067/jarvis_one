@@ -1,8 +1,7 @@
 #include "ros_component.h"
 
-#include <cv_bridge/cv_bridge.hpp>
-
 #include <cstring>
+#include <cv_bridge/cv_bridge.hpp>
 
 #include "glog/logging.h"
 #include "image_transport/image_transport.h"
@@ -15,10 +14,11 @@ namespace {
 using namespace jarvis;
 }  // namespace
 cv::Mat GenerateImageWithKeyPoint(
-    const cv::Mat &l_img, const std::map<uint64_t,cv::KeyPoint> &l_key_points,
-     const std::map<uint64_t,cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
-     const std::map<uint64_t,cv::KeyPoint> &r_key_points, const std::string &l_name,
-    const std::string &r_name, std::vector<uint64_t> outlier_pointclass_id) {
+    const cv::Mat &l_img, const std::map<uint64_t, cv::KeyPoint> &l_key_points,
+    const std::map<uint64_t, cv::KeyPoint> &predict_pts, const cv::Mat &r_img,
+    const std::map<uint64_t, cv::KeyPoint> &r_key_points,
+    const std::string &l_name, const std::string &r_name,
+    std::vector<uint64_t> outlier_pointclass_id) {
   int col = l_img.cols;
   int row = l_img.rows;
 
@@ -116,21 +116,24 @@ const std::map<std::string, cv::Scalar> kColors{
 cv::Mat ObjectToCvImage(const Eigen::AlignedBox2d &raw_image_size,
                         const cv::Size &size,
                         const object::ObjectImageResult &object_resut) {
-  std::mt19937 rng(42);
+  static std::mt19937 rng(42);
 
   cv::Mat image(size, CV_8UC3, cv::Scalar::all(0));
   // drawing a 3D cubic box
   std::vector<cv::Point> points;
+
+  LOG(INFO) << "1";
   for (int i = 0; i < object_resut.coners.size(); i++) {
     if (!raw_image_size.contains(object_resut.coners[i])) return image;
     points.push_back(
         cv::Point(object_resut.coners[i].x(), object_resut.coners[i].y()));
   }
   //
-  if (!raw_image_size.contains(object_resut.direction[0]) ||
-      !raw_image_size.contains(object_resut.direction[1])) {
-    return image;
-  }
+  // if (!raw_image_size.contains(object_resut.direction[0]) ||
+  //     !raw_image_size.contains(object_resut.direction[1])) {
+  //   return image;
+  // }
+
   CHECK(kColors.count(object_resut.type));
   for (int i = 0; i < 3; i++) {
     cv::line(image, points[i], points[i + 1], kColors.at(object_resut.type), 5,
@@ -215,9 +218,6 @@ RosCompont::RosCompont(rclcpp::Node *nh)
       nh_->create_publisher<sensor_msgs::msg::PointCloud2>("map_points", 10);
   //
 
-  // markpub_ = nh->advertise<visualization_msgs::MarkerArray>("object_mark",
-  // 1);
-
   // pub_mark_points_ =
   //     nh->advertise<sensor_msgs::PointCloud2>("plan_mark_points", 10);
 
@@ -238,9 +238,13 @@ RosCompont::RosCompont(rclcpp::Node *nh)
 
   bool_publisher_ =
       nh->create_publisher<std_msgs::msg::Bool>("slip_detect", 10);
-
+  //
+  //
   pose_mark_publisher_ =
       nh->create_publisher<visualization_msgs::msg::MarkerArray>("poses", 10);
+  markpub_ = nh->create_publisher<visualization_msgs::msg::MarkerArray>(
+      "object_mark", 10);
+
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_path_ = nh->advertise<nav_msgs::Path>("path", 10);
   // pub_local_tracking_result =
@@ -248,9 +252,7 @@ RosCompont::RosCompont(rclcpp::Node *nh)
 }
 //
 
-void RosCompont::CommpressedImagePub(
-  int id,
-    const cv::Mat &image) {
+void RosCompont::CommpressedImagePub(int id, const cv::Mat &image) {
   // if (compressed_image_pub_->get_subscription_count() == 0) return;
 
   // std_msgs::msg::Header header;
@@ -268,8 +270,8 @@ void RosCompont::CommpressedImagePub(
       {2, image_pub2_},
   };
   //
-  
-if (pubs[id]->get_subscription_count() == 0) return;
+
+  if (pubs[id]->get_subscription_count() == 0) return;
 
   std_msgs::msg::Header header;
   header.frame_id = "map";
@@ -363,99 +365,100 @@ void RosCompont::PubPointPlan(const std::vector<Eigen::Vector3f> &mark_points,
 //
 void RosCompont::MarkPub(
     std::map<int, std::vector<object::ObjectImageResult>> &t) {
-  // visualization_msgs::MarkerArray marks;
-  // int index = 0;
-  // for (const auto &t2 : t) {
-  //   transform::Rigid3d t1 = t2.second[0].global_pose_cam;
-  //   std::stringstream info;
-  //   if (t2.second.size() != 1) {
-  //     auto deta_pose =
-  //         t2.second[0].global_pose_cam.inverse() *
-  //         t2.second[1].global_pose_cam;
-  //     info << "err x = " << deta_pose.translation().x() * 100 << "\n"
-  //          << "y = " << deta_pose.translation().y() * 100 << "\n"
-  //          << "z = " << deta_pose.translation().z() * 100 << std::endl;
-  //     info << "angle = " << common::RadToDeg(transform::GetAngle(deta_pose));
-  //     for (int i = 0; i < 2; i++) {
-  //       t1 = t2.second[i].global_pose_cam;
-  //       visualization_msgs::Marker mark;
-  //       mark.header.frame_id = "map";
-  //       mark.ns = "object";
-  //       mark.header.stamp = ::ros::Time::now();
+  visualization_msgs::msg::MarkerArray marks;
+  int index = 0;
+  for (const auto &t2 : t) {
+    transform::Rigid3d t1 = t2.second[0].global_pose_cam;
+    std::stringstream info;
+    if (t2.second.size() != 1) {
+      auto deta_pose =
+          t2.second[0].global_pose_cam.inverse() * t2.second[1].global_pose_cam;
+      info << "err x = " << deta_pose.translation().x() * 1 << "\n"
+           << "y = " << deta_pose.translation().y() * 1 << "\n"
+           << "z = " << deta_pose.translation().z() * 1 << std::endl;
+      info << "angle = " << common::RadToDeg(transform::GetAngle(deta_pose));
+      for (int i = 0; i < 2; i++) {
+        t1 = t2.second[i].global_pose_cam;
+        visualization_msgs::msg::Marker mark;
+        mark.header.frame_id = "map";
+        mark.ns = "object";
+        mark.header.stamp = rclcpp::Time();
+        ;
 
-  //       mark.id = ++index;
-  //       mark.action = visualization_msgs::Marker::ADD;
-  //       mark.type = visualization_msgs::Marker::CUBE;
-  //       mark.pose.position.x = t1.translation().x();
-  //       mark.pose.position.y = t1.translation().y();
-  //       mark.pose.position.z = t1.translation().z();
-  //       mark.pose.orientation.w = t1.rotation().w();
-  //       mark.pose.orientation.x = t1.rotation().x();
-  //       mark.pose.orientation.y = t1.rotation().y();
-  //       mark.pose.orientation.z = t1.rotation().z();
-  //       // mark.type = visualization_msgs::Marker::ARROW;
-  //       mark.lifetime = ros::Duration(0);
-  //       mark.scale.x = 0.3;
-  //       mark.scale.y = 0.3;
-  //       mark.scale.z = 0.3;
-  //       mark.color.a = 1;
-  //       mark.color.r = 1;
-  //       mark.color.b = 1;
-  //       mark.color.g = 0;
-  //       marks.markers.push_back(mark);
-  //       if (t2.second[i].type == "global") {
-  //         mark.pose.position.z += 0.4;
-  //         mark.pose.position.y += 0.4;
-  //         mark.scale.x = 0.1;
-  //         mark.scale.y = 0.1;
-  //         mark.scale.z = 0.1;
-  //         mark.text = info.str();
-  //         mark.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-  //         marks.markers.push_back(mark);
-  //       }
-  //     }
-  //   }
+        mark.id = ++index;
+        mark.action = visualization_msgs::msg::Marker::ADD;
+        mark.type = visualization_msgs::msg::Marker::CUBE;
+        mark.pose.position.x = t1.translation().x();
+        mark.pose.position.y = t1.translation().y();
+        mark.pose.position.z = t1.translation().z();
+        mark.pose.orientation.w = t1.rotation().w();
+        mark.pose.orientation.x = t1.rotation().x();
+        mark.pose.orientation.y = t1.rotation().y();
+        mark.pose.orientation.z = t1.rotation().z();
+        // mark.type = visualization_msgs::Marker::ARROW;
+        // mark.lifetime = ros::Duration(0);
+        mark.scale.x = 0.3;
+        mark.scale.y = 0.3;
+        mark.scale.z = 0.3;
+        mark.color.a = 1;
+        mark.color.r = 1;
+        mark.color.b = 1;
+        mark.color.g = 0;
+        marks.markers.push_back(mark);
+        if (t2.second[i].type == "global") {
+          mark.pose.position.z += 0.4;
+          mark.pose.position.y += 0.4;
+          mark.scale.x = 0.1;
+          mark.scale.y = 0.1;
+          mark.scale.z = 0.1;
+          mark.text = info.str();
+          mark.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+          marks.markers.push_back(mark);
+        }
+      }
+    }
 
-  //   visualization_msgs::Marker mark;
-  //   mark.header.frame_id = "map";
-  //   mark.ns = "object";
-  //   mark.header.stamp = ::ros::Time::now();
-  //   if (!info.str().empty()) {
-  //     mark.text = info.str();
-  //   }
-  //   mark.id = ++index;
-  //   mark.action = visualization_msgs::Marker::ADD;
-  //   mark.type = visualization_msgs::Marker::CUBE;
-  //   mark.pose.position.x = t1.translation().x();
-  //   mark.pose.position.y = t1.translation().y();
-  //   mark.pose.position.z = t1.translation().z();
-  //   mark.pose.orientation.w = t1.rotation().w();
-  //   mark.pose.orientation.x = t1.rotation().x();
-  //   mark.pose.orientation.y = t1.rotation().y();
-  //   mark.pose.orientation.z = t1.rotation().z();
-  //   // mark.type = visualization_msgs::Marker::ARROW;
-  //   mark.lifetime = ros::Duration(0);
-  //   mark.scale.x = 0.3;
-  //   mark.scale.y = 0.3;
-  //   mark.scale.z = 0.3;
-  //   mark.color.a = 1;
-  //   mark.color.r = 1;
-  //   mark.color.b = 1;
-  //   mark.color.g = 0;
-  //   marks.markers.push_back(mark);
+    visualization_msgs::msg::Marker mark;
+    mark.header.frame_id = "map";
+    mark.ns = "object";
+    mark.header.stamp = rclcpp::Time();
+    ;
+    if (!info.str().empty()) {
+      mark.text = info.str();
+    }
+    mark.id = ++index;
+    mark.action = visualization_msgs::msg::Marker::ADD;
+    mark.type = visualization_msgs::msg::Marker::CUBE;
+    mark.pose.position.x = t1.translation().x();
+    mark.pose.position.y = t1.translation().y();
+    mark.pose.position.z = t1.translation().z();
+    mark.pose.orientation.w = t1.rotation().w();
+    mark.pose.orientation.x = t1.rotation().x();
+    mark.pose.orientation.y = t1.rotation().y();
+    mark.pose.orientation.z = t1.rotation().z();
+    // mark.type = visualization_msgs::Marker::ARROW;
+    // mark.lifetime = ros::Duration(0);
+    mark.scale.x = 0.3;
+    mark.scale.y = 0.3;
+    mark.scale.z = 0.3;
+    mark.color.a = 1;
+    mark.color.r = 1;
+    mark.color.b = 1;
+    mark.color.g = 0;
+    marks.markers.push_back(mark);
+  }
+
+  // mark.pose.position.x = p.x();
+  // mark.pose.position.y = p.y();
+  // mark.pose.position.z = p.z();
+  // for (const auto &p : t) {
+  //   geometry_msgs::Point point;
+  //   point.x = p.x();
+  //   point.y = p.y();
+  //   point.z = p.z();
+  //   mark.points.push_back(point);
   // }
-
-  // // mark.pose.position.x = p.x();
-  // // mark.pose.position.y = p.y();
-  // // mark.pose.position.z = p.z();
-  // // for (const auto &p : t) {
-  // //   geometry_msgs::Point point;
-  // //   point.x = p.x();
-  // //   point.y = p.y();
-  // //   point.z = p.z();
-  // //   mark.points.push_back(point);
-  // // }
-  // markpub_.publish(marks);
+  markpub_->publish(marks);
 }
 
 //
@@ -470,31 +473,62 @@ void RosCompont::OnLocalTrackingResultCallback(
         GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
                                   cam_feature.second.key_points, {}, {}, {},
                                   "pre_imag", "curr_imag", {0});
-    CommpressedImagePub(cam_feature.first, image_result);
+
     for (auto &feature : cam_feature.second.features.data->features) {
-      if(cam_feature.second.map_points.count(feature.first)==0)continue;
+      if (cam_feature.second.map_points.count(feature.first) == 0) continue;
       map_points.push_back(cam_feature.second.map_points[feature.first]);
     }
 
-    // std::vector<transform::Rigid3d> mark_pose;
-    // std::map<int, std::vector<object::ObjectImageResult>> same_marks;
-    // cv::Mat image_object(image_result.size(), CV_8UC3, cv::Scalar::all(0));
-    // if (object_result != nullptr && !object_result->empty()) {
-    //   for (const auto &result : *object_result) {
-    //     same_marks[result.id].push_back(result);
-    //     if (result.coners.empty()) continue;
-    //     image_object += ObjectToCvImage(
-    //         Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},
-    //                             Eigen::Vector2d{
-    //                                 tracking_data.data->image->cols,
-    //                                 tracking_data.data->image->rows,
-    //                             }),
-    //         image_result.size(), result);
-    //     mark_pose.push_back(result.global_pose_cam);
-    //   }
-    //   MarkPub(same_marks);
-    // }
-    // image_result += image_object;
+    if (object_result && cam_feature.first == 0) {
+      std::vector<transform::Rigid3d> mark_pose;
+      std::map<int, std::vector<object::ObjectImageResult>> same_marks;
+      cv::Mat image_object(image_result.size(), CV_8UC3, cv::Scalar::all(0));
+      if (object_result != nullptr && !object_result->empty()) {
+        for (const auto &result : *object_result) {
+          same_marks[result.id].push_back(result);
+          if (result.coners.empty()) continue;
+
+          int cols = tracking_data.data->features_datas[0]
+                         .features.data->images[0]
+                         .cols;
+          int rows = tracking_data.data->features_datas[0]
+                         .features.data->images[0]
+                         .rows;
+
+          image_object +=
+              ObjectToCvImage(Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},
+                                                  Eigen::Vector2d{cols, rows}),
+                              image_result.size(), result);
+          mark_pose.push_back(result.global_pose_cam);
+        }
+        MarkPub(same_marks);
+        // cv::imshow(" image_object", image_object);
+        // cv::waitKey(0);
+        std::stringstream info;
+        std::stringstream info1;
+        for (const auto &t2 : same_marks) {
+          transform::Rigid3d t1 = t2.second[0].global_pose_cam;
+          if (t2.second.size() != 1) {
+            auto deta_pose = t2.second[0].global_pose_cam.inverse() *
+                             t2.second[1].global_pose_cam;
+            info << "err x = " << deta_pose.translation().x() * 1 << ""
+                 << "y = " << deta_pose.translation().y() * 1 << " ";
+            info1 << "err  z = " << deta_pose.translation().z() * 1 << " ";
+            info1 << "angle = "
+                  << common::RadToDeg(transform::GetAngle(deta_pose));
+          }
+        }
+        cv::putText(image_object, info.str(), cv::Point(50, 30),
+                    cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 2, 3);
+        cv::putText(image_object, info1.str(), cv::Point(50, 60),
+                    cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 2, 3);
+
+
+        image_result += image_object;
+      }
+    }
+
+    CommpressedImagePub(cam_feature.first, image_result);
   }
 
   // for (int i = 0; i < image_object.rows; i++) {
@@ -507,15 +541,9 @@ void RosCompont::OnLocalTrackingResultCallback(
   //   }
   // }
 
-
-
   // pub_local_tracking_result.publish(img);
 
   OnMapPointsCallback(map_points, local_to_global);
-
-
-
-
 }
 //
 
@@ -611,12 +639,9 @@ void RosCompont::PosePub(const transform::Rigid3d &pose,
   geometry_msgs::msg::PoseStamped pose_stamped;
   pose_stamped.header.stamp = rclcpp::Time();
   pose_stamped.header.frame_id = "map";
-  pose_stamped.pose.position.x =
-      pose.translation().x();
-  pose_stamped.pose.position.y =
-      pose.translation().y();
-  pose_stamped.pose.position.z =
-      pose.translation().z();
+  pose_stamped.pose.position.x = pose.translation().x();
+  pose_stamped.pose.position.y = pose.translation().y();
+  pose_stamped.pose.position.z = pose.translation().z();
 
   // poses_["local_imu_pose"].push_back(
   //     pose.translation());
@@ -629,18 +654,17 @@ void RosCompont::PosePub(const transform::Rigid3d &pose,
   }
 
   //
-
 }
 
 void RosCompont::PushMark(
-    const std::map<std::string, jarvis::transform::Rigid3d> &makes,bool emd) {
+    const std::map<std::string, jarvis::transform::Rigid3d> &makes, bool emd) {
   for (const auto &p : makes) {
     poses_[p.first].push_back(p.second.translation());
-    if(poses_[p.first].size()>10){
-poses_[p.first].erase(poses_[p.first].begin());
+    if (poses_[p.first].size() > 10) {
+      poses_[p.first].erase(poses_[p.first].begin());
     }
   }
-  if(emd){
+  if (emd) {
     PubPoseWithMark(poses_);
   }
 }
