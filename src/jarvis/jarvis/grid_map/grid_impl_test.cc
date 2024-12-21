@@ -13,10 +13,12 @@ class GridMapTest : public ::testing::Test {
   virtual void SetUp() {
     std::map<int, GridMapOption> options;
     options[1];
-    options[2].insert_free_space =false;
+    options[2].insert_free_sector_space =true;
+    options[2].insert_free_min_distance=0.2;
     options[3];
     options[4];
-    options[5].insert_free_space=false;
+    options[5].insert_free_sector_space=true;
+    options[5].insert_free_min_distance=0.2;
     grid_map_ = GridMap::Create(options);
   }
 
@@ -170,7 +172,7 @@ std::vector<AiObject> ParseObjecs(const std::string& dir) {
 constexpr char kTesData[] =
     "/home/lyp/data/ai_data/2024_12_5_gz/perceive_map_object_save/";
 
-const int map_size=300;
+const int map_size=500;
 //
 TEST_F(GridMapTest, GridMapTesInsert) {
   auto ai_object =  ParseObjecs( kTesData);
@@ -201,6 +203,10 @@ TEST_F(GridMapTest, GridMapTesInsert) {
       cv::imwrite(test_string_file_dir + std::to_string(a.time) + "_" +
                       type_name[imae.first] + ".png",
                   imae.second);
+      if (imae.first == 5) {
+        cv::imshow("grid", imae.second);
+        cv::waitKey(0);
+      }
     }
 
     // grid->ToPgn("/home/lyp/data/ai_data/");

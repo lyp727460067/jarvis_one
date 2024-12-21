@@ -15,8 +15,8 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   # -Wshadow # shadow local variable
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
-# set(BUILD_TYPE Release)
-# set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+set(BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 
 

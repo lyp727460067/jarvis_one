@@ -30,6 +30,14 @@ struct RangeData {
   Eigen::Vector3f origin;
   PointCloud returns;
   PointCloud misses;
+  struct SectorPara {
+    
+    float min_cos;
+    float max_cos;
+    std::vector<Eigen::Vector3f> end_points;
+    Eigen::Vector3f centor;
+    float r;
+  } sector;
 };
 
 RangeData TransformRangeData(const RangeData& range_data,

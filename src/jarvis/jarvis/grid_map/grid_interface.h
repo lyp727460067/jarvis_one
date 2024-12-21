@@ -14,6 +14,7 @@ using PointCloud = std::vector<Eigen::Vector3f>;
 struct RigidPose {
   Eigen::Vector3d tanslation;  // m
   Eigen::Quaterniond rotaion;  //
+
 };
 
 //
@@ -27,14 +28,16 @@ struct AiObject {
 //
 //
 struct GridMapOption {
-  float point_votex = 0.01;
+  float point_votex = 0.05;//当点云大于200个时候内部会降采样
   float resolution = 0.05;  // grid 的分辨率 建议0.05或者0.1 太大没用耗费时间
-  int max_node_num = 200;          // 选择维护多少个节点的数据
+  int max_node_num = 200;          // 选择维护多少个节点的数据 //没有用
   bool insert_free_space = false;  // free space 是否要插图
+  bool insert_free_sector_space = false;  //扇形插入 
+  float insert_free_min_distance =0.0; //小于这个值的区域不要去减概率
   double max_distance = 2;         // 超过3米距离的点直接不插
-  float hit_probability = 0.55;    // hit 每次概率插入多大
-  float miss_probability = 0.45;
-  uint8_t min_probability = 70;  //
+  float hit_probability = 0.85;    // hit 每次概率插入多大
+  float miss_probability = 0.45;   //每次miss消除的概率（快慢）
+  uint8_t min_probability = 70;  ////没有用
   //在使用insert_free_space=true的时候 max_angle  min_angle 决定
   //投影在平面视角的大小，多少度的分辨率angle_size
   float max_angle = 50;
@@ -49,7 +52,7 @@ struct GridMapOption {
 };
 //
 struct ObResultValue {
-  uint8_t p;
+  uint8_t p;  //概率*255
   std::optional<double> z;
   std::optional<double> slop;
 };

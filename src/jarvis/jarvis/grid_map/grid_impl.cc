@@ -43,7 +43,7 @@ sensor::PointCloud ToLaserData(const GridMapOption& option,
       const Eigen::AngleAxisf rotation(
           common::DegToRad(i * ang_size + min_angle),
           Eigen::Vector3f::UnitZ());
-      result.push_back({(rotation.inverse() * ((option.max_distance + 0.5) *
+      result.push_back({(rotation * ((option.max_distance + 0.5) *
                                                Eigen::Vector3f::UnitX()))});
     }
   }
@@ -56,15 +56,15 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
                                 const transform::Rigid3f pose,
                                 const PointCloud& point_cloud) {
   //
-
   const Eigen::Vector3f& origin = pose.translation();
-  if (option.insert_free_space) {
+  if (option.insert_free_space && !option.insert_free_sector_space) {
     auto point_clouds = ToLaserData(option, point_cloud);
     sensor::PointCloud miss;
     sensor::PointCloud hit;
     for (const auto& p : point_clouds) {
       CHECK(!isnan(p.position.norm()));
-      // CHECK(p.position.norm() < 1e4) << p.position.norm() << " point valid!!!!";
+      // CHECK(p.position.norm() < 1e4) << p.position.norm() << " point
+      // valid!!!!";
       Eigen::Vector3f pos(p.position.x(), p.position.y(), 0);
       if (pos.norm() > option.max_distance) {
         miss.push_back({pose * pos});
@@ -75,7 +75,7 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
     return sensor::RangeData{origin, hit, miss};
   }
   sensor::PointCloud result;
-
+  sensor::RangeData::SectorPara sector;
   for (auto const& p : point_cloud) {
     CHECK(!isnan(p.norm())) << "nan";
     // CHECK(p.norm() < 1e4) << p.norm()<< " point valid!!!!";
@@ -85,12 +85,32 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
       result.push_back({pose * pos});
     }
   }
+  if (option.insert_free_sector_space) {
+    //
+    // sector.end_angle = common::DegToRad(option.max_angle);
+    // sector.start_angle = common::DegToRad(option.min_angle);
+    //
+    //
+    sector.r =  option.max_distance;
+    sector.min_cos = cos(common::DegToRad(option.min_angle));
+    sector.max_cos = cos(common::DegToRad(option.max_angle));
+    Eigen::AngleAxisf rotation(common::DegToRad(option.min_angle),
+                               Eigen::Vector3f::UnitZ());
+    sector.end_points.push_back(
+        pose * (rotation * ((option.max_distance) * Eigen::Vector3f::UnitX())));
+    rotation = Eigen::AngleAxisf(common::DegToRad(option.max_angle),
+                                 Eigen::Vector3f::UnitZ());
+    sector.end_points.push_back(
+        pose * (rotation * ((option.max_distance) * Eigen::Vector3f::UnitX())));
+    sector.centor =
+        pose.rotation() * Eigen::Vector3f::UnitX();
+  }
   //
   if (result.size() > 200) {
     return sensor::RangeData{
-        origin, sensor::VoxelFilter(result, option.point_votex), {}};
+        origin, sensor::VoxelFilter(result, option.point_votex), {},sector};
   }
-  return sensor::RangeData{origin, result, {}};
+  return sensor::RangeData{origin, result, {},sector};
 }
 
 //
@@ -143,7 +163,8 @@ GridImpl::GridImpl(const std::map<int, GridMapOption>& option)
         op.first, std::make_unique<ActiveSubmaps2D>(SubmapsOptions2DOption{
                       ProbabilityGridRangeDataInserterOptions2D{
                           op.second.hit_probability, op.second.miss_probability,
-                          op.second.insert_free_space},
+                          op.second.insert_free_space,
+                          op.second.insert_free_min_distance},
                       op.second.max_node_num,
                       op.second.resolution,
                       op.second.min_x_map_size,

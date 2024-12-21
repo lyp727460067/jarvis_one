@@ -33,6 +33,7 @@ struct ProbabilityGridRangeDataInserterOptions2D {
   float hit_probability = 0.55;
   float miss_probability = 0.4;
   bool insert_free_space = true;
+  float min_free_distance =0.1;
 };
 class ProbabilityGridRangeDataInserter2D {
  public:
