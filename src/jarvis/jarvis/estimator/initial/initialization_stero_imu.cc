@@ -267,6 +267,7 @@ SteroImuInitialization::OptimizationResult() {
         Eigen::Vector3d(para_speed[i][0], para_speed[i][1], para_speed[i][2]),
         Eigen::Vector3d(para_speed[i][3], para_speed[i][4], para_speed[i][5]),
         Eigen::Vector3d(para_speed[i][6], para_speed[i][7], para_speed[i][8])});
+    imu_state.back().time = image_frames_[i].time;
 
     Eigen::Vector3d vi(para_speed[i][0], para_speed[i][1], para_speed[i][2]);
     double vin = vi.norm();

@@ -205,11 +205,11 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
              uint8_t* ref_patch, const int n_iter, const bool affine_est_offset,
              const bool affine_est_gain, Keypoint& cur_px_estimate,double min_update_squared,
              bool no_simd, std::vector<Eigen::Vector2f>* each_step) {
-#ifdef __ARM_NEON__
-  if (!no_simd)
-    return align2D_NEON(cur_img, ref_patch_with_border, ref_patch, n_iter,
-                        cur_px_estimate,min_update_squared);
-#endif
+// #ifdef __ARM_NEON__
+//   if (!no_simd)
+//     return align2D_NEON(cur_img, ref_patch_with_border, ref_patch, n_iter,
+//                         cur_px_estimate,min_update_squared);
+// #endif
 
   if (each_step) each_step->clear();
 
@@ -581,7 +581,6 @@ bool align2D_NEON(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
   const int patch_area = 64;
   bool converged = false;
   const int W_BITS = 14;
-
   // compute derivative of template and prepare inverse compositional
   int16_t __attribute__((__aligned__(16))) ref_patch_dx[patch_area];
   int16_t __attribute__((__aligned__(16))) ref_patch_dy[patch_area];

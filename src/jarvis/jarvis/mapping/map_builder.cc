@@ -17,6 +17,7 @@ namespace mapping {
 MappingBuilder::MappingBuilder(const MapBuilderOption &option)
     : options_(option) {
   //
+  LOG(INFO)<<"local track "<<options_.enable_local_track;
   if (!option.enable_local_opimization) {
     map_manager_ = std::make_unique<MapManager>(option.map_manager_option,
                                                 option.cameras, nullptr);
@@ -51,12 +52,14 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option)
       option.culling_sampler_ration);
 
   work_queue_ = std::make_unique<WorkQueue>();
+    if (option.enable_local_opimization) {
   thread_ = std::thread([this]() {
     while (!kill_thread_) {
       DrainWorkQueue();
       usleep(1000);
     }
   });
+    }
 }
 //
 //
@@ -167,10 +170,10 @@ std::vector<Eigen::Vector3d> MappingBuilder::GetAllMapPoints() {
 }
 
 void MappingBuilder::AddImuData(const sensor::ImuData &imu_data) {
-  AddWorkItem([=]() { return WorkItem::Result::Normal; });
+  // AddWorkItem([=]() { return WorkItem::Result::Normal; });
 }
 void MappingBuilder::AddFixData(const sensor::FixedFramePoseData &fix_data) {
-  AddWorkItem([=]() { return WorkItem::Result::Normal; });
+  // AddWorkItem([=]() { return WorkItem::Result::Normal; });
 }
 
 void MappingBuilder::AddOdometryData(const sensor::OdometryData &odo_data) {}

@@ -834,7 +834,18 @@ jarvis::mapping::match::DirectMatchOption ParseLocalMapDirectMatchOptionOptio(
   //
   return op_option;
 }
-
+//
+jarvis::mapping::KeyFrameFilterOption ParseLocalKeyFrameFilterOptionOptio(
+    const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::KeyFrameFilterOption op_option;
+  op_option.max_distance = fsSettings["max_distance"];
+  op_option.max_angle = fsSettings["max_angle"];
+  op_option.max_time = fsSettings["max_time"];
+  op_option.min_intersection_ration = fsSettings["min_intersection_ration"];
+  return op_option;
+}
+//
 mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
   auto &fsSettings = fs;
   mapping::LocalMapTrackOption op_option;
@@ -931,6 +942,8 @@ void ParseYAMLOption(const std::string &file,
   option->enable_local_track = bool(temp);
   temp = fsSettings["enable_local_opimization"];
   option->enable_local_opimization = bool(temp);
+  option->key_frame_filter_option = ParseLocalKeyFrameFilterOptionOptio(
+      fsSettings["key_frame_filter_option"]);
 }
 
 template <>

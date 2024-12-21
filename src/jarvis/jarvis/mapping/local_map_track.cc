@@ -302,6 +302,7 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
 
   int match_sum_num = 0;
   std::stringstream info;
+  auto start = std::chrono::high_resolution_clock::now();
   for (size_t i = 0; i < cur_frames.size(); i++) {
     //
     if (options_.sequence_match.count(i) == 0) continue;
@@ -330,6 +331,10 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
     match_sum_num += match_result.size();
     matchs[i] = std::move(match_result);
   }
+  LOG(INFO) << "total match cost : "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::high_resolution_clock::now() - start)
+                         .count();
   LOG(INFO) << log_info::GREEN<< "Total match num :" << match_sum_num
             << ",Seperate: " << info.str() << log_info::RESET;
 
@@ -652,9 +657,10 @@ transform::Rigid3d LocalMapTrack::Optimize(
     ceres::Solver::Options options;
     options.minimizer_progress_to_stdout = false;
     options.max_num_iterations = options_.max_num_iterations;
-    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    options.linear_solver_type = ceres::DENSE_SCHUR;
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
+    // LOG(INFO) << summary.FullReport();
     const auto pose =
         transform::Rigid3d(
             traslation, transform::RollPitchYaw(roll, pitch, yaw).normalized())

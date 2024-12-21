@@ -127,8 +127,10 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //
   const int frame_count = imu_states_.size();
   //
-
-  images_.emplace(frame.data->time, frame.data->images);
+  const common::Time current_time =
+      frame.data->time + common::FromSeconds(camera_imu_time_offset_);
+  //
+  images_.emplace(current_time, frame.data->images);
   //
   //
   TicToc feature_t_t;
@@ -154,6 +156,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
 
   if (is_keyframe) {
     if (prior_factor_) {
+       TicToc t_t;
       const auto prior_pose = prior_factor_(GetratePriorData());
       if (prior_pose) {
 
@@ -162,8 +165,11 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
             << ",fisrt imu pose:" << imu_states_.begin()->Pose();
         optimization_->SetPrior(*prior_pose);
         has_prio_pose =  true;
+
         // CHECK(false);
       }
+      VLOG(kGlogCostTimeLevel) << "Local match cost: " << t_t.toc() << " ms";
+      LOG(INFO) << "Local match cost: " << t_t.toc() << " ms";
     }
   }
   for (auto& f : frame.data->features_datas) {
@@ -202,9 +208,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   VLOG(kGlogLevel) << "Add incoming feature "
                    << (is_keyframe ? "Keyframe" : "Non-keyframe,");
   //
-  const common::Time current_time =
-      frame.data->time + common::FromSeconds(camera_imu_time_offset_);
-  //
+
   const std::vector<sensor::ImuData> imu_datas =
       data_base_->GetImuIntervalData(last_feature_time_, current_time);
   //
@@ -215,7 +219,6 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //   LOG(INFO) << i.linear_acceleration.transpose()<<" "<<i.linear_acceleration.norm();
   // }
   imu_states_.push_back(frame.data->imu_state);
-
   //
   integration_base_.push_back(nullptr);
   if (!imu_datas.empty()) {
@@ -365,13 +368,12 @@ void SlideWindow::SlideData(bool is_keyframe) {
   //
   CHECK_EQ(int(imu_states_.size() - 1), options_.win_size);
   //
-
   if (is_keyframe /*&& init_slide_new_num==options_.win_size+1*/) {
     //
 
-    if (images_.count(imu_states_[0].time)) {
+   if (images_.count(imu_states_[0].time)==1) {
       images_.erase(imu_states_[0].time);
-    }
+  }
     transform::Rigid3d marg_pose = imu_states_[0].Pose();
     imu_states_.erase(imu_states_.begin());
     transform::Rigid3d new_pose = imu_states_[0].Pose();
@@ -389,11 +391,10 @@ void SlideWindow::SlideData(bool is_keyframe) {
     integration_base_.erase(integration_base_.begin());
     // feature_managers_->RemoveBack();
   } else {
+     if (images_.count(imu_states_[imu_states_.size() - 2].time)==1) {
+        images_.erase(imu_states_[imu_states_.size() - 2].time);
+      }
     // CHECK(false);
-    //
-    if (images_.count(imu_states_[0].time)) {
-      images_.erase(imu_states_[0].time);
-    }
     SlideNew();
     feature_managers_->RemoveFront(options_.win_size);
   }

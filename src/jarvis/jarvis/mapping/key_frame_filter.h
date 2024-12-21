@@ -12,7 +12,7 @@ namespace mapping {
 //
 struct KeyFrameFilterOption {
   double max_distance = 0.1;
-  double max_angle = 20;
+  double max_angle = 10;
   double max_time = 10.0;
   double min_intersection_ration = 0.25;
 };
