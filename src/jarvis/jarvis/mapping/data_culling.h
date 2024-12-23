@@ -38,9 +38,12 @@ class DataFuse {
   //
   virtual const std::set<KeyFrameId> GetMapObservations(
       const MapPointId& map_point_id) = 0;
-  virtual Eigen::Vector2d PorjectPoint(const Eigen::Vector3d& point, int s) = 0;
+  virtual bool PorjectPoint(const transform::Rigid3d& cam_pose,
+                            const Eigen::Vector3d& point, int s,
+                            Eigen::Vector2d* p) = 0;
   //
-  virtual const MapById<KeyFrameId, KeyFrameData>& GetAllKeyFramesData() = 0;
+  virtual const MapById<KeyFrameId, const KeyFrameData>& GetAllKeyFramesData()
+      const = 0;
   virtual std::vector<std::pair<KeyFrameId, int>> GetKeyLevelConnectedKeyFrames(
       const KeyFrameId& frame_id, const std::vector<int>& levels) = 0;
   virtual ~DataFuse() {};

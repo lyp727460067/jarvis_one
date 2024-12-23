@@ -21,8 +21,9 @@ struct ProjectionOption {
   double project_pix_err = 0.0;
   double project_best_des_dis = 80;
   //
-  std::function<Eigen::Vector2d(const Eigen::Vector3d& point, int s)>
-      PorjectPoint=nullptr;
+  std::function<bool(const transform::Rigid3d& cam_pose,
+                     const Eigen::Vector3d& point, int s, Eigen::Vector2d* uv)>
+      PorjectPoint = nullptr;
 };
 
 //

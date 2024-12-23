@@ -80,6 +80,28 @@ struct MapPointId {
   uint64_t index;
 };
 //
+struct LocalMapId {
+  LocalMapId(int trajectory_id_, uint64_t index_)
+      : trajectory_id(trajectory_id_),
+        index(index_) {}
+  bool operator==(const LocalMapId &other) const {
+    return std::forward_as_tuple(trajectory_id, index) ==
+           std::forward_as_tuple(other.trajectory_id,
+                                 other.index);
+  }
+
+  bool operator!=(const LocalMapId &other) const { return !operator==(other); }
+
+  bool operator<(const LocalMapId &other) const {
+    return std::forward_as_tuple(trajectory_id,index) <
+           std::forward_as_tuple(other.trajectory_id,other.index);
+  }
+  int trajectory_id;
+  uint64_t index;
+};
+inline std::ostream& operator<<(std::ostream& os, const LocalMapId& v) {
+  return os << "(" << v.trajectory_id << ", " << v.index << ")";
+}
 //
 inline std::ostream& operator<<(std::ostream& os, const MapPointId& v) {
   return os << "(" << v.trajectory_id << ", " << v.index << ")";
@@ -419,7 +441,7 @@ class MapById {
   static uint64_t GetIndex(const KeyFrameId& id) { return id.keyframe_index; }
   static uint64_t GetIndex(const MapPointId& id) { return id.index; }
   static uint64_t GetIndex(const FeatureId& id) { return id.index; }
-
+  static uint64_t GetIndex(const LocalMapId& id) { return id.index; }
   std::map<int, MapByIndex> trajectories_;
 };
 
@@ -437,6 +459,16 @@ struct hash<jarvis::KeyFrameId> {
 template <>
 struct hash<jarvis::MapPointId> {
   std::size_t operator()(const jarvis::MapPointId& k) const {
+    using std::hash;
+    return ((hash<int>()(k.trajectory_id) ^
+             (hash<uint64_t>()(k.index) << 1)) >>
+            1);
+  }
+};
+
+template <>
+struct hash<jarvis::LocalMapId> {
+  std::size_t operator()(const jarvis::LocalMapId& k) const {
     using std::hash;
     return ((hash<int>()(k.trajectory_id) ^
              (hash<uint64_t>()(k.index) << 1)) >>

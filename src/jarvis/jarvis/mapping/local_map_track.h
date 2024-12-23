@@ -5,15 +5,13 @@
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/transform/transform.h"
 //
-#include "jarvis/mapping/local_map_track_map.h"
 #include "jarvis/mapping/match/occupancy_grid_2d.h"
-#include "jarvis/mapping/local_map_track_map.h"
+#include "jarvis/mapping/local_map.h"
 namespace jarvis {
 namespace mapping {
 
 struct LocalMapTrackOption {
   match::DirectMatchOption derect_match_option;
-  LocalMapTrackMapOption map_option;
   std::map<int, camera_models::CameraPtr> cameras; 
   int min_track_frame_num =5;
   bool remove_unconstrained_points=true;
@@ -42,9 +40,9 @@ struct LocalMapTrackOption {
 class LocalMapTrack {
  public:
   explicit LocalMapTrack(const LocalMapTrackOption& option);
-  std::unique_ptr<transform::Rigid3d> Track(const KeyFrameData& track_data);
-  void AddTracingData(const KeyFrameData& key_frame_data,
-                      const FrontMapPointData& map_points_data);
+  std::unique_ptr<transform::Rigid3d> Track(
+      const std::shared_ptr<LocalMap>& local_map,
+      const KeyFrameData& track_data);
   //
   //for debug
   std::vector<Eigen::Vector3d> GetMapPoints()const;
@@ -83,8 +81,6 @@ class LocalMapTrack {
   void WriteCheckMatchResult(const KeyFrameData& key_frame_data,
       const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs);
   //
-  int MapPointIsInFrame(const Eigen::Vector3d pws,
-                        const transform::Rigid3d& frame_pose);
   MapById<KeyFrameId, match::Frame> frame_warps_;
   //
   //
@@ -104,11 +100,11 @@ class LocalMapTrack {
                                     const std::shared_ptr<match::Frame>& frame);
 
   //
-void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
-             int index) ;
+  void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
+               int index, const transform::Rigid3d& ref_key_frame_pos);
 
-
-  int IsInFrame(const MapPoint& map_point, const KeyFrameData& track_data);
+  int IsInFrame(const MapPoint& map_point, const KeyFrameData& track_data,
+                const transform::Rigid3d& ref_key_frame_pos);
   bool MatchCandidate(const Candidate& candidate,
                       estimator::FeatureData& feature);
   //
@@ -116,25 +112,30 @@ void ToFrame(const KeyFrameData& key_frame_data, match::Frame& fram,
 
   //
 
-    transform::Rigid3d PnpSolver(
+  transform::Rigid3d PnpSolver(
       const transform::Rigid3d& init_pose,
       const std::vector<transform::Rigid3d>& extric_camera_to_imu,
       const std::map<int, std::vector<MatchData>>& constraints,
       const std::array<float, 2>& weight);
 
-
   // std::shared_ptr<match::svo::OccupandyGrid2D> grid_;
-  std::map<int,std::shared_ptr<match::svo::OccupandyGrid2D> > grids_;
+  std::map<int, std::shared_ptr<match::svo::OccupandyGrid2D>> grids_;
   std::unique_ptr<match::DirectMatch> direct_match_;
-  std::unique_ptr<LocalMapTrackMap> local_map_;
   const LocalMapTrackOption options_;
   std::map<KeyFrameId, std::map<int, std::shared_ptr<match::Frame>>>
       ref_frams_catch_;
   std::vector<transform::Rigid3d> extric_camera_to_imu_;
   std::map<int, camera_models::CameraPtr> cameras_;
   std::vector<Eigen::Vector3d> px_top_lefts_;
-  //for debug
-   mutable std::mutex mutex_;
+  // for debug
+  mutable std::mutex mutex_;
+  //
+  std::unique_ptr<ActiveLocalMap> local_maps_;
+  std::shared_ptr<LocalMap> local_map_ = nullptr;
+  //
+  MapById<KeyFrameId, KeyFrameData> key_frames_datas_;
+  void TrimKeyFrameData();
+
 };
 
 }  // namespace mapping

@@ -34,7 +34,7 @@ class Covisibility {
                                              const KeyFrameId& kf_id) const;
 
   FeatureId GetMapPointFeatureIndex(const KeyFrameId& map_point_id,
-                                    const MapPointId& mp);
+                                    const MapPointId& mp)const;
   //
   void UpdateWithFuseMapPoint(const MapPointId& target, const MapPointId& sou);
 

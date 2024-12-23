@@ -49,7 +49,10 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 
   if (kuse_gpu) {
     for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+
+      LOG(INFO)<<i;
       for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+        LOG(INFO)<<j;
         esit_option_.feature_track_options[i].pyramid_image.push_back(
             std::make_shared<jarvis::estimator::ExtendPyramidImage>(
                 esit_option_.feature_track_options[i].pyrmid_option));
@@ -86,8 +89,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
   order_queue_->AddQueue(kImagTopic0, [&](const jarvis::sensor::ImageData&
                                               imag_data) {
-    if (imag_data.image[0].empty() || imag_data.image[1].empty() /*||
-        imag_data.image[2].empty() || imag_data.image[3].empty()*/) {
+    if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
+        imag_data.image[2].empty() || imag_data.image[3].empty()) {
       LOG(WARNING) << "Input Image empty..";
       return;
     }

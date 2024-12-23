@@ -63,10 +63,9 @@ std::set<KeyFrameId> Covisibility::GetMapObservations(
 //
 
 FeatureId Covisibility::GetMapPointFeatureIndex(const KeyFrameId& key_frame_id,
-                                                const MapPointId& mp) {
-   std::lock_guard<std::mutex> lock(mutex_);
+                                                const MapPointId& mp)const {
   CHECK(key_frame_feature_data_.count(key_frame_id))<< key_frame_id;
-  CHECK(key_frame_feature_data_[key_frame_id].count(mp))<<mp;
+  CHECK(key_frame_feature_data_.at(key_frame_id).count(mp)) << mp;
   return key_frame_feature_data_.at(key_frame_id).at(mp);
 }
 //

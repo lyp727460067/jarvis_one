@@ -18,19 +18,21 @@
 #include "jarvis/mapping/local_map_optimization.h"
 #include "jarvis/sensor/odometry_data.h"
 #include "jarvis/mapping/loop_detect.h"
+#include "jarvis/mapping/map_point_construct.h"
 namespace jarvis {
 namespace mapping {
 //
 struct MapBuilderOption {
   bool enable_local_track =false;
   bool enable_local_opimization =false;
+  bool enable_loop_closure =false;
   MapManagerOption map_manager_option;
   DataCullingOption data_culling_option;
   LocalMapTrackOption local_map_track_option;
   KeyFrameFilterOption key_frame_filter_option;
-  LocalMapOptimizationOption local_map_optimization_option;
+
   LoopDetectOption loop_detect_option;
-  
+  MapPointConstructOption map_point_construct_option; 
   //
   //
   //
@@ -42,14 +44,7 @@ struct MapBuilderOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   std::map<int, camera_models::CameraPtr> cameras;
   int culling_win_size  =20;
-};
-
-//
-
-struct WorkItem {
-  enum class Result { Normal, kRunLocalOptimization };
-  std::chrono::steady_clock::time_point time;
-  std::function<Result()> task;
+  
 };
 
 class MappingBuilder {
@@ -78,56 +73,30 @@ class MappingBuilder {
   //
   LocalMapTrack const* GetLocalMapTrack() { return local_map_track_.get(); }
 
+
  private:
   //
+  void UpdataFinishLocalMapData(std::shared_ptr<LocalMap>local_map);
+  void AddLocalMap();
+  void TrimKeyFrameData();
   LocalMapOptimizationData ParseLocalMapData(const KeyFrameId& frame_id);
-  void LocalPorcess(const KeyFrameId& frame_id);
-  void LocalOptimization() {}
-  void DrainWorkQueue();
-  void KeyFrameDataFuse(const KeyFrameId& frame_id);
   void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
-  std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
   //
-  std::unique_ptr<common::FixedRatioSampler>
-      local_mapping_optimization_sampler_;
-  std::unique_ptr<LocalMapOptimization> local_map_optimization_;
+  std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;
   std::unique_ptr<LocalMapTrack> local_map_track_;
-  std::unique_ptr<DataCulling> data_culling_;
-  std::unique_ptr<DataFuse> data_fuse_;
+  //
+  std::shared_ptr<LocalMap> local_map_front_;
+  std::shared_ptr<LocalMap> local_map_finish_temp_;
+  std::unique_ptr<ActiveLocalMap> active_local_maps_;
+  //
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
-  std::thread thread_;
-  std::mutex work_queue_mutex_;
-  using WorkQueue = std::deque<WorkItem>;
-  std::unique_ptr<WorkQueue> work_queue_;
-  std::mutex mutex_;
+
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;
   bool kill_thread_=false;
   transform::Rigid3d local_to_globla_;
-  class MappingDataFuse : public DataFuse {
-   public:
-    MappingDataFuse(MappingBuilder* map_builder);
-
-    void FuseMapPoint(
-        const KeyFrameId& key_frame_id,
-        const std::map<MapPointId, std::map<KeyFrameId, FeatureId>>& matches)
-        override;
-
-    void CullKeyFrame(const std::set<KeyFrameId>& target) override;
-    const MapById<MapPointId, mapping::MapPointData> GetMapPoints(
-        const KeyFrameId& id) override;
-    //
-    const std::set<KeyFrameId> GetMapObservations(
-        const MapPointId& map_point_id) override;
-    Eigen::Vector2d PorjectPoint(const Eigen::Vector3d& point, int s) override;
-    //
-    const MapById<KeyFrameId, KeyFrameData>& GetAllKeyFramesData() override;
-    std::vector<std::pair<KeyFrameId, int>> GetKeyLevelConnectedKeyFrames(
-        const KeyFrameId& frame_id, const std::vector<int>& levels) override;
-    MappingBuilder* map_builder_;
-  };
-  friend MappingDataFuse;
+ 
 };
 }  // namespace mapping
 }  // namespace jarvis

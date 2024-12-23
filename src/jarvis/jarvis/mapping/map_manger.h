@@ -11,208 +11,75 @@
 //
 #include "jarvis/camera_models/camera_models/camera.h"
 //
+#include "jarvis/common/id.h"
 #include "jarvis/key_frame_data.h"
+#include "jarvis/mapping/covisibility.h"
 #include "jarvis/mapping/key_frame_database.h"
 #include "jarvis/mapping/key_point_exract.h"
+#include "jarvis/mapping/local_map.h"
+#include "jarvis/mapping/map_point_construct.h"
 #include "jarvis/mapping/mapping_data.h"
-#include "jarvis/transform/transform.h"
-#include "jarvis/common/id.h"
-#include "jarvis/mapping/covisibility.h"
 #include "jarvis/mapping/match/des_matcher.h"
+#include "jarvis/transform/transform.h"
 namespace jarvis {
 namespace mapping {
 //
 
-using FrontMapPointData = std::map<
-    int, std::map<uint64_t,
-                  std::tuple<Eigen::Vector3d, mapping::Descriptor, FeatureId>>>;
-
-class DataCulling;
-//
-
-//
-
-struct LocalTrackData {
-  MapById<KeyFrameId, KeyFrameData> key_frame_datas_;
-  MapById<MapPointId, MapPointData> map_points_;
-};
 struct MapManagerOption {
-  bool extend_point = true;
-  KeyFrameDataBaseOption key_frame_data_option;
-  KeyPointExtractOption key_points_extract_option;
-  DescriptorExtractOption descriptor_option;
-  match::ProjectionOption local_track_project_search_option;
-  int dbow_trasform_level = 4;
-  bool print_trim_info = true;
-  std::vector<Eigen::AlignedBox2i> image_boxs;
-  float dbow_match_min_distance = 100;
-  int construct_map_point_near_keframd_num = 10;
-  int compute_map_point_min_des_num = 5;
-  struct DistEpipolarLineOption {
-    float check_dist_epipolar_line_cos_parallax = 0.9998;
-    float first_cam_min_z_distance = 0.05;
-    float first_cam_chi_squared = 5.991;
-    float second_cam_min_z_distance = 0.05;
-    float second_cam_chi_squared = 5.991;
-  } point_check_dist_epipolar_option;
-  int area_search_grid_lenth =10;
-  float con_struct_map_point_frame_min_distance =0.1;
-  std::vector<cv::Mat> masks;
-  std::string test_match_pic_write_path= "";//= "/home/lyp/project/vslam/jarvis/test/image/";
+  LocalMapOption local_map_option;
 };
 //
+
+struct LocalMapData {
+  std::shared_ptr<LocalMap> local_map;
+  transform::Rigid3d globla_pose;
+};
+struct WorkItem {
+  enum class Result { Normal, kRunLocalOptimization };
+  std::chrono::steady_clock::time_point time;
+  std::function<Result()> task;
+};
 class MapManager {
  public:
-  MapManager(const MapManagerOption &option,
-             const std::map<int, camera_models::CameraPtr> &cameras,
-             std::unique_ptr<dbow::Vocabulary> voc);
+  MapManager(const MapManagerOption &option, MapPointConstruct *,
+             bool enable_local_opimization);
   //
-  mapping::MapPointData *MapPointMutable(const MapPointId &id) {
-    return &map_points_.at(id);
+  //
+  KeyFrameId AddKeyFrameData(int trajector, const KeyFrameData &data){
+    CHECK(false);
   }
-  // /
-  //必须先要快，只是简单的构建共视关系供localmaptrack使用
-  KeyFrameId AddTrackingData(int t, const TrackingData &data);
-  //
-  //
-
-  //
-  //计算的慢可能比ExtractKeyFrameData慢好多
-
-  void ExtendKeyFrameData(const KeyFrameId&id);
-  //
-
-  //
-  KeyFrameId AddKeyFrame(int t, const KeyFrameData &data);
-
-  void FuseMapPoint(
-      const KeyFrameId &kf_id,
-      const std::map<MapPointId, std::map<KeyFrameId, FeatureId>> &matches);
-  bool TrimMapPoint(const MapPointId &id);
-  void TrimKeyFrame(const KeyFrameId &id);
-  //
-  // 优化的时候直接修改值
-  camera_models::Camera *GetCamereBase(int s) {
-    return nullptr;
+  LocalMapId AddLocalMap(int trajector, std::shared_ptr<LocalMap> data);
+  void TrimKeyFrameData(const KeyFrameId &id){
+    CHECK(false);
   }
   //
-  const MapById<KeyFrameId, KeyFrameData> &AllKeyFrameDatas()const {
-    return key_frames_datas_;
-  }
-  //
-  const MapById<MapPointId, MapPointData> &AllMapPoints()const {
-    return map_points_;
-  }
-  const MapById<KeyFrameId, KeyFrameData> &KeyAllFrameDatas() const;
-
-  const KeyFrameData &GetKeyFrameData(const KeyFrameId &id) const {
+  KeyFrameData &GetKeyFrameId(const KeyFrameId &id) {
     return key_frames_datas_.at(id);
   }
-  std::unique_ptr<Eigen::Vector2d> ProjectMapPointToKeyFrame(
-      const MapPointId &mp_id, const KeyFrameId &kf_id) const;
-
-  //
-  std::vector<KeyFrameId> GetConnectedKeyFrames(const KeyFrameId &frame_id,
-                                                int num = -1) const;
-  //
-  std::pair<std::map<FeatureId, MapPointId>,
-            MapById<MapPointId, mapping::MapPointData>>
-  GetKeyFrameMapPointsData(const KeyFrameId &frame_id) const;
-  //
-  //
-
-  //
-  //
-  const KeyFrameDataBase *GetKeyFrameDataBase() const {
-    return key_frame_data_base_.get();
+  void TrimOptimizedLocalMap(){
+    CHECK(false);
   }
-  const MapById<MapPointId, mapping::MapPointData> &GetAllMapPoints() const {
-    return map_points_;
+  std::vector<Eigen::Vector3d> GetAllMapPoints() {}
+  const MapById<KeyFrameId, KeyFrameData> AllKeyFrameDatas() const {
+    return key_frames_datas_;
   }
 
-  transform::Rigid3d GetLocalToGlobleTransfrom() {
-    return globle_to_local_transform_;
-  }
-  mapping::Covisibility *Covisibility()const { return covisibility_.get(); }
-  //
-  KeyFrameData ExtractKeyFrameData(
-      const TrackingData &data,
-      std::map<int,
-               std::map<uint64_t, std::tuple<Eigen::Vector3d,
-                                             mapping::Descriptor, FeatureId>>>
-          *front_map_points);
-  //
  private:
+  void DrainWorkQueue();
+  void AddWorkItem(const std::function<WorkItem::Result()> &work_item);
 
-  void GenerateForExtendKeyPoint(const KeyFrameId&id );
-  //
-  
-  //
-  void StructureMapPoints(
-      const KeyFrameId &id,
-      const std::map<
-          int, std::map<uint64_t, std::tuple<Eigen::Vector3d,
-                                             mapping::Descriptor, FeatureId>>>
-          &front_map_points);
-
-  MapPointId AddMapPoint(const int &s,
-                         const std::pair<int, uint64_t> &tracking_id,
-                         const mapping::MapPointData &map_point);
-
-  //
-  bool CheckDistEpipolarLine(const FeatureData &kp1, const FeatureData &kp2,
-                             const transform::Rigid3d &relative_pose,
-                             const std::vector<camera_models::Camera *>& camera,
-                             Eigen::Vector3d *triang_map_point);
-  //
-  void TriagulateMapUpdata(const std::vector<uint64_t> &move_out_tracking_id);
-  //
-
-  void ComputeMapPointDistinctiveDescriptors(const MapPointId &id);
-  void UpadateExtendMapPointDes(const KeyFrameId &id);
-  //
-  //
-  void UpdateConnectMapPointProjectMatchSearch(
-      const KeyFrameId &id);
-  //
-  void ConStructExtendMapPoints(const KeyFrameId &id);
-  //
-
-  bool IsExist(const int, const uint64_t &tracking_id);
-  //
-
-  transform::Rigid3d globle_to_local_transform_;
-  //
-  MapPointId GetWithTrackingId(const std::pair<int,uint64_t>& tracking_id);
-  //
-  //
-  //
-  MapManagerOption options_;
-  std::map<int, camera_models::CameraPtr> cameras_;
-  std::unique_ptr<DescriptorExtract> des_extractor_; 
-  std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;  
-  std::unique_ptr<mapping::Covisibility> covisibility_;
-
-  //
-
-  std::unique_ptr<KeyPointExtract> key_points_extractor_;
-  //
-
-  MapById<KeyFrameId, KeyFrameData> key_frames_datas_;
-  //
-
-  std::set<int> move_out_tracking_id_;
-  //
-  std::map<int, std::map<uint64_t, MapPointId>>
-      tracking_id_corresponding_to_map_point_id_;
-  std::map<MapPointId, std::pair<int, uint64_t>>
-      map_point_id_corresponding_to_tracking_id_;
-  //
-  //
+  std::thread thread_;
+  std::mutex work_queue_mutex_;
+  using WorkQueue = std::deque<WorkItem>;
+  std::unique_ptr<WorkQueue> work_queue_;
   std::mutex mutex_;
-  std::map<int, std::set<uint64_t>> last_key_points_class_ids_;
+  std::set<KeyFrameId> last_new_update_key_frame_ids_;  
+  MapManagerOption options_;
+  MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;
+  MapById<LocalMapId, LocalMapData> local_maps_;
+  MapPointConstruct *map_point_construct_;
+  bool kill_thread_  =false;
 
-  MapById<MapPointId, MapPointData> map_points_;
   //
 };
 }  // namespace mapping
