@@ -98,7 +98,7 @@ int getBestSearchLevel(const AffineTransformation2& A_cur_ref,
   int search_level = 0;
   double D = A_cur_ref.determinant();
   // LOG(INFO)<<D;
-  while (D > 3 && search_level < max_level) {
+  while (D > 3&& search_level < max_level) {
     search_level += 1;
     D *= 0.25;
   }
@@ -150,9 +150,9 @@ bool warpPixelwise(const Frame& cur_frame, const Frame& ref_frame,
                    uint8_t* patch) {
   //
   double depth_ref =
-      (ref_frame.pose.translation() - ref_ftr.landmark.Pos()).norm();
+      (ref_frame.pose.translation() - ref_ftr.landmark.pos).norm();
   double depth_cur =
-      (cur_frame.pose.translation() - ref_ftr.landmark.Pos()).norm();
+      (cur_frame.pose.translation() - ref_ftr.landmark.pos).norm();
 
   // backproject to 3D points in reference frame
   Eigen::Vector3d xyz_ref;

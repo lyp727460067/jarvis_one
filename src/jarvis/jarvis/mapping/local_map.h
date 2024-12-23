@@ -2,6 +2,7 @@
 #define JARVIS_MAPPING_LOCAL_MAP_
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 
 #include "Eigen/Core"
@@ -10,23 +11,27 @@
 #include "jarvis/mapping/covisibility.h"
 #include "jarvis/mapping/key_frame_database.h"
 #include "jarvis/mapping/key_point_exract.h"
+#include "jarvis/mapping/local_map_optimization.h"
 #include "jarvis/mapping/mapping_data.h"
 #include "jarvis/mapping/match/des_matcher.h"
+#include "jarvis/transform/rigid_transform.h"
+#include "jarvis/mapping/data_culling.h"
+#include "jarvis/common/fixed_ratio_sampler.h"
+//
 namespace jarvis {
 namespace mapping {
 //
 struct LocalMapOption {
   int max_kf_num = 100;
   KeyFrameDataBaseOption key_frame_data_option;
-  KeyPointExtractOption key_points_extract_option;
-  DescriptorExtractOption descriptor_option;
   match::ProjectionOption local_track_project_search_option;
   std::vector<Eigen::AlignedBox2i> image_boxs;
+  DataCullingOption data_culling_option;
+  double culling_sampler_ = 0.2;
+  int compute_map_point_min_des_num = 5;
+  LocalMapOptimizationOption local_map_optimization_option;
+  std::map<int, camera_models::CameraPtr> cameras;
 };
-
-using FrontMapPointData = std::map<
-    int, std::map<uint64_t,
-                  std::tuple<Eigen::Vector3d, mapping::Descriptor, FeatureId>>>;
 
 //
 struct KeyFrameIdWithPose {
@@ -34,38 +39,73 @@ struct KeyFrameIdWithPose {
   transform::Rigid3d local_pose;
 };
 //
-
-// 维护局部的地图数据
 //
 struct LocalMapConstraint {};
 
 class LocalMap {
  public:
   //
-  LocalMap(const LocalMapOption &option);
+  LocalMap(const LocalMapOption &option, const transform::Rigid3d &local_pose);
+  //
+  transform::Rigid3d LocalPose()const { return local_pose_; }
+  LocalMap(const LocalMap &local_map) : LocalMap(options_, local_pose_) {
+
+    CHECK(false);
+  }
+
+  //
+  bool operator=(const LocalMap &local_map){
+    CHECK(false);
+  }
   void AddKeyFrameData(const KeyFrameId &kf_id,
                        const KeyFrameData &key_frame_data);
   //
   //
+
   //
   void Finish();
   bool IsFinish() { return finish_; }
+  bool IsOptimization() { return is_optimization ;};
+  //
+  void UpdadataExtendFinishData();
+  //
+  Eigen::Vector3d GetMapPointPosw(const MapPointId &mp_id) const {
+    return local_pose_ * map_points_.at(mp_id).data->pos;
+  }
+  //
+  void Opimization(const std::vector<LocalMapConstraint>& constrants);
+ 
   //
   //
-  void Opimization(std::vector<LocalMapConstraint> constrants);
+  const MapById<MapPointId, MapPointData> &AllMapPoints() const {
+    return map_points_;
+  }
+  const MapById<KeyFrameId, const KeyFrameData> &AllKeyFrameDatas()const{
+    return key_frames_datas_;
+  }
+  //
+  // /
+  const std::map<KeyFrameId, transform::Rigid3d> &AllKeyFrameRefPose() {
+    return ref_poses_;
+  }
+  //
+  //
+  int Size() { return key_frames_datas_.size(); }
+  const mapping::Covisibility *GetCovisibility() const {
+    return covisibility_.get();
+  }
   //
   std::map<MapPointId, MapPointData> GetKeyFrameMapPoints(const KeyFrameId &id);
   //
-  Covisibility *GetCovisibility() { return covisibility_.get(); }
+  std::pair<std::map<FeatureId, MapPointId>, MapById<MapPointId, MapPointData>>
+  GetKeyFrameMapPointsData(const KeyFrameId &frame_id) const;
+
   //
-  const MapById<MapPointId, MapPointData> &AllMapPoints();
-  const MapById<KeyFrameId, KeyFrameData> &AllKeyFrameDatas();
-  //
-  void StructureMapPoints(const KeyFrameId &id,
-                          FrontMapPointData &front_map_points);
-  //
+
  public:
   //
+ 
+  void ComputeMapPointDistinctiveDescriptors(const MapPointId &id);
   void FuseMapPoint(
       const KeyFrameId &kf_id,
       const std::map<MapPointId, std::map<KeyFrameId, FeatureId>> &matches);
@@ -76,20 +116,72 @@ class LocalMap {
       const MapPointId &mp_id, const KeyFrameId &kf_id) const;
 
   std::map<int, camera_models::CameraPtr> cameras_;
-  transform::Rigid3d local_pose_;
-  MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;
+  //
+
+  void TrimRedundancy();
+  std::unique_ptr<LocalMapOptimization> local_opimization_;
+  //
+  transform::Rigid3d  local_pose_;
+  //
+  std::map<KeyFrameId, transform::Rigid3d> ref_poses_;
+  std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
+  MapById<KeyFrameId, const KeyFrameData> key_frames_datas_;
+  std::map<KeyFrameId,transform::Rigid3d>  key_frames_ref_pose;
   std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
   std::unique_ptr<mapping::Covisibility> covisibility_;
+  std::unique_ptr<LocalMapOptimization> local_map_optimization_;
   MapById<MapPointId, MapPointData> map_points_;
   std::vector<KeyFrameIdWithPose> key_frames_id_with_pose_;
   //
+  
+  std::unique_ptr<DataCulling> data_culling_;
+  LocalMapOption options_;
   bool finish_ = false;
+  bool  is_optimization= false;
+
+  class LocalDataFuse : public DataFuse {
+   public:
+    LocalDataFuse(LocalMap *local_map);
+
+    void FuseMapPoint(
+        const KeyFrameId &key_frame_id,
+        const std::map<MapPointId, std::map<KeyFrameId, FeatureId>> &matches)
+        override;
+
+    void CullKeyFrame(const std::set<KeyFrameId> &target) override;
+    const MapById<MapPointId, mapping::MapPointData> GetMapPoints(
+        const KeyFrameId &id) override;
+    //
+    const std::set<KeyFrameId> GetMapObservations(
+        const MapPointId &map_point_id) override;
+    bool PorjectPoint(const transform::Rigid3d& cam_pose, const Eigen::Vector3d& point,
+            int s, Eigen::Vector2d* p) override;
+    //
+    const MapById<KeyFrameId, const KeyFrameData> &GetAllKeyFramesData()const override;
+    std::vector<std::pair<KeyFrameId, int>> GetKeyLevelConnectedKeyFrames(
+        const KeyFrameId &frame_id, const std::vector<int> &levels) override;
+    LocalMap *local_map_;
+  };
+  std::mutex mutex_;
+  
+  std::unique_ptr<LocalDataFuse> data_fuse_;
 };
 //
-
 class ActiveLocalMap {
  public:
+  ActiveLocalMap(const LocalMapOption&option); 
+  std::vector<std::shared_ptr<LocalMap>> GetLocalMap(){return localmaps_;}
+  //
+  std::shared_ptr<LocalMap> FrontFinish() { return front_finsh_; }
+  void AddKeyFrameData(const KeyFrameId &, const KeyFrameData &data);
+
+ private:
   std::vector<std::shared_ptr<LocalMap>> localmaps_;
+  std::shared_ptr<LocalMap> front_finsh_ = nullptr;
+  void FinishLocalMap();
+  void AddLocalMap(const LocalMapOption &local_option,
+                   const transform::Rigid3d &local_pose);
+  LocalMapOption local_map_option_;
 };
 }  // namespace mapping
 }  // namespace jarvis

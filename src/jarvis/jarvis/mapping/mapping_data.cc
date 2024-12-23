@@ -9,10 +9,6 @@ namespace mapping {
 //
 const std::vector<std::vector<int>> track_sequence{{0, 1}, {2}, {3}};
 
-void MapPoint::ComputeMapPointDistinctiveDescriptors(
-    const std::vector<mapping::Descriptor> &descriptors) {
-  //
-}
 
 }  // namespace mapping
 }  // namespace jarvis

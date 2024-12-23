@@ -24,6 +24,7 @@ struct LocalMapOptimizationOption {
   bool use_rtk = false;
   bool only_pose_graph = false;
   int kf_num =100;
+  
 };
 
 //

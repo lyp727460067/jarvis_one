@@ -72,9 +72,10 @@ class DataFuseTest : public DataFuse {
     return observations_[map_point_id];
   }
   //
-  Eigen::Vector2d PorjectPoint(const Eigen::Vector3d& point, int s) {
-    return Eigen::Vector3d(point / point.z()).head<2>() +
-           Eigen::Vector2d{32, 20};
+  bool PorjectPoint(const transform::Rigid3d& cam_pose,
+                    const Eigen::Vector3d& point, int s, Eigen::Vector2d* p) {
+    // return Eigen::Vector3d(point / point.z()).head<2>() +
+    //        Eigen::Vector2d{32, 20};
   }
   //
   const MapById<KeyFrameId, KeyFrameData>& GetAllKeyFramesData() {

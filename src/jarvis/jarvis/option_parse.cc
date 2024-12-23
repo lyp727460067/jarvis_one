@@ -900,7 +900,7 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
   op_option.cell_sizes = cell_sizes_map;
   op_option.derect_match_option =
       ParseLocalMapDirectMatchOptionOptio(fsSettings["derect_match_option"]);
-  op_option.map_option.kf_num = fsSettings["map_option"]["kf_num"];
+  // op_option.map_option.kf_num = fsSettings["map_option"]["kf_num"];
 
   op_option.out_time = fsSettings["out_time"];
 
@@ -967,21 +967,21 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
         i, option->esti_option.feature_track_options[i].cameras[0]);
     //
 
-    option->mapping_option.map_manager_option.image_boxs.emplace_back(
-        Eigen::Vector2i{0, 0},
-        option->esti_option.feature_track_options[i].pyrmid_option.image_size);
+    // option->mapping_option.map_manager_option.image_boxs.emplace_back(
+    //     Eigen::Vector2i{0, 0},
+    //     option->esti_option.feature_track_options[i].pyrmid_option.image_size);
 
     // mask
-    option->mapping_option.map_manager_option.masks.push_back(
-        option->esti_option.feature_track_options[i].mask);
+    // option->mapping_option.map_manager_option.masks.push_back(
+        // option->esti_option.feature_track_options[i].mask);
   }
   //
   option->mapping_option.track_sequence = option->esti_option.track_sequence;
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.track_sequence;
     //
-  option->mapping_option.data_culling_option.image_bboxs =
-      option->mapping_option.map_manager_option.image_boxs;
+  // option->mapping_option.data_culling_option.image_bboxs =
+  //     option->mapping_option.map_manager_option.image_boxs;
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.slide_windows_option.track_sequence;
 }

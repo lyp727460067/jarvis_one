@@ -11,10 +11,8 @@ namespace match {
 
 std::vector<std::pair<FeatureId, FeatureId>> DbowFindMathed(
     const MapById<FeatureId, Descriptor>& des1,
-    const MapById<FeatureId, Descriptor>& des2,
-    const dbow::DbowData& feat_vec1,
-    const dbow::DbowData& feat_vec2,
-    double describe_distance_threashold){
+    const MapById<FeatureId, Descriptor>& des2, const dbow::DbowData& feat_vec1,
+    const dbow::DbowData& feat_vec2, double describe_distance_threashold) {
   auto f1it = feat_vec1.index_to_local_features.begin();
   auto f2it = feat_vec2.index_to_local_features.begin();
   auto f1end = feat_vec1.index_to_local_features.end();
@@ -23,7 +21,6 @@ std::vector<std::pair<FeatureId, FeatureId>> DbowFindMathed(
   std::vector<std::pair<FeatureId, FeatureId>> result;
   while (f1it != f1end && f2it != f2end) {
     if (f1it->first == f2it->first) {
-      
       for (size_t i1 = 0, iend1 = f1it->second.size(); i1 < iend1; i1++) {
         const FeatureId idx1 = f1it->second[i1];
         const auto d1 = des1.at(idx1);
@@ -74,20 +71,16 @@ FeatureId SearchMatchesByProjection(
     const std::map<int, std::unique_ptr<AreaSearch>>& raius_search,
     const MapPointData& target_map_point) {
   //
-  FeatureId r(-1,0);
+  FeatureId r(-1, 0);
   auto sequence_feautes = key_frame_data.data->features.trajectory_ids();
-  for(auto const &i:sequence_feautes){
+  for (auto const& i : sequence_feautes) {
     const transform::Rigid3d cam_pose = key_frame_data.data->CameraPose(i);
     //
-    const Eigen::Vector3d project_pose =
-        cam_pose.inverse() * target_map_point.data->Pos();
-    //
-    //
-    if (project_pose.z() < 0.1) {
+    Eigen::Vector2d project_map_point;
+    if (!option.PorjectPoint(cam_pose,target_map_point.data->pos, i,
+                             &project_map_point)) {
       continue;
     }
-    const Eigen::Vector2d project_map_point =
-        option.PorjectPoint(project_pose, i);
     //
     Eigen::AlignedBox2i image_box = key_frame_data.data->image_sizes->at(i);
     //
@@ -114,16 +107,14 @@ FeatureId SearchMatchesByProjection(
         if (e2 > option.project_pix_err) continue;
       }
       //
-      CHECK(key_frame_data.data->descriptors.Contains(index))<<index;
-      //这里多线程可能导致出错
-      if(!target_map_point.data->HasDescriptor())continue;
-      auto const dist = HammingDis(target_map_point.data->Descriptor(),
+      CHECK(key_frame_data.data->descriptors.Contains(index)) << index;
+      // 这里多线程可能导致出错
+      auto const dist = HammingDis(target_map_point.data->des,
                                    key_frame_data.data->descriptors.at(index));
       if (dist < best_dist) {
         best_dist = dist;
         best_idx = index;
       }
-
     }
     if (best_dist < option.project_best_des_dis) {
       return best_idx;

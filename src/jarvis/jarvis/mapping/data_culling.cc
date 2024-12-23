@@ -33,8 +33,9 @@ DataCulling::SearchMatchesKeyFrames(
     match::ProjectionOption project_option{
         options_.viewing_angle, options_.area_search_radius,
         options_.project_pix_err, options_.best_map_fuse_des_dis,
-        [=](const Eigen::Vector3d& point, int s) {
-          return data_fuse_->PorjectPoint(point, s);
+        [=](const transform::Rigid3d& cam_pose, const Eigen::Vector3d& point,
+            int s, Eigen::Vector2d* p) {
+          return data_fuse_->PorjectPoint(cam_pose, point, s, p);
         }};
 
     for (const auto& map_point : map_points) {
