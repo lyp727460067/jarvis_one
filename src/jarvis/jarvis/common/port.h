@@ -1,11 +1,3 @@
-/*** 
- * @Author: liuyaping liuyaping@meta-bounds.com
- * @Date: 2023-02-08 19:15:39
- * @LastEditTime: 2023-02-08 19:16:53
- * @LastEditors: liuyaping liuyaping@meta-bounds.com
- * @Description: 
- * @FilePath: /metaboundsstereovio/src/common/port.h
- */
 #ifndef NEPTURNE_COMMON_PORT_H_
 #define NEPTURNE_COMMON_PORT_H_
 

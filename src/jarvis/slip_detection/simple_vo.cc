@@ -565,7 +565,8 @@ TrackingData SimpleVo::TrakcerImpl::ComputePose(
   result.status = 1;
   return result;
 }
-SimpleVo::SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back) {
+SimpleVo::SimpleVo(const SimpleVoOption& option, jarvis::CallBack call_back)
+    : TrajectorBuilder({}, nullptr) {
   jarvis::estimator::FeatureTrackerOption feat_option;
   ParseYAMLOption(option.config_file, &feat_option);
   feature_tracker_ =

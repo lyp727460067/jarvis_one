@@ -60,6 +60,9 @@ class Estimator {
   void AddImuData(const sensor::ImuData &imu_data);
   ~Estimator();
   void AddOdometryData(const sensor::OdometryData &odometry_data);
+  //
+  void AddSwBigenInitalPose(transform::Rigid3d &pose);
+  //
   // std::thread trackThread;
   // std::thread processThread;
   private:

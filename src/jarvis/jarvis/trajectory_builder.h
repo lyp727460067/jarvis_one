@@ -17,7 +17,7 @@ namespace estimator{
 using CallBack = std::function<void(const TrackingData &)>;
 class TrajectorBuilder {
  public:
-  TrajectorBuilder();
+  // TrajectorBuilder(){}
   TrajectorBuilder(const estimator::EstimatorOption& option, CallBack call_back);
   virtual void AddImageData(const sensor::ImageData &images);
   //
