@@ -22,7 +22,7 @@ class Covisibility {
   std::set<MapPointId> TrimKeyFrame(const KeyFrameId& id);
   void TrimMapPoint(const MapPointId& id);
   //
-  const std::set<KeyFrameId>& GetMapObservations(
+ std::set<KeyFrameId> GetMapObservations(
       const MapPointId& map_point_id);
   //
   const std::map<KeyFrameId, FeatureId>& GetMapPointObserv(

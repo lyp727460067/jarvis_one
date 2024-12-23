@@ -38,22 +38,27 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       std::make_unique<jarvis::common::FixedRatioSampler>(image_sample / 2);
 
   //
-  esit_option_ = estimator::ParseEstimatorOption(std::string(config));
-  if(is_estrinsic_fixed)
+  TrajectorBuilderOption trajectorbuilder_option ;
+
+  ParseYAMLOption(config, &trajectorbuilder_option);
+  esit_option_ = trajectorbuilder_option.esti_option; 
+  //
+  if (is_estrinsic_fixed) {
     esit_option_.slide_windows_option.opti_option.estimate_extrinsic = 0;
+  }
 
   if (kuse_gpu) {
-    for (size_t i = 0; i < esit_option.track_sequence.size(); i++) {
-      for (size_t j = 0; j < esit_option.track_sequence[i].size(); j++) {
-        esit_option.feature_track_options[i].pyramid_image.push_back(
+    for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+      for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+        esit_option_.feature_track_options[i].pyramid_image.push_back(
             std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                esit_option.feature_track_options[i].pyrmid_option));
+                esit_option_.feature_track_options[i].pyrmid_option));
       }
     }
     //
   }
   //
-  esit_option_ = trajectorbuilder_option.esti_option;
+  trajectorbuilder_option.esti_option =esit_option_;
 
   builder_ = std::make_unique<jarvis::TrajectorBuilder>(trajectorbuilder_option,
                                                         std::move(call_back));
