@@ -574,7 +574,7 @@ builder_ = std::make_unique<TrajectorBuilder>(
       if (tracking_data.status == 2) {
         if (object_interface == nullptr) {
           object_interface = std::make_unique<jarvis::object::ObjectInterface>(
-              option.feature_track_options[0].cameras[0]);
+              option.feature_track_options[0].cameras[0],"");
         }
         object_result = object_interface->Detect(
             common::ToUniversal(tracking_data.data->time),

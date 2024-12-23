@@ -44,9 +44,9 @@ struct LocalMapOptimizationData {
 
 class LocalMapOptimization {
  public:
-  LocalMapOptimization(const LocalMapOptimizationOption &option);
-  void AddFixData(const sensor::FixedFramePoseData& fix_data);
-  void AddImuData(sensor::ImuData& imu_data);
+  LocalMapOptimization(const LocalMapOptimizationOption &option){}
+  void AddFixData(const sensor::FixedFramePoseData& fix_data){}
+  void AddImuData(sensor::ImuData& imu_data){}
   //
   std::queue<sensor::ImuData> imu_datas_;
   std::queue<sensor::FixedFramePoseData> fix_datas_;

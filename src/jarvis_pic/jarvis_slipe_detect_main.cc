@@ -269,9 +269,10 @@ class JarvisBuilder {
                     if (factory_state_ == 1) {
                         // 第一圈只锚定
                         // LOG(ERROR) << "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
+                         auto& image = tracking_data.data->images.image[0];
                         object_result = object_interface->Detect(
                             common::ToUniversal(tracking_data.data->time),
-                            tracking_data.data->features_datas[0].features.data->images[0],
+                            image,
                             tracking_data.data->imu_state.Pose(),
                             this->GetJarvisBrige()
                                 ->EstimationOption()
@@ -289,9 +290,11 @@ class JarvisBuilder {
                     } else if (factory_state_ == 2) {
                         // 第二圈不锚定只计算误差
                         // LOG(ERROR)<< "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
+
+                        auto& image = tracking_data.data->images.image[0];
                         object_result = object_interface->ComputeError(
                             common::ToUniversal(tracking_data.data->time),
-                            tracking_data.data->features_datas[0].features.data->images[0],
+                            image,
                             tracking_data.data->imu_state.Pose(),
                             this->GetJarvisBrige()
                                 ->EstimationOption()
@@ -373,6 +376,9 @@ class JarvisBuilder {
   std::mutex mutex_;
   uint8_t event_dark_=0;
   uint8_t factory_state_ = 0;
+  std::array<std::vector<int>, 3> ParaExPoseIndex{
+        std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};  
+
 };
 }  // namespace jarvis_pic
 std::string kDataDir = "/mnt/UDISK/jarvis/";
