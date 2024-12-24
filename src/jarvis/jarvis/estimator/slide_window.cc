@@ -99,8 +99,6 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
           << ",Add feature after trackpoints: " << conti_cout_after<<" ";
     }
   }
-
-
   //
   bool is_keyframe = feature_managers_->CheckParallax();
   for (auto& f : frame.data->features_datas) {

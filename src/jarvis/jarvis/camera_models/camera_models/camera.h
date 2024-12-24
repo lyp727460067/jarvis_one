@@ -46,13 +46,6 @@ class Camera {
   virtual const std::string& cameraName(void) const = 0;
   virtual int imageWidth(void) const = 0;
   virtual int imageHeight(void) const = 0;
-  virtual bool backProject3(
-      const Eigen::Vector2d& keypoint,
-      Eigen::Vector3d* out_point_3d){return false;}
-  virtual const void project3(
-      const  Eigen::Vector3d& point_3d,
-      Eigen::Vector2d* out_keypoint,
-      Eigen::Matrix<double, 2, 3>* out_jacobian_point=nullptr){}
 
   virtual cv::Mat& mask(void);
   virtual const cv::Mat& mask(void) const;

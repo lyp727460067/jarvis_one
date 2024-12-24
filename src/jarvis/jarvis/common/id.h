@@ -37,78 +37,64 @@ common::Time GetTime(const T& t) {
 }  // namespace internal
 
 struct KeyFrameId {
-  KeyFrameId(int trajectory_id_, uint64_t keyframe_index_)
-      : trajectory_id(trajectory_id_), keyframe_index(keyframe_index_) {}
+  // trajectory_id: different glasses or times
+  // keyframe_index: id in this trajectory
+  KeyFrameId(int trajectory_id, uint64_t keyframe_index)
+      : trajectory_id_(trajectory_id), keyframe_index_(keyframe_index) {}
 
-  int trajectory_id;
-  uint64_t keyframe_index;
+  int trajectory_id_;
+  uint64_t keyframe_index_;
 
   bool operator==(const KeyFrameId& other) const {
-    return std::forward_as_tuple(trajectory_id, keyframe_index) ==
-           std::forward_as_tuple(other.trajectory_id, other.keyframe_index);
+    return std::forward_as_tuple(trajectory_id_, keyframe_index_) ==
+           std::forward_as_tuple(other.trajectory_id_, other.keyframe_index_);
   }
 
   bool operator!=(const KeyFrameId& other) const { return !operator==(other); }
 
   bool operator<(const KeyFrameId& other) const {
-    return std::forward_as_tuple(trajectory_id, keyframe_index) <
-           std::forward_as_tuple(other.trajectory_id, other.keyframe_index);
+    return std::forward_as_tuple(trajectory_id_, keyframe_index_) <
+           std::forward_as_tuple(other.trajectory_id_, other.keyframe_index_);
   }
+  // void ToProto(proto::NodeId* proto) const {
+  //   proto->set_trajectory_id(trajectory_id);
+  //   proto->set_node_index(node_index);
+  // }
 };
 
 inline std::ostream& operator<<(std::ostream& os, const KeyFrameId& v) {
-  return os << "(" << v.trajectory_id << ", " << v.keyframe_index << ")";
+  return os << "(" << v.trajectory_id_ << ", " << v.keyframe_index_ << ")";
 }
 
 struct MapPointId {
-  MapPointId(int trajectory_id_, uint64_t index_)
-      : trajectory_id(trajectory_id_),
-        index(index_) {}
-  bool operator==(const MapPointId &other) const {
-    return std::forward_as_tuple(trajectory_id, index) ==
-           std::forward_as_tuple(other.trajectory_id,
-                                 other.index);
+  MapPointId(int trajectory_id, int mappoint_index)
+      : trajectory_id_(trajectory_id), mappoint_index_(mappoint_index) {}
+
+  int trajectory_id_;
+  int mappoint_index_;
+
+  bool operator==(const MapPointId& other) const {
+    return std::forward_as_tuple(trajectory_id_, mappoint_index_) ==
+           std::forward_as_tuple(other.trajectory_id_, other.mappoint_index_);
   }
 
-  bool operator!=(const MapPointId &other) const { return !operator==(other); }
+  bool operator!=(const MapPointId& other) const { return !operator==(other); }
 
-  bool operator<(const MapPointId &other) const {
-    return std::forward_as_tuple(trajectory_id,index) <
-           std::forward_as_tuple(other.trajectory_id,other.index);
+  bool operator<(const MapPointId& other) const {
+    return std::forward_as_tuple(trajectory_id_, mappoint_index_) <
+           std::forward_as_tuple(other.trajectory_id_, other.mappoint_index_);
   }
-  int trajectory_id;
-  uint64_t index;
+
+  // void ToProto(proto::MpId* proto) const {
+  //   proto->set_trajectory_id(trajectory_id);
+  //   proto->set_mp_index(submap_index);
+  // }
 };
-//
-//
+
 inline std::ostream& operator<<(std::ostream& os, const MapPointId& v) {
-  return os << "(" << v.trajectory_id << ", " << v.index << ")";
+  return os << "(" << v.trajectory_id_ << ", " << v.mappoint_index_ << ")";
 }
 
-//
-struct FeatureId {
-  FeatureId(int sequence_id_, uint64_t index_)
-      : sequence_id(sequence_id_), index(index_), trajectory_id(sequence_id) {}
-  bool operator==(const FeatureId& other) const {
-    return std::forward_as_tuple(sequence_id, index) ==
-           std::forward_as_tuple(other.sequence_id, other.index);
-  }
-  bool operator!=(const FeatureId& other) const { return !operator==(other); }
-
-  bool operator<(const FeatureId& other) const {
-    return std::forward_as_tuple(sequence_id, index) <
-           std::forward_as_tuple(other.sequence_id, other.index);
-  }
-  int sequence_id;
-  uint64_t index;
-  int trajectory_id;
-};
-
-//
-inline std::ostream& operator<<(std::ostream& os, const FeatureId& v) {
-  return os << "(" << v.sequence_id << "," << v.index << ")";
-}
-//
 template <typename IteratorType>
 class Range {
  public:
@@ -275,7 +261,7 @@ class MapById {
     CHECK_GE(trajectory_id, 0);
     auto& trajectory = trajectories_[trajectory_id];
     CHECK(trajectory.can_append_);
-    const uint64_t index =
+    const int index =
         trajectory.data_.empty() ? 0 : trajectory.data_.rbegin()->first + 1;
     trajectory.data_.emplace(index, data);
     return IdType{trajectory_id, index};
@@ -291,14 +277,14 @@ class MapById {
   void Insert(const IdType& id, const DataType& data) {
     // CHECK_GE(id.trajectory_id_, 0);
     CHECK_GE(GetIndex(id), uint64_t(0));
-    auto& trajectory = trajectories_[id.trajectory_id];
+    auto& trajectory = trajectories_[id.trajectory_id_];
     trajectory.can_append_ = false;
     CHECK(trajectory.data_.emplace(GetIndex(id), data).second) << id;
   }
 
   // Removes the data for 'id' which must exist.
   void Trim(const IdType& id) {
-    auto& trajectory = trajectories_.at(id.trajectory_id);
+    auto& trajectory = trajectories_.at(id.trajectory_id_);
     const auto it = trajectory.data_.find(GetIndex(id));
     CHECK(it != trajectory.data_.end()) << id;
     if (std::next(it) == trajectory.data_.end()) {
@@ -310,21 +296,21 @@ class MapById {
     }
     trajectory.data_.erase(it);
     if (trajectory.data_.empty()) {
-      trajectories_.erase(id.trajectory_id);
+      trajectories_.erase(id.trajectory_id_);
     }
   }
 
   bool Contains(const IdType& id) const {
-    return trajectories_.count(id.trajectory_id) != 0 &&
-           trajectories_.at(id.trajectory_id).data_.count(GetIndex(id)) != 0;
+    return trajectories_.count(id.trajectory_id_) != 0 &&
+           trajectories_.at(id.trajectory_id_).data_.count(GetIndex(id)) != 0;
   }
 
   const DataType& at(const IdType& id) const {
-    return trajectories_.at(id.trajectory_id).data_.at(GetIndex(id));
+    return trajectories_.at(id.trajectory_id_).data_.at(GetIndex(id));
   }
 
   DataType& at(const IdType& id) {
-    return trajectories_.at(id.trajectory_id).data_.at(GetIndex(id));
+    return trajectories_.at(id.trajectory_id_).data_.at(GetIndex(id));
   }
 
   // Support querying by trajectory.
@@ -416,9 +402,8 @@ class MapById {
     std::map<uint64_t, DataType> data_;
   };
 
-  static uint64_t GetIndex(const KeyFrameId& id) { return id.keyframe_index; }
-  static uint64_t GetIndex(const MapPointId& id) { return id.index; }
-  static uint64_t GetIndex(const FeatureId& id) { return id.index; }
+  static uint64_t GetIndex(const KeyFrameId& id) { return id.keyframe_index_; }
+  static uint64_t GetIndex(const MapPointId& id) { return id.mappoint_index_; }
 
   std::map<int, MapByIndex> trajectories_;
 };
@@ -429,8 +414,8 @@ template <>
 struct hash<jarvis::KeyFrameId> {
   std::size_t operator()(const jarvis::KeyFrameId& k) const {
     using std::hash;
-    return ((hash<int>()(k.trajectory_id) ^
-             (hash<uint64_t>()(k.keyframe_index) << 1)) >>
+    return ((hash<int>()(k.trajectory_id_) ^
+             (hash<uint64_t>()(k.keyframe_index_) << 1)) >>
             1);
   }
 };
@@ -438,20 +423,10 @@ template <>
 struct hash<jarvis::MapPointId> {
   std::size_t operator()(const jarvis::MapPointId& k) const {
     using std::hash;
-    return ((hash<int>()(k.trajectory_id) ^
-             (hash<uint64_t>()(k.index) << 1)) >>
+    return ((hash<int>()(k.trajectory_id_) ^
+             (hash<int>()(k.mappoint_index_) << 1)) >>
             1);
   }
 };
-template <>
-struct hash<jarvis::FeatureId> {
-  std::size_t operator()(const jarvis::FeatureId& k) const {
-    using std::hash;
-    return ((hash<int>()(k.sequence_id) ^
-             (hash<uint64_t>()(k.index) << 1)) >>
-            1);
-  }
-};
-
 }  // namespace std
 #endif  //

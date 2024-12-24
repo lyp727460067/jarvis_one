@@ -1,15 +1,15 @@
+
 #include <dirent.h>
 #include <sys/types.h>
-
 #include <condition_variable>
+#include <iostream>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
-#include "gpu_pyramid_compute.h"
-#include "opencl_handler.h"
 #include "fstream"
 #include "jarvis/common/fixed_ratio_sampler.h"
 #include "jarvis/sensor/data_process.h"
@@ -17,11 +17,11 @@
 #include "jarvis/trajectory_builder.h"
 #include "slip_detection/simple_vo.h"
 #include "slip_detection/slip_detect.h"
-#include <unistd.h>
+#include "unistd.h"
 //
 #include <glog/logging.h>
 
-constexpr double kImuOdomPrvCamOffTime = 0.1;
+#include "jarvis/estimator/imu_extrapolator.h"
 // #define CHECK_DATA
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
@@ -35,13 +35,12 @@ double image_sample = 1;
 int KStartImageTime = 0;
 uint8_t kRecordFlag = 1;
 // uint8_t kDataCaputureType = 0;
-int kGLOG_v = 0;
 std::ofstream kOImuFile;
 std::ofstream kOPoseFile;
 std::ofstream kSlipFile;
 std::string image_dir;
 std::string test_ip;
-// std::unique_ptr<jarvis::estimator::ImuExtrapolator> KImuExtrapolator;
+std::unique_ptr<jarvis::estimator::ImuExtrapolator> KImuExtrapolator;
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
   fsSettings["imu_cam_time_offset"] >> imu_cam_time_offset;
@@ -50,7 +49,6 @@ void ParseOption(const std::string& config) {
   fsSettings["start_image_time"] >> KStartImageTime;
   fsSettings["start_image_time"] >> KStartImageTime;
   fsSettings["test_ip"] >>test_ip;
-    fsSettings["GLOG_v"] >> kGLOG_v;
   // fsSettings["record"] >> kRecordFlag;
   // fsSettings["data_capture"] >> kDataCaputureType;
 }
@@ -82,20 +80,19 @@ struct ImuData {
   Eigen::Vector3d linear_acceleration;
   Eigen::Vector3d angular_velocity;
   std::unique_ptr<sensor::Data> ToPatchData() {
-    // KImuExtrapolator->AddImu(sensor::ImuData{
-    //     common::FromUniversal(time / 100),
-    //     linear_acceleration,
-    //     angular_velocity,
-    // });
+    KImuExtrapolator->AddImu(sensor::ImuData{
+        common::FromUniversal(time / 100),
+        linear_acceleration,
+        angular_velocity,
+    });
     // LOG(INFO)<<common::FromUniversal(time / 100);
-    // auto state = KImuExtrapolator->Exrapolate(
-        // common::FromUniversal(time / 100) + common::FromSeconds(0.001));
+    auto state = KImuExtrapolator->Exrapolate(
+        common::FromUniversal(time / 100) + common::FromSeconds(0.001));
     // LOG(INFO) << state.pose;
-    // ros_compont->PushMark({{"imu_pose", state.Pose}}, false);
     // ros_compont->PosePub(state.pose, transform::Rigid3d::Identity());
     return std::make_unique<sensor::DispathcData<sensor::ImuData>>(
         sensor::ImuData{
-            common::FromUniversal(time / 100) - common::FromSeconds(0.1),
+            common::FromUniversal(time / 100),
             linear_acceleration,
             angular_velocity,
         });
@@ -111,9 +108,28 @@ struct OdomData {
   static std::string Name() { return kOdomTopic; }
   std::unique_ptr<sensor::Data> ToPatchData() {
     return std::make_unique<sensor::DispathcData<sensor::OdometryData>>(
-        sensor::OdometryData{common::FromUniversal(time / 100)- common::FromSeconds(0.1),
+        sensor::OdometryData{common::FromUniversal(time / 100),
                              transform::Rigid3d(translation, rotation)});
   }
+
+  void ToOdom(int32 l, int32 r) {
+    static int32_t last_l = l;
+    static int32_t last_r = r;
+    double delta_l = (l - last_l) * 0.001;
+    double delta_r = (r - last_r) * 0.001;
+    last_l = l;
+    last_r = r;
+    auto delta_theta = (delta_r - delta_l) / kWheelDistance;
+    // LOG(INFO)<<common::RadToDeg(delta_theta);
+    auto delta_translation = (delta_l + delta_r) / 2.0;
+    jarvis::transform::Rigid3d delta_pose(
+        Eigen::Vector3d(delta_translation, 0, 0),
+        Eigen::Quaterniond(cos(delta_theta / 2), 0, 0, sin(delta_theta / 2)));
+    kOdom = kOdom * delta_pose;
+    translation = kOdom.translation();
+    rotation = kOdom.rotation();
+  }
+  static constexpr double kWheelDistance = 0.37;
   static std::map<uint64_t, OdomData> Parse(const std::string& dir_file);
 };
 constexpr double kGryUnit = 0.001;
@@ -129,7 +145,7 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
 
   static uint64_t last_time = time;
   if ((time - last_time) > 10000000) {
-    // LOG(INFO) << "   " << time - last_time;
+    LOG(INFO) << "   " << time - last_time;
   }
   last_time = time;
 #ifdef CHECK_DATA
@@ -141,10 +157,17 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
   // ifs >> un_time;
   imu_data.time = time;
   //
+  // int un_count = 0;
   // ifs>>un_count;
   ifs >> imu_data.angular_velocity.x() >> imu_data.angular_velocity.y() >>
       imu_data.angular_velocity.z() >> imu_data.linear_acceleration.x() >>
       imu_data.linear_acceleration.y() >> imu_data.linear_acceleration.z();
+  // imu_data.angular_velocity = imu_data.angular_velocity*kGryUnit;
+  // imu_data.linear_acceleration= imu_data.linear_acceleration *kAccUnit;
+  // imu_data.time   = time;
+  // ifs >> imu_data.angular_velocity.x() >> imu_data.angular_velocity.y() >>
+  //     imu_data.angular_velocity.z() >> imu_data.linear_acceleration.x() >>
+  //     imu_data.linear_acceleration.y() >> imu_data.linear_acceleration.z();
   return ifs;
 }
 //
@@ -155,12 +178,17 @@ std::istringstream& operator>>(std::istringstream& ifs, OdomData& odom_data) {
   if (type != "odom") throw "Not odom";
   uint64_t time;
   ifs >> time;
-  odom_data.time = time;
-  ifs >> odom_data.translation.x() >> odom_data.translation.y() >>
-      odom_data.translation.z() >> odom_data.rotation.w() >>
-      odom_data.rotation.x() >> odom_data.rotation.y() >>
-      odom_data.rotation.z();
+  // uint64_t un_time;
+  // ifs >> un_time;
+  //
+  // int un_count = 0;
+  // ifs>>un_count;
 
+  odom_data.time = time;
+  int32_t left_encoder;
+  int32_t right_encoder;
+  ifs >> left_encoder >> right_encoder;
+  odom_data.ToOdom(left_encoder, right_encoder);
   return ifs;
 }
 
@@ -206,16 +234,16 @@ uint64_t GetTimeFromName(const std::string& name) {
   std::string outdir = name.substr(0, it + 1);
   const std::string file_name =
       name.substr(it + 1, name.size() - outdir.size());
-  auto it1 = file_name.find_last_of('.') ;
-    // LOG(INFO)<<std::stol(file_name.substr(0, it1-2));
-  return std::stol(file_name.substr(0, it1-2));
+  auto it1 = file_name.find_last_of('.') - 3;
+  //   LOG(INFO)<<std::stol(file_name.substr(0, it1));
+  return std::stol(file_name.substr(0, it1));
 }
 //
 std::string GetFromName(const std::string& name) {
   CHECK(!name.empty());
-  auto it1 = name.find_last_of('.') ;
-    // LOG(INFO)<<(name.substr(0, it1-2));
-  return name.substr(0, it1-2);
+  auto it1 = name.find_last_of('.') - 3;
+  //   LOG(INFO)<<std::stol(file_name.substr(0, it1));
+  return name.substr(0, it1);
 }
 //
 struct ImageData {
@@ -270,6 +298,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   //                  imu_datas.begin(),
   //                  imu_datas.upper_bound(images_datas.begin()->first));
   //
+  int i = 0;
 
   uint64_t time = images_datas.begin()->first;
   for (const auto& image : images_datas) {
@@ -281,7 +310,9 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
               << " size:"
               << std::distance(imu_datas.begin(), imu_datas.upper_bound(time));
 
-
+    if(i++<1200){
+      continue;
+    }
     WriteImuData(time, imu_datas);
     WriteImuData(time, odom_datas);
     // cv::Mat image_l= cv::imread(image.second.image_name +
@@ -308,22 +339,6 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 
     //             }}));
     // if(time>1064339798000)
-
-        //
-        try{
-
-    LOG(INFO)<<image.second.image_name + "_0.jpg";
-        const cv::Mat lr_image =
-        cv::imread(image.second.image_name + "_0.jpg", cv::IMREAD_GRAYSCALE);
-
-    LOG(INFO)<<image.second.image_name + "_1.jpg";
-    const cv::Mat vr_image =
-        cv::imread(image.second.image_name + "_1.jpg", cv::IMREAD_GRAYSCALE);
-            const cv::Mat vr_image1 =
-        cv::imread(image.second.image_name + "_2.jpg", cv::IMREAD_GRAYSCALE);
-        
-    LOG(INFO)<<image.second.image_name + "_2.jpg";
-    if(lr_image.empty()||vr_image.empty() )continue;
     order_queue_->AddData(
         kImagTopic0,
         std::make_unique<sensor::DispathcData<sensor::ImageData>>(
@@ -331,18 +346,16 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
                 common::FromUniversal(time / 100) +
                     common::FromSeconds(imu_cam_time_offset),
                 {
-                  lr_image,
-                  vr_image,
-                  vr_image1,
-                  vr_image1
-                    // lr_image(cv::Rect(0, 0, 640, 544)).clone(),
-                    // lr_image(cv::Rect(640, 0, 640, 544)).clone(),
-                    // vr_image(cv::Rect(0, 0, 544, 640)).clone(),
-                    // vr_image(cv::Rect(544, 0, 544, 640)).clone()
-                }}));
-        }catch(...){
+                    std::make_shared<cv::Mat>(
+                        cv::imread(image.second.image_name + "_l_.png",
+                                   cv::IMREAD_GRAYSCALE)
+                            .clone()),
+                    std::make_shared<cv::Mat>(
+                        cv::imread(image.second.image_name + "_r_.png",
+                                   cv::IMREAD_GRAYSCALE)
+                            .clone()),
 
-        }
+                }}));
     // time+=100*1000*1000;
   }
   if (!imu_datas.empty()) {
@@ -362,8 +375,6 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 // }
 }  // namespace
 bool kill_thread = false;
-std::string kDataDir = "/mnt/UDISK/jarvis/";
-using namespace jarvis_pic;
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   //
@@ -372,18 +383,10 @@ int main(int argc, char* argv[]) {
     kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
     kSlipFile.open("/tmp/slep_vio_pose.txt", std::ios::out);
   }
-  // auto CreateDir = [](const std::string& dir) {
-  //   if (access(dir.c_str(), F_OK) == -1) {
-  //     mkdir(dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
-  //   }
-  //   if (access(dir.c_str(), F_OK) == -1) {
-  //     mkdir(dir.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
-  //   }
-  //   return true;
-  // };
+
   FLAGS_alsologtostderr = true;
   FLAGS_colorlogtostderr = true;
-  // KImuExtrapolator = std::make_unique<jarvis::estimator::ImuExtrapolator>();
+  KImuExtrapolator = std::make_unique<jarvis::estimator::ImuExtrapolator>();
   const std::string data_dir(argv[2]);
   CHECK_EQ(argc, 3);
   LOG(INFO) << "input dir : " << data_dir;
@@ -392,16 +395,7 @@ int main(int argc, char* argv[]) {
   ParseOption(argv[1]);
   // std::unique_ptr<jarvis_ros::RosCompont> ros_compont =
   //     std::make_unique<jarvis_ros::RosCompont>(node.get());
-  if (kGLOG_v >= 0) {
-    FLAGS_log_dir = kDataDir + "/log/";
-    // CreateDir(FLAGS_log_dir);
-    FLAGS_v = kGLOG_v;
-  } else {
-    google::SetLogDestination(google::LogSeverity::GLOG_INFO, "");
-    google::SetLogDestination(google::LogSeverity::GLOG_WARNING, "");
-    google::SetLogDestination(google::LogSeverity::GLOG_ERROR, "");
-    google::SetLogDestination(google::LogSeverity::FATAL, "");
-  }
+
   //
   // /
   TrackingData tracking_data_temp;
@@ -416,31 +410,59 @@ int main(int argc, char* argv[]) {
   auto slip_detect = slip_detect::FactorSlipDetect(vslam_yaml_file);
   //
   std::vector<bool> slip_states;
-  estimator::EstimatorOption option =
-      estimator::ParseEstimatorOption(std::string(argv[1]));
-  //
-  auto &  esit_option_  = option ;
-
-   std::thread  pyramid_thread_;
-      for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
-      for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-        esit_option_.feature_track_options[i].pyramid_image.push_back(
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                esit_option_.feature_track_options[i].pyrmid_option));
-      }
-    }
-
-
   builder_ = std::make_unique<TrajectorBuilder>(
-      option, [&](const TrackingData& data) {
+      std::string(argv[1]), [&](const TrackingData& data) {
         std::lock_guard<std::mutex> lock(mutex);
         //
-        LOG(INFO)<<data.data->imu_state.Pose(); 
+        auto tracking_data = data;
+        Eigen::Matrix3d rotaion;
+        rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
+        // LOG(INFO) << rotaion;
+        // auto extric =
+        // transform::Rigid3d::Rotation(Eigen::Quaterniond(rotaion));
+        // tracking_data_temp.data->imu_state.data->pose =
+        //     extric * tracking_data_temp.data->imu_state.data->pose;
+        // {
+        //   std::unique_lock<std::mutex> lock(mutex);
+        //   cond.wait(lock);
+        //   tracking_data = tracking_data_temp;
+        // }
+        if(tracking_data.status==2){
+          KImuExtrapolator->AddState(data.data->time, data.data->imu_state);
+        }
+
+        auto start = std::chrono::high_resolution_clock::now();
+        auto slipe_alignment_pose = tracking_data.data->imu_state.pose;
+        if (slip_detect) {
+          slip_detect->AddPose(slip_detect::TimePose{
+              tracking_data.data->time, tracking_data.data->imu_state.pose});
+          auto flag = slip_detect->Detect(tracking_data.data->time);
+          kSlipFile << std::to_string(uint64_t(jarvis::common::ToUniversal(
+                                                   tracking_data.data->time) *
+                                               1e2))
+                    << " " << int(flag) << std::endl;
+
+          // ros_compont->PubBoolMsg(flag);
+          slipe_alignment_pose =
+              slip_detect->ToPoseInOdom((tracking_data.data->imu_state.pose));
+        }
+        LOG(INFO) << tracking_data.data->imu_state.pose;
+        if (kRecordFlag) {
+          const auto& pose = tracking_data.data->imu_state.pose;
+          std::stringstream info;
+          info << std::to_string(uint64_t(
+                      jarvis::common::ToUniversal(tracking_data.data->time) *
+                      1e2))
+               << " " << pose.translation().x() << " " << pose.translation().y()
+               << " " << pose.translation().z() << " " << pose.rotation().w()
+               << " " << pose.rotation().x() << " " << pose.rotation().y()
+               << " " << pose.rotation().z();
+          kOPoseFile << info.str() << std::endl;
+        }
+        cond.notify_one();
       });
 
   //
-  std::vector<std::pair<bool, jarvis::sensor::ImageData> > image_datas_pyra_;
-  std::unique_ptr<OpenCLHandler>  opencl_handler_ = std::make_unique<OpenCLHandler>();
   order_queue_ = std::make_unique<sensor::OrderedMultiQueue>();
   order_queue_->AddQueue(kOdomTopic,
                          [&](const sensor::OdometryData& odom_data) {
@@ -449,110 +471,26 @@ int main(int argc, char* argv[]) {
                            slip_detect->AddOdometry(odom_data);
                          });
   //
-  order_queue_->AddQueue(
-      kOdomTopic, [&](const jarvis::sensor::OdometryData& odom_data) {
-        // LOG(INFO) << odom_data.time;
-        builder_->AddOdometryData(jarvis::sensor::OdometryData{
-            odom_data.time + common::FromSeconds(kImuOdomPrvCamOffTime),
-            odom_data.pose});
-      });
-  order_queue_->AddQueue(kImagTopic0, [&](const jarvis::sensor::ImageData&
-                                              imag_data) {
-    if (imag_data.image[0].empty() || imag_data.image[1].empty() /*||
-        imag_data.image[2].empty() || imag_data.image[3].empty()*/) {
+  order_queue_->AddQueue(kImagTopic0, [&](const sensor::ImageData& imag_data) {
+    // slip_detect->AddImage(imag_data);
+    // auto flag = slip_detect->Detect(imag_data.time);
+    // ros_compont->PubBoolMsg(flag);
+    if (imag_data.image[0]->empty() || imag_data.image[1]->empty()) {
       LOG(WARNING) << "Input Image empty..";
       return;
     }
-
-    if (1) {
-      if (image_datas_pyra_.size() >= 1) {
-        if (pyramid_thread_.joinable()) {
-          auto start = std::chrono::high_resolution_clock::now();
-          pyramid_thread_.join();
-          VLOG(1) << "join frame cost: "
-                    << std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::high_resolution_clock::now() - start)
-                           .count();
-        }
-
-        //
-        if (image_datas_pyra_.size() == 2) {
-          image_datas_pyra_.erase(image_datas_pyra_.begin());
-        }
-        
-        image_datas_pyra_.push_back({false, imag_data});
-        image_datas_pyra_.back().second.pyramid_derive.resize(
-            image_datas_pyra_.back().second.image.size());
-        //
-        pyramid_thread_ = std::thread([&]() {
-          for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
-            for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-
-              std::vector<cv::Mat> pyrmd_drev = BuildPyramidsUsingGPU(
-                  imag_data.image[esit_option_.track_sequence[i][j]],
-                  opencl_handler_.get(),
-                  &esit_option_.feature_track_options[i].pyrmid_option,
-                  esit_option_.feature_track_options[i].klt_type);
-              image_datas_pyra_.back()
-                  .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
-                  pyrmd_drev;
-            }
-          }
-          image_datas_pyra_.back().first = true;
-        });
-
-        for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
-          for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-            esit_option_.feature_track_options[i]
-                .pyramid_image[j]
-                ->SetCurrPyram(
-                    image_datas_pyra_[0]
-                        .second
-                        .pyramid_derive[esit_option_.track_sequence[i][j]]);
-          }
-        }
-        auto start = std::chrono::high_resolution_clock::now();
-        builder_->AddImageData(image_datas_pyra_[0].second);
-        VLOG(1) << "One frame cost: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::high_resolution_clock::now() - start)
-                         .count();
-      } else {
-        image_datas_pyra_.push_back({false, imag_data});
-        image_datas_pyra_.back().second.pyramid_derive.resize(
-            image_datas_pyra_.back().second.image.size());
-        pyramid_thread_ = std::thread([&]() {
-          for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
-            for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-              std::vector<cv::Mat> pyrmd_drev = BuildPyramidsUsingGPU(
-                  imag_data.image[esit_option_.track_sequence[i][j]],
-                  opencl_handler_.get(),
-                  &esit_option_.feature_track_options[i].pyrmid_option,
-                  esit_option_.feature_track_options[i].klt_type);
-              image_datas_pyra_.back()
-                  .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
-                  pyrmd_drev;
-            }
-          }
-          image_datas_pyra_.back().first = true;
-        });
-      }
-    } else {
-      // auto start = std::chrono::high_resolution_clock::now();
-      builder_->AddImageData(imag_data);
-      // LOG(INFO) << "One frame cost: "
-                // << std::chrono::duration_cast<std::chrono::milliseconds>(
-                      //  std::chrono::high_resolution_clock::now() - start)
-                      //  .count();
-    }
-    // auto start = std::chrono::high_resolution_clock::now();
-    // builder_->AddImageData(imag_data);
-    // LOG(INFO) << "One frame cost: "
-    //           << std::chrono::duration_cast<std::chrono::milliseconds>(
-    //                  std::chrono::high_resolution_clock::now() - start)
-    //                  .count();
+    auto start = std::chrono::high_resolution_clock::now();
+    builder_->AddImageData(imag_data);
+    LOG(INFO) << "One frame cost: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::high_resolution_clock::now() - start)
+                     .count();
+    // cv::imshow("show", *imag_data.image[0]);
+    // cv::waitKey(0);
+    // if(cv::waitKey()=='c'){
+    //   jarvis::restart =true;
+    // }
   });
-
   order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu_data) {
     builder_->AddImuData(imu_data);
   });
@@ -607,7 +545,6 @@ int main(int argc, char* argv[]) {
   order_queue_->Start();
   Run(imu_datas, odom_datas, image_datas);
 
-  while(1);
   order_queue_->Stop();
   builder_ = nullptr;
   kill_thread = true;

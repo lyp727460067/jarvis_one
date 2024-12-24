@@ -2,7 +2,7 @@
 
 #include "glog/logging.h"
 #include "opencv2/core/eigen.hpp"
-#include "jarvis/alg/pnp_solver.h"
+#include "pnp_solver.h"
 namespace jarvis {
 namespace estimator {
 namespace {

@@ -69,9 +69,11 @@ struct FrameData {
     uint64_t id;
     estimator::ImuState imu_state;
     std::map<CameraId, FeatureData> features_datas;
+    
     std::vector<transform::Rigid3d> extric_camera_to_imu;
     transform::Rigid3d odo_to_imu_extric;
     double opt_dt;
+
     bool  is_key_frame=false;
   };
   std::shared_ptr<Data> data;
