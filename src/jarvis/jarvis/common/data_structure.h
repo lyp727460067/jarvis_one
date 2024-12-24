@@ -1,3 +1,11 @@
+/*** 
+ * @Author: liyanyan liyanyan@meta-bounds.com
+ * @Date: 2023-02-17 06:10:17
+ * @LastEditTime: 2023-03-01 02:27:50
+ * @LastEditors: liyanyan liyanyan@meta-bounds.com
+ * @Description: 
+ * @FilePath: /metaboundsstereovio/src/common/data_structure.h
+ */
 #ifndef JARVIS_VIO_COMMON_DATA_STRUCTURE_H_
 #define JARVIS_VIO_COMMON_DATA_STRUCTURE_H_
 
