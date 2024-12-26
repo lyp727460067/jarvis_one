@@ -14,16 +14,18 @@ namespace grid_map {
 class GridImpl : public GridMap {
  public:
   GridImpl(const std::map<int, GridMapOption>& option);
-  void Insert(const AiObject& object);
+  void Insert(const AiObject& object)override;
   //
   //
-  std::map<uint8_t, ObResultValue> IndexValue(const Eigen::Vector2f& index);
+  //
+  void IndexValue(const Eigen::Vector2f& index,
+      std::vector<std::pair<uint8_t, ObResultValue>>* result)override ;
   //
   //
   bool HasValue(const Eigen::Vector2i& index);
   ~GridImpl();
   //
-  PointCloud Votex(const PointCloud& point_clous,float size=0.5) ;
+  PointCloud Votex(const PointCloud& point_clous,float size=0.5) override;
   void ToPgn(const std::string& dir);
   //
  private:

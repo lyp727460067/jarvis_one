@@ -61,8 +61,9 @@ class GridMap {
  public:
   virtual void Insert(const AiObject& object) = 0;
   //// 暂定 XY和机器人当前pose的xy对齐的索引，
-  virtual std::map<uint8_t, ObResultValue> IndexValue(
-      const Eigen::Vector2f& index) = 0;
+  virtual void IndexValue(
+      const Eigen::Vector2f& index,
+      std::vector<std::pair<uint8_t, ObResultValue>>* result) = 0;
   //
   virtual PointCloud Votex(const PointCloud& point_clous,float size) = 0;
   //

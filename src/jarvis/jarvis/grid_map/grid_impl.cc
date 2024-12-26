@@ -63,9 +63,8 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
     sensor::PointCloud hit;
     for (const auto& p : point_clouds) {
       CHECK(!isnan(p.position.norm()));
-      // CHECK(p.position.norm() < 1e4) << p.position.norm() << " point
-      // valid!!!!";
       Eigen::Vector3f pos(p.position.x(), p.position.y(), 0);
+      CHECK(pos.norm() < 1e4) << pos.transpose();
       if (pos.norm() > option.max_distance) {
         miss.push_back({pose * pos});
       } else {
@@ -78,9 +77,9 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
   sensor::RangeData::SectorPara sector;
   for (auto const& p : point_cloud) {
     CHECK(!isnan(p.norm())) << "nan";
-    // CHECK(p.norm() < 1e4) << p.norm()<< " point valid!!!!";
     Eigen::Vector3f pos = p;
     pos.z() = 0.0;
+    CHECK(pos.norm() < 1e4) << pos.transpose();
     if (pos.norm() < option.max_distance) {
       result.push_back({pose * pos});
     }
@@ -110,6 +109,7 @@ sensor::RangeData ToRangeSensor(const GridMapOption& option,
   }
   //
   if (result.size() > 200) {
+    // LOG(INFO)<<result.size();
     return sensor::RangeData{
         origin, sensor::VoxelFilter(result, option.point_votex), {},sector};
   }
@@ -144,19 +144,31 @@ void GridImpl::Insert(const AiObject& objects) {
   }
 }
 //
-std::map<uint8_t, ObResultValue> GridImpl::IndexValue(
-    const Eigen::Vector2f& index) {
-  //
-  std::map<uint8_t, ObResultValue> result;
+void GridImpl::IndexValue(const Eigen::Vector2f& index,
+                          std::vector<std::pair<uint8_t, ObResultValue>>* result) {
+  // //
+  const Eigen::Vector2f index_f = last_pose_ * index;
+  // CHECK(result);
+  for (auto& p : *result) {
+    // CHECK(active_submaps_.count(p.first))<<p.first;
+    auto grid = active_submaps_.at(p.first)->submaps()[0]->grid();
+    auto index_xy = grid->limits().GetCellIndex(index_f);
+    p.second.p = static_cast<uint8_t>(
+        (1.0f - grid->GetCorrespondenceCost(index_xy)) * 255);
 
-  for (const auto& submap_pair : active_submaps_) {
-    //
-    auto grid = submap_pair.second->submaps()[0]->grid();
-    auto index_xy = grid->limits().GetCellIndex(last_pose_ * index);
-    float p = (1.0f - grid->GetCorrespondenceCost(index_xy));
-    result[submap_pair.first].p = static_cast<uint8_t>(p * 255);
+    // result->at(submap_pair.first).p = static_cast<uint8_t>(0 * 255);
   }
-  return result;
+
+  // std::map<uint8_t, ObResultValue> result;
+  // const Eigen::Vector2f index_f = last_pose_ * index;
+  // for (const auto& submap_pair : active_submaps_) {
+  //   //
+  //   auto grid = submap_pair.second->submaps()[0]->grid();
+  //   auto index_xy = grid->limits().GetCellIndex(index_f);
+  //   float p = (1.0f - grid->GetCorrespondenceCost(index_xy));
+  //   result->at(submap_pair.first).p = static_cast<uint8_t>(0 * 255);
+  // }
+  // return result;
 }
 //
 GridImpl::GridImpl(const std::map<int, GridMapOption>& option)
