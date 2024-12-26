@@ -25,11 +25,11 @@ struct LocalMapOption {
   int max_kf_num = 100;
   KeyFrameDataBaseOption key_frame_data_option;
   match::ProjectionOption local_track_project_search_option;
-  std::vector<Eigen::AlignedBox2i> image_boxs;
   DataCullingOption data_culling_option;
-  double culling_sampler_ = 0.2;
-  int compute_map_point_min_des_num = 5;
   LocalMapOptimizationOption local_map_optimization_option;
+  std::vector<Eigen::AlignedBox2i> image_boxs;
+  double culling_sampler = 0.2;
+  int compute_map_point_min_des_num = 5;
   std::map<int, camera_models::CameraPtr> cameras;
 };
 
@@ -48,15 +48,12 @@ class LocalMap {
   LocalMap(const LocalMapOption &option, const transform::Rigid3d &local_pose);
   //
   transform::Rigid3d LocalPose()const { return local_pose_; }
-  LocalMap(const LocalMap &local_map) : LocalMap(options_, local_pose_) {
-
-    CHECK(false);
-  }
+  LocalMap(const LocalMap &local_map)
+      : LocalMap(local_map.options_, local_map.local_pose_) {}
 
   //
-  bool operator=(const LocalMap &local_map){
-    CHECK(false);
-  }
+  bool operator=(LocalMap &&local_map);
+  //
   void AddKeyFrameData(const KeyFrameId &kf_id,
                        const KeyFrameData &key_frame_data);
   //
@@ -89,6 +86,9 @@ class LocalMap {
     return ref_poses_;
   }
   //
+  std::set<KeyFrameId> GetTrimBeforKeyFrameId(){
+    return trim_befor_key_frame_id_; 
+  };
   //
   int Size() { return key_frames_datas_.size(); }
   const mapping::Covisibility *GetCovisibility() const {
@@ -129,11 +129,10 @@ class LocalMap {
   std::map<KeyFrameId,transform::Rigid3d>  key_frames_ref_pose;
   std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
   std::unique_ptr<mapping::Covisibility> covisibility_;
-  std::unique_ptr<LocalMapOptimization> local_map_optimization_;
   MapById<MapPointId, MapPointData> map_points_;
   std::vector<KeyFrameIdWithPose> key_frames_id_with_pose_;
   //
-  
+  std::set<KeyFrameId> trim_befor_key_frame_id_; 
   std::unique_ptr<DataCulling> data_culling_;
   LocalMapOption options_;
   bool finish_ = false;
@@ -169,7 +168,7 @@ class LocalMap {
 //
 class ActiveLocalMap {
  public:
-  ActiveLocalMap(const LocalMapOption&option); 
+  ActiveLocalMap(const LocalMapOption &option) : local_map_option_(option) {}
   std::vector<std::shared_ptr<LocalMap>> GetLocalMap(){return localmaps_;}
   //
   std::shared_ptr<LocalMap> FrontFinish() { return front_finsh_; }

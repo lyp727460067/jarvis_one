@@ -834,6 +834,8 @@ jarvis::mapping::KeyFrameFilterOption ParseLocalKeyFrameFilterOptionOptio(
   return op_option;
 }
 //
+
+
 mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
   auto &fsSettings = fs;
   mapping::LocalMapTrackOption op_option;
@@ -871,7 +873,7 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
   tem = fsSettings["match_senquence0_alone"];
   op_option.match_senquence0_alone = bool(tem);
   op_option.huber_loss = fsSettings["huber_loss"];
-  op_option.kf_max_distance = fsSettings["min_track_frame_num"];
+  op_option.kf_max_distance = fsSettings["kf_max_distance"];
   //
   //
 
@@ -911,6 +913,107 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
 }
 //
 
+mapping::LocalMapOption ParseLocalMapOptio(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::LocalMapOption op_option;
+
+  op_option.max_kf_num = fsSettings["max_kf_num"];
+  op_option.culling_sampler = fsSettings["culling_sampler"];
+  op_option.compute_map_point_min_des_num =
+      fsSettings["compute_map_point_min_des_num"];
+
+  op_option.key_frame_data_option.min_core =
+      fsSettings["key_frame_data_option"]["min_core"];
+  op_option.key_frame_data_option.sharing_words_count_min_is_max_ration =
+      fsSettings["key_frame_data_option"]
+                ["sharing_words_count_min_is_max_ration"];
+  op_option.key_frame_data_option.min_shared_words_num =
+      fsSettings["key_frame_data_option"]["min_shared_words_num"];
+  op_option.key_frame_data_option.min_distance_threash_hold =
+      fsSettings["key_frame_data_option"]["min_distance_threash_hold"];
+  op_option.local_track_project_search_option.viewing_angle_threash_hold =
+      fsSettings["local_track_project_search_option"]
+                ["viewing_angle_threash_hold"];
+  op_option.local_track_project_search_option.area_search_radius =
+      fsSettings["local_track_project_search_option"]["area_search_radius"];
+  op_option.local_track_project_search_option.project_pix_err =
+      fsSettings["local_track_project_search_option"]["project_pix_err"];
+  op_option.local_track_project_search_option.project_best_des_dis =
+      fsSettings["local_track_project_search_option"]["project_best_des_dis"];
+  op_option.data_culling_option.viewing_angle =
+      fsSettings["data_culling_option"]["viewing_angle"];
+  op_option.data_culling_option.area_search_radius =
+      fsSettings["data_culling_option"]["area_search_radius"];
+  op_option.data_culling_option.project_pix_err =
+      fsSettings["data_culling_option"]["project_pix_err"];
+  op_option.data_culling_option.best_map_fuse_des_dis =
+      fsSettings["data_culling_option"]["best_map_fuse_des_dis"];
+  op_option.data_culling_option.fisrt_covisible_num =
+      fsSettings["data_culling_option"]["fisrt_covisible_num"];
+  op_option.data_culling_option.second_covisible_num =
+      fsSettings["data_culling_option"]["second_covisible_num"];
+  op_option.data_culling_option.map_culling_obs =
+      fsSettings["data_culling_option"]["map_culling_obs"];
+  op_option.data_culling_option.grid_lenth =
+      fsSettings["data_culling_option"]["grid_lenth"];
+  op_option.data_culling_option.redundant_observations_ration =
+      fsSettings["data_culling_option"]["redundant_observations_ration"];
+
+  return op_option;
+}
+
+mapping::MapPointConstructOption ParseLocalConMapOptio(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::MapPointConstructOption op_option;
+
+  op_option.con_struct_map_point_frame_min_distance =
+      fsSettings["con_struct_map_point_frame_min_distance"];
+  op_option.construct_map_point_near_keframd_num =
+      fsSettings["construct_map_point_near_keframd_num"];
+  std::string path = fsSettings["test_match_pic_write_path"];
+  op_option.test_match_pic_write_path = path;
+  op_option.dbow_trasform_level = fsSettings["dbow_trasform_level"];
+  op_option.area_search_grid_lenth = fsSettings["area_search_grid_lenth"];
+  op_option.dbow_match_min_distance = fsSettings["dbow_match_min_distance"];
+
+  op_option.key_points_extract_option.type =
+      fsSettings["key_points_extract_option"]["type"];
+  op_option.key_points_extract_option.extend_key_points_num =
+      fsSettings["key_points_extract_option"]["extend_key_points_num"];
+  op_option.key_points_extract_option.minimal_accepted_quality_corners =
+      fsSettings["key_points_extract_option"]
+                ["minimal_accepted_quality_corners"];
+  op_option.key_points_extract_option.min_distance =
+      fsSettings["key_points_extract_option"]["min_distance"];
+  op_option.point_check_dist_epipolar_option
+      .check_dist_epipolar_line_cos_parallax =
+      fsSettings["point_check_dist_epipolar_option"]
+                ["check_dist_epipolar_line_cos_parallax"];
+  op_option.point_check_dist_epipolar_option.first_cam_min_z_distance =
+      fsSettings["point_check_dist_epipolar_option"]
+                ["first_cam_min_z_distance"];
+  op_option.point_check_dist_epipolar_option.first_cam_chi_squared =
+      fsSettings["point_check_dist_epipolar_option"]["first_cam_chi_squared"];
+  op_option.point_check_dist_epipolar_option.second_cam_min_z_distance =
+      fsSettings["point_check_dist_epipolar_option"]
+                ["second_cam_min_z_distance"];
+  op_option.point_check_dist_epipolar_option.second_cam_chi_squared =
+      fsSettings["point_check_dist_epipolar_option"]["second_cam_chi_squared"];
+
+  op_option.track_project_search_option.viewing_angle_threash_hold =
+      fsSettings["track_project_search_option"]["viewing_angle_threash_hold"];
+  op_option.track_project_search_option.area_search_radius =
+      fsSettings["track_project_search_option"]["area_search_radius"];
+  op_option.track_project_search_option.project_pix_err =
+      fsSettings["track_project_search_option"]["project_pix_err"];
+  op_option.track_project_search_option.project_best_des_dis =
+      fsSettings["track_project_search_option"]["project_best_des_dis"];
+  op_option.track_project_search_option.box_boundary_distance =
+      fsSettings["track_project_search_option"]["box_boundary_distance"];
+
+  return op_option;
+}
+
 template <>
 void ParseYAMLOption(const std::string &file,
                      mapping::MapBuilderOption *option) {
@@ -921,7 +1024,12 @@ void ParseYAMLOption(const std::string &file,
   std::string configPath = file.substr(0, pn);
   std::string mapping_name = opencv_file["mapping"];
   const std::string mapping_file = configPath + "/" + mapping_name;
+
+  std::string  vocabulary_filebrif= opencv_file["vocabulary_filebrif"];
+  const std::string dbow_file = configPath + "/" + vocabulary_filebrif;
+
   LOG(INFO)<<mapping_file ;
+  LOG(INFO)<<dbow_file ;
   auto fsSettings = CheckFile(mapping_file);
   std::string track_sequence_str = fsSettings["track_sequence"];
   option->local_map_track_option =
@@ -930,8 +1038,17 @@ void ParseYAMLOption(const std::string &file,
   option->enable_local_track = bool(temp);
   temp = fsSettings["enable_local_opimization"];
   option->enable_local_opimization = bool(temp);
+
+  temp = fsSettings["enable_loop_closure"];
+  option->enable_loop_closure = bool(temp);
+  //
   option->key_frame_filter_option = ParseLocalKeyFrameFilterOptionOptio(
       fsSettings["key_frame_filter_option"]);
+  option->vocabulary_filebrif = dbow_file;
+  option->map_point_construct_option = ParseLocalConMapOptio(
+      fsSettings["map_point_construct_option"]);
+  option->local_map_option = ParseLocalMapOptio(fsSettings["local_map_option"]);
+//
 }
 
 template <>
@@ -967,23 +1084,30 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
         i, option->esti_option.feature_track_options[i].cameras[0]);
     //
 
-    // option->mapping_option.map_manager_option.image_boxs.emplace_back(
-    //     Eigen::Vector2i{0, 0},
-    //     option->esti_option.feature_track_options[i].pyrmid_option.image_size);
+    option->mapping_option.image_boxs.emplace_back(
+        Eigen::Vector2i{0, 0},
+        option->esti_option.feature_track_options[i].pyrmid_option.image_size);
 
     // mask
-    // option->mapping_option.map_manager_option.masks.push_back(
-        // option->esti_option.feature_track_options[i].mask);
+    option->mapping_option.map_point_construct_option.masks.push_back(
+        option->esti_option.feature_track_options[i].mask);
   }
+
+  //
+  option->mapping_option.map_point_construct_option.image_boxs =
+      option->mapping_option.image_boxs;
+  //
+
   //
   option->mapping_option.track_sequence = option->esti_option.track_sequence;
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.track_sequence;
     //
-  // option->mapping_option.data_culling_option.image_bboxs =
-  //     option->mapping_option.map_manager_option.image_boxs;
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.slide_windows_option.track_sequence;
+
+
+
 }
 //
 //

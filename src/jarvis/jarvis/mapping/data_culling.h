@@ -19,6 +19,7 @@ struct DataCullingOption {
   double area_search_radius = 2;
   double project_pix_err = 8.99;
   double best_map_fuse_des_dis = 80;
+  int box_boundary_distance=5;
   int fisrt_covisible_num = 10;
   int second_covisible_num = 20;
   int map_culling_obs = 5;

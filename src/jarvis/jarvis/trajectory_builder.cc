@@ -58,8 +58,8 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
       }
     }
   } else {
-    Relocation();
-    ReComputeTrajectorId();
+    // Relocation();
+    // ReComputeTrajectorId();
   }
 }
 //
@@ -96,13 +96,28 @@ TrajectorBuilder::GetKeyFrameGlobalPose() {
 }
 //
 std::vector<Eigen::Vector3d> TrajectorBuilder::GetLocalMapPoints() {
-  if (map_builder_->GetLocalMapTrack() == nullptr) return {};
-  return map_builder_->GetLocalMapTrack()->GetMapPoints();
+  if (map_builder_->GetLocalMap() == nullptr) return {};
+  std::vector<Eigen::Vector3d> result;
+  const auto &all_map_points = map_builder_->GetLocalMap()->AllMapPoints();
+  transform::Rigid3d local_map_pose = map_builder_->GetLocalMap()->LocalPose();
+  for (const auto &mp_point : all_map_points) {
+    result.push_back(local_map_pose * mp_point.data.data->pos);
+  }
+  return result;
 }
 //
 std::vector<transform::Rigid3d> TrajectorBuilder::GetLocalKeyFramePose() {
-  if (map_builder_->GetLocalMapTrack() == nullptr) return {};
-  return map_builder_->GetLocalMapTrack()->GetKfPose();
+  if (map_builder_->GetLocalMap() == nullptr) return {};
+  std::vector<transform::Rigid3d> result;
+
+  const auto &all_kf_re_pose =
+      map_builder_->GetLocalMap()->AllKeyFrameRefPose();
+
+  transform::Rigid3d local_map_pose = map_builder_->GetLocalMap()->LocalPose();
+  for (const auto &re_pose : all_kf_re_pose) {
+    result.push_back(local_map_pose * re_pose.second);
+  }
+  return result;
 }
 
 //

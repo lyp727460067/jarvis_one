@@ -130,11 +130,9 @@ class LocalMapTrack {
   // for debug
   mutable std::mutex mutex_;
   //
-  std::unique_ptr<ActiveLocalMap> local_maps_;
   std::shared_ptr<LocalMap> local_map_ = nullptr;
   //
   MapById<KeyFrameId, KeyFrameData> key_frames_datas_;
-  void TrimKeyFrameData();
 
 };
 

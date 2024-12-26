@@ -27,7 +27,7 @@ struct MapBuilderOption {
   bool enable_local_opimization =false;
   bool enable_loop_closure =false;
   MapManagerOption map_manager_option;
-  DataCullingOption data_culling_option;
+  LocalMapOption local_map_option;
   LocalMapTrackOption local_map_track_option;
   KeyFrameFilterOption key_frame_filter_option;
 
@@ -37,13 +37,10 @@ struct MapBuilderOption {
   //
   //
   std::string vocabulary_filebrif = "/home/lyp/project/vslam/jarvis/jarvis.dbow";
-  int constant_local_process_num = 20;
-  float culling_sampler_ration = 0.1;
-  float local_optimization_ration = 0.1;
   std::vector<std::vector<int>> track_sequence;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   std::map<int, camera_models::CameraPtr> cameras;
-  int culling_win_size  =20;
+  std::vector<Eigen::AlignedBox2i> image_boxs;
   
 };
 
@@ -71,13 +68,13 @@ class MappingBuilder {
   }
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
   //
-  LocalMapTrack const* GetLocalMapTrack() { return local_map_track_.get(); }
-
+  std::shared_ptr<LocalMap> GetLocalMap() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return local_map_front_;
+  }
 
  private:
   //
-  void UpdataFinishLocalMapData(std::shared_ptr<LocalMap>local_map);
-  void AddLocalMap();
   void TrimKeyFrameData();
   LocalMapOptimizationData ParseLocalMapData(const KeyFrameId& frame_id);
   void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
@@ -87,11 +84,10 @@ class MappingBuilder {
   std::unique_ptr<LocalMapTrack> local_map_track_;
   //
   std::shared_ptr<LocalMap> local_map_front_;
-  std::shared_ptr<LocalMap> local_map_finish_temp_;
   std::unique_ptr<ActiveLocalMap> active_local_maps_;
   //
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
-
+  mutable std::mutex mutex_;
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;
   bool kill_thread_=false;

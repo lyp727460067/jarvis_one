@@ -18,45 +18,64 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option)
     : options_(option) {
   //
   LOG(INFO) << "local track " << options_.enable_local_track;
+  //
 
+  //
   if (option.enable_local_opimization || option.enable_loop_closure) {
     map_point_construct_ = std::make_unique<MapPointConstruct>(
-        option.map_point_construct_option,
+        option.map_point_construct_option, options_.cameras,
         std::make_unique<dbow::Vocabulary>(
             dbow::GetVocabulary(0, option.vocabulary_filebrif)));
 
     map_manager_ = std::make_unique<MapManager>(
-        option.map_manager_option, map_point_construct_.get(), true);
+        options_.map_manager_option, map_point_construct_.get(), true);
     LOG(INFO) << "Enable mapp manger..";
   } else {
     map_point_construct_ = std::make_unique<MapPointConstruct>(
-        option.map_point_construct_option, nullptr);
+        option.map_point_construct_option, options_.cameras, nullptr);
     map_manager_ = std::make_unique<MapManager>(
-        option.map_manager_option, map_point_construct_.get(), false);
+        options_.map_manager_option, map_point_construct_.get(), false);
   }
   //
   //
   //
+  if (options_.enable_local_track) {
+    local_map_track_ =
+        std::make_unique<LocalMapTrack>(option.local_map_track_option);
 
-  local_map_track_ =
-      std::make_unique<LocalMapTrack>(option.local_map_track_option);
+  }
   //
   key_frame_filter_ =
       std::make_unique<KeyFrameFilter>(option.key_frame_filter_option);
+  //
+  
+  //
+  //
+  LocalMapOption local_map_option = options_.local_map_option;
+  local_map_option.cameras =  options_.cameras;
+  local_map_option.image_boxs=  options_.image_boxs;
+  active_local_maps_ = std::make_unique<ActiveLocalMap>(
+      local_map_option);
+  //
+  LOG(INFO)<<"mapping construct done.";
 }
 //
 std::unique_ptr<transform::Rigid3d> MappingBuilder::TrackLocalMap(
     const TrackingData &frame_data) {
+
+  if (local_map_track_ == nullptr) return nullptr;
   if (local_map_front_) {
     return local_map_track_->Track(
         local_map_front_,
         map_point_construct_->TrackDataToKeyFrameData(frame_data));
   }
+  return nullptr;
 }
 void MappingBuilder::TrimKeyFrameData() {
   //
   if (local_map_front_ == nullptr || options_.enable_loop_closure) return;
   //
+  
   if (options_.enable_local_opimization) {
     map_manager_->TrimOptimizedLocalMap();
     return;
@@ -65,12 +84,12 @@ void MappingBuilder::TrimKeyFrameData() {
   for (const auto &key_frame_data : local_map_front_->AllKeyFrameDatas()) {
     last_key_frame_ids.insert(key_frame_data.id);
   }
+
   std::set<KeyFrameId> new_key_frame_ids;
   for (const auto &key_frame_data :
        active_local_maps_->GetLocalMap().front()->AllKeyFrameDatas()) {
     new_key_frame_ids.insert(key_frame_data.id);
   }
-
   std::vector<KeyFrameId> trim_id;
   std::set_difference(last_key_frame_ids.begin(), last_key_frame_ids.end(),
                       new_key_frame_ids.begin(), new_key_frame_ids.end(),
@@ -79,19 +98,8 @@ void MappingBuilder::TrimKeyFrameData() {
     map_manager_->TrimKeyFrameData(id);
   }
 }
-void MappingBuilder::AddLocalMap() {}
 //
-//
-// 必须放在线程的队列里面按顺序执行
-void MappingBuilder::UpdataFinishLocalMapData(
-    std::shared_ptr<LocalMap> local_map) {
-  // for (const auto &data : local_map_finish_temp_->AllKeyFrameDatas()) {
-  //   //
-  //   map_point_construct_->ConstructExtend(
-  //       local_map_finish_temp_, &map_manager_->GetKeyFrameId(data.id));
-  //   //
-  // }
-}
+
 //
 //
 //
@@ -104,12 +112,15 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
     auto key_frame_data = map_point_construct_->TrackDataToKeyFrameData(data);
     auto key_frame_id = map_manager_->AddKeyFrameData(t, key_frame_data);
     active_local_maps_->AddKeyFrameData(key_frame_id, key_frame_data);
-
+    if (local_map_front_ == nullptr) {
+      local_map_front_ = active_local_maps_->GetLocalMap().front();
+    }
     if (active_local_maps_->GetLocalMap().front() != local_map_front_) {
       if (options_.enable_local_opimization || options_.enable_loop_closure) {
         map_manager_->AddLocalMap(t, local_map_front_);
       }
       TrimKeyFrameData();
+      std::lock_guard<std::mutex> lock(mutex_);
       local_map_front_ = active_local_maps_->GetLocalMap().front();
     }
   }
@@ -119,20 +130,22 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
 std::map<KeyFrameId, transform::TimestampedTransform>
 MappingBuilder::GetAllKeyFramePose() {
   // 可能存在线程安全!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  std::map<KeyFrameId, transform::TimestampedTransform> result;
-  const auto &key_frame_datas = map_manager_->AllKeyFrameDatas();
-  for (auto const &key_frame : key_frame_datas) {
-    result.emplace(key_frame.id,
-                   transform::TimestampedTransform{key_frame.data.data->time,
-                                                   key_frame.data.data->pose});
-  }
-  return result;
+  return {};
+  // std::map<KeyFrameId, transform::TimestampedTransform> result;
+  // const auto &key_frame_datas = map_manager_->AllKeyFrameDatas();
+  // for (auto const &key_frame : key_frame_datas) {
+  //   result.emplace(key_frame.id,
+  //                  transform::TimestampedTransform{key_frame.data.data->time,
+  //                                                  key_frame.data.data->pose});
+  // }
+  // return result;
 }
 //
 std::vector<Eigen::Vector3d> MappingBuilder::GetAllMapPoints() {
   // std::lock_guard<std::mutex> lock(mutex_);
   // 可能存在线程安全
-  return map_manager_->GetAllMapPoints();
+  // return map_manager_->GetAllMapPoints();
+  return {};
 }
 
 void MappingBuilder::AddImuData(const sensor::ImuData &imu_data) {

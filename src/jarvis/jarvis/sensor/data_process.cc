@@ -185,7 +185,7 @@ void OrderedMultiQueue::Dispathch() {
         last_dispatched_time_ = next_data_owner->GetTime();
         next_queue->callback(std::move(next_data_owner));
       }
-      LOG(INFO) << "Drop early " << next_queue_key << " data...";
+      // LOG(INFO) << "Drop early " << next_queue_key << " data...";
     }
   // }
   }
