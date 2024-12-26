@@ -5,8 +5,8 @@ enable_local_opimization: 1
 enable_loop_closure : 0
 ##
 key_frame_filter_option:
- max_distance : 0.1
- max_angle : 10
+ max_distance : 0.2
+ max_angle : 20
  max_time : 10000.0
  min_intersection_ration : 0.65
 
@@ -15,7 +15,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num : 10
+ max_kf_num : 50
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
 
@@ -49,9 +49,9 @@ local_map_track_option:
  remove_unconstrained_points : 1
  min_convi_num : 6
  max_n_features_per_frame : 420
- op_weight : 100
- op_init_t_weight : 1
- op_init_r_weight : 5
+ op_weight : 20
+ op_init_t_weight : 100
+ op_init_r_weight : 1
  min_match_size : 20
  one_frame_pick_candidates_min_num : 3
  one_frame_match_candidates_min_num : 1
@@ -59,9 +59,9 @@ local_map_track_option:
  sequence_match : "{0,1,2}"
  match_senquence0_alone: 0
  huber_loss : 0.1
- kf_max_distance : 5
+ kf_max_distance : 7
  cell_sizes : "{0, 30}, {1, 20}, {2, 20}"
- out_time : 1
+ out_time : 0
  max_num_iterations : 3
  op_type  : 0  #0  four dof
  derect_match_option:

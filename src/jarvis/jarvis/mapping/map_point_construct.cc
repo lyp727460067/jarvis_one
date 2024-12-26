@@ -253,7 +253,7 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
 //
 bool MapPointConstruct::ConstructExtend(
     const LocalMap& local_map, KeyFrameData *data) {
-  if (!data->data->dbow_data.bow_vector.empty()) false;
+  if (!data->data->dbow_data.bow_vector.empty()) return false;
   GenerateForExtendKeyPoint(*data);
   // 优先把以前地图的点和当前做匹配
   if (local_map.AllKeyFrameDatas().size() <= 1) return false;
@@ -398,7 +398,7 @@ void MapPointConstruct::ConStructExtendMapPoints(
   // //
   KeyFrameId min_key_frame_id(-1, 0);
   KeyFrameId senco_min_key_frame_id(-1, 0);
-  for (const auto id : connect_frames_temp) {
+  for (const auto& id : connect_frames_temp) {
     auto delta_pose = (key_frames_datas.at(id.first).data->pose.inverse() *
                        current_id_data->pose)
                           .translation()

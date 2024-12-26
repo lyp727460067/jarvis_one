@@ -84,6 +84,11 @@ class MapPointConstruct {
   void ConStructExtendMapPoints(const LocalMap& local_map,
                                 KeyFrameData& kf_data);
   //
+  MapPointConstructOption options_;
+  std::map<int, camera_models::CameraPtr> cameras_;
+  std::unique_ptr<dbow::Vocabulary> voc_;
+
+
   std::map<int, std::map<uint64_t, MapPointId>>
       tracking_id_corresponding_to_map_point_id_;
   std::map<MapPointId, std::pair<int, uint64_t>>
@@ -92,12 +97,10 @@ class MapPointConstruct {
   std::set<MapPointId> map_points_local_ids_;
   int trajctory =0;
   std::mutex mutex_;
-  std::unique_ptr<dbow::Vocabulary> voc_;
+
   std::unique_ptr<KeyPointExtract> key_points_extractor_;
   std::unique_ptr<DescriptorExtract> des_extractor_;
-  std::map<int, camera_models::CameraPtr> cameras_;
   std::set<uint64_t> map_points_local_ids;
-  MapPointConstructOption options_;
 };
 
 }  // namespace mapping

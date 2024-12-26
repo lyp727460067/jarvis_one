@@ -119,22 +119,24 @@ class LocalMap {
   //
 
   void TrimRedundancy();
-  std::unique_ptr<LocalMapOptimization> local_opimization_;
   //
+  LocalMapOption options_;
   transform::Rigid3d  local_pose_;
   //
-  std::map<KeyFrameId, transform::Rigid3d> ref_poses_;
-  std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
-  MapById<KeyFrameId, const KeyFrameData> key_frames_datas_;
-  std::map<KeyFrameId,transform::Rigid3d>  key_frames_ref_pose;
   std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
   std::unique_ptr<mapping::Covisibility> covisibility_;
+  std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
+
+
+  std::unique_ptr<LocalMapOptimization> local_opimization_;
+  std::map<KeyFrameId, transform::Rigid3d> ref_poses_;
+  MapById<KeyFrameId, const KeyFrameData> key_frames_datas_;
+  std::map<KeyFrameId,transform::Rigid3d>  key_frames_ref_pose;
   MapById<MapPointId, MapPointData> map_points_;
   std::vector<KeyFrameIdWithPose> key_frames_id_with_pose_;
   //
   std::set<KeyFrameId> trim_befor_key_frame_id_; 
   std::unique_ptr<DataCulling> data_culling_;
-  LocalMapOption options_;
   bool finish_ = false;
   bool  is_optimization= false;
 

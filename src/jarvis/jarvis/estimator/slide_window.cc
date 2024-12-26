@@ -76,15 +76,15 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   camera_imu_time_offset_ =  options_.camera_imu_time_offset;
 }
 //
-TrackingData SlideWindow::GetratePriorData(bool generate_point) {
-  if (images_.count(imu_states_[0].time) == 0) return {};
+TrackingData SlideWindow::GetratePriorData(bool generate_point, int k) {
+  if (images_.count(imu_states_[k].time) == 0) return {};
   TrackingData result;
   result.data = std::make_shared<TrackingData::Data>();
-  result.data->imu_state = imu_states_[0];
-  result.data->time = imu_states_[0].time;
+  result.data->imu_state = imu_states_[k];
+  result.data->time = imu_states_[k].time;
   // result.data->extric_camera_to_imu = options_.extric_camera_to_imu;
   result.data->extric_camera_to_imu = extric_camera_to_imu_;
-  result.data->images = images_[imu_states_[0].time];
+  result.data->images = images_[imu_states_[k].time];
   if (generate_point) {
     auto const feature_managers = feature_managers_->GetFeatureManagers();
     for (auto const &f_manger : feature_managers) {
@@ -155,18 +155,20 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   bool is_keyframe = feature_managers_->CheckParallax();
 
   if (is_keyframe) {
+  
     if (prior_factor_) {
        TicToc t_t;
-      const auto prior_pose = prior_factor_(GetratePriorData());
-      if (prior_pose) {
+      //  int k  = options_.win_size;
+       int k  = 0;
+       const auto prior_pose =
+           prior_factor_(GetratePriorData(false,k ));
+       if (prior_pose) {
+         LOG(WARNING) << "Prior pose: " << *prior_pose << ",fisrt imu pose:"
+                      << imu_states_[k].Pose();
+         optimization_->SetPrior(*prior_pose, k);
+         has_prio_pose = true;
 
-        LOG(WARNING)
-            << "Prior pose: " << *prior_pose
-            << ",fisrt imu pose:" << imu_states_.begin()->Pose();
-        optimization_->SetPrior(*prior_pose);
-        has_prio_pose =  true;
-
-        // CHECK(false);
+         // CHECK(false);
       }
       VLOG(kGlogCostTimeLevel) << "Local match cost: " << t_t.toc() << " ms";
       LOG(INFO) << "Local match cost: " << t_t.toc() << " ms";
