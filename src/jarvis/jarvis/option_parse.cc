@@ -403,6 +403,7 @@ jarvis::estimator::OptimizationOption ParseYAMLOptionOptimizationOption(
   op_option.use_odom = fsSettings["use_odom"];
   op_option.camera_weight = fsSettings["camera_weight"];
   op_option.estimate_td = fsSettings["estimate_td"];
+  op_option.prio_pose_weight = fsSettings["prio_pose_weight"];
   op_option.init_td = fsSettings["td"];
   op_option.estimate_extrinsic = fsSettings["estimate_extrinsic"];
   op_option.huber_loss = fsSettings["huber_loss"];

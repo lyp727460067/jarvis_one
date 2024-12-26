@@ -57,7 +57,7 @@ class SlideWindow {
 
  private:
   void SlideData(bool);
-  TrackingData GetratePriorData(bool generate_point=false);
+  TrackingData GetratePriorData(bool generate_point=false,int k=0);
   SlideWindowOption options_;
   //
   std::vector<ImuState> imu_states_;

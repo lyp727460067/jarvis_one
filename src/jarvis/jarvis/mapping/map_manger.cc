@@ -27,7 +27,7 @@ MapManager::MapManager(const MapManagerOption &option,
     thread_ = std::thread([this]() {
       while (!kill_thread_) {
         DrainWorkQueue();
-        usleep(1000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
     });
   }

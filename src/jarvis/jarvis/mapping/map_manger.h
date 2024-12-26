@@ -55,7 +55,10 @@ class MapManager {
   }
   void TrimOptimizedLocalMap();
   
-  std::vector<Eigen::Vector3d> GetAllMapPoints() {}
+  std::vector<Eigen::Vector3d> GetAllMapPoints() {
+    CHECK(false)<<"Not implement..";
+    return {};
+  }
   const MapById<KeyFrameId, KeyFrameData> AllKeyFrameDatas() const {
     return key_frames_datas_;
   }

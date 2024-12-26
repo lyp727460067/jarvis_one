@@ -20,6 +20,7 @@ struct OptimizationOption {
   int estimate_extrinsic=1;
   double huber_loss =1.0;
   int camera_factor_num_th = 10;
+  float prio_pose_weight =1000;
   inline int TrackNum() const { return int(trace_sequence.size()); }
   int CamNum()const {
     int camera_num  =0;
@@ -60,7 +61,7 @@ class Optimization {
   OptimizationStateData* MutableData() { return &data_; }
   ~Optimization();
   double FinalCost() { return final_cost_; }
-  void SetPrior(const transform::Rigid3d& pose) { prior_pose_ = pose; }
+  void SetPrior(const transform::Rigid3d& pose,int k=0) { prior_pose_ =std::make_pair(k,pose); }
 
  private:
   int AddCameraFactor(int id,ceres::Problem* Problem,
@@ -81,7 +82,8 @@ class Optimization {
   const OptimizationOption options_;
   double final_cost_=0; 
   int num_= 0;
-  std::optional<transform::Rigid3d> prior_pose_;
+  std::optional<std::pair<int,transform::Rigid3d> > prior_pose_;
+  
   // double** para_Pose = data_.pose;
   // double** para_SpeedBias = data_.speed_bias;
   // double** para_Ex_Pose = data_.ex_pose;
