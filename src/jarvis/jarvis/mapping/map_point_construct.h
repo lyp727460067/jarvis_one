@@ -28,15 +28,17 @@ using FrontMapPointData = std::map<
 
 // 维护一定规模大小的图，然后重建出当前的一部分的地图点
 struct MapPointConstructOption {
-  KeyPointExtractOption key_points_extract_option;
-  DescriptorExtractOption descriptor_option;
-  std::vector<Eigen::AlignedBox2i> image_boxs;
-  std::vector<cv::Mat> masks;
+
+  float con_struct_map_point_frame_min_distance = 0.4;
   int dbow_trasform_level = 4;
   int area_search_grid_lenth = 10;
-  match::ProjectionOption track_project_search_option;
-  float construct_map_point_near_keframd_num = 0.5;
+  float construct_map_point_near_keframd_num = 10;
   int dbow_match_min_distance = 80;
+  std::vector<cv::Mat> masks;
+  KeyPointExtractOption key_points_extract_option;
+  DescriptorExtractOption descriptor_option;
+  match::ProjectionOption track_project_search_option;
+
   struct DistEpipolarLineOption {
     float check_dist_epipolar_line_cos_parallax = 0.9998;
     float first_cam_min_z_distance = 0.05;
@@ -44,14 +46,16 @@ struct MapPointConstructOption {
     float second_cam_min_z_distance = 0.05;
     float second_cam_chi_squared = 5.991;
   } point_check_dist_epipolar_option;
+
+  std::vector<Eigen::AlignedBox2i> image_boxs;
   std::string test_match_pic_write_path =
       "";  //= "/home/lyp/project/vslam/jarvis/test/image/";
-  float con_struct_map_point_frame_min_distance = 0.4;
 };
 class MapPointConstruct {
   //
  public:
-  MapPointConstruct(const MapPointConstructOption& option,std::unique_ptr<dbow::Vocabulary>voc);
+  MapPointConstruct(const MapPointConstructOption& option,std::map<int, camera_models::CameraPtr> camera,
+                    std::unique_ptr<dbow::Vocabulary> voc);
   //
   //
   KeyFrameData TrackDataToKeyFrameData(const TrackingData& data);
@@ -59,12 +63,12 @@ class MapPointConstruct {
   bool ConstructExtend(const LocalMap& local_map,
                        KeyFrameData* data);
   //
-  uint64_t AppendMapPointId(const std::pair<int, uint64_t>* tracking_id);
+  MapPointId AppendMapPointId(const std::pair<int, uint64_t>* tracking_id);
   void GenerateForExtendKeyPoint(KeyFrameData& data);
 
  private:
   //
-  bool IsExist(const int s, const uint64_t& tracking_id, uint64_t* local_id);
+  bool IsExist(const int s, const uint64_t& tracking_id, MapPointId* local_id);
   bool CheckDistEpipolarLine(const FeatureData& kp1, const FeatureData& kp2,
                              const transform::Rigid3d& relative_pose,
                              const std::vector<camera_models::Camera*>& camera,
@@ -80,10 +84,13 @@ class MapPointConstruct {
   void ConStructExtendMapPoints(const LocalMap& local_map,
                                 KeyFrameData& kf_data);
   //
-  std::map<int, std::map<uint64_t, uint64_t>>
+  std::map<int, std::map<uint64_t, MapPointId>>
       tracking_id_corresponding_to_map_point_id_;
-  std::map<uint64_t, std::pair<int, uint64_t>>
+  std::map<MapPointId, std::pair<int, uint64_t>>
       map_point_id_corresponding_to_tracking_id_;
+  //
+  std::set<MapPointId> map_points_local_ids_;
+  int trajctory =0;
   std::mutex mutex_;
   std::unique_ptr<dbow::Vocabulary> voc_;
   std::unique_ptr<KeyPointExtract> key_points_extractor_;

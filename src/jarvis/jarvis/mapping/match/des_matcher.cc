@@ -82,7 +82,12 @@ FeatureId SearchMatchesByProjection(
       continue;
     }
     //
-    Eigen::AlignedBox2i image_box = key_frame_data.data->image_sizes->at(i);
+    Eigen::AlignedBox2i image_box = Eigen::AlignedBox2i(
+        key_frame_data.data->image_sizes->at(i).min() +
+            option.box_boundary_distance * Eigen::Vector2i::Identity(),
+        key_frame_data.data->image_sizes->at(i).max() -
+            option.box_boundary_distance * Eigen::Vector2i::Identity());
+
     //
     CHECK(key_frame_data.data->image_sizes);
     if (!image_box.contains(
@@ -96,7 +101,7 @@ FeatureId SearchMatchesByProjection(
     int best_dist = 256;
     FeatureId best_idx{-1, 0};
     for (const FeatureId& index : near_key_points_id) {
-      CHECK(key_frame_data.data->features.Contains(index));
+      CHECK(key_frame_data.data->features.Contains(index))<<index;
       const auto& kp = key_frame_data.data->features.at(index).key_point;
       if (option.project_pix_err != 0.0) {
         const float& kpx = kp.pt.x;

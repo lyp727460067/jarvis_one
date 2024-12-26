@@ -242,9 +242,11 @@ int LocalMapTrack::IsInFrame(const MapPoint& map_point,
 }
 
 LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
-    : options_(option), cameras_(options_.cameras) {
+    : options_(option), cameras_(option.cameras) {
   direct_match_ =
       std::make_unique<match::DirectMatch>(options_.derect_match_option);
+  CHECK(!options_.track_sequence.empty());
+  LOG(INFO)<<options_.track_sequence.size();
   for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     Eigen::Vector3d f_top_left;
     Eigen::Vector2d px_top_left(0.0, 0.0);
@@ -252,7 +254,7 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
         ->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
 
     px_top_lefts_.push_back( (f_top_left/ f_top_left.z()).normalized());
-    LOG(INFO)<<px_top_lefts_.back();
+    // LOG(INFO)<<px_top_lefts_.back();
   }
 }
 
@@ -266,7 +268,7 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
   local_map_ = local_map;
   const auto& all_kf_frames = local_map_->AllKeyFrameDatas();
   const auto &all_kf_re_poses = local_map_->AllKeyFrameRefPose();
-  // LOG(INFO) << "Local map size: " << all_kf_frames.size();
+  LOG_EVERY_N(INFO, 100) << "Local map size: " << all_kf_frames.size();
   if (all_kf_frames.size() < size_t(options_.min_track_frame_num))
     return nullptr;
   //
@@ -283,8 +285,11 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
     ToFrame(track_data, *cur_frames[i], i, cur_ref_kf_pose);
   }
   //
+
   auto const time_it = all_kf_frames.lower_bound(
-      int(0), track_data.data->time - common::FromSeconds(options_.out_time));
+      all_kf_frames.begin()->id.trajectory_id,
+      track_data.data->time - common::FromSeconds(options_.out_time));
+  //
   for (auto it = all_kf_frames.begin(); it != time_it; ++it) {
     // for (const auto& kf : all_kf_frames) {
     // 这里选择领域和公视的关键帧，还有只能投影一个点的3D点的
@@ -353,14 +358,16 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
   //
   // CHECK(false);
   if (options_.op_type == 1) {
-    transform::Rigid3d pose = Optimize(
-        track_data.data->pose, track_data.data->extric_camera_to_imu, matchs,
-        std::array<float, 2>{options_.op_weight, options_.op_weight});
+    transform::Rigid3d pose =
+        Optimize(local_map_->LocalPose().inverse() * track_data.data->pose,
+                 track_data.data->extric_camera_to_imu, matchs,
+                 std::array<float, 2>{options_.op_weight, options_.op_weight});
     //
     return std::make_unique<transform::Rigid3d>(local_map->LocalPose() * pose);
   } else {
     transform::Rigid3d pose = FourOptimize(
-        track_data.data->pose, track_data.data->extric_camera_to_imu, matchs,
+        local_map_->LocalPose().inverse() * track_data.data->pose,
+        track_data.data->extric_camera_to_imu, matchs,
         std::array<float, 2>{options_.op_weight, options_.op_weight});
     //
     return std::make_unique<transform::Rigid3d>(local_map->LocalPose() * pose);
@@ -380,11 +387,10 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
     //
     const float distance =
         (frame->f_pose.inverse() *
-        local_map_->AllKeyFrameDatas().at(ref_frame_id).data->pose)
+        local_map_->AllKeyFrameRefPose().at(ref_frame_id))
             .translation()
             .norm();
     //
-    
     const auto& map_point_feature_ids =
         local_map_->GetCovisibility()->GetKeyFrameMapPointId(ref_frame_id);
     for (size_t i = 0; i < map_point_feature_ids.first.size(); i++) {

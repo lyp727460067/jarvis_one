@@ -26,7 +26,6 @@ namespace mapping {
 //
 
 struct MapManagerOption {
-  LocalMapOption local_map_option;
 };
 //
 
@@ -45,20 +44,17 @@ class MapManager {
              bool enable_local_opimization);
   //
   //
-  KeyFrameId AddKeyFrameData(int trajector, const KeyFrameData &data){
-    CHECK(false);
+  KeyFrameId AddKeyFrameData(int trajector, const KeyFrameData &data) {
+    return key_frames_datas_.Append(trajector, data);
   }
   LocalMapId AddLocalMap(int trajector, std::shared_ptr<LocalMap> data);
-  void TrimKeyFrameData(const KeyFrameId &id){
-    CHECK(false);
-  }
+  void TrimKeyFrameData(const KeyFrameId &id) { key_frames_datas_.Trim(id); }
   //
   KeyFrameData &GetKeyFrameId(const KeyFrameId &id) {
     return key_frames_datas_.at(id);
   }
-  void TrimOptimizedLocalMap(){
-    CHECK(false);
-  }
+  void TrimOptimizedLocalMap();
+  
   std::vector<Eigen::Vector3d> GetAllMapPoints() {}
   const MapById<KeyFrameId, KeyFrameData> AllKeyFrameDatas() const {
     return key_frames_datas_;

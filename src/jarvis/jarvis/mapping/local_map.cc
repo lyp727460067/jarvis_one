@@ -9,11 +9,17 @@ LocalMap::LocalMap(const LocalMapOption &option,
       local_pose_(local_pose),
       key_frame_data_base_(
           std::make_unique<KeyFrameDataBase>(option.key_frame_data_option)),
-      covisibility_(std::make_unique<mapping::Covisibility>()) {
+      covisibility_(std::make_unique<mapping::Covisibility>()),
+      culling_sampler_(new common::FixedRatioSampler(option.culling_sampler)) {
+  //
+  CHECK(!options_.cameras.empty());
+  CHECK(!options_.image_boxs.empty());
   data_fuse_ = std::make_unique<LocalDataFuse>(this);
-  data_culling_ = std::make_unique<DataCulling>(option.data_culling_option,
-                                                data_fuse_.get());
-  local_map_optimization_ = std::make_unique<LocalMapOptimization>(
+  DataCullingOption data_culling_option = option.data_culling_option;
+  data_culling_option.image_bboxs = option.image_boxs;
+  data_culling_ =
+      std::make_unique<DataCulling>(data_culling_option, data_fuse_.get());
+  local_opimization_ = std::make_unique<LocalMapOptimization>(
       option.local_map_optimization_option);
 }
 //
@@ -23,29 +29,58 @@ void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
   //
   std::map<MapPointId, FeatureId> key_point_map_point_index;
   for (const auto &map_data : key_frame_data.data->map_points) {
-    const uint64_t local_id =
-        key_frame_data.data->map_point_ids.at(map_data.id);
-    const MapPointId mp_id(0, local_id);
+    const MapPointId mp_id = key_frame_data.data->map_point_ids.at(map_data.id);
     const FeatureId feat_id = map_data.id;
     key_point_map_point_index.emplace(mp_id, feat_id);
     const Eigen::Vector3d xyz = local_pose_.inverse() * map_data.data;
     //
-    const auto &des = key_frame_data.data->descriptors.at(feat_id);
+    Descriptor des;
+    if (!key_frame_data.data->descriptors.empty()) {
+      const auto des = key_frame_data.data->descriptors.at(feat_id);
+    }
     if (!map_points_.Contains(mp_id)) {
       map_points_.Insert(mp_id, MapPointData{std::make_unique<MapPoint>(
-                                    MapPoint{xyz, des, local_id,kf_id})});
+                                    MapPoint{xyz, des, mp_id, kf_id})});
     }
   }
   covisibility_->UpdateWithFrameData(kf_id,
                                      std::move(key_point_map_point_index));
+  key_frames_datas_.Insert(kf_id, key_frame_data);
+  ref_poses_.emplace(kf_id,
+                          local_pose_.inverse() * key_frame_data.data->pose);
+  trim_befor_key_frame_id_.insert(kf_id);
 }
 //
+bool LocalMap::operator=(LocalMap &&rhs) {
+  local_pose_ = rhs.local_pose_;
+  local_opimization_ = std::move(rhs.local_opimization_);
+  culling_sampler_ = std::move(rhs.culling_sampler_);
+  key_frames_datas_ = std::move(rhs.key_frames_datas_);
+  key_frames_ref_pose = std::move(rhs.key_frames_ref_pose);
+  key_frame_data_base_ = std::move(rhs.key_frame_data_base_);
+  covisibility_ = std::move(rhs.covisibility_);
+  map_points_ = std::move(rhs.map_points_);
+  key_frames_id_with_pose_ = std::move(rhs.key_frames_id_with_pose_);
+  trim_befor_key_frame_id_ = std::move(rhs.trim_befor_key_frame_id_);
+  //
+  data_fuse_ = std::make_unique<LocalDataFuse>(this);
+  DataCullingOption data_culling_option = options_.data_culling_option;
+  data_culling_option.image_bboxs = options_.image_boxs;
+  data_culling_ =
+      std::make_unique<DataCulling>(data_culling_option, data_fuse_.get());
+  //
+  finish_ = rhs.finish_;
+  is_optimization = rhs.is_optimization;
+  return true;
+  // data_culling_ = std::move(rhs.data_culling_);
+}
 //
 void LocalMap::UpdadataExtendFinishData() {
   for (const auto &data : key_frames_datas_) {
-    key_frames_datas_.Insert(data.id, data.data);
+    key_frame_data_base_->AddData(data.id, data.data.data);
   }
   TrimRedundancy();
+  is_optimization  =true;
   // Opimization();
 }
 //
@@ -56,6 +91,7 @@ bool LocalMap::TrimMapPoint(const MapPointId &id) {
     return false;
   }
   map_points_.Trim(id);
+  return true;
 }
 //
 void LocalMap::FuseMapPoint(
@@ -97,8 +133,9 @@ void LocalMap::FuseMapPoint(
         match_temp.first = match_temp.second;
         match_temp.second = matched_id.first;
       }
-
-      if (!TrimMapPoint(match_temp.second)) continue;
+      if (!TrimMapPoint(match_temp.second)) {
+        continue;
+      }
       covisibility_->UpdateWithFuseMapPoint(match_temp.first,
                                             match_temp.second);
       info << " " << match_temp.first << "<-" << match_temp.second << " ";
@@ -119,7 +156,9 @@ void LocalMap::TrimKeyFrame(const KeyFrameId &id) {
   std::stringstream info;
   key_frames_datas_.Trim(id);
   key_frame_data_base_->Erase(id);
+  ref_poses_.erase(id);
   auto trim_map_points = covisibility_->TrimKeyFrame(id);
+
   info << "trim kf :" << id
        << "with map points size : " << trim_map_points.size();
   for (auto const &map_point_id : trim_map_points) {
@@ -310,6 +349,7 @@ LocalMap::LocalDataFuse::GetKeyLevelConnectedKeyFrames(
 void ActiveLocalMap::AddKeyFrameData(const KeyFrameId &id,
                                      const KeyFrameData &data) {
   //
+  CHECK(data.data)<<"Keyframe data empty";
   if (localmaps_.empty() ||
       localmaps_.back()->Size() == local_map_option_.max_kf_num) {
     AddLocalMap(local_map_option_, data.data->pose);
@@ -321,6 +361,7 @@ void ActiveLocalMap::AddKeyFrameData(const KeyFrameId &id,
   //
   if (localmaps_.front()->Size() == 2 * local_map_option_.max_kf_num) {
     localmaps_.front()->Finish();
+    LOG(INFO)<<"Finish data";
   }
 }
 //

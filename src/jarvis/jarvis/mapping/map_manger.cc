@@ -22,8 +22,8 @@ MapManager::MapManager(const MapManagerOption &option,
                        MapPointConstruct *map_point_construct,
                        bool enable_local_opimization)
     : options_(option), map_point_construct_(map_point_construct) {
+ if (enable_local_opimization) {
   work_queue_ = std::make_unique<WorkQueue>();
-  if (enable_local_opimization) {
     thread_ = std::thread([this]() {
       while (!kill_thread_) {
         DrainWorkQueue();
@@ -39,9 +39,10 @@ LocalMapId MapManager::AddLocalMap(int trajector,
   //
   auto local_map_id = local_maps_.Append(trajector, LocalMapData{local_map});
   //
-  AddWorkItem([=]() {
+  AddWorkItem([this,local_map_id]() {
     std::set<KeyFrameId> new_update_ids;
     auto local_map = local_maps_.at(local_map_id).local_map;
+    LOG(INFO)<<local_map_id ;
     LocalMap new_local_map(*local_map);
     for (const auto &data : local_map->AllKeyFrameDatas()) {
       //
@@ -56,7 +57,7 @@ LocalMapId MapManager::AddLocalMap(int trajector,
     }
 
     new_local_map.UpdadataExtendFinishData();
-    *local_map = new_local_map;
+    *local_map = std::move(new_local_map);
     last_new_update_key_frame_ids_ = std::move(new_update_ids);
     return WorkItem::Result::Normal;
   });
@@ -64,6 +65,33 @@ LocalMapId MapManager::AddLocalMap(int trajector,
   return local_map_id;
 }
 //
+
+void MapManager::TrimOptimizedLocalMap() {
+  std::set<KeyFrameId> finsh_key_frame_ids;
+  std::set<KeyFrameId> unfinsh_key_frame_ids;
+  std::set<LocalMapId> finish_local_map_ids;
+  for (const auto &local_map : local_maps_) {
+    auto all_local_map_key_frame_ids =
+        local_map.data.local_map->GetTrimBeforKeyFrameId();
+    if (local_map.data.local_map->IsOptimization()) {
+      finsh_key_frame_ids.merge(all_local_map_key_frame_ids);
+      finish_local_map_ids.insert(local_map.id);
+    } else {
+      unfinsh_key_frame_ids.merge(all_local_map_key_frame_ids);
+    }
+  }
+  std::vector<KeyFrameId> trim_id;
+  std::set_difference(finsh_key_frame_ids.begin(), finsh_key_frame_ids.end(),
+                      unfinsh_key_frame_ids.begin(),
+                      unfinsh_key_frame_ids.end(),
+                      std::back_insert_iterator(trim_id));
+  for (const auto &id : trim_id) {
+    TrimKeyFrameData(id);
+  }
+  for (auto const local_map_id : finish_local_map_ids) {
+    local_maps_.Trim(local_map_id);
+  }
+}
 //
 //
 void MapManager::DrainWorkQueue() {

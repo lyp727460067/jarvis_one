@@ -29,7 +29,7 @@ constexpr char WHITE[] = "\033[37m";   /* White */
 struct MapPoint {
   Eigen::Vector3d pos;//相对于
   mapping::Descriptor des;
-  uint64_t local_id;
+  MapPointId local_id;
   KeyFrameId reference_frame_id;
   bool extend = false;
   // Eigen::Vector3d global_pos;
@@ -66,7 +66,7 @@ struct KeyFrameData {
     std::vector<Eigen::AlignedBox2i> *image_sizes;
 
     MapById<FeatureId, Eigen::Vector3d> map_points;  // esitimap points
-    std::map<FeatureId, uint64_t> map_point_ids;
+    std::map<FeatureId, MapPointId> map_point_ids;
     //
     MapById<FeatureId, Descriptor> descriptors;
     MapById<FeatureId, FeatureData> features;
