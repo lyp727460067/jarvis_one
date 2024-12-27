@@ -12,7 +12,14 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
     : options_(option),
       tracker_(std::make_unique<estimator::Estimator>(options_.esti_option)),
       call_back_(call_back) {
-  map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option);
+  if (option.mapping_option.enable_loop_closure ||
+      option.mapping_option.enable_local_opimization) {
+    voc_ = std::make_unique<dbow::Vocabulary>(
+        dbow::GetVocabulary(0, option.mapping_option.vocabulary_filebrif));
+  }
+
+  map_builder_ =
+      std::make_unique<MappingBuilder>(options_.mapping_option, voc_.get());
   if (options_.mapping_option.enable_local_track) {
     tracker_->SetPriorFactorFunction(
         [&](const TrackingData &track_data)
@@ -28,7 +35,8 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
 
 void TrajectorBuilder::ReSet() {
   tracker_ = std::make_unique<estimator::Estimator>(options_.esti_option);
-  map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option);
+  //等上了后端的时候map_builder_就不需要重新启动了
+  map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option,voc_.get());
   if (options_.mapping_option.enable_local_track) {
     tracker_->SetPriorFactorFunction(
         [&](const TrackingData &track_data)
@@ -46,6 +54,12 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   if (call_back_) {
     call_back_(tracking_data->front_data);
   }
+  if (estimator_state_ == 2 && tracking_data->front_data.status == 0) {
+    Relocation();
+    ReComputeTrajectorId();
+  }
+
+  estimator_state_ = tracking_data->front_data.status;
   if (tracking_data->front_data.status == 0) {
     LOG(ERROR) << "Lost ....restart ..";
     ReSet(); 
@@ -57,9 +71,6 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
                                       tracking_data->slide_out_data);
       }
     }
-  } else {
-    // Relocation();
-    // ReComputeTrajectorId();
   }
 }
 //

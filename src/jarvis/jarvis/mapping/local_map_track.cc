@@ -226,7 +226,7 @@ int LocalMapTrack::IsInFrame(const MapPoint& map_point,
     Eigen::Vector3d xyz_f = pose.inverse() * xyz_w;
     //
     if(xyz_f.z()<0)continue;
-      // return sequence_id;
+      return sequence_id;
     // Eigen::Vector2d px_top_left(0.0, 0.0);
     Eigen::Vector3d f_top_left = px_top_lefts_[sequence_id];
     // cameras_.at(sequence_id)
@@ -254,7 +254,7 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
         ->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
 
     px_top_lefts_.push_back( (f_top_left/ f_top_left.z()).normalized());
-    // LOG(INFO)<<px_top_lefts_.back();
+    LOG(INFO)<<px_top_lefts_.back();
   }
 }
 

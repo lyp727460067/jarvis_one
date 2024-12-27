@@ -41,9 +41,13 @@ LocalMapId MapManager::AddLocalMap(int trajector,
   //
   AddWorkItem([this,local_map_id]() {
     std::set<KeyFrameId> new_update_ids;
-    auto local_map = local_maps_.at(local_map_id).local_map;
-    LOG(INFO)<<local_map_id ;
+    std::shared_ptr<LocalMap> local_map = nullptr;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      local_map = local_maps_.at(local_map_id).local_map;
+    }
     LocalMap new_local_map(*local_map);
+
     for (const auto &data : local_map->AllKeyFrameDatas()) {
       //
       if (last_new_update_key_frame_ids_.count(data.id)) {
@@ -89,10 +93,14 @@ void MapManager::TrimOptimizedLocalMap() {
     TrimKeyFrameData(id);
   }
   for (auto const local_map_id : finish_local_map_ids) {
+    std::lock_guard<std::mutex> lock(mutex_);
     local_maps_.Trim(local_map_id);
   }
 }
 //
+
+
+
 //
 void MapManager::DrainWorkQueue() {
   WorkItem::Result process_work_queue = WorkItem::Result::Normal;
@@ -116,11 +124,83 @@ void MapManager::DrainWorkQueue() {
   DrainWorkQueue();
 }
 
+KeyFrameId MapManager::AddKeyFrameData(int trajector,
+                                       const KeyFrameData &data) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return key_frames_datas_.Append(trajector, data);
+}
+//
+std::map<KeyFrameId, transform::TimestampedTransform>
+MapManager::GetAllKeyFramePose() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::map<KeyFrameId, transform::TimestampedTransform> result;
+  for (const auto &key_frame_data : key_frames_datas_) {
+    result.emplace(
+        key_frame_data.id,
+        transform::TimestampedTransform{key_frame_data.data.data->time,
+                                        key_frame_data.data.data->global_pos});
+  }
+  LOG(INFO)<< result.size();
+  return result;
+}
+
+//
+std::vector<Eigen::Vector3d> MapManager::GetAllMapPoints() {
+  std::vector<std::shared_ptr<LocalMap>> finish_local_maps;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto &local_map_data : local_maps_) {
+      if (local_map_data.data.local_map->IsOptimization()) {
+        finish_local_maps.push_back(local_map_data.data.local_map);
+      }
+    }
+  }
+  //
+  std::vector<Eigen::Vector3d> result;
+  std::set<MapPointId> exisit_map_points;
+  for (const auto &local_map : finish_local_maps) {
+    const auto all_local_map_points = local_map->AllMapPoints();
+    for (const auto &map_point : all_local_map_points) {
+      if (exisit_map_points.count(map_point.id)) continue;
+      result.push_back(local_map->LocalPose() * map_point.data.data->pos);
+      exisit_map_points.insert(map_point.id);
+    }
+  }
+  return result;
+}
+//
 void MapManager::AddWorkItem(
     const std::function<WorkItem::Result()> &work_item) {
   std::lock_guard<std::mutex> lock(work_queue_mutex_);
   const auto now = std::chrono::steady_clock::now();
   work_queue_->push_back({now, work_item});
+}
+MapManager::~MapManager(){
+  kill_thread_=true;
+  if (thread_.joinable()) {
+    thread_.join();
+  }
+  if(work_queue_==nullptr)return;
+
+  size_t work_queue_size = 0;
+  {
+    std::function<WorkItem::Result()> work_item;
+    work_queue_size = work_queue_->size();
+  }
+
+  while (work_queue_size) {
+    std::function<WorkItem::Result()> work_item;
+    {
+      std::lock_guard<std::mutex> locker(work_queue_mutex_);
+      work_item = work_queue_->front().task;
+      work_queue_->pop_front();
+      work_queue_size = work_queue_->size();
+    }
+    LOG(INFO) << "wait work_queue_size " << work_queue_size;
+    work_item();
+  }
+
+  //
 }
 
 }  // namespace mapping

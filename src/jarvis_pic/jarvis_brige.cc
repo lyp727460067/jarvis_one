@@ -49,10 +49,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
 
   if (kuse_gpu) {
     for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
-
-      LOG(INFO)<<i;
       for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-        LOG(INFO)<<j;
         esit_option_.feature_track_options[i].pyramid_image.push_back(
             std::make_shared<jarvis::estimator::ExtendPyramidImage>(
                 esit_option_.feature_track_options[i].pyrmid_option));

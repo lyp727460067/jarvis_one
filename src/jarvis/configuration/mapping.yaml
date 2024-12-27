@@ -2,11 +2,11 @@
 #
 enable_local_track: 1
 enable_local_opimization: 1
-enable_loop_closure : 0
+enable_loop_closure : 1
 ##
 key_frame_filter_option:
- max_distance : 0.2
- max_angle : 20
+ max_distance : 0.1
+ max_angle : 10
  max_time : 10000.0
  min_intersection_ration : 0.65
 
@@ -15,33 +15,9 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num : 50
+ max_kf_num : 30
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
-
- key_frame_data_option:
-  min_core: 0.8
-  sharing_words_count_min_is_max_ration: 0.8
-  min_shared_words_num  : 10
-  min_distance_threash_hold: 5
- local_track_project_search_option:
-  viewing_angle_threash_hold : 0.5
-  area_search_radius : 8 
-  project_pix_err : 0.0
-  project_best_des_dis : 80
-  box_boundary_distance: 5
- data_culling_option:
-  viewing_angle : 0.5
-  area_search_radius : 2
-  project_pix_err : 8.99
-  best_map_fuse_des_dis : 120
-  fisrt_covisible_num : 10
-  second_covisible_num : 20
-  map_culling_obs : 5
-  grid_lenth : 10
-  redundant_observations_ration : 0.7
- local_map_optimization_option:
-   dummy: 0
 
 local_map_track_option:
  test_match_pic_write_path : "" #"/home/lyp/project/vslam/jarvis/test/image/"
@@ -58,24 +34,51 @@ local_map_track_option:
  one_kf_match_candidates_min_num : 1
  sequence_match : "{0,1,2}"
  match_senquence0_alone: 0
- huber_loss : 0.1
+ huber_loss : 0.05
  kf_max_distance : 7
- cell_sizes : "{0, 30}, {1, 20}, {2, 20}"
+ cell_sizes : "{0, 100}, {1, 20}, {2, 20}"
  out_time : 0
  max_num_iterations : 3
  op_type  : 0  #0  four dof
  derect_match_option:
   use_affine_warp : 1
-  affine_est_offset: 0 
-  affine_est_gain : 0
-  align_max_iter: 5 
+  affine_est_offset: 1 
+  affine_est_gain : 1
+  align_max_iter: 10 
   no_simd: 0
   max_patch_diff_ratio: 0.9
   subpix_refinement: 1
   align_1d : 0
   scan_on_unit_sphere: 0
   max_epi_search_steps : 1
-  min_update_squared : 0.009   #0.03*0.03
+  min_update_squared : 0.01   #0.03*0.03
+
+
+key_frame_data_option:
+ min_core: 0.8
+ sharing_words_count_min_is_max_ration: 0.8
+ min_shared_words_num  : 10
+ min_distance_threash_hold: 5
+local_track_project_search_option:
+ viewing_angle_threash_hold : 0.5
+ area_search_radius : 8 
+ project_pix_err : 0.0
+ project_best_des_dis : 80
+ box_boundary_distance: 5
+data_culling_option:
+ viewing_angle : 0.5
+ area_search_radius : 2
+ project_pix_err : 8.99
+ best_map_fuse_des_dis : 120
+ fisrt_covisible_num : 10
+ second_covisible_num : 20
+ map_culling_obs : 5
+ grid_lenth : 10
+ redundant_observations_ration : 0.7
+local_map_optimization_option:
+  dummy: 0
+
+
 map_point_construct_option:
  test_match_pic_write_path : "" #"/home/lyp/project/vslam/jarvis/test/image/"
  con_struct_map_point_frame_min_distance : 0.1

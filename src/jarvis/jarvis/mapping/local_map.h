@@ -45,6 +45,7 @@ struct LocalMapConstraint {};
 class LocalMap {
  public:
   //
+  
   LocalMap(const LocalMapOption &option, const transform::Rigid3d &local_pose);
   //
   transform::Rigid3d LocalPose()const { return local_pose_; }
@@ -54,6 +55,7 @@ class LocalMap {
   //
   bool operator=(LocalMap &&local_map);
   //
+  ~LocalMap();
   void AddKeyFrameData(const KeyFrameId &kf_id,
                        const KeyFrameData &key_frame_data);
   //
@@ -122,6 +124,7 @@ class LocalMap {
   //
   LocalMapOption options_;
   transform::Rigid3d  local_pose_;
+  transform::Rigid3d  globle_pose_;
   //
   std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
   std::unique_ptr<mapping::Covisibility> covisibility_;

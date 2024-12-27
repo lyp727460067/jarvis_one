@@ -14,7 +14,7 @@ namespace mapping {
 //
 
 //
-MappingBuilder::MappingBuilder(const MapBuilderOption &option)
+MappingBuilder::MappingBuilder(const MapBuilderOption &option,dbow::Vocabulary *voc)
     : options_(option) {
   //
   LOG(INFO) << "local track " << options_.enable_local_track;
@@ -23,9 +23,7 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option)
   //
   if (option.enable_local_opimization || option.enable_loop_closure) {
     map_point_construct_ = std::make_unique<MapPointConstruct>(
-        option.map_point_construct_option, options_.cameras,
-        std::make_unique<dbow::Vocabulary>(
-            dbow::GetVocabulary(0, option.vocabulary_filebrif)));
+        option.map_point_construct_option, options_.cameras, voc);
 
     map_manager_ = std::make_unique<MapManager>(
         options_.map_manager_option, map_point_construct_.get(), true);
@@ -110,6 +108,10 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
   //
   if (options_.enable_local_track || options_.enable_local_opimization) {
     auto key_frame_data = map_point_construct_->TrackDataToKeyFrameData(data);
+    //
+    key_frame_data.data->global_pos =
+        local_to_globla_ * key_frame_data.data->pose;
+    //
     auto key_frame_id = map_manager_->AddKeyFrameData(t, key_frame_data);
     active_local_maps_->AddKeyFrameData(key_frame_id, key_frame_data);
     if (local_map_front_ == nullptr) {
@@ -129,23 +131,11 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
 //
 std::map<KeyFrameId, transform::TimestampedTransform>
 MappingBuilder::GetAllKeyFramePose() {
-  // 可能存在线程安全!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  return {};
-  // std::map<KeyFrameId, transform::TimestampedTransform> result;
-  // const auto &key_frame_datas = map_manager_->AllKeyFrameDatas();
-  // for (auto const &key_frame : key_frame_datas) {
-  //   result.emplace(key_frame.id,
-  //                  transform::TimestampedTransform{key_frame.data.data->time,
-  //                                                  key_frame.data.data->pose});
-  // }
-  // return result;
+  return map_manager_->GetAllKeyFramePose();
 }
 //
 std::vector<Eigen::Vector3d> MappingBuilder::GetAllMapPoints() {
-  // std::lock_guard<std::mutex> lock(mutex_);
-  // 可能存在线程安全
-  // return map_manager_->GetAllMapPoints();
-  return {};
+  return map_manager_->GetAllMapPoints();
 }
 
 void MappingBuilder::AddImuData(const sensor::ImuData &imu_data) {
