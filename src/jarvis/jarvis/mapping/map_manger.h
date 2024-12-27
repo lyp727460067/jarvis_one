@@ -44,24 +44,22 @@ class MapManager {
              bool enable_local_opimization);
   //
   //
-  KeyFrameId AddKeyFrameData(int trajector, const KeyFrameData &data) {
-    return key_frames_datas_.Append(trajector, data);
-  }
+  ~MapManager();
+  KeyFrameId AddKeyFrameData(int trajector, const KeyFrameData &data) ;
   LocalMapId AddLocalMap(int trajector, std::shared_ptr<LocalMap> data);
-  void TrimKeyFrameData(const KeyFrameId &id) { key_frames_datas_.Trim(id); }
+  void TrimKeyFrameData(const KeyFrameId &id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    key_frames_datas_.Trim(id);
+  }
   //
   KeyFrameData &GetKeyFrameId(const KeyFrameId &id) {
     return key_frames_datas_.at(id);
   }
   void TrimOptimizedLocalMap();
   
-  std::vector<Eigen::Vector3d> GetAllMapPoints() {
-    CHECK(false)<<"Not implement..";
-    return {};
-  }
-  const MapById<KeyFrameId, KeyFrameData> AllKeyFrameDatas() const {
-    return key_frames_datas_;
-  }
+  std::vector<Eigen::Vector3d> GetAllMapPoints() ;
+  //
+  std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
 
  private:
   void DrainWorkQueue();

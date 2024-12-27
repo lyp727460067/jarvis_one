@@ -55,7 +55,7 @@ class MapPointConstruct {
   //
  public:
   MapPointConstruct(const MapPointConstructOption& option,std::map<int, camera_models::CameraPtr> camera,
-                    std::unique_ptr<dbow::Vocabulary> voc);
+                    dbow::Vocabulary* voc);
   //
   //
   KeyFrameData TrackDataToKeyFrameData(const TrackingData& data);
@@ -86,7 +86,7 @@ class MapPointConstruct {
   //
   MapPointConstructOption options_;
   std::map<int, camera_models::CameraPtr> cameras_;
-  std::unique_ptr<dbow::Vocabulary> voc_;
+  dbow::Vocabulary* voc_;
 
 
   std::map<int, std::map<uint64_t, MapPointId>>

@@ -492,21 +492,24 @@ void ParseYAMLOptionFetureOption(
 //
 
 //
-std::vector<std::vector<int>> track_sequence;
-CalibrateOption calib_option;
+std::vector<std::vector<int>> kTrackSequence;
+CalibrateOption kCalibOption;
 template <>
 void ParseYAMLOption(const std::string &file,
                      estimator::EstimatorOption *option) {
   info.clear();
 
   auto opencv_file = CheckFile(file);
-  //
+  std::string cali_path = opencv_file["calibrate_path"];
+  CalibrateOption calib_option;
+  ParseYAMLOption(cali_path, &calib_option);
+  kCalibOption = calib_option;
   timeshift_cam_imu = calib_option.camera_options[0].timeshift_cam_imu;
   int pn = file.find_last_of('/');
   std::string configPath = file.substr(0, pn);
   std::string estimator_name = opencv_file["estimator"];
   const std::string estimator_file = configPath + "/" + estimator_name;
-
+  std::vector<std::vector<int>> track_sequence;
   //
   {
     // esitmator yaml
@@ -527,6 +530,7 @@ void ParseYAMLOption(const std::string &file,
     }
 
     option->track_sequence = track_sequence;
+    kTrackSequence =  track_sequence;
     int track_cam_num = option->track_sequence.size();
     option->win_size = fsSettings["win_size"];
     //
@@ -1032,7 +1036,7 @@ void ParseYAMLOption(const std::string &file,
                      mapping::MapBuilderOption *option) {
   auto opencv_file = CheckFile(file);
   //
-  timeshift_cam_imu = calib_option.camera_options[0].timeshift_cam_imu;
+//   timeshift_cam_imu = calib_option.camera_options[0].timeshift_cam_imu;
   int pn = file.find_last_of('/');
   std::string configPath = file.substr(0, pn);
   std::string mapping_name = opencv_file["mapping"];
@@ -1067,12 +1071,12 @@ void ParseYAMLOption(const std::string &file,
 template <>
 void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   auto opencv_file = CheckFile(file);
-  std::string cali_path = opencv_file["calibrate_path"];
-  //
-  ParseYAMLOption(cali_path, &calib_option);
   ParseYAMLOption(file, &option->esti_option);
   ParseYAMLOption(file, &option->mapping_option);
   // 前后段不能共用一个相机模型
+
+  CalibrateOption calib_option = kCalibOption;
+  auto  track_sequence =kTrackSequence;
   for (size_t i = 0; i < option->esti_option.feature_track_options.size(); i++) {
     //
 

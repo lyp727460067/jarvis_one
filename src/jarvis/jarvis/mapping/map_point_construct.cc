@@ -181,9 +181,8 @@ bool MapPointConstruct::CheckDistEpipolarLine(
 //
 MapPointConstruct::MapPointConstruct(
     const MapPointConstructOption &option,
-    std::map<int, camera_models::CameraPtr> camera,
-    std::unique_ptr<dbow::Vocabulary> voc)
-    : options_(option), cameras_(camera), voc_(std::move(voc)) {
+    std::map<int, camera_models::CameraPtr> camera, dbow::Vocabulary *voc)
+    : options_(option), cameras_(camera), voc_(voc) {
   key_points_extractor_ =
       std::make_unique<KeyPointExtract>(option.key_points_extract_option);
   des_extractor_ =

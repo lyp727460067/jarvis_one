@@ -635,14 +635,14 @@ void RosCompont::PubTrajectorPoseWithMark(
 
     // mark.type = visualization_msgs::Marker::ARROW;
     // mark.lifetime = rclcpp::Duration(0);
-    mark.scale.x = 0.1;
-    mark.scale.y = 0.1;
-    mark.scale.z = 0.1;
+    mark.scale.x = 0.05;
+    mark.scale.y = 0.05;
+    mark.scale.z = 0.05;
     std::uniform_real_distribution<float> ran(0, 1);
     mark.color.r = 1;       // ran(e);//1.0;
-    mark.color.a = 1;       // ran(e);
-    mark.color.g = ran(e);  //(mark_id / sizeofils);
-    mark.color.b = ran(e);  //(sizeofils- mark_id) / sizeofils;
+    mark.color.a = 1;       //
+    mark.color.g = ran(e); 
+    mark.color.b = ran(e);
     // LOG(INFO)<<mark.color.g<<mark.color.b;
     int cnt = 0;
     //
@@ -681,8 +681,8 @@ void RosCompont::PubLocalTrajectorPoseWithMark(
     std::uniform_real_distribution<float> ran(0, 1);
     mark.color.r = 1;       // ran(e);//1.0;
     mark.color.a = 1;       // ran(e);
-    mark.color.g = ran(e);  //(mark_id / sizeofils);
-    mark.color.b = ran(e);  //(sizeofils- mark_id) / sizeofils;
+    mark.color.g = 0;  //(mark_id / sizeofils);
+    mark.color.b = 1;  //(sizeofils- mark_id) / sizeofils;
     // LOG(INFO)<<mark.color.g<<mark.color.b;
     int cnt = 0;
     //

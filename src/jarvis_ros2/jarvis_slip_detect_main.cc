@@ -329,7 +329,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   for (const auto& image : images_datas) {
     //
     time = image.second.time;
-    // if(time<22709841922900)continue;
+    if(time<22709841922900)continue;
     // LOG(INFO) << "image time : " << image.second.time
     //           << " start imu t: " << imu_datas.begin()->first
     //           << ", end imu t: " << imu_datas.upper_bound(time)->first

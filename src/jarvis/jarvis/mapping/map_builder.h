@@ -46,7 +46,7 @@ struct MapBuilderOption {
 
 class MappingBuilder {
  public:
-  MappingBuilder(const MapBuilderOption& option);
+  MappingBuilder(const MapBuilderOption& option,dbow::Vocabulary *voc);
   ~MappingBuilder();
   void AddTrackingData(const int t, const TrackingData& track_data);
   //

@@ -6,7 +6,8 @@ namespace mapping {
 LocalMap::LocalMap(const LocalMapOption &option,
                    const transform::Rigid3d &local_pose)
     : options_(option),
-      local_pose_(local_pose),
+      local_pose_(transform::Rigid3d(local_pose.translation(),
+                                     Eigen::Quaterniond::Identity())),
       key_frame_data_base_(
           std::make_unique<KeyFrameDataBase>(option.key_frame_data_option)),
       covisibility_(std::make_unique<mapping::Covisibility>()),
@@ -344,7 +345,9 @@ LocalMap::LocalDataFuse::GetKeyLevelConnectedKeyFrames(
 
   return result;
 }
+LocalMap::~LocalMap(){
 
+ }
 //
 void ActiveLocalMap::AddKeyFrameData(const KeyFrameId &id,
                                      const KeyFrameData &data) {
