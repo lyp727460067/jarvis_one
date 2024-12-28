@@ -153,8 +153,10 @@ class JarvisBuilder {
         break;
       
       case 1: // EV_ALGORITHM_FACTORY_START
+        LOG(INFO) << "start enter factor mode.";
         object_interface = nullptr;
-        CreateJarvisBrige(true);    // 重啓slam节点且固定外参
+        CreateJarvisBrige(true);  // 重啓slam节点且固定外参
+        LOG(INFO) << "enter factor mode done";
         factory_state_ = 1;
         break;
 
@@ -271,12 +273,11 @@ class JarvisBuilder {
                         // LOG(ERROR) << "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
                         object_result = object_interface->Detect(
                             common::ToUniversal(tracking_data.data->time),
-                            tracking_data.data->features_datas[0].features.data->images[0],
+                            tracking_data.data->features_datas[0]
+                                .features.data->images[0],
                             tracking_data.data->imu_state.Pose(),
-                            this->GetJarvisBrige()
-                                ->EstimationOption()
-                                ->slide_windows_option.extric_camera_to_imu[0]);
-                        
+                            extric_camera_to_imu);
+
                         // if (object_result.size() > 3){
                         //     std::cout << "current code size: " << object_result.size() << std::endl;
                         //     std::cout << "ids: ";
@@ -287,17 +288,18 @@ class JarvisBuilder {
                         //   factory_state_ = 2;
                         // }
                     } else if (factory_state_ == 2) {
-                        // 第二圈不锚定只计算误差
-                        // LOG(ERROR)<< "imu pose: " << tracking_data.data->imu_state.Pose() << std::endl;
-                        object_result = object_interface->ComputeError(
-                            common::ToUniversal(tracking_data.data->time),
-                            tracking_data.data->features_datas[0].features.data->images[0],
-                            tracking_data.data->imu_state.Pose(),
-                            this->GetJarvisBrige()
-                                ->EstimationOption()
-                                ->slide_windows_option.extric_camera_to_imu[0]);
+                      // 第二圈不锚定只计算误差
+                      // LOG(ERROR)<< "imu pose: " <<
+                      // tracking_data.data->imu_state.Pose() << std::endl;
+                      object_result = object_interface->ComputeError(
+                          common::ToUniversal(tracking_data.data->time),
+                          tracking_data.data->features_datas[0]
+                              .features.data->images[0],
+                          tracking_data.data->imu_state.Pose(),
+                          extric_camera_to_imu);
                     } else if (factory_state_ == 3) {
                         // 产测模式结束,发送结果
+                        LOG(WARNING) << "evet factory all finished recive.";
                         ModVslamFactoryTestFb factory_result;
                         object_interface->GetFinalResult(factory_result.status, factory_result.err_dis,
                                                          factory_result.err_angle);
@@ -349,6 +351,9 @@ class JarvisBuilder {
                 call_back_(jarvis_pic_call_back_data{slip_flag, data});
             });
     }
+    extric_camera_to_imu = jarvis_brige_->EstimationOption()
+                               ->slide_windows_option.extric_camera_to_imu[0];
+    LOG(INFO)<<extric_camera_to_imu;
   }
   jarvis::slip_detect::SlipDetect* GetSlipDect() { return slip_detect_.get(); }
   JarvisBrige* GetJarvisBrige() { return jarvis_brige_.get(); }
@@ -360,7 +365,7 @@ class JarvisBuilder {
  private:
   const std::string config_path_;
   std::optional<OdomData> last_odom_data_;
-
+  transform::Rigid3d extric_camera_to_imu;
   jarvis_pic::MpcComponent mpc_;
   std::unique_ptr<DataCapture> data_capture_;
   std::unique_ptr<JarvisBrige> jarvis_brige_;
