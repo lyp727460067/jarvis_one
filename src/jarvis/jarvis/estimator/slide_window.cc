@@ -154,26 +154,6 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //
   bool is_keyframe = feature_managers_->CheckParallax();
 
-  if (is_keyframe) {
-  
-    if (prior_factor_) {
-       TicToc t_t;
-      //  int k  = options_.win_size;
-       int k  = 0;
-       const auto prior_pose =
-           prior_factor_(GetratePriorData(false,k ));
-       if (prior_pose) {
-         LOG(WARNING) << "Prior pose: " << *prior_pose << ",fisrt imu pose:"
-                      << imu_states_[k].Pose();
-         optimization_->SetPrior(*prior_pose, k);
-         has_prio_pose = true;
-
-         // CHECK(false);
-      }
-      VLOG(kGlogCostTimeLevel) << "Local match cost: " << t_t.toc() << " ms";
-      LOG(INFO) << "Local match cost: " << t_t.toc() << " ms";
-    }
-  }
   for (auto& f : frame.data->features_datas) {
     if (!feature_managers_->Exist(f.first)) {
       CHECK(init_feature_managers_.count(f.first));
@@ -232,6 +212,26 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
         options_.imu_option, imu_datas);
   };
   //
+
+  // if (is_keyframe) {
+    if (prior_factor_) {
+      TicToc t_t;
+      int k = options_.win_size;
+      //  int k  = 0;
+      const auto prior_pose = prior_factor_(GetratePriorData(false, k));
+      if (prior_pose) {
+        LOG(WARNING) << "Prior pose: " << *prior_pose
+                     << ",fisrt imu pose:" << imu_states_[k].Pose();
+        optimization_->SetPrior(*prior_pose, k);
+        has_prio_pose = true;
+
+        // CHECK(false);
+      }
+      VLOG(kGlogCostTimeLevel) << "Local match cost: " << t_t.toc() << " ms";
+      LOG(INFO) << "Local match cost: " << t_t.toc() << " ms";
+    }
+  // }
+
   //
   odoms_factor_.push_back(
       std::make_shared<OdomFactor>(options_.odom_factor_option, data_base_));
@@ -436,10 +436,10 @@ void SlideWindow::StateToFrameData() {
                                .transpose();
   }
   if (has_prio_pose) {
-    LOG(INFO)<<y_diff ;
-    rot_diff = Eigen::Matrix3d::Identity();
-    origin_P0 =
-        Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
+    // LOG(INFO)<<y_diff ;
+    // rot_diff = Eigen::Matrix3d::Identity();
+    // origin_P0 =
+    //     Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
   }
   for (int i = 0; i <= options_.win_size; i++) {
     const Eigen::Quaterniond r =

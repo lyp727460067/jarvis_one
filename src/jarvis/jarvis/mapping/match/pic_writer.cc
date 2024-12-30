@@ -94,10 +94,10 @@ void WriteImageWithKeyPoint(const std::string &path,
                       std::to_string(image2.first),
                   cv::Point(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1,
                   cv::Scalar(0, 0, 255), 2, 3);
-      // cv::imshow("match", image2.second.first);
+      cv::imshow("match", image2.second.first);
 
-      // cv::waitKey(0);
-      cv::imwrite(file_name, image2.second.first);
+      cv::waitKey(0);
+    //   cv::imwrite(file_name, image2.second.first);
     }
   }
 #endif

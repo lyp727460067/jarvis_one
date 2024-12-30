@@ -89,7 +89,7 @@ MatchResult DirectMatch::FindMatch(const Frame& ref_frame,
       return {MatchResultState::kFailWarp};
     }
   }
-
+  
   patch_utils::createPatchFromPatchWithBorder(patch_with_border_, kPatchSize,
                                               patch_);
    const Keypoint& px_cur = pr;
@@ -101,12 +101,14 @@ MatchResult DirectMatch::FindMatch(const Frame& ref_frame,
   // cv::imshow("pach_image", patch_image);
   // cv::waitKey(0);
   std::vector<Eigen::Vector2f>* last_fail_steps = nullptr;
+
+   estimator::TicToc align2D_tic; 
   bool res = feature_alignment::align2D(
       cur_frame.img_pyr[search_level], patch_with_border_, patch_,
       options_.align_max_iter, options_.affine_est_offset,
       options_.affine_est_gain, px_scaled, options_.min_update_squared, false,
       last_fail_steps);
-
+  // LOG(INFO) << "align cost: " << align2D_tic.toc();
   if (res) {
     if ((px_scaled - px_scaled_start).norm() >
         options_.max_patch_diff_ratio * kPatchSize) {

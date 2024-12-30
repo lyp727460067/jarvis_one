@@ -98,7 +98,10 @@ void TrajectorBuilder::AddFixData(const sensor::FixedFramePoseData &fix_data) {
 //
 
 std::vector<Eigen::Vector3d> TrajectorBuilder::GetMapPoints() {
-  return map_builder_->GetAllMapPoints();
+  if (map_builder_) {
+    return map_builder_->GetAllMapPoints();
+  }
+  return {};
 }
 
 std::map<KeyFrameId, transform::TimestampedTransform>
