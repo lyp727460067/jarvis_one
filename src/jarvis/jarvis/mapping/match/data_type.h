@@ -13,7 +13,7 @@ using GradientVector =   Eigen::Vector2d;
 using AffineTransformation2 = Eigen::Matrix2d;
 using Keypoint = Eigen::Vector2d;
 //
-constexpr int kHalfPatchSize = 16;
+constexpr int kHalfPatchSize = 7;
 struct Frame {
   Eigen::Vector2i image_size;
   transform::Rigid3d pose;    // cam pose

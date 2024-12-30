@@ -205,30 +205,4 @@ static void bm_vector_acos_neon(benchmark::State& state)
 	vector4f v3 = vector_set(0.134f);
 	vector4f v4 = vector_set(-0.134f);
 	vector4f v5 = vector_set(0.134f);
-	vector4f v6 = vector_set(-0.134f);
-	vector4f v7 = vector_set(0.134f);
-
-	for (auto _ : state)
-	{
-		v0 = vector_acos_neon(v0);
-		v1 = vector_acos_neon(v1);
-		v2 = vector_acos_neon(v2);
-		v3 = vector_acos_neon(v3);
-		v4 = vector_acos_neon(v4);
-		v5 = vector_acos_neon(v5);
-		v6 = vector_acos_neon(v6);
-		v7 = vector_acos_neon(v7);
-	}
-
-	benchmark::DoNotOptimize(v0);
-	benchmark::DoNotOptimize(v1);
-	benchmark::DoNotOptimize(v2);
-	benchmark::DoNotOptimize(v3);
-	benchmark::DoNotOptimize(v4);
-	benchmark::DoNotOptimize(v5);
-	benchmark::DoNotOptimize(v6);
-	benchmark::DoNotOptimize(v7);
-}
-
-BENCHMARK(bm_vector_acos_neon);
-#endif
+	vector4f v6 = vector_set(-0.13

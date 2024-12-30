@@ -210,7 +210,7 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
 //     return align2D_NEON(cur_img, ref_patch_with_border, ref_patch, n_iter,
 //                         cur_px_estimate,min_update_squared);
 // #endif
-
+  auto start = std::chrono::high_resolution_clock::now();
   if (each_step) each_step->clear();
 
   const int halfpatch_size_ = kHalfPatchSize;
@@ -274,6 +274,10 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
   update.setZero();
 
   for (int iter = 0; iter < n_iter; ++iter) {
+    size_t count = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::high_resolution_clock::now() - start)
+                       .count();
+    if (count > 1) return false;
     int u_r = std::floor(u);
     int v_r = std::floor(v);
     if (u_r < halfpatch_size_ || v_r < halfpatch_size_ ||

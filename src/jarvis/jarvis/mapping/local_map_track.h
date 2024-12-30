@@ -5,8 +5,10 @@
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/transform/transform.h"
 //
+#include "jarvis/common/thread_pool.h"
 #include "jarvis/mapping/match/occupancy_grid_2d.h"
 #include "jarvis/mapping/local_map.h"
+#include <condition_variable>
 namespace jarvis {
 namespace mapping {
 
@@ -19,10 +21,12 @@ struct LocalMapTrackOption {
   int max_n_features_per_frame = 420;
   std::vector<std::vector<int>> track_sequence;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
-  float op_weight = 377/2;
+  float op_weight = 377./2;
+  float outlier_err=3./377;
   float op_init_t_weight = 1;
   float op_init_r_weight = 5;
   int min_match_size =7;
+  int min_op_inlier =8;
   int one_frame_pick_candidates_min_num =5;
   int one_frame_match_candidates_min_num =2;
   int one_kf_match_candidates_min_num =5;
@@ -44,9 +48,7 @@ class LocalMapTrack {
       const std::shared_ptr<LocalMap>& local_map,
       const KeyFrameData& track_data);
   //
-  //for debug
-  std::vector<Eigen::Vector3d> GetMapPoints()const;
-  std::vector<transform::Rigid3d> GetKfPose()const ;
+
   struct Candidate {
     KeyFrameId frame_id;
     FeatureId feature_id;
@@ -58,8 +60,8 @@ class LocalMapTrack {
     MapPointId mp_id;
   };
   struct MatchData {
-    Eigen::Vector2d cur_normal_px;
-    Eigen::Vector3d map_point;
+    Eigen::Vector2d cur_normal_px{0,0};
+    Eigen::Vector3d map_point{0,0,0};
     std::optional<Candidate> candidate;  // for check
   };
 
@@ -83,6 +85,11 @@ class LocalMapTrack {
   //
   MapById<KeyFrameId, match::Frame> frame_warps_;
   //
+  //
+  int RemoveOutliersRejection(
+      std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs,
+      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+      const transform::Rigid3d& pose,float outlier);
   //
   std::vector<Candidate> PickCandidates(
       std::vector<KeyFrameId> overlap_kfs,
@@ -111,7 +118,9 @@ class LocalMapTrack {
   //
 
   //
-
+  std::vector<std::thread> threads_pools_;
+  void RunWorks();
+  // std::conditional thread_conditional;
   transform::Rigid3d PnpSolver(
       const transform::Rigid3d& init_pose,
       const std::vector<transform::Rigid3d>& extric_camera_to_imu,
@@ -128,10 +137,11 @@ class LocalMapTrack {
   std::map<int, camera_models::CameraPtr> cameras_;
   std::vector<Eigen::Vector3d> px_top_lefts_;
   // for debug
-  mutable std::mutex mutex_;
+  std::unique_ptr<common::ThreadPool> thread_pool_;
   //
   std::shared_ptr<LocalMap> local_map_ = nullptr;
   //
+  std::unique_ptr<common::Task> when_done_task_ ;
   MapById<KeyFrameId, KeyFrameData> key_frames_datas_;
 
 };

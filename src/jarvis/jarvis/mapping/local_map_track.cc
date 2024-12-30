@@ -3,6 +3,7 @@
 #include "jarvis/mapping/covisibility.h"
 #include "jarvis/mapping/map_manger.h"
 //
+#include "jarvis/utility/tic_toc.h"
 namespace jarvis {
 namespace mapping {
 namespace {
@@ -254,12 +255,18 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
         ->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
 
     px_top_lefts_.push_back( (f_top_left/ f_top_left.z()).normalized());
-    LOG(INFO)<<px_top_lefts_.back();
+    LOG(INFO)<<px_top_lefts_.back().transpose();
   }
+
+ thread_pool_ =std::make_unique<common::ThreadPool>(3);
+ when_done_task_ =  std::make_unique<common::Task>();
 }
 
 //
-
+void  LocalMapTrack::RunWorks()
+{
+  
+}
 
 //
 std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
@@ -312,17 +319,18 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
   }
   std::map<int, std::vector<LocalMapTrack::MatchData>> matchs;
   //
-
   int match_sum_num = 0;
-  std::stringstream info;
   auto start = std::chrono::high_resolution_clock::now();
+  std::map<int, std::vector<LocalMapTrack::Candidate>> pick_cadidates;
+  std::stringstream cost_time_info;
   for (size_t i = 0; i < cur_frames.size(); i++) {
-    //
     if (options_.sequence_match.count(i) == 0) continue;
     //
-    auto const candidates = PickCandidates(overlap_kfs[i], cur_frames[i],i);
-    if (candidates.size() < size_t(options_.one_frame_pick_candidates_min_num))
-      continue;
+    estimator::TicToc pick_candidata_tic;
+    auto candidates = PickCandidates(overlap_kfs[i], cur_frames[i], i);
+    cost_time_info << "s" << i << " " << pick_candidata_tic.toc();
+
+    pick_cadidates[i] = std::move(candidates);
     auto& grid = grids_[i];
     if (!grid) {
       grid.reset(new match::svo::OccupandyGrid2D(
@@ -332,29 +340,118 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
           match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.y(),
                                                 options_.cell_sizes.at(i))));
     }
-    auto match_result = MatchCandidates(candidates, cur_frames[i], grid);
-    //
-    grid->reset();
-    if (match_result.size() < size_t(options_.one_frame_match_candidates_min_num))
-      continue;
-
-    info << "s(" << i << ")" << "pick canditate size:" << candidates.size()
-         << ",match candianti size:" << match_result.size() << " ";
-    //
-    match_sum_num += match_result.size();
-    matchs[i] = std::move(match_result);
   }
+
+  for (size_t i = 0; i < cur_frames.size(); i++) {
+    //
+    if (options_.sequence_match.count(i) == 0) continue;
+
+    auto sequ_match_task = std::make_unique<common::Task>();
+    sequ_match_task->SetWorkItem([&, i]() {
+      estimator::TicToc match_candidata_tic;
+      auto& grid = grids_[i];
+      auto& candidates = pick_cadidates[i];
+      if (candidates.size() <
+          size_t(options_.one_frame_pick_candidates_min_num))
+        return;
+
+      auto match_result = MatchCandidates(candidates, cur_frames[i], grid);
+      grid->reset();
+      if (match_result.size() <
+          size_t(options_.one_frame_match_candidates_min_num)) {
+        return;
+      }
+      matchs[i] = std::move(match_result);
+      LOG(INFO) << " mach:" << match_candidata_tic.toc();
+    });
+    auto sequ_match_task_handle =
+        thread_pool_->Schedule(std::move(sequ_match_task));
+    //
+    when_done_task_->AddDependency(sequ_match_task_handle);
+  }
+
+  std::mutex mutex;
+  std::condition_variable condtion;
+  bool match_finish = false;
+  when_done_task_->SetWorkItem([&] {
+    std::lock_guard<std::mutex> lock(mutex);
+    match_finish = true;
+    condtion.notify_all();
+  });
+  //
+  //
+
+  thread_pool_->Schedule(std::move(when_done_task_));
+  when_done_task_ = std::make_unique<common::Task>();
+  //
+  {
+    std::unique_lock<std::mutex> locker(mutex);
+    condtion.wait(locker, [&]() { return match_finish; });
+  }
+  std::stringstream info;
+  for (size_t i = 0; i < cur_frames.size(); i++) {
+    size_t cadidates_size = 0;
+    size_t match_size = 0;
+    if (pick_cadidates.count(i)) {
+      cadidates_size = pick_cadidates[i].size();
+    }
+    if (matchs.count(i)) {
+      match_size = matchs[i].size();
+      match_sum_num += match_size;
+    }
+    info << "s(" << i << ")" << "pick canditate size:" << cadidates_size
+         << ",match candianti size:" << match_size << " ";
+  }
+
+  // std::stringstream info;
+  // std::stringstream cost_time_info;
+  // // auto start = std::chrono::high_resolution_clock::now();
+  // for (size_t i = 0; i < cur_frames.size(); i++) {
+  //   //
+  //   if (options_.sequence_match.count(i) == 0) continue;
+  //   //
+  //   estimator::TicToc pick_candidata_tic; 
+  //   auto const candidates = PickCandidates(overlap_kfs[i], cur_frames[i],i);
+  //   cost_time_info << "s" << i << " " << pick_candidata_tic.toc();
+  //   if (candidates.size() < size_t(options_.one_frame_pick_candidates_min_num))
+  //     continue;
+  //   auto& grid = grids_[i];
+  //   if (!grid) {
+  //     grid.reset(new match::svo::OccupandyGrid2D(
+  //         options_.cell_sizes.at(i),
+  //         match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.x(),
+  //                                               options_.cell_sizes.at(i)),
+  //         match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.y(),
+  //                                               options_.cell_sizes.at(i))));
+  //   }
+  //   estimator::TicToc match_candidata_tic; 
+  //   auto match_result = MatchCandidates(candidates, cur_frames[i], grid);
+  //   //
+  //   cost_time_info <<" mach:" <<  match_candidata_tic.toc();
+  //   grid->reset();
+  //   if (match_result.size() < size_t(options_.one_frame_match_candidates_min_num))
+  //     continue;
+
+  //   info << "s(" << i << ")" << "pick canditate size:" << candidates.size()
+  //        << ",match candianti size:" << match_result.size() << " ";
+  //   //
+  //   match_sum_num += match_result.size();
+  //   matchs[i] = std::move(match_result);
+  // }
+
+  
   LOG(INFO) << "total match cost : "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::high_resolution_clock::now() - start)
-                         .count();
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::high_resolution_clock::now() - start)
+                   .count()
+            << " " << cost_time_info.str();
   LOG(INFO) << log_info::GREEN<< "Total match num :" << match_sum_num
             << ",Seperate: " << info.str() << log_info::RESET;
 
   //
   if (match_sum_num < options_.min_match_size) return nullptr;
   //
-  WriteCheckMatchResult(track_data, matchs);
+  // WriteCheckMatchResult(track_data, matchs);
   //
   // CHECK(false);
   if (options_.op_type == 1) {
@@ -365,16 +462,72 @@ std::unique_ptr<transform::Rigid3d> LocalMapTrack::Track(
     //
     return std::make_unique<transform::Rigid3d>(local_map->LocalPose() * pose);
   } else {
-    transform::Rigid3d pose = FourOptimize(
-        local_map_->LocalPose().inverse() * track_data.data->pose,
-        track_data.data->extric_camera_to_imu, matchs,
-        std::array<float, 2>{options_.op_weight, options_.op_weight});
+    std::stringstream info;
+    transform::Rigid3d pose =
+        local_map_->LocalPose().inverse() * track_data.data->pose;
+    int inliner =    RemoveOutliersRejection(matchs, track_data.data->extric_camera_to_imu,
+                              pose,20./377);
+    info << " init match cnt :" << inliner;
+    transform::Rigid3d init_pose = pose;
+    for (int i = 0; i < options_.max_num_iterations; i++) {
+      pose = FourOptimize(
+          pose, track_data.data->extric_camera_to_imu, matchs,
+          std::array<float, 2>{options_.op_weight, options_.op_weight});
+
+
+     inliner  =  RemoveOutliersRejection(matchs, track_data.data->extric_camera_to_imu,
+                              pose,options_.outlier_err);
+     info << " inter" << i << " inliner " << inliner;
+     //
+    }
+    if (inliner < options_.min_op_inlier) return nullptr;
     //
+    LOG(INFO) << log_info::RED << "yaw " << common::RadToDeg(transform::GetYaw(init_pose))
+              << " -> " << common::RadToDeg(transform::GetYaw(pose))
+              << " t:" << init_pose.translation().transpose() << "-> "
+              << pose.translation().transpose() << info.str();
+
+    WriteCheckMatchResult(track_data, matchs);
     return std::make_unique<transform::Rigid3d>(local_map->LocalPose() * pose);
   }
-  return {};
+  return nullptr;
 }
+//
+int LocalMapTrack::RemoveOutliersRejection(
+    std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs,
+    const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+    const transform::Rigid3d& pose,float outlier) {
+  auto ReprojectionError = [](const Eigen::Vector3d world_point_i,
+                              const transform::Rigid3d& pose_j,
+                              const Eigen::Vector2d& uvj) {
+    //
+    const Eigen::Vector3d pts_cj = pose_j.inverse() * world_point_i;
+    Eigen::Vector2d residual = (pts_cj / pts_cj.z()).head<2>() - uvj;
+    double rx = residual.x();
+    double ry = residual.y();
+    return sqrt(rx * rx + ry * ry);
+  };
+  int inliner  =0;
+  for (auto& constraist_matchs : matchs) {
+    transform::Rigid3d exti =
+        extric_camera_to_imu[options_
+                                 .track_sequence[constraist_matchs.first][0]];
 
+    for (auto it = constraist_matchs.second.begin();
+         it != constraist_matchs.second.end();) {
+      float err =
+          ReprojectionError(it->map_point, pose * exti, it->cur_normal_px);
+      if (err > outlier  ) {
+        it = constraist_matchs.second.erase(it);
+        continue;
+      }
+      inliner++;
+      ++it;
+    }
+  }
+  return inliner;
+}
+  //
 //
 std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
     std::vector<KeyFrameId> overlap_kfs,
@@ -445,24 +598,45 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
   return candidates;
 }
 //
-
+#define _THREAD_POOL_
 //
 std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
     const std::vector<Candidate>& candidates,
     const std::shared_ptr<match::Frame>& cur_frame,
-    std::shared_ptr<match::svo::OccupandyGrid2D> grid
-    ) {
- 
+    std::shared_ptr<match::svo::OccupandyGrid2D> grid) {
   std::vector<LocalMapTrack::MatchData> result;
+  // std::vector<std::shared_ptr<LocalMapTrack::MatchData>> result;
   const auto& all_map_points = local_map_->AllMapPoints();
   for (auto& candidate : candidates) {
     size_t grid_index =
         grid->getCellIndex(candidate.cur_px.x(), candidate.cur_px.y(), 1);
-    if (options_.max_n_features_per_frame > 0 &&
-        grid->isOccupied(grid_index)) {
+    if (options_.max_n_features_per_frame > 0 && grid->isOccupied(grid_index)) {
       continue;
     }
+    // #ifdef  _THREAD_POOL_
+
+    // #else
+    // #endif
+    // auto match_task = std::make_unique<common::Task>();
+    // result.emplace_back(nullptr);
+    // //
+    // match_task->SetWorkItem([&]() {
+    //   auto math_result = MatchCandidate(candidate, cur_frame);
+    //   if (math_result.state == match::MatchResultState::kSuccess) {
+    //     result.back()=
+    //         std::make_shared<LocalMapTrack::MatchData>(LocalMapTrack::MatchData{
+    //             math_result.norm.head<2>(),
+    //             all_map_points.at(candidate.mp_id).data->pos, candidate});
+    //     result.back()->candidate.value().cur_px = math_result.pt;
+    //   }
+    // });
+    // auto match_task_handle = thread_pool_->Schedule(std::move(match_task));
+    // when_done_task_->AddDependency(match_task_handle);
+    // //
+
+    //
     auto math_result = MatchCandidate(candidate, cur_frame);
+    
     if (math_result.state == match::MatchResultState::kSuccess) {
       result.push_back({math_result.norm.head<2>(),
                         all_map_points.at(candidate.mp_id).data->pos,
@@ -471,8 +645,32 @@ std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
     }
     //
   }
-  // grid_->reset();
   return result;
+  // std::mutex mutex;
+  // std::condition_variable condtion;
+  // bool match_finish = false;
+  // when_done_task_->SetWorkItem([&] {
+  //   std::lock_guard<std::mutex> lock(mutex);
+  //   match_finish = true;
+  //   condtion.notify_all();
+  // });
+  // //
+  // thread_pool_->Schedule(std::move(when_done_task_));
+  // when_done_task_ = std::make_unique<common::Task>();
+  // //
+  // {
+  //   std::unique_lock<std::mutex> locker(mutex);
+  //   condtion.wait(locker, [&]() { return match_finish; });
+  // }
+  // std::vector<LocalMapTrack::MatchData> result1;
+  // for (size_t i = 0; i < result.size(); i++) {
+  //   if (result[i]) {
+  //     result1.emplace_back(std::move(*result[i]));
+  //   }
+  // }
+
+  // grid_->reset();
+  // return result1;
 }
 //
 match::MatchResult LocalMapTrack::MatchCandidate(
@@ -672,20 +870,17 @@ transform::Rigid3d LocalMapTrack::Optimize(
 
     ceres::Solver::Options options;
     options.minimizer_progress_to_stdout = false;
-    options.max_num_iterations = options_.max_num_iterations;
+    options.max_num_iterations = 1;//options_.max_num_iterations;
     options.linear_solver_type = ceres::DENSE_SCHUR;
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
+    LOG(INFO) << log_info::RED << summary.BriefReport() << log_info::RESET;
     // LOG(INFO) << summary.FullReport();
     const auto pose =
         transform::Rigid3d(
             traslation, transform::RollPitchYaw(roll, pitch, yaw).normalized())
             .inverse();
-    LOG(INFO) << log_info::RED << "yaw " << ypr[0] << " -> "
-              << common::RadToDeg(yaw)
-              << " t:" << init_pose.translation().transpose() << "-> "
-              << pose.translation().transpose();
-    LOG(INFO) << log_info::RED << summary.BriefReport() << log_info::RESET;
+
     return pose;
   }
     //
@@ -717,25 +912,6 @@ void LocalMapTrack::WriteCheckMatchResult(
   }
 }
 //
-std::vector<Eigen::Vector3d> LocalMapTrack::GetMapPoints() const {
-  std::vector<Eigen::Vector3d> result;
-  std::lock_guard<std::mutex> lock(mutex_);
-  auto& all_mp_points = local_map_->AllMapPoints();
-  for (auto const& mp : all_mp_points) {
-    result.push_back(local_map_->LocalPose() * mp.data.data->pos);
-  }
-  return result;
-}
-//
-std::vector<transform::Rigid3d> LocalMapTrack::GetKfPose()const {
-  std::lock_guard<std::mutex> lock(mutex_);
-  auto& all_kfs = local_map_->AllKeyFrameDatas();
-  std::vector<transform::Rigid3d> result;
-  for (auto const& kf : all_kfs) {
-    result.push_back(kf.data.data->pose);
-  }
-  return result;
-}
 
 }  // namespace mapping
 }  // namespace jarvis
