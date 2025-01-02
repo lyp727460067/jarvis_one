@@ -6,6 +6,7 @@
 #include "parameters.h"
 #include "jarvis/estimator/factor/integration_base.h"
 //
+#include "jarvis/key_frame_data.h"
 namespace jarvis {
 namespace estimator {
 
@@ -61,7 +62,9 @@ class Optimization {
   OptimizationStateData* MutableData() { return &data_; }
   ~Optimization();
   double FinalCost() { return final_cost_; }
-  void SetPrior(const transform::Rigid3d& pose,int k=0) { prior_pose_ =std::make_pair(k,pose); }
+  void SetPrior(std::unique_ptr<LocalMapMatchResult> matchs, int k = 0) {
+    prior_pose_ = std::make_pair(k, std::move(matchs));
+  }
 
  private:
   int AddCameraFactor(int id,ceres::Problem* Problem,
@@ -82,8 +85,10 @@ class Optimization {
   const OptimizationOption options_;
   double final_cost_=0; 
   int num_= 0;
-  std::optional<std::pair<int,transform::Rigid3d> > prior_pose_;
-  
+  //
+  std::optional<std::pair<int, std::unique_ptr<LocalMapMatchResult>>>
+      prior_pose_;
+
   // double** para_Pose = data_.pose;
   // double** para_SpeedBias = data_.speed_bias;
   // double** para_Ex_Pose = data_.ex_pose;

@@ -80,7 +80,15 @@ struct FrameData {
   int status = -1;
 };
 //
-
+struct LocalMapMatchResult {
+  transform::Rigid3d pose;
+  struct Match {
+    int s;
+    Eigen::Vector3d map_point;
+    Eigen::Vector2d normal;
+  };
+  std::vector<Match> matchs;
+};
 using TrackingData = FrameData;
 
 // struct OptimizationStateData {

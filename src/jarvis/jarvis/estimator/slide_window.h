@@ -41,7 +41,9 @@ struct SlideWindowResult {
   TrackingData slide_out_data;
 };
 
-using PriorFactorFunction = std::function<std::unique_ptr<transform::Rigid3d>(
+
+//
+using PriorFactorFunction = std::function<std::unique_ptr<LocalMapMatchResult>(
     const TrackingData& track_data)>;
 class SlideWindow {
  public:

@@ -95,7 +95,7 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
       std::vector<int> params;
       params.resize(9, 0);
       params[0] = cv::IMWRITE_JPEG_QUALITY;
-      params[1] = 90;
+      params[1] = 60;
       params[2] = cv::IMWRITE_JPEG_PROGRESSIVE;
       params[3] = 0;
       params[4] = cv::IMWRITE_JPEG_OPTIMIZE;

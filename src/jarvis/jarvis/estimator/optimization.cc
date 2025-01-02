@@ -24,6 +24,131 @@ constexpr int kMaxFeatureNum = 1000;
 #define para_Feature (data_.feature)
 
 }  // namespace
+// #define  AUTO_RE_PROEJCT
+#ifdef AUTO_RE_PROEJCT
+
+struct ReProjectionErrProblem {
+ public:
+  ReProjectionErrProblem(const Eigen::Vector2d &nor_poit,
+                         const Eigen::Vector3d &map_point, const double &factor)
+      : nor_point_(nor_poit), map_point_(map_point), factor_(factor) {}
+
+  template <typename T>
+  bool operator()(const T *parameters, const T *ex, T *residul) const {
+    //
+    Eigen::Matrix<T, 3, 1> t1(parameters[0], parameters[1],
+                                      parameters[2]);
+    //
+    Eigen::Quaternion<T> q1(parameters[6], parameters[3], parameters[4],
+                             parameters[5]);
+
+    Eigen::Matrix<T, 3, 1> te(ex[0], ex[1], ex[2]);
+    Eigen::Quaternion<T> qe(ex[6], ex[3], ex[4], ex[5]);
+    Eigen::Quaternion<T> q_inverse = (q1 * qe).inverse();
+    //
+    Eigen::Matrix<T, 3, 1> t = q1 * te + t1;
+    Eigen::Matrix<T, 3, 1> t_inverse =  q_inverse * t;
+
+    Eigen::Matrix<T, 3, 1> project_p =
+        q_inverse * map_point_.template cast<T>() - t_inverse;
+    T x_normal = project_p[0] / project_p[2];
+    T y_normal = project_p[1] / project_p[2];
+    residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));
+    residul[1] = T(factor_) * (y_normal - T(nor_point_.y()));
+    return true;
+  }
+  static ceres::CostFunction *Creat(const Eigen::Vector2d &nor_poit,
+                                    const Eigen::Vector3d &map_point,
+                                    double factor) {
+    return new ceres::AutoDiffCostFunction<ReProjectionErrProblem, 2, 7, 7>(
+        new ReProjectionErrProblem(nor_poit.head<2>(), map_point, factor));
+  }
+
+ private:
+  const Eigen::Vector2d nor_point_;
+  const Eigen::Vector3d map_point_;
+  const double factor_;
+};
+
+#else 
+struct ReProjectionErrProblem : public ceres::SizedCostFunction<2, 7, 7> {
+  ReProjectionErrProblem(const Eigen::Vector2d &nor_poit,
+                         const Eigen::Vector3d &map_point, const double &factor)
+      : nor_point_(nor_poit), map_point_(map_point), factor_(factor) {
+    sqrt_info = Eigen::Matrix2d::Identity() * factor_;
+    t_sqrt_info = Eigen::Matrix2d::Identity() * factor_*0.1;
+  }
+  bool Evaluate(double const *const *parameters, double *residuals,
+                double **jacobians) const {
+    //
+
+    Eigen::Vector3d t1(parameters[0][0], parameters[0][1], parameters[0][2]);
+    //
+    Eigen::Quaterniond q1(parameters[0][6], parameters[0][3], parameters[0][4],
+                          parameters[0][5]);
+    Eigen::Vector3d te(parameters[1][0], parameters[1][1], parameters[1][2]);
+    //
+    Eigen::Quaterniond qe(parameters[1][6], parameters[1][3], parameters[1][4],
+                          parameters[1][5]);
+
+    Eigen::Vector3d pts_imu_1 = q1.inverse() * (map_point_ - t1);
+    Eigen::Vector3d project_p = qe.inverse() * (pts_imu_1 - te);
+
+    // Eigen::Quaterniond q_inverse = (q1 * qe).inverse();
+    // //
+    // Eigen::Vector3d t = q1 * te + t1;
+    // Eigen::Vector3d t_inverse = -(q_inverse * t);
+
+    // Eigen::Vector3d project_p = q_inverse * map_point_ + t_inverse;
+    double x_normal = project_p[0] / project_p[2];
+    double y_normal = project_p[1] / project_p[2];
+    residuals[0] = (factor_) * (x_normal - (nor_point_.x()));
+    residuals[1] = (factor_) * (y_normal - (nor_point_.y()));
+    //
+    if (jacobians) {
+      Eigen::Matrix<double, 2, 3> reduce(2, 3);
+      double dep_j = project_p.z();
+      reduce << 1. / dep_j, 0, -project_p(0) / (dep_j * dep_j), 0, 1. / dep_j,
+          -project_p(1) / (dep_j * dep_j);
+      Eigen::Matrix3d r1 =  q1.toRotationMatrix();
+      Eigen::Matrix3d re1 =  qe.toRotationMatrix();
+      if (jacobians[0]) {
+        Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> jacobians_(
+            jacobians[0]);
+        jacobians_.setZero();
+        //忽略平移方向，只在旋转方向给约束
+        //
+        // jacobians_.block<2, 3>(0, 0) =
+        //     sqrt_info * reduce *
+        //     re1.transpose() *  -r1.transpose();
+        jacobians_.block<2, 3>(0, 3) = sqrt_info * reduce * re1.transpose() *
+                                       Utility::skewSymmetric(pts_imu_1);
+      }
+      if (jacobians[1]) {
+        //不参与外参的优化
+        Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> jacobians_(
+            jacobians[1]);
+        jacobians_.setZero();
+      }
+    }
+
+    return true;
+  }
+  static ceres::CostFunction *Creat(const Eigen::Vector2d &nor_poit,
+                                    const Eigen::Vector3d &map_point,
+                                    double factor) {
+    return new ReProjectionErrProblem(nor_poit, map_point, factor);
+  }
+
+ private:
+  const Eigen::Vector2d nor_point_;
+  const Eigen::Vector3d map_point_;
+  Eigen::Matrix2d sqrt_info;
+  Eigen::Matrix2d t_sqrt_info;
+  const double factor_;
+};
+#endif
+
 Optimization::Optimization(int win_size1, const OptimizationOption &option)
     : win_size_(win_size1), options_(option) {
   //
@@ -336,11 +461,25 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   }
   {
     if (prior_pose_.has_value()) {
-      const transform::Rigid3d pose = prior_pose_.value().second;
-      const int k = prior_pose_.value().first;
-      InitialPoseFactor *f = new InitialPoseFactor(
-          options_.prio_pose_weight, pose.translation(), pose.rotation());
-      problem.AddResidualBlock(f, nullptr, para_Pose[k]);
+      if (prior_pose_.value().second->matchs.empty()) {
+        const transform::Rigid3d pose = prior_pose_.value().second->pose;
+        const int k = prior_pose_.value().first;
+        InitialPoseFactor *f = new InitialPoseFactor(
+            options_.prio_pose_weight, pose.translation(), pose.rotation());
+        problem.AddResidualBlock(f, nullptr, para_Pose[k]);
+      } else {
+        LOG(INFO) << "Add prio local map match:"
+                  << prior_pose_.value().second->matchs.size();
+        const int k = prior_pose_.value().first;
+        for (const auto &match : prior_pose_.value().second->matchs) {
+          //
+          problem.AddResidualBlock(
+              ReProjectionErrProblem::Creat(match.normal, match.map_point,
+                                            options_.prio_pose_weight),
+              new ceres::HuberLoss(options_.huber_loss), para_Pose[k],
+              para_Ex_Pose[options_.trace_sequence[match.s][0]]);
+        }
+      }
       prior_pose_.reset();
     }
   }
@@ -349,7 +488,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
   ceres::Solver::Options options;
   options.linear_solver_ordering.reset(ordering);
   options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.num_threads = 4;
+  options.num_threads = 6;
   options.trust_region_strategy_type = ceres::DOGLEG;
   options.sparse_linear_algebra_library_type = ceres::NO_SPARSE;
   // options.dynamic_sparsity =true;

@@ -58,7 +58,7 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option,dbow::Vocabulary *
   LOG(INFO)<<"mapping construct done.";
 }
 //
-std::unique_ptr<transform::Rigid3d> MappingBuilder::TrackLocalMap(
+std::unique_ptr<LocalMapMatchResult> MappingBuilder::TrackLocalMap(
     const TrackingData &frame_data) {
 
   if (local_map_track_ == nullptr) return nullptr;
