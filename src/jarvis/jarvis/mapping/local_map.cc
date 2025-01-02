@@ -42,6 +42,9 @@ void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
     if (!map_points_.Contains(mp_id)) {
       map_points_.Insert(mp_id, MapPointData{std::make_unique<MapPoint>(
                                     MapPoint{xyz, des, mp_id, kf_id})});
+    } else {
+      // map_points_.at(mp_id).data->pos = xyz;
+      // map_points_.at(mp_id).data->reference_frame_id = kf_id;
     }
   }
   covisibility_->UpdateWithFrameData(kf_id,

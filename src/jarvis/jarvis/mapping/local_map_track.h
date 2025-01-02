@@ -23,6 +23,7 @@ struct LocalMapTrackOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   float op_weight = 377./2;
   float outlier_err=3./377;
+  float first_outlier_err=10./377;
   float op_init_t_weight = 1;
   float op_init_r_weight = 5;
   int min_match_size =7;
@@ -44,18 +45,16 @@ struct LocalMapTrackOption {
 class LocalMapTrack {
  public:
   explicit LocalMapTrack(const LocalMapTrackOption& option);
-  std::unique_ptr<transform::Rigid3d> Track(
+  std::unique_ptr<LocalMapMatchResult> Track(
       const std::shared_ptr<LocalMap>& local_map,
       const KeyFrameData& track_data);
   //
-
   struct Candidate {
     KeyFrameId frame_id;
     FeatureId feature_id;
     Eigen::Vector2d cur_px;  //!< Projected 2D pixel location in current frame.
-    int n_reproj =
-        0;        //!< Number of previously successful projections for quality.
-    float score;  //!< Feature Detection Score
+    int n_reproj = 0;
+    int score;  //!< Feature Detection Score
     int n_obs;
     MapPointId mp_id;
   };
@@ -65,18 +64,18 @@ class LocalMapTrack {
     std::optional<Candidate> candidate;  // for check
   };
 
-    transform::Rigid3d Optimize(
+  transform::Rigid3d Optimize(
+      const transform::Rigid3d& init_pose,
+      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
+      const std::map<int, std::vector<MatchData>>& constraints,
+      const std::array<float, 2>& weight);
+  //
+  transform::Rigid3d FourOptimize(
       const transform::Rigid3d& init_pose,
       const std::vector<transform::Rigid3d>& extric_camera_to_imu,
       const std::map<int, std::vector<MatchData>>& constraints,
       const std::array<float, 2>& weight);
 
-
-    transform::Rigid3d FourOptimize(
-      const transform::Rigid3d& init_pose,
-      const std::vector<transform::Rigid3d>& extric_camera_to_imu,
-      const std::map<int, std::vector<MatchData>>& constraints,
-      const std::array<float, 2>& weight);
  private:
 
 

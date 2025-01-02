@@ -855,6 +855,7 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
   op_option.op_init_t_weight = fsSettings["op_init_t_weight"];
   op_option.op_init_r_weight = fsSettings["op_init_r_weight"];
   op_option.min_match_size = fsSettings["min_match_size"];
+  op_option.min_op_inlier = fsSettings["min_op_inlier"];
   op_option.one_frame_pick_candidates_min_num =
       fsSettings["one_frame_pick_candidates_min_num"];
   op_option.one_frame_match_candidates_min_num =
@@ -880,6 +881,8 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
   op_option.huber_loss = fsSettings["huber_loss"];
   op_option.kf_max_distance = fsSettings["kf_max_distance"];
   //
+  
+  op_option.first_outlier_err = fsSettings["first_outlier_err"];
   //
 
   std::map<int, int> cell_sizes_map;
@@ -1102,7 +1105,9 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   option->mapping_option.map_point_construct_option.image_boxs =
       option->mapping_option.image_boxs;
   //
-
+  option->mapping_option.local_map_track_option.first_outlier_err =
+      option->mapping_option.local_map_track_option.first_outlier_err /
+      calib_option.camera_options[0].intrinsics[0];
   //
   option->mapping_option.track_sequence = option->esti_option.track_sequence;
   option->mapping_option.local_map_track_option.track_sequence =

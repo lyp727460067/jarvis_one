@@ -218,11 +218,11 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
       TicToc t_t;
       int k = options_.win_size;
       //  int k  = 0;
-      const auto prior_pose = prior_factor_(GetratePriorData(false, k));
+      auto prior_pose = prior_factor_(GetratePriorData(false, k));
       if (prior_pose) {
-        LOG(WARNING) << "Prior pose: " << *prior_pose
-                     << ",fisrt imu pose:" << imu_states_[k].Pose();
-        optimization_->SetPrior(*prior_pose, k);
+        // LOG(WARNING) << "Prior pose: " << *prior_pose
+        //              << ",fisrt imu pose:" << imu_states_[k].Pose();
+        optimization_->SetPrior(std::move(prior_pose), k);
         has_prio_pose = true;
 
         // CHECK(false);
@@ -439,7 +439,7 @@ void SlideWindow::StateToFrameData() {
     // LOG(INFO)<<y_diff ;
     // rot_diff = Eigen::Matrix3d::Identity();
     // origin_P0 =
-    //     Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
+        // Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
   }
   for (int i = 0; i <= options_.win_size; i++) {
     const Eigen::Quaterniond r =

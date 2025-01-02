@@ -54,7 +54,7 @@ class MappingBuilder {
   void AddImuData(const sensor::ImuData& imu_data);
   void AddOdometryData(const sensor::OdometryData& odo_data);
   //
-  std::unique_ptr<transform::Rigid3d> TrackLocalMap(const TrackingData& frame_data);
+  std::unique_ptr<LocalMapMatchResult> TrackLocalMap(const TrackingData& frame_data);
   transform::Rigid3d Relocaiton(const TrackingData& frame_data);
   //
   std::vector<Eigen::Vector3d> GetAllMapPoints();
