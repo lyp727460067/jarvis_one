@@ -212,6 +212,7 @@ class JarvisBuilder {
   }
   //
   void CreateJarvisBrige(bool factory_mode = false) {
+    jarvis_brige_.reset(nullptr);
     {
       std::lock_guard<std::mutex> lock(mutex_);
       // imu_extrapolator_ =
