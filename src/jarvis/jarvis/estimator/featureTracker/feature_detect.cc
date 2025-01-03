@@ -170,23 +170,23 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       // }
     });
   }
-  if (options_.num_thread_ != 1) {
-    std::vector<std::thread> threads;
-    // threads_.resize(options_.num_thread_);
-    for (int i = 0; i < options_.num_thread_; i++) {
-      threads.emplace_back([&tasks, i]() {
-        for (auto& f : tasks[i]) {
-          f();
-        }
-      });
-    }
-    for (int i = 0; i < options_.num_thread_; i++) {
-      TicToc t_t;
-      threads[i].join();
-    }
-    // LOG(INFO) << point_collection.size();
-    return point_collection;
-  }
+  // if (options_.num_thread_ != 1) {
+  //   std::vector<std::thread> threads;
+  //   // threads_.resize(options_.num_thread_);
+  //   for (int i = 0; i < options_.num_thread_; i++) {
+  //     threads.emplace_back([&tasks, i]() {
+  //       for (auto& f : tasks[i]) {
+  //         f();
+  //       }
+  //     });
+  //   }
+  //   for (int i = 0; i < options_.num_thread_; i++) {
+  //     TicToc t_t;
+  //     threads[i].join();
+  //   }
+  //   // LOG(INFO) << point_collection.size();
+  //   return point_collection;
+  // }
   for (auto& f : tasks[0]) {
     f();
   }

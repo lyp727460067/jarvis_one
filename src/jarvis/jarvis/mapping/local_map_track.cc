@@ -242,7 +242,9 @@ int LocalMapTrack::IsInFrame(const MapPoint& map_point,
 }
 
 LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
-    : options_(option), cameras_(option.cameras) {
+    : options_(option),
+      thread_pool_(option.thread_pool),
+      cameras_(option.cameras) {
   direct_match_ =
       std::make_unique<match::DirectMatch>(options_.derect_match_option);
   CHECK(!options_.track_sequence.empty());
@@ -257,7 +259,7 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
     LOG(INFO) << px_top_lefts_.back().transpose();
   }
 
-  thread_pool_ = std::make_unique<common::ThreadPool>(4);
+  // thread_pool_ = std::make_unique<common::ThreadPool>(4);
   when_done_task_ = std::make_unique<common::Task>();
 }
 
@@ -600,7 +602,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
       }
       eixst_map_point_ids.insert(map_point_feature_ids.first[i]);
       candidates_temp.push_back(LocalMapTrack::Candidate{
-          ref_frame_id, map_point_feature_ids.second[i], px,0,distance*10,
+          ref_frame_id, map_point_feature_ids.second[i], px,0,static_cast<int>(distance*10),
           map_ob_kf_num, map_point_feature_ids.first[i]});
     }
     if (candidates_temp.size() >
@@ -679,12 +681,12 @@ std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
   });
   //
   thread_pool_->Schedule(std::move(when_done_task_));
-  when_done_task_ = std::make_unique<common::Task>();
   //
   {
     std::unique_lock<std::mutex> locker(mutex);
     condtion.wait(locker, [&]() { return match_finish; });
   }
+  when_done_task_ = std::make_unique<common::Task>();
   std::vector<LocalMapTrack::MatchData> result1;
   for (size_t i = 0; i < result.size(); i++) {
     if (result[i]) {

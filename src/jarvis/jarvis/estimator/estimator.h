@@ -29,6 +29,7 @@
 // #include "jarvis/tracking/tracking_interface.h"
 #include "parameters.h"
 #include "jarvis/estimator/failure_detect.h"
+#include "jarvis/common/thread_pool.h"
 namespace jarvis {
 namespace estimator {
 //
@@ -48,6 +49,8 @@ struct EstimatorOption {
   double use_stereo_sample_ration = 0.3;
   //
   int win_size=6;
+  int thread_num = 4;
+  common::ThreadPool* thread_pool=nullptr;
 };
 struct EstimatorResult {
   TrackingData front_data;
@@ -78,19 +81,21 @@ class Estimator {
   // 
   std::map<int, std::unique_ptr<FeatureTracker>> feature_trackers_;
   std::map<int, std::unique_ptr<InitializationInterface>> initials_;
-  const EstimatorOption options_;
+  EstimatorOption options_;
   std::unique_ptr<common::FixedRatioSampler> stereo_sample_;
   std::unique_ptr<DataBase> data_base_ = nullptr;
   jarvis::transform::Rigid3d transform_imu_to_robot_;
   std::unique_ptr<PosePredit> pose_predit_;
   std::unique_ptr<FailureDetect> failure_detect_;
   common::Time last_time_;
+  common::ThreadPool* thread_pool_;
   std::unique_ptr<SlideWindow> slide_wondows_;
   ImuState imu_state_;
   double estimator_td_ = 0;
   uint64_t frame_id_ = 0;
   int testnum_  =0;
   PriorFactorFunction prior_factor_;
+  std::unique_ptr<common::Task> when_done_task_ ;
 };
 
 

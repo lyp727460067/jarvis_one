@@ -66,7 +66,9 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   marginalizer_ = std::make_unique<Marginalization>(MarginalizationOption{
       options_.win_size, options_.track_sequence,
       options_.opti_option.camera_weight, options_.opti_option.CamNum(),
-      options_.opti_option.use_odom, options_.opti_option.huber_loss});
+      options_.opti_option.use_odom, options_.opti_option.huber_loss,
+       options_.thread_pool,
+      });
   // /
   last_feature_time_ = init_data->time;
   CHECK_EQ(int(imu_states_.size()), options_.win_size + 1);
@@ -154,18 +156,48 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //
   bool is_keyframe = feature_managers_->CheckParallax();
 
+  //
+  // bool is_keyframe = feature_manager_->CheckParallax();
+  VLOG(0) << "Add incoming feature "
+                   << (is_keyframe ? "Keyframe" : "Non-keyframe,");
+  //
+
+  const std::vector<sensor::ImuData> imu_datas =
+      data_base_->GetImuIntervalData(last_feature_time_, current_time);
+  //
+  // for (auto& i : imu_datas) {
+  //   LOG(INFO) << i.angular_velocity.transpose();
+  // }
+  // for (auto& i : imu_datas) {
+  //   LOG(INFO) << i.linear_acceleration.transpose()<<" "<<i.linear_acceleration.norm();
+  // }
+  imu_states_.push_back(frame.data->imu_state);
+  //
+
+
   for (auto& f : frame.data->features_datas) {
+    // const auto delta_pose =
+    //     imu_states_[options_.win_size - 1].Pose().inverse() *
+    //     imu_states_[options_.win_size].Pose();
+    if(!is_keyframe)continue;
+    // LOG(INFO)<<delta_pose.translation().norm() ;
+    // if (delta_pose.translation().norm() < 0.01) continue;
     if (!feature_managers_->Exist(f.first)) {
       CHECK(init_feature_managers_.count(f.first));
       init_feature_datas_[frame.data->time].emplace(f);
     }
   }
   if (!init_feature_datas_.empty()) {
-    if (int(init_feature_datas_.size()) > options_.win_size + 1) {
+    if (int(init_feature_datas_.size()) > options_.win_size+1) {
       init_feature_datas_.erase(init_feature_datas_.begin());
     }
-
-    if (init_feature_datas_.begin()->first == imu_states_.begin()->time) {
+    LOG(INFO) << init_feature_datas_.begin()->first << " "
+              << imu_states_.begin()->time;
+    LOG(INFO) << init_feature_datas_.rbegin()->first << " "
+              << imu_states_.back().time;
+    if (init_feature_datas_.begin()->first == imu_states_.begin()->time  &&
+    init_feature_datas_.rbegin()->first == imu_states_.back().time
+    ) {
       for (auto& t_f : init_feature_datas_) {
         for (auto& f : t_f.second) {
           init_feature_managers_[f.first]->AddFeatureCheckParallax(
@@ -185,23 +217,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     }
   }
 
-  //
-  // bool is_keyframe = feature_manager_->CheckParallax();
-  VLOG(kGlogLevel) << "Add incoming feature "
-                   << (is_keyframe ? "Keyframe" : "Non-keyframe,");
-  //
 
-  const std::vector<sensor::ImuData> imu_datas =
-      data_base_->GetImuIntervalData(last_feature_time_, current_time);
-  //
-  // for (auto& i : imu_datas) {
-  //   LOG(INFO) << i.angular_velocity.transpose();
-  // }
-  // for (auto& i : imu_datas) {
-  //   LOG(INFO) << i.linear_acceleration.transpose()<<" "<<i.linear_acceleration.norm();
-  // }
-  imu_states_.push_back(frame.data->imu_state);
-  //
+
   integration_base_.push_back(nullptr);
   if (!imu_datas.empty()) {
     Eigen::Vector3d ba = imu_states_.back().ba;
@@ -437,9 +454,9 @@ void SlideWindow::StateToFrameData() {
   }
   if (has_prio_pose) {
     // LOG(INFO)<<y_diff ;
-    // rot_diff = Eigen::Matrix3d::Identity();
+    rot_diff = Eigen::Matrix3d::Identity();
     // origin_P0 =
-        // Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
+    //     Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
   }
   for (int i = 0; i <= options_.win_size; i++) {
     const Eigen::Quaterniond r =

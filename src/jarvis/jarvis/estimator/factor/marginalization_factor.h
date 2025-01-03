@@ -18,6 +18,7 @@
 
 #include "jarvis/utility/tic_toc.h"
 #include "jarvis/utility/utility.h"
+#include "jarvis/common/thread_pool.h"
 namespace jarvis {
 namespace estimator {
 constexpr int NUM_THREADS = 1;
@@ -64,7 +65,7 @@ class MarginalizationInfo {
   int globalSize(int size) const;
   void addResidualBlockInfo(ResidualBlockInfo *residual_block_info);
   void preMarginalize();
-  void marginalize();
+  void marginalize(common::ThreadPool* thread_pool);
   //
   template <typename T, typename Tb>
   void ConstructA(T &A, Tb &b);
