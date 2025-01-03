@@ -15,7 +15,8 @@ namespace {
 std::array<int, 3> KimageIndex{0, 2, 3};
 }
 
-Estimator::Estimator(const EstimatorOption &options) : options_(options) {
+Estimator::Estimator(const EstimatorOption &options)
+    : options_(options), thread_pool_(options.thread_pool) {
   data_base_ = std::make_unique<DataBase>(options_.data_base_lenth);
   for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     feature_trackers_.emplace(
@@ -36,6 +37,8 @@ Estimator::Estimator(const EstimatorOption &options) : options_(options) {
   failure_detect_ =
       std::make_unique<FailureDetect>(options_.fail_detect_option);
   pose_predit_ = std::make_unique<PosePredit>();
+  when_done_task_ = std::make_unique<common::Task>();
+  options_.slide_windows_option.thread_pool = options.thread_pool;
 }
 
 Estimator::~Estimator() {
@@ -101,22 +104,49 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
     
     frame_data.data->images  = images;
     TicToc track_t_t;
+
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       CHECK(!images.image[options_.track_sequence[i][0]].empty());
-      // if (options_.track_sequence[i].size() == 2 &&  stereo_sample_->Pulse() ) {
-      //   ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
+      // if (options_.track_sequence[i].size() == 2 &&  stereo_sample_->Pulse()
+      // ) {
+      //   ImageFeatureTrackerData featureFrame =
+      //   feature_trackers_[i]->TrackImage(
       //       images.time, images.image[options_.track_sequence[i][0]],
       //       images.image[options_.track_sequence[i][1]]);
       //   frame_data.data->features_datas.emplace(
       //       i, FrameData::FeatureData{featureFrame});
       //   LOG(INFO)<<"use stereo ..";
       // } else {
-        ImageFeatureTrackerData featureFrame = feature_trackers_[i]->TrackImage(
-            images.time, images.image[options_.track_sequence[i][0]]);
-        frame_data.data->features_datas.emplace(
-            i, FrameData::FeatureData{featureFrame});
+      frame_data.data->features_datas[i];
+      auto track_task = std::make_unique<common::Task>();
+      const int index =  i;
+      track_task->SetWorkItem([&,index]() {
+        ImageFeatureTrackerData featureFrame = feature_trackers_[index]->TrackImage(
+            images.time, images.image[options_.track_sequence[index][0]]);
+        frame_data.data->features_datas[index] =
+            FrameData::FeatureData{featureFrame};
+      });
+      auto track_task_handle = thread_pool_->Schedule(std::move(track_task));
+      when_done_task_->AddDependency(track_task_handle);
+
       // }
     }
+    std::mutex mutex;
+    std::condition_variable condtion;
+    bool match_finish = false;
+    when_done_task_->SetWorkItem([&] {
+      std::lock_guard<std::mutex> lock(mutex);
+      match_finish = true;
+      condtion.notify_all();
+    });
+    thread_pool_->Schedule(std::move(when_done_task_));
+    {
+      std::unique_lock<std::mutex> locker(mutex);
+      condtion.wait(locker, [&]() { return match_finish; });
+    }
+    when_done_task_ = std::make_unique<common::Task>();
+    //
+ 
 
     VLOG(kGlogCostTimeLevel) << "track costs " << track_t_t.toc() << " ms";
 

@@ -40,11 +40,12 @@ struct LocalMapTrackOption {
   std::string test_match_pic_write_path = "";
   int max_num_iterations =3;
   int op_type  =0;//o  four
+  common::ThreadPool* thread_pool;
 };
 
 class LocalMapTrack {
  public:
-  explicit LocalMapTrack(const LocalMapTrackOption& option);
+  LocalMapTrack(const LocalMapTrackOption& option);
   std::unique_ptr<LocalMapMatchResult> Track(
       const std::shared_ptr<LocalMap>& local_map,
       const KeyFrameData& track_data);
@@ -133,10 +134,11 @@ class LocalMapTrack {
   std::map<KeyFrameId, std::map<int, std::shared_ptr<match::Frame>>>
       ref_frams_catch_;
   std::vector<transform::Rigid3d> extric_camera_to_imu_;
+
+  common::ThreadPool* thread_pool_;
   std::map<int, camera_models::CameraPtr> cameras_;
   std::vector<Eigen::Vector3d> px_top_lefts_;
   // for debug
-  std::unique_ptr<common::ThreadPool> thread_pool_;
   //
   std::shared_ptr<LocalMap> local_map_ = nullptr;
   //

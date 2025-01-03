@@ -56,14 +56,18 @@ bool FeatureManager::IsParallax(int frame_count,
     }
     //
   }
-  info = FeatTrackInfo{last_track_num, new_feature_num, long_track_num};
+  bool paraller = false;
+  info = FeatTrackInfo{frame_count, last_track_num, new_feature_num,
+                       long_track_num};
   if (frame_count < options_.parallax_option.start_frame ||
       last_track_num < options_.parallax_option.last_track_num ||
       long_track_num < options_.parallax_option.long_track_num ||
       new_feature_num >
           options_.parallax_option.new_feature_ration * last_track_num) {
-    return true;
+    paraller = true;
+    // return true;
   }
+
   //
   //
   for (const auto &pair_it_per_id : features_) {
@@ -75,19 +79,24 @@ bool FeatureManager::IsParallax(int frame_count,
       parallax_num++;
     }
   }
+  info.parallax_num = parallax_num;
+  info.parallax_sum = parallax_sum;
   if (parallax_num == 0) {
+    paraller = true;
     LOG(WARNING)<<"parallax_num :"<<parallax_num;
-    return true;
+    // return true;
   } else {
     VLOG(kGlogLevel) << "parallax_sum: " << parallax_sum
                      << ",parallax_num: " << parallax_num
                      << ",current parallax: ";
     // LOG(INFO)<< parallax_sum / parallax_num<<" " << options_.min_parallax;
     // LOG(INFO)<<options_.min_parallax;
-    return parallax_sum / parallax_num >= options_.min_parallax;
+    if(parallax_sum / parallax_num >= options_.min_parallax){
+      paraller = true;
+    }
   }
 
-  return false;
+  return paraller;
 }
 ///
 
@@ -1054,12 +1063,31 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
 
   //
   bool FeatureManagers::CheckParallax() const {
-    for (const auto &f_m : feature_managers_) {
-      if (f_m.second->IsParallax()) {
+    FeatTrackInfo info;
+    for (auto &f_m : feature_managers_) {
+      info += f_m.second->GetFeatTrackInfo();
+    }
+    const auto options = feature_managers_.begin()->second->Options();
+    if (info.frame < options.parallax_option.start_frame ||
+        info.last_track_num < options.parallax_option.last_track_num ||
+        info.long_track_num < options.parallax_option.long_track_num ||
+        info.new_feature_num >
+            options.parallax_option.new_feature_ration * info.last_track_num) {
+      return true;
+    }
+    if (info.parallax_num == 0) {
+      return true;
+    } else {
+      if (info.parallax_sum / info.parallax_num >= options.min_parallax) {
         return true;
       }
     }
     return false;
+    // for (const auto &f_m : feature_managers_) {
+    // if (f_m.second->IsParallax()) {
+    //   return true;
+    // }
+    // }
   }
   //
   //
@@ -1084,7 +1112,7 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
            << " Remove: " << result[f_m.first].size()<<" ";
     }
     if (!info.str().empty()) {
-      LOG_EVERY_N(INFO, 5) << info.str();
+      LOG_EVERY_N(INFO, 1) << info.str();
     }
     VLOG(kGlogLevel) << info.str();
     return result;
@@ -1134,13 +1162,11 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
   }
   void FeatureManagers::RemoveFailures(std::map<CameraId, std::set<TrackFeatureId>>*ids) {
     for (auto &f_m : feature_managers_) {
-
-   auto fail_ids =     f_m.second->RemoveFailures();
-   if(!fail_ids.empty())
-      for(const auto &id:fail_ids ){
-
-      ids->at(f_m.first).insert(id);
-      }
+      auto fail_ids = f_m.second->RemoveFailures();
+      if (!fail_ids.empty())
+        for (const auto &id : fail_ids) {
+          ids->at(f_m.first).insert(id);
+        }
     }
   }
 

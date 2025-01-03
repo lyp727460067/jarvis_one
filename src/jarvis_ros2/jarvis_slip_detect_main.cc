@@ -378,7 +378,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 
     if(lr_image.empty()||vr_image.empty() )continue;
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    // // cv::imshow("vr_image",vr_image);
+    // cv::imshow("vr_image",vr_image);
     // cv::waitKey(0);
     // LOG(INFO)<<imu_cam_time_offset;
 
@@ -423,13 +423,15 @@ bool kill_thread = false;
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   //
+
+  CHECK_EQ(argc, 3);  
   // LocalGlogSink glog_sink;
   // google::AddLogSink(&glog_sink);
-
+const std::string data_dir(argv[2]);
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("jarvis_ros2");
   if (kRecordFlag) {
-    kOPoseFile.open("/tmp/vio_pose.txt", std::ios::out);
+    kOPoseFile.open(data_dir+"off_vio_pose.txt", std::ios::out);
     kSlipFile.open("/tmp/slep_vio_pose.txt", std::ios::out);
   }
  
@@ -454,8 +456,8 @@ int main(int argc, char* argv[]) {
   //           << " ,rtk lenth:" << rth_lenth << " vio err:" << odo_lenth - vio_lenth
   //           << " rtk err:" << rth_lenth - odo_lenth;
   // KImuExtrapolator = std::make_unique<jarvis::estimator::ImuExtrapolator>();
-  const std::string data_dir(argv[2]);
-  CHECK_EQ(argc, 3);
+  
+
   LOG(INFO) << "input dir : " << data_dir;
   LOG(INFO) << "config file : " << argv[1];
   //
@@ -587,7 +589,7 @@ builder_ = std::make_unique<TrajectorBuilder>(
       } else {
         object_interface = nullptr;
       }
-      ros_compont->PosePub(tracking_data.data->imu_state.Pose(),
+      ros_compont->PosePub(slipe_alignment_pose,
                            transform::Rigid3d::Identity());
       rclcpp::spin_some(node);
       cond.notify_one();

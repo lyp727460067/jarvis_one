@@ -140,7 +140,6 @@ MapManager::GetAllKeyFramePose() {
         transform::TimestampedTransform{key_frame_data.data.data->time,
                                         key_frame_data.data.data->global_pos});
   }
-  LOG(INFO)<< result.size();
   return result;
 }
 

@@ -29,6 +29,7 @@ struct SlideWindowOption {
   double rejection_points_depth_max_th = 30;
   std::vector<std::vector<int>> track_sequence;
   double camera_imu_time_offset=0;
+  common::ThreadPool* thread_pool=nullptr; 
 //
 };
 //

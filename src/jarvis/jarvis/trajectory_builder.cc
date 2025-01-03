@@ -9,9 +9,15 @@ using namespace mapping;
 
 TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
                                    CallBack call_back)
-    : options_(option),
-      tracker_(std::make_unique<estimator::Estimator>(options_.esti_option)),
-      call_back_(call_back) {
+    : options_(option), call_back_(call_back) {
+  //
+  thread_pool_ =
+      std::make_unique<common::ThreadPool>(options_.esti_option.thread_num);
+  //
+  options_.esti_option.thread_pool = thread_pool_.get();
+  options_.mapping_option.local_map_track_option.thread_pool =
+      thread_pool_.get();
+  tracker_  = std::make_unique<estimator::Estimator>(options_.esti_option);
   if (option.mapping_option.enable_loop_closure ||
       option.mapping_option.enable_local_opimization) {
     voc_ = std::make_unique<dbow::Vocabulary>(

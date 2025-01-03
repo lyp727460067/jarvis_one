@@ -580,10 +580,12 @@ bool align2D_SSE2(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
 bool align2D_NEON(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
                   uint8_t* ref_patch, const int n_iter,
                   Keypoint& cur_px_estimate,const float min_update_squared) {
+   bool converged = false;
+  #ifdef __ARM_NEON__
   const int halfpatch_size = 4;
   const int patch_size = 8;
   const int patch_area = 64;
-  bool converged = false;
+
   const int W_BITS = 14;
   // compute derivative of template and prepare inverse compositional
   int16_t __attribute__((__aligned__(16))) ref_patch_dx[patch_area];
@@ -741,6 +743,8 @@ bool align2D_NEON(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
 
   (void)W_BITS;
   (void)ref_patch;
+
+  #endif
   return converged;
 }
 

@@ -62,13 +62,20 @@ struct FeatureManagerOption {
 };
 
 struct FeatTrackInfo {
+  int frame  =0;
   int last_track_num = 0;
   int new_feature_num = 0;
   int long_track_num = 0;
+  double parallax_sum = 0;
+  int parallax_num =0;
   FeatTrackInfo &operator+=(const FeatTrackInfo &rhs) {
+    frame  = rhs.frame;
     last_track_num += rhs.last_track_num;
     new_feature_num += rhs.new_feature_num;
     long_track_num += rhs.long_track_num;
+    parallax_sum += rhs.parallax_sum;
+    parallax_num += rhs.parallax_num;
+
     return *this;
   }
 };
@@ -145,6 +152,7 @@ class FeatureManager {
     return features_;
   }
   bool IsParallax() const { return parallax_; }
+
   //
   double GetDepth(const TrackFeatureId &id) {
     if (!features_.count(id)) {
@@ -162,6 +170,9 @@ class FeatureManager {
     features_[id].estimated_depth = depth;
   }
 //
+ const FeatureManagerOption&  Options(){
+  return  options_;
+ }
  private:
   bool IsParallax(int frame_count, const ImageFeatureTrackerData &image);
   void TriangulateStero(uint64_t it_per_id,

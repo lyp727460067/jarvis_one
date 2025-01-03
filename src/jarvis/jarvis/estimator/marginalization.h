@@ -17,6 +17,7 @@ struct MarginalizationOption {
   int camera_num=0; 
   int use_odom=0;
   double huber_loss =1.0;
+  common::ThreadPool* thread_pool; 
 };
 
 //
