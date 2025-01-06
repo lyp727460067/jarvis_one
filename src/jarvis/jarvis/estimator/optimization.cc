@@ -118,9 +118,9 @@ struct ReProjectionErrProblem : public ceres::SizedCostFunction<2, 7, 7> {
         jacobians_.setZero();
         //忽略平移方向，只在旋转方向给约束
         //
-        // jacobians_.block<2, 3>(0, 0) =
-        //     sqrt_info * reduce *
-        //     re1.transpose() *  -r1.transpose();
+        jacobians_.block<2, 3>(0, 0) =
+            sqrt_info * reduce *
+            re1.transpose() *  -r1.transpose();
         jacobians_.block<2, 3>(0, 3) = sqrt_info * reduce * re1.transpose() *
                                        Utility::skewSymmetric(pts_imu_1);
       }
