@@ -96,6 +96,7 @@ class Estimator {
   int testnum_  =0;
   PriorFactorFunction prior_factor_;
   std::unique_ptr<common::Task> when_done_task_ ;
+  
 };
 
 

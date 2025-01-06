@@ -57,6 +57,8 @@ class SlideWindow {
   std::map<CameraId, std::set<TrackFeatureId>>& RejectionOutliers() {
     return rejection_outliers_;
   }
+  std::map<int, Eigen::Vector3d> PredictNextFrame(
+      const transform::Rigid3d& predit_imu_pose, int s);
 
  private:
   void SlideData(bool);

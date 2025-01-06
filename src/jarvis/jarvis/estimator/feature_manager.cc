@@ -886,7 +886,40 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
     //   }
     // }
   }
+  //
+  std::map<int, Eigen::Vector3d> FeatureManager::GetPredictionInPose(
+      const transform::Rigid3d &pose, int frame_count,
+      const std::vector<transform::Rigid3d> &sw_poses) {
+    std::map<int, Eigen::Vector3d> predictPts;
+    for (auto &pair_it_per_id : features_) {
+      auto &it_per_id = pair_it_per_id.second;
+      if (it_per_id.estimated_depth > 0) {
+        int firstIndex = it_per_id.start_frame;
+        int lastIndex =
+            it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
+        // printf("cur frame index  %d last frame index %d\n", frame_count,
+        // lastIndex);
+        if ((int)it_per_id.feature_per_frame.size() >= 2 &&
+            (lastIndex == frame_count || options_.predit_all_sw_frame)) {
+          
+          double depth = it_per_id.estimated_depth;
+          const transform::Rigid3d &last_pose = sw_poses[it_per_id.start_frame];
+          Eigen::Vector3d pts_w =
+              last_pose * (depth * it_per_id.feature_per_frame[0]
+                                       .feature.camera_features[0]
+                                       .normal_points);
+          // Eigen::Vector3d pts_w = Rs[firstIndex] * pts_j + Ps[firstIndex];
+          Eigen::Vector3d pts_cam = pose.inverse() * pts_w;
 
+          int ptsIndex = pair_it_per_id.first;
+          predictPts[ptsIndex] = pts_cam;
+        }
+        
+      }
+    }
+    return predictPts;
+  }
+  //
   //
   void FeatureManager::RemoveOutlier(
       const std::set<TrackFeatureId> &outlierIndex) {

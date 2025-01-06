@@ -50,7 +50,7 @@ struct FeatureManagerOption {
   int init_pnp_inlier_num = 15;
   int convin_used_num = 4;
   int keyframe_parallax=1;
-
+  bool predit_all_sw_frame =true;
   double optimazation_outliers_rejection_th = 5.0 / 377;
   double rejection_points_depth_max_th =30;
   struct ParallaxOption {
@@ -92,7 +92,10 @@ class FeatureManager {
   int GetFeatureCount();
   bool AddFeatureCheckParallax(int frame_count,
                                const ImageFeatureTrackerData &image, double td);
-
+    //
+  std::map<int, Eigen::Vector3d> GetPredictionInPose(const transform::Rigid3d&pose,int frame_count,
+ const   std::vector<transform::Rigid3d>& sw_poses 
+  );
   //
   const FeatTrackInfo &GetFeatTrackInfo() { return info; }
   std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> GetCorresponding(

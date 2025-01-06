@@ -456,6 +456,7 @@ void ParseYAMLOptionFetureOption(
   feature_option->ransac_threshold = fsSettings[feat_tack]["F_threshold"];
   feature_option->track_back = fsSettings[feat_tack]["flow_back"];
   feature_option->max_feat_cnt = fsSettings[feat_tack]["max_cnt"];
+  feature_option->try_recalc_min_num = fsSettings[feat_tack]["try_recalc_min_num"];
   feature_option->feature_detect_option.min_distance =
       fsSettings[feat_tack]["min_dist"];
   feature_option->feature_detect_option.mask_min_dist =

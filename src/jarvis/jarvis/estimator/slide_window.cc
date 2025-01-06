@@ -120,6 +120,24 @@ TrackingData SlideWindow::GetratePriorData(bool generate_point, int k) {
   return result;
 }
 //
+std::map<int, Eigen::Vector3d> SlideWindow::PredictNextFrame(
+    const transform::Rigid3d& predit_imu_pose, int s) {
+  if (feature_managers_->Exist(s)) {
+    std::vector<transform::Rigid3d> cam_pose;
+    for (size_t i = 0; i < imu_states_.size(); i++) {
+      cam_pose.push_back(
+          imu_states_[i].Pose() *
+          extric_camera_to_imu_[options_.opti_option.trace_sequence[s][0]]);
+    }
+    return feature_managers_->MutableFeatureManager(s)->GetPredictionInPose(
+        predit_imu_pose *
+            extric_camera_to_imu_[options_.opti_option.trace_sequence[s][0]],
+        options_.win_size - 1, cam_pose);
+  }
+  return {};
+}
+
+//
 std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     const FrameData& frame) {
   //

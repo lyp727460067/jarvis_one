@@ -11,6 +11,7 @@ track_sequence: "{0,1},{2},{3}"
 
 feattrack0:
   max_cnt: 60          # max feature number in feature tracking
+  try_recalc_min_num: 30
   min_dist:  50           # min distance between two features 
   mask_min_dist:  65
   F_threshold: 1.0        # ransac threshold (pixel)
@@ -22,24 +23,27 @@ feattrack0:
   grid_size_y : 68
   klt_type : 1
   back_flow_min_distance : 0.4
+
   mask : mask.png
 ####
 feattrack1:
   max_cnt: 15          # max feature number in feature tracking
+  try_recalc_min_num: 5
   min_dist:  60          # min distance between two features 
   mask_min_dist:  30 
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
-  flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
+  flow_back: 0           # perform forward and backward optical flow to improve feature tracking accuracy
   lk_win_size : 7
   lk_pre_max_layer : 3
   grid_size_x : 68
   grid_size_y : 64
   klt_type : 1
-  back_flow_min_distance : 0.3
+  back_flow_min_distance : 0.5
   mask : mask0.png
 feattrack2:
   max_cnt: 15        # max feature number in feature tracking
+  try_recalc_min_num: 5
   min_dist:  60           # min distance between two features 
   mask_min_dist:  30 
   F_threshold: 1.0        # ransac threshold (pixel)
@@ -50,7 +54,7 @@ feattrack2:
   grid_size_x : 68
   grid_size_y : 64
   klt_type : 1
-  back_flow_min_distance : 0.3
+  back_flow_min_distance : 0.5
   mask : mask0.png
 
 optimization: 

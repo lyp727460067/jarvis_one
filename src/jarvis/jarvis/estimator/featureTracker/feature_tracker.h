@@ -150,6 +150,7 @@ class FeatureTracker {
       const std::map<uint64_t, PointCnt> &pre_pts);
   //
   void SetPrediction(const std::map<int, Eigen::Vector3d> &predictPts);
+  void SetPredictionWithPose(const transform::Rigid3d&pose);
   void RemoveOutliers(const std::set<uint64_t> &removePtsIds);
 
  private:

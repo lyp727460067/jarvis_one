@@ -325,12 +325,11 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
   auto &calc_optical_flow_pyrlk = *calc_optical_flow;
   calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
   const int succ_num = cur_pts.size();
-  // LOG(INFO)<<"pre pts size:"<<prev_pts.size();
   if (succ_num < options_.try_recalc_min_num && flags != 0) {
+    LOG(INFO)<<"!";
     cur_pts.clear();
     calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts);
   }
-  // LOG(INFO)<<"cur pts size:"<< cur_pts.size();
   //
   if(cur_pts.empty())return {};
   if (options_.track_back) {
@@ -367,6 +366,17 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   //
   std::map<uint64_t, PointCnt> cur_pts;
   if (!predit_pts_.empty()) {
+  // auto shwo_image1 =
+  //   GenerateImageWithKeyPoint(pyramid_image_->CurrPyram()[0], predit_pts_, cv::Mat(),{});
+  // //
+  //   cv::imshow("predit_pts_ ", shwo_image1);
+  // auto shwo_image2 =
+  //   GenerateImageWithKeyPoint(pyramid_image_->PrePyram()[0], prev_pts_, cv::Mat(),{});
+
+
+  // cv::imshow("prev_pts_ ", shwo_image2);
+ 
+    //
     cur_pts =
         TrackImage(pyramid_image_->PrePyram(), pyramid_image_->CurrPyram(),
                    prev_pts_,predit_pts_, calc_optical_flow_pyrlk_.get(),
@@ -470,6 +480,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   prev_time_ = curr_time_;
   prev_pts_ = std::move(cur_pts);
   predit_pts_.clear();
+  // predit_pts_ = cur_pts;
   //
 
     VLOG(kGlogCostTimeLevel) << "tranck other costs " << tran_t_t.toc() << " ms";
@@ -620,12 +631,17 @@ std::map<uint64_t, Eigen::Vector2d> FeatureTracker::PtsVelocity(
   return pts_velocity;
 }
 //
+
+void FeatureTracker::SetPredictionWithPose(const transform::Rigid3d &pose) {}
 void FeatureTracker::SetPrediction(
     const std::map<int, Eigen::Vector3d> &predictPts) {
-  for (auto &point : predit_pts_) {
+  if(predictPts.empty())return;
+  // LOG(INFO)<<predictPts.size();
+  for (auto &point : prev_pts_) {
     if (predictPts.count(point.first)) {
-      Eigen::Vector2d tmp_uv;
-      m_camera[0]->spaceToPlane(predictPts.at(point.first), tmp_uv);
+
+       Eigen::Vector2d tmp_uv;
+       m_camera[0]->spaceToPlane(predictPts.at(point.first), tmp_uv);  
       //
       predit_pts_.emplace(point.first,
                           PointCnt{cv::Point2f(tmp_uv.x(), tmp_uv.y()),

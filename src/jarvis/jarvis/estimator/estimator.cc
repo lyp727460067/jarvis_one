@@ -120,7 +120,11 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
       frame_data.data->features_datas[i];
       auto track_task = std::make_unique<common::Task>();
       const int index =  i;
-      track_task->SetWorkItem([&,index]() {
+      track_task->SetWorkItem([&, index]() {
+        //
+        const auto predict_points =
+            slide_wondows_->PredictNextFrame(imu_state_.Pose(), index);
+        feature_trackers_[index]->SetPrediction(predict_points );
         ImageFeatureTrackerData featureFrame = feature_trackers_[index]->TrackImage(
             images.time, images.image[options_.track_sequence[index][0]]);
         frame_data.data->features_datas[index] =
