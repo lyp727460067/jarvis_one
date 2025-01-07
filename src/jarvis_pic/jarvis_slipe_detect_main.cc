@@ -275,8 +275,7 @@ class JarvisBuilder {
                          auto& image = tracking_data.data->images.image[0];
                         object_result = object_interface->Detect(
                             common::ToUniversal(tracking_data.data->time),
-                            tracking_data.data->features_datas[0]
-                                .features.data->images[0],
+                            image,
                             tracking_data.data->imu_state.Pose(),
                             extric_camera_to_imu);
 
@@ -293,10 +292,10 @@ class JarvisBuilder {
                       // 第二圈不锚定只计算误差
                       // LOG(ERROR)<< "imu pose: " <<
                       // tracking_data.data->imu_state.Pose() << std::endl;
+                      auto& image = tracking_data.data->images.image[0];
                       object_result = object_interface->ComputeError(
                           common::ToUniversal(tracking_data.data->time),
-                          tracking_data.data->features_datas[0]
-                              .features.data->images[0],
+                          image,
                           tracking_data.data->imu_state.Pose(),
                           extric_camera_to_imu);
                     } else if (factory_state_ == 3) {
