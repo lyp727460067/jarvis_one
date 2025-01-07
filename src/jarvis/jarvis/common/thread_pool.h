@@ -45,9 +45,7 @@ class ThreadPool : public ThreadPoolInterface {
   ThreadPool(const ThreadPool&) = delete;
   ThreadPool& operator=(const ThreadPool&) = delete;
 
-  size_t GetThreadNum() {
-    return pool_.size();
-  }
+  size_t GetThreadNum() { return pool_.size(); }
   // When the returned weak pointer is expired, 'task' has certainly completed,
   // so dependants no longer need to add it as a dependency.
   std::weak_ptr<Task> Schedule(std::unique_ptr<Task> task) override;

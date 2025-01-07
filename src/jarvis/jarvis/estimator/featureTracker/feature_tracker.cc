@@ -326,7 +326,6 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
   calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
   const int succ_num = cur_pts.size();
   if (succ_num < options_.try_recalc_min_num && flags != 0) {
-    LOG(INFO)<<"!";
     cur_pts.clear();
     calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts);
   }
