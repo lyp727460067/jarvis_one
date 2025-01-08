@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(jarvis VERSION 1.0.0)
+project(jarvis_main VERSION 1.0.0)
 # define GLOG_EXPORT __attribute__((visibility("default")))
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 # set(BUILD_TYPE Debug)
@@ -156,11 +156,11 @@ file(GLOB_RECURSE GRID_LIBRARY_SRC "jarvis/common/*.cc" "jarvis/transform/*.cc")
 file(GLOB_RECURSE GRID_LIBRARY_HDRS "jarvis/common/*.h" "jarvis/transform/*.h")
 
 message(${GRID_MAP_SRC})
-add_library(${PROJECT_NAME}_grid SHARED ${GRID_LIBRARY_SRC} ${GRID_MAP_SRC})
-target_include_directories(${PROJECT_NAME}_grid   SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-target_include_directories(${PROJECT_NAME}_grid   PUBLIC   ${PROJECT_SOURCE_DIR}/)
-target_include_directories( ${PROJECT_NAME}_grid  PUBLIC           ${GLOG_INCLUDE_DIRS})
-target_link_libraries (${PROJECT_NAME}_grid PUBLIC glog::glog)
+add_library(jarvis SHARED ${GRID_LIBRARY_SRC} ${GRID_MAP_SRC})
+target_include_directories(jarvis   SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_include_directories(jarvis   PUBLIC   ${PROJECT_SOURCE_DIR}/)
+target_include_directories(jarvis  PUBLIC           ${GLOG_INCLUDE_DIRS})
+target_link_libraries (jarvis PUBLIC glog::glog)
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
 file(GLOB_RECURSE ALL_PROTOS "jarvis/mapping/*.proto")
 set(ALL_PROTO_SRCS)
@@ -223,6 +223,7 @@ if(${build_test})
       -lgtest_main
       -lgtest
       -lpthread
+      jarvis
       ${PROJECT_NAME}
       ${OpenCV_LIBS}
     )

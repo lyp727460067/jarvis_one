@@ -98,7 +98,7 @@ add_executable(jarvis_grid_test  jarvis_grid_test.cc
 
 target_link_libraries(jarvis_grid_test PUBLIC
   ${OpenCV_LIBS}
-  jarvis_grid
+  jarvis
   -ldl
 )
 ##
@@ -110,7 +110,7 @@ target_link_libraries(jarvis_eigen_test PUBLIC
 
 target_link_libraries(calibrate_data_record PUBLIC
   # glog
-  jarvis
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
    mpc
@@ -118,7 +118,7 @@ target_link_libraries(calibrate_data_record PUBLIC
 )
 target_link_libraries(mpslam PUBLIC
   # glog
-  jarvis
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
    mpc
@@ -138,7 +138,7 @@ target_link_libraries(mpslam PUBLIC
 
 target_include_directories(mpslam  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(mpslam PUBLIC
-  jarvis
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
   mpc
@@ -146,8 +146,8 @@ target_link_libraries(mpslam PUBLIC
 )
 
 target_include_directories(calibrate_data_record  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(mpslam PUBLIC
-  jarvis
+target_link_libraries(calibrate_data_record PUBLIC
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
   mpc

@@ -97,7 +97,7 @@ target_link_libraries(ld_${PROJECT_NAME}_slip_main
   ${PROTOBUF_LIBRARIES}
   glog::glog
   yaml-cpp
-  jarvis
+  jarvis_main
   ${OpenCV_LIBS}
 )
 target_link_libraries(ld_${PROJECT_NAME}_data_parse
@@ -105,7 +105,7 @@ target_link_libraries(ld_${PROJECT_NAME}_data_parse
   ${Boost_LIBRARIES}
   glog::glog
   yaml-cpp
-  jarvis
+  jarvis_main
 )
 
 target_link_libraries(ld_${PROJECT_NAME}_pose_compare_main
@@ -113,7 +113,7 @@ target_link_libraries(ld_${PROJECT_NAME}_pose_compare_main
   ${Boost_LIBRARIES}
   glog::glog
   yaml-cpp
-  jarvis
+  jarvis_main
 )
 set(ALL_TEST_SRCS  ${PROJECT_SOURCE_DIR}/dbow_test/vocabulary_test.cc
 ${PROJECT_SOURCE_DIR}/dbow_test/to_dbow2_vocabulary_adptor_test.cc
@@ -127,7 +127,7 @@ target_link_libraries(dbow_test
   ${Boost_LIBRARIES}
   glog::glog
   ${PROTOBUF_LIBRARIES}
-  jarvis
+  jarvis_main
 )
 
 target_include_directories(dbow_test PUBLIC  ${PROJECT_SOURCE_DIR}/dbow_test/DBow2/DBoW2/include/DBoW2/)
@@ -142,7 +142,7 @@ foreach(ABS_FIL ${ALL_TEST_SRCS})
     -lgtest_main
     -lgtest
     -lpthread
-    jarvis
+    jarvis_main
     ${OpenCV_LIBS}
     dbow_test
   )
@@ -181,7 +181,7 @@ target_link_libraries(${PROJECT_NAME}_zmp_main
   ${Boost_LIBRARIES}
   glog::glog
   yaml-cpp
-  jarvis
+  jarvis_main
 )
 ament_target_dependencies(${PROJECT_NAME}_zmp_main rclcpp std_msgs nav_msgs sensor_msgs
 visualization_msgs

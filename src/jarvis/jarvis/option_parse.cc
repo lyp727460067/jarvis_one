@@ -601,6 +601,7 @@ void ParseYAMLOption(const std::string &file,
 
     int use_stero = fsSettings["use_stero"];
     option->use_stero = (use_stero == 1);
+    option->feature_track_options[0].extric_camera_to_imu = calib_option.extric_camera_to_imu;
     // option->use_odom = fsSettings["use_odom"];
     // option->use_stereo_sample_ration =
     //     fsSettings["use_stereo_sample_ration"];

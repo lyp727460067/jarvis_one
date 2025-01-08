@@ -54,16 +54,23 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
   if (options_.klt_type == 0) {
     calc_optical_flow_pyrlk_ =
         std::make_unique<CalcOpticalFlowPyrLK>(klt_option);
-    //  calc_optical_flow_pyrlk_ =
-    //     std::make_unique<CalcOpticalFlowPyrLK>(klt_option);
+
  
   } else {
     calc_optical_flow_pyrlk_ =
         std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
-    // calc_optical_flow_pyrlk_r_ =
-    //     std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
 
 
+
+  }
+  //
+  klt_option.win_size = cv::Size(21, 21);
+  klt_option.level = 4;
+  calc_optical_flow_pyrlk_r_ = std::make_unique<CalcOpticalFlowPyrLK>(klt_option);
+  //
+  if(!options_.extric_camera_to_imu.empty()){
+    cam0_to_cam1_extric_ = options_.extric_camera_to_imu[1].inverse() *
+                           options_.extric_camera_to_imu[0];
   }
   klt_option.win_size = cv::Size(21, 21);
   calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
@@ -239,9 +246,17 @@ void CalcOpticalFlowPyrLK::operator()(
   // cv::imshow("1",pre_image[0]);
   // cv::waitKey(0);
   //
-  // cv::calcOpticalFlowPyrLK(pre_image, cur_image, v_prev_pts, v_cur_pts, status,
-  //                          err, options_.win_size, options_.level,
-  //                          options_.criteria, flags);
+  if (pre_image.size() == 1) {
+
+    cv::calcOpticalFlowPyrLK(pre_image[0], cur_image[0], v_prev_pts, v_cur_pts,
+                             status, err, options_.win_size, options_.level,
+                             options_.criteria);
+  } else {
+    cv::calcOpticalFlowPyrLK(pre_image, cur_image, v_prev_pts, v_cur_pts,
+                             status, err, options_.win_size, options_.level,
+                             options_.criteria, flags);
+  }
+
   cur_pts.clear();
   for (int i = 0; i < int(status.size()); i++) {
     if (status[i] && InBorder(v_cur_pts[i])) {
@@ -419,8 +434,8 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     cur_pts.emplace(tranck_id_, PointCnt{n_pts[i], 1});
     tranck_id_+=1;
   }
-  
-  std::map<uint64_t, PointCnt> cur_right_pts ;
+
+  std::map<uint64_t, PointCnt> cur_right_pts;
   if (!_img1.empty()) {
     std::map<uint64_t, PointCnt> r_pts_init;
     // auto const r_pts_init_un = UndistortedPts(cur_pts, options_.cameras[0]);
@@ -462,7 +477,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     VLOG(kGlogLevel) << "Track r  num:" << cur_right_pts.size();
     VLOG(kGlogCostTimeLevel) << "Track r Image costs " << t_t.toc() << " ms";
   }
-  
+
   // auto shwo_image =
   //     GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
 

@@ -227,10 +227,10 @@ SteroImuInitialization::OptimizationResult() {
 
   ceres::Solver::Options options;
   // options.linear_solver_ordering.reset(ordering);
-  options.linear_solver_type = ceres::DENSE_SCHUR;
+  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   options.num_threads = 4;
   options.trust_region_strategy_type = ceres::DOGLEG;
-  options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  options.sparse_linear_algebra_library_type = ceres::SUITE_SPARSE;
   options.use_explicit_schur_complement = true;
   options.use_nonmonotonic_steps = true;
   // options.max_solver_time_in_seconds =
