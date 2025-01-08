@@ -44,11 +44,11 @@ set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/lib/
 #         ${glog_binary_dir}
 # )
 get_directory_property(out_var INCLUDE_DIRECTORIES)
-message(****${out_var})
+# message(****${out_var})
 string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
 set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
 get_directory_property(out_var1 INCLUDE_DIRECTORIES)
-message(********${out_var1})
+# message(********${out_var1})
 
 INCLUDE_DIRECTORIES(
   ${TOP_CMAKE_DIR}/vslam/src/jarvis/
@@ -98,7 +98,7 @@ add_executable(jarvis_grid_test  jarvis_grid_test.cc
 
 target_link_libraries(jarvis_grid_test PUBLIC
   ${OpenCV_LIBS}
-  jarvis
+  jarvis_grid
   -ldl
 )
 ##

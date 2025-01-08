@@ -41,12 +41,12 @@ if(PLATFORM_mr527)
   set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
   set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
   set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
-  set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
+  set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libcerestest.a)
   set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
   set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include)
   set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
 
-  message(${YAML_INCLUDE_DIRS})
+  # message(${YAML_INCLUDE_DIRS})
   set(OpenCV_LIBS
       ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
       ${Opencv_lib_dir}/libopencv_imgcodecs.so
@@ -110,9 +110,9 @@ else()
   # set(OpenCV_DIR "/home/lyp/third_part/opencv/build") 
   ## export PKG_CONFIG_PATH=/home/lyp/third_part/opencv/build/:$PKG_CONFIG_PATH
   find_package(OpenCV REQUIRED COMPONENTS highgui core imgproc calib3d  imgcodecs ) 
-  message( "Found OpenCV version: ${OpenCV_VERSION}")
-message( "OpenCV Include Dir: ${OpenCV_INCLUDE_DIRS}")
-message( "OpenCV Libraries: ${OpenCV_LIBS}")
+#   message( "Found OpenCV version: ${OpenCV_VERSION}")
+# message( "OpenCV Include Dir: ${OpenCV_INCLUDE_DIRS}")
+# message( "OpenCV Libraries: ${OpenCV_LIBS}")
   find_package(Ceres REQUIRED)
   find_package(Glog REQUIRED) 
   find_package(yaml-cpp  REQUIRED) #version 0.7.0
@@ -139,12 +139,28 @@ file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
 
 file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc"  )
+file(GLOB_RECURSE GRID_MAP_SRC "jarvis/grid_map/*.cc")
+##
+
+
+
 ##
 list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC} ${PB_NOT_USE_SRC})
 list(APPEND ALL_LIBRARY_SRCS ${ARUCO_SRC})
 ##
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
-list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
+
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS} ${GRID_MAP_SRC})
+list(REMOVE_ITEM GRID_MAP_SRC  ${ALL_TEST_SRCS})
+file(GLOB_RECURSE GRID_LIBRARY_SRC "jarvis/common/*.cc" "jarvis/transform/*.cc")
+file(GLOB_RECURSE GRID_LIBRARY_HDRS "jarvis/common/*.h" "jarvis/transform/*.h")
+
+message(${GRID_MAP_SRC})
+add_library(${PROJECT_NAME}_grid SHARED ${GRID_LIBRARY_SRC} ${GRID_MAP_SRC})
+target_include_directories(${PROJECT_NAME}_grid   SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME}_grid   PUBLIC   ${PROJECT_SOURCE_DIR}/)
+target_include_directories( ${PROJECT_NAME}_grid  PUBLIC           ${GLOG_INCLUDE_DIRS})
+target_link_libraries (${PROJECT_NAME}_grid PUBLIC glog::glog)
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
 file(GLOB_RECURSE ALL_PROTOS "jarvis/mapping/*.proto")
 set(ALL_PROTO_SRCS)
@@ -174,7 +190,7 @@ set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENER
 list(APPEND ALL_LIBRARY_HDRS ${ALL_PROTO_HDRS})
 list(APPEND ALL_LIBRARY_SRCS ${ALL_PROTO_SRCS})
 
-add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
+add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
 
 
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
@@ -187,7 +203,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${PROTOBUF_LIBRARIES})
 # link_directories(${OpenCV_DIR}/lib/)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
 
-message(${OpenCV_LIBS})
 # target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
 # target_compile_definitions (${PROJECT_NAME} INTERFACE GLOG_EXPORT=__attribute__((visibility("default"))))
 target_link_libraries(
