@@ -223,6 +223,7 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       LOG_EVERY_N(WARNING, 1000) << "Frame behind imu " << delta_time
                                  << " frame: " << newst_frame_time_.value()
                                  << " imu:" << newst_imu_time_.value();
+      
       LOG_IF(WARNING,abs(delta_time) > 2000000)
                    << "The camera is too delayed IMU " << delta_time
                    << "frame: " << newst_frame_time_.value()

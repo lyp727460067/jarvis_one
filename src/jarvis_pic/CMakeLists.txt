@@ -68,7 +68,10 @@ option(view_debug " view_debug" ON)
 if(${view_debug})
 add_definitions(-D__ZMQ_ENABLAE__)
 endif()
-# add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc)
+add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc
+  gpu_pyramid_compute.cc
+  opencl_handler.cpp
+)
 add_executable(mpslam  jarvis_slipe_detect_main.cc  
  data_capture.cc zmq_component.cc dev_socket.cc 
  data_record.cc
@@ -87,6 +90,17 @@ add_executable(calibrate_data_record  calibrate_data_record.cc
  glog_sink.cc
  key_board.cc
  )
+###
+add_executable(jarvis_grid_test  jarvis_grid_test.cc  
+ )
+###
+
+target_link_libraries(jarvis_grid_test PUBLIC
+  ${OpenCV_LIBS}
+  jarvis
+  -ldl
+)
+##
 
 target_link_libraries(jarvis_eigen_test PUBLIC
   -ldl
@@ -101,15 +115,23 @@ target_link_libraries(calibrate_data_record PUBLIC
    mpc
 
 )
-
-
-
 target_link_libraries(mpslam PUBLIC
   # glog
   jarvis
   ${OpenCV_LIBS}
   -ldl
    mpc
+
+)
+
+
+target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
+  # glog
+  jarvis
+  ${OpenCV_LIBS}
+  -ldl
+   mpc
+  ${OPENCL_LIBRARIES}
 
 )
 
