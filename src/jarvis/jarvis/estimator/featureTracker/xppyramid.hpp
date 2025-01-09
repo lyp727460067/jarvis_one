@@ -41,9 +41,14 @@ typedef struct _interpolation_param {
 
 // only works for win_size(7, 7)
 typedef struct _XPKeyPointRepo {
-  int16_t patch[228];            // image patch storage
+  //15*15
+  // int16_t patch[228];            // image patch storage
+  // float covariance_maxtrix[6];  // covariance matrix
+  // int16_t xy_gradient[456];     // xy gradient
+  int16_t patch[444];            // image patch storage
   float covariance_maxtrix[6];  // covariance matrix
-  int16_t xy_gradient[456];     // xy gradient
+  int16_t xy_gradient[888];     // xy gradient
+
 } XPKeyPointRepo;
 
 typedef struct _XPKeyPointPyramidRepo {

@@ -65,6 +65,21 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
 
 
   }
+  klt_option.win_size = cv::Size(21, 21);
+  calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
+  //
+  if(!options_.extric_camera_to_imu.empty()){
+    cam0_to_cam1_extric_ = options_.extric_camera_to_imu[1].inverse() *
+                           options_.extric_camera_to_imu[0];
+    Eigen::Vector3d b;
+    m_camera[0]->liftProjective(options_.stere_cam_offset, b);
+    stere_cam_offset_ = (b / b.z());
+    // stere_cam_offset_.head<2>() = options_.stere_cam_offset;
+    stere_cam_offset_.z() =0;
+    LOG(INFO) << "stereo offset : " << options_.stere_cam_offset.transpose()
+              << ",undistort " << stere_cam_offset_.head<2>().transpose();
+
+  }
 }
 //
 //
@@ -176,12 +191,7 @@ cv::Mat GenerateImageWithKeyPoint(const cv::Mat &l_img,
                         g_ound_distribution(rng)),
              1, 8, 0);
   }
-  // cv::Mat notation(50, col + gap + col, CV_8UC3, cv::Scalar(255, 255, 255));
-  // putText(notation, l_name, cv::Point2f(20, 30), cv::FONT_HERSHEY_SIMPLEX, 1,
-  //         cv::Scalar(255), 3);
-  // putText(notation, r_name, cv::Point2f(20 + col + gap, 30),
-  //         cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255), 3);
-  // cv::vconcat(notation, loop_match_img, loop_match_img);
+
   return loop_match_img;
 }
 #endif
@@ -308,16 +318,17 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
     const std::vector<cv::Mat> &cur_image,
     const std::map<uint64_t, PointCnt> &prev_pts,
     const std::map<uint64_t, PointCnt> &init_cur_pts,
+    CalcOpticalFlowPyrLK*calc_optical_flow,
     int flags) {
   if (prev_pts.empty()) return {};
   std::map<uint64_t, PointCnt> cur_pts = init_cur_pts;
-  auto &calc_optical_flow_pyrlk = *calc_optical_flow_pyrlk_;
+  auto &calc_optical_flow_pyrlk = *calc_optical_flow;
   calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
   const int succ_num = cur_pts.size();
   // LOG(INFO)<<"pre pts size:"<<prev_pts.size();
   if (succ_num < options_.try_recalc_min_num && flags != 0) {
     cur_pts.clear();
-    calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts, flags);
+    calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts);
   }
   // LOG(INFO)<<"cur pts size:"<< cur_pts.size();
   //
@@ -358,10 +369,12 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   if (!predit_pts_.empty()) {
     cur_pts =
         TrackImage(pyramid_image_->PrePyram(), pyramid_image_->CurrPyram(),
-                   prev_pts_,predit_pts_, cv::OPTFLOW_USE_INITIAL_FLOW);
+                   prev_pts_,predit_pts_, calc_optical_flow_pyrlk_.get(),
+                   cv::OPTFLOW_USE_INITIAL_FLOW);
   } else {
     cur_pts = TrackImage(pyramid_image_->PrePyram(),
-                         pyramid_image_->CurrPyram(), prev_pts_, prev_pts_);
+                         pyramid_image_->CurrPyram(), prev_pts_, prev_pts_,
+                         calc_optical_flow_pyrlk_.get());
   }
   //
   VLOG(kGlogCostTimeLevel) << "TrackImage costs " << t_t.toc() << " ms";
@@ -400,12 +413,42 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   
   std::map<uint64_t, PointCnt> cur_right_pts ;
   if (!_img1.empty()) {
+    std::map<uint64_t, PointCnt> r_pts_init;
+    // auto const r_pts_init_un = UndistortedPts(cur_pts, options_.cameras[0]);
+       for (const auto &pt : cur_pts) {
+         Eigen::Vector2d defalt(pt.second.pt.x +
+         options_.stere_cam_offset.x(),
+                                pt.second.pt.y +
+                                options_.stere_cam_offset.y());
+         r_pts_init[pt.first] =
+             PointCnt{cv::Point2f(defalt.x(), defalt.y()), 0};
+
+    }
+
+    // for (const auto &pt : r_pts_init_un) {
+    //   const Eigen::Vector3d point(pt.second.x(), pt.second.y(), 1);
+    //   const Eigen::Vector3d rpoint1 = point + stere_cam_offset_;
+    //   const Eigen::Vector3d rpoint = cam0_to_cam1_extric_* rpoint1;
+    //   Eigen::Vector2d defalt;
+    //   options_.cameras[1]->spaceToPlane(rpoint, defalt);
+    //   r_pts_init[pt.first] = PointCnt{cv::Point2f(defalt.x(), defalt.y()), 0};
+    //   LOG(INFO)<< defalt.transpose();
+    // }
 
     TicToc t_t;
     r_pyramid_image_->Build(_img1);
-    cur_right_pts = TrackImage(pyramid_image_->CurrPyram(),
-                               r_pyramid_image_->CurrPyram(), cur_pts, {});
+    
+    cur_right_pts = TrackImage(pyramid_image_->CurrPyram(), r_pyramid_image_->CurrPyram(),
+                   cur_pts, r_pts_init, calc_optical_flow_pyrlk_r_.get(),
+                   cv::OPTFLOW_USE_INITIAL_FLOW);
+    //  auto shwo_image1 =
+    //   GenerateImageWithKeyPoint(_img, cur_pts, _img1, cur_right_pts);
+    // cv::imshow("r_ini_image1 ", shwo_image1);
 
+    //   auto shwo_image2 =
+    //   GenerateImageWithKeyPoint(_img, cur_pts, _img1, r_pts_init);
+    // cv::imshow("r_ini_image2 ", shwo_image2);
+    // cv::waitKey(0);
 
     VLOG(kGlogLevel) << "Track r  num:" << cur_right_pts.size();
     VLOG(kGlogCostTimeLevel) << "Track r Image costs " << t_t.toc() << " ms";

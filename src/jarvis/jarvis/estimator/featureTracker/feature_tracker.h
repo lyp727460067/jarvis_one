@@ -69,9 +69,12 @@ struct FeatureTrackerOption {
   int max_feat_cnt = 100;
   double ransac_threshold = 1;
   double back_flow_min_distance = 0.3;
-  int try_recalc_min_num = 30;
+  int try_recalc_min_num = 10;
   int  klt_type =0;
   std::vector<std::shared_ptr<PyramidImage>>pyramid_image;
+  std::vector<transform::Rigid3d> extric_camera_to_imu;
+  Eigen::Vector2d stere_cam_offset{0, 0};
+
 };
 struct CalcOpticalFlowPyrLKOption {
   int level = 4;
@@ -156,7 +159,9 @@ class FeatureTracker {
       const std::vector<cv::Mat> &pre_image,
       const std::vector<cv::Mat> &cur_image,
       const std::map<uint64_t, PointCnt> &prev_pts,
-      const std::map<uint64_t, PointCnt> &init_cur_pts, int flags = 0);
+      const std::map<uint64_t, PointCnt> &init_cur_pts,
+      CalcOpticalFlowPyrLK*calc_optical_flow_pyrlk_,
+      int flags = 0);
   const FeatureTrackerOption options_;
 
   std::vector<camera_models::CameraPtr> m_camera;
@@ -173,6 +178,9 @@ class FeatureTracker {
   common::Time prev_time_;
   common::Time curr_time_;
   uint64_t tranck_id_ = 0;
+  transform::Rigid3d cam0_to_cam1_extric_;
+  Eigen::Vector3d stere_cam_offset_{0,0};
+
 };
 
 }  // namespace estimator

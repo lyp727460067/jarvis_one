@@ -79,6 +79,7 @@ void FeatureDetect::FastNeon(const cv::Mat& image,
 std::vector<std::pair<int, double>> FeatureDetect::ComputeEigens(
     const cv::Point2i& offset, const std::vector<cv::KeyPoint>& keypoints,
     const cv::Mat& derive,const cv::Mat& mask) {
+  
   std::vector<std::pair<int, double>> eigens;
   for (size_t i = 0; i < keypoints.size(); i++) {
     //
