@@ -65,12 +65,18 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
   }
   //
   klt_option.win_size = cv::Size(21, 21);
-  klt_option.level = 4;
-  calc_optical_flow_pyrlk_r_ = std::make_unique<CalcOpticalFlowPyrLK>(klt_option);
+  // klt_option.level = 4;
+  calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
   //
-  if(!options_.extric_camera_to_imu.empty()){
+  if (!options_.extric_camera_to_imu.empty()) {
     cam0_to_cam1_extric_ = options_.extric_camera_to_imu[1].inverse() *
                            options_.extric_camera_to_imu[0];
+    Eigen::Vector3d b;
+    m_camera[0]->liftProjective(options_.stere_cam_offset, b);
+    stere_cam_offset_ = (b / b.z());
+    stere_cam_offset_.z() = 0;
+    LOG(INFO) << "stereo offset : " << options_.stere_cam_offset.transpose()
+              << ",undistort " << stere_cam_offset_.head<2>().transpose();
   }
   klt_option.win_size = cv::Size(21, 21);
   calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
@@ -459,6 +465,16 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
     //   LOG(INFO)<< defalt.transpose();
     // }
 
+    for (const auto &pt : r_pts_init_un) {
+      const Eigen::Vector3d point(pt.second.x(), pt.second.y(), 1);
+      const Eigen::Vector3d rpoint1 = point + stere_cam_offset_;
+      const Eigen::Vector3d rpoint = cam0_to_cam1_extric_* point ;
+
+      Eigen::Vector2d defalt;
+      options_.cameras[1]->spaceToPlane(rpoint, defalt);
+      r_pts_init[pt.first] = PointCnt{cv::Point2f(defalt.x(), defalt.y()), 0};
+    }
+
     TicToc t_t;
     r_pyramid_image_->Build(_img1);
     
@@ -497,7 +513,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   // predit_pts_ = cur_pts;
   //
 
-    VLOG(kGlogCostTimeLevel) << "tranck other costs " << tran_t_t.toc() << " ms";
+  VLOG(kGlogCostTimeLevel) << "tranck other costs " << tran_t_t.toc() << " ms";
   return result_data;
 }
 

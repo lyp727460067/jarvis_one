@@ -73,7 +73,6 @@ struct FeatureTrackerOption {
   std::vector<std::shared_ptr<PyramidImage>>pyramid_image;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   Eigen::Vector2d stere_cam_offset{0, 0};
-
 };
 struct CalcOpticalFlowPyrLKOption {
   int level = 4;
@@ -180,7 +179,6 @@ class FeatureTracker {
   uint64_t tranck_id_ = 0;
   transform::Rigid3d cam0_to_cam1_extric_;
   Eigen::Vector3d stere_cam_offset_{0,0};
-
 };
 
 }  // namespace estimator
