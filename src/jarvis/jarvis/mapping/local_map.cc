@@ -20,8 +20,8 @@ LocalMap::LocalMap(const LocalMapOption &option,
   data_culling_option.image_bboxs = option.image_boxs;
   data_culling_ =
       std::make_unique<DataCulling>(data_culling_option, data_fuse_.get());
-  local_opimization_ = std::make_unique<LocalMapOptimization>(
-      option.local_map_optimization_option);
+  // local_opimization_ = std::make_unique<LocalMapOptimization>(
+  //     option.local_map_optimization_option);
 }
 //
 void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
@@ -54,10 +54,11 @@ void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
                           local_pose_.inverse() * key_frame_data.data->pose);
   trim_befor_key_frame_id_.insert(kf_id);
 }
+
 //
 bool LocalMap::operator=(LocalMap &&rhs) {
   local_pose_ = rhs.local_pose_;
-  local_opimization_ = std::move(rhs.local_opimization_);
+  // local_opimization_ = std::move(rhs.local_opimization_);
   culling_sampler_ = std::move(rhs.culling_sampler_);
   key_frames_datas_ = std::move(rhs.key_frames_datas_);
   key_frames_ref_pose = std::move(rhs.key_frames_ref_pose);

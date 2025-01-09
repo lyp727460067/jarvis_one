@@ -120,7 +120,7 @@ void LocalMapOptimization::Optimize(
   ceres::Solver::Options options;
   options.minimizer_progress_to_stdout = false;
   options.max_num_iterations = 10;  // options_.max_num_iterations;
-  options.linear_solver_type = ceres::DENSE_SCHUR;
+  options.linear_solver_type =  ceres::SPARSE_NORMAL_CHOLESKY;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   LOG(INFO) << log_info::RED << summary.FullReport() << log_info::RESET;

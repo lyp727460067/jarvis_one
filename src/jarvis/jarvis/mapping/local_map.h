@@ -26,7 +26,7 @@ struct LocalMapOption {
   KeyFrameDataBaseOption key_frame_data_option;
   match::ProjectionOption local_track_project_search_option;
   DataCullingOption data_culling_option;
-  LocalMapOptimizationOption local_map_optimization_option;
+
   std::vector<Eigen::AlignedBox2i> image_boxs;
   double culling_sampler = 0.2;
   int compute_map_point_min_des_num = 5;
@@ -60,7 +60,7 @@ class LocalMap {
                        const KeyFrameData &key_frame_data);
   //
   //
-
+  void Opimization();
   //
   void Finish();
   bool IsFinish() { return finish_; }
@@ -131,7 +131,7 @@ class LocalMap {
   std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
 
 
-  std::unique_ptr<LocalMapOptimization> local_opimization_;
+  // std::unique_ptr<LocalMapOptimization> local_opimization_;
   std::map<KeyFrameId, transform::Rigid3d> ref_poses_;
   MapById<KeyFrameId, const KeyFrameData> key_frames_datas_;
   std::map<KeyFrameId,transform::Rigid3d>  key_frames_ref_pose;

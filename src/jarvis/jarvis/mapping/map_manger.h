@@ -26,6 +26,7 @@ namespace mapping {
 //
 
 struct MapManagerOption {
+    LocalMapOptimizationOption local_map_optimization_option;
 };
 //
 
@@ -64,7 +65,7 @@ class MapManager {
  private:
   void DrainWorkQueue();
   void AddWorkItem(const std::function<WorkItem::Result()> &work_item);
-
+  std::unique_ptr<LocalMapOptimization> local_opimization_;
   std::thread thread_;
   std::mutex work_queue_mutex_;
   using WorkQueue = std::deque<WorkItem>;

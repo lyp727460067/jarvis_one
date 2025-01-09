@@ -26,6 +26,7 @@ struct MapBuilderOption {
   bool enable_local_track =false;
   bool enable_local_opimization =false;
   bool enable_loop_closure =false;
+  bool enable_local_track_local_map_op =true;
   MapManagerOption map_manager_option;
   LocalMapOption local_map_option;
   LocalMapTrackOption local_map_track_option;

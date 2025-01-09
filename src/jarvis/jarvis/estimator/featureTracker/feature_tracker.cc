@@ -475,6 +475,16 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
       r_pts_init[pt.first] = PointCnt{cv::Point2f(defalt.x(), defalt.y()), 0};
     }
 
+    // for (const auto &pt : r_pts_init_un) {
+    //   const Eigen::Vector3d point(pt.second.x(), pt.second.y(), 1);
+    //   const Eigen::Vector3d rpoint1 = point + stere_cam_offset_;
+    //   const Eigen::Vector3d rpoint = cam0_to_cam1_extric_* point ;
+
+    //   Eigen::Vector2d defalt;
+    //   options_.cameras[1]->spaceToPlane(rpoint, defalt);
+    //   r_pts_init[pt.first] = PointCnt{cv::Point2f(defalt.x(), defalt.y()), 0};
+    // }
+
     TicToc t_t;
     r_pyramid_image_->Build(_img1);
     

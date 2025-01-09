@@ -3,7 +3,7 @@
 // of this distribution and at http://opencv.org/license.html.
 
 #include "../../precomp.hpp"
-#include "opencv2/video/detail/tracking.detail.hpp"
+#include "tracking.detail.hpp"
 #include "tracker_mil_state.hpp"
 
 namespace cv {

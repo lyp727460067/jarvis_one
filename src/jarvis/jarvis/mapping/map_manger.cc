@@ -22,8 +22,11 @@ MapManager::MapManager(const MapManagerOption &option,
                        MapPointConstruct *map_point_construct,
                        bool enable_local_opimization)
     : options_(option), map_point_construct_(map_point_construct) {
- if (enable_local_opimization) {
-  work_queue_ = std::make_unique<WorkQueue>();
+  local_opimization_ = std::make_unique<LocalMapOptimization>(
+      option.local_map_optimization_option);
+
+  if (enable_local_opimization) {
+    work_queue_ = std::make_unique<WorkQueue>();
     thread_ = std::thread([this]() {
       while (!kill_thread_) {
         DrainWorkQueue();
