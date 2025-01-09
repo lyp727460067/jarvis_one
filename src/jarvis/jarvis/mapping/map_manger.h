@@ -21,6 +21,7 @@
 #include "jarvis/mapping/mapping_data.h"
 #include "jarvis/mapping/match/des_matcher.h"
 #include "jarvis/transform/transform.h"
+#include "jarvis/common/thread_pool.h"
 namespace jarvis {
 namespace mapping {
 //
@@ -39,11 +40,17 @@ struct WorkItem {
   std::chrono::steady_clock::time_point time;
   std::function<Result()> task;
 };
+
+using LocalMapUpdateCallBack =
+    std::function<void(std::map<LocalMapId, LocalMap *> *op_local_maps)>;
+
 class MapManager {
  public:
   MapManager(const MapManagerOption &option, MapPointConstruct *,
-             bool enable_local_opimization);
+             common::ThreadPool *thread_pool,
+             LocalMapUpdateCallBack call_back = nullptr);
   //
+  transform::Rigid3d GetLocalToGlobla() { return local_to_globla_transform_; }
   //
   ~MapManager();
   KeyFrameId AddKeyFrameData(int trajector, const KeyFrameData &data) ;
@@ -61,12 +68,12 @@ class MapManager {
   std::vector<Eigen::Vector3d> GetAllMapPoints() ;
   //
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
+  void UpdateLocalOpLocalMap(std::map<LocalMapId, LocalMap *> *op_local_maps);
 
  private:
   void DrainWorkQueue();
   void AddWorkItem(const std::function<WorkItem::Result()> &work_item);
   std::unique_ptr<LocalMapOptimization> local_opimization_;
-  std::thread thread_;
   std::mutex work_queue_mutex_;
   using WorkQueue = std::deque<WorkItem>;
   std::unique_ptr<WorkQueue> work_queue_;
@@ -76,8 +83,9 @@ class MapManager {
   MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;
   MapById<LocalMapId, LocalMapData> local_maps_;
   MapPointConstruct *map_point_construct_;
-  bool kill_thread_  =false;
-
+  LocalMapUpdateCallBack localmap_update_callback_;
+  transform::Rigid3d local_to_globla_transform_;
+  common::ThreadPool* thread_pool_;
   //
 };
 }  // namespace mapping

@@ -23,8 +23,9 @@ class LocalMap;
 struct LocalMapOptimizationOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   std::vector<std::vector<int>> track_sequence;
+  int max_num_iterations =10;
   double re_preject_weight  =300;
-  double huber_loss =1.0;
+  double huber_loss =0.1;
   bool optimize_intric = false;
   bool use_rtk = false;
   bool only_pose_graph = false;
@@ -56,7 +57,7 @@ class LocalMapOptimization {
   std::queue<sensor::ImuData> imu_datas_;
   std::queue<sensor::FixedFramePoseData> fix_datas_;
   void Optimize(LocalMapOptimizationData* data) {}
-  void Optimize(std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
+  void Optimize(std::map<LocalMapId, LocalMap*>* local_maps);
 private:
   LocalMapOptimizationOption  options_;
   std::vector<transform::Rigid3d> extric_camera_to_imu_;

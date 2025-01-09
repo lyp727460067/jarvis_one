@@ -131,8 +131,9 @@ struct FourReProjectionBaErr {
     //
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> te(te_);
     Eigen::Map<const Eigen::Quaternion<T>> qe(qe_);
-    Eigen::Matrix<T, 3, 1> project_p =
-        qe * q1 * map_point.template cast<T>() + qe * t1 + te;
+    Eigen::Matrix<T, 3, 1> pts_pose = q1.inverse() * (map_point - t1);
+    Eigen::Matrix<T, 3, 1> project_p = qe.inverse() * (pts_pose - te);
+
     T x_normal = project_p[0] / project_p[2];
     T y_normal = project_p[1] / project_p[2];
     residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));

@@ -48,9 +48,9 @@ class LocalMap {
   
   LocalMap(const LocalMapOption &option, const transform::Rigid3d &local_pose);
   //
-  transform::Rigid3d LocalPose()const { return local_pose_; }
+  transform::Rigid3d LocalPose()const { return data_.local_pose; }
   LocalMap(const LocalMap &local_map)
-      : LocalMap(local_map.options_, local_map.local_pose_) {}
+      : LocalMap(local_map.options_, local_map.data_.local_pose) {}
 
   //
   bool operator=(LocalMap &&local_map);
@@ -59,17 +59,17 @@ class LocalMap {
   void AddKeyFrameData(const KeyFrameId &kf_id,
                        const KeyFrameData &key_frame_data);
   //
-  //
   void Opimization();
   //
   void Finish();
   bool IsFinish() { return finish_; }
   bool IsOptimization() { return is_optimization ;};
   //
+  void UpdateExistData(const LocalMap&rhs);
   void UpdadataExtendFinishData();
   //
   Eigen::Vector3d GetMapPointPosw(const MapPointId &mp_id) const {
-    return local_pose_ * map_points_.at(mp_id).data->pos;
+    return data_.local_pose * data_.map_points.at(mp_id).data->pos;
   }
   //
   void Opimization(const std::vector<LocalMapConstraint>& constrants);
@@ -77,24 +77,24 @@ class LocalMap {
   //
   //
   const MapById<MapPointId, MapPointData> &AllMapPoints() const {
-    return map_points_;
+    return data_.map_points;
   }
   const MapById<KeyFrameId, const KeyFrameData> &AllKeyFrameDatas()const{
-    return key_frames_datas_;
+    return data_.key_frames_datas;
   }
   //
   // /
   const std::map<KeyFrameId, transform::Rigid3d> &AllKeyFrameRefPose() {
-    return ref_poses_;
+    return data_.key_frames_ref_pose;
   }
   //
-  std::set<KeyFrameId> GetTrimBeforKeyFrameId(){
-    return trim_befor_key_frame_id_; 
+  std::set<KeyFrameId> GetTrimBeforKeyFrameId() {
+    return data_.trim_befor_key_frame_id;
   };
   //
-  int Size() { return key_frames_datas_.size(); }
+  int Size() { return data_.key_frames_datas.size(); }
   const mapping::Covisibility *GetCovisibility() const {
-    return covisibility_.get();
+    return &data_.covisibility;
   }
   //
   std::map<MapPointId, MapPointData> GetKeyFrameMapPoints(const KeyFrameId &id);
@@ -103,10 +103,21 @@ class LocalMap {
   GetKeyFrameMapPointsData(const KeyFrameId &frame_id) const;
 
   //
+  struct Data {
+    transform::Rigid3d local_pose;
+    MapById<KeyFrameId, const KeyFrameData> key_frames_datas;
+    std::map<KeyFrameId, transform::Rigid3d> key_frames_ref_pose;
+    MapById<MapPointId, MapPointData> map_points;
+    Covisibility covisibility;
+    std::set<KeyFrameId> trim_befor_key_frame_id;
+  };
+  //
+  Data *MutableData() { return &data_; }
+  const Data ConstData() const { return data_; }
 
  public:
   //
- 
+  Data data_;
   void ComputeMapPointDistinctiveDescriptors(const MapPointId &id);
   void FuseMapPoint(
       const KeyFrameId &kf_id,
@@ -123,22 +134,11 @@ class LocalMap {
   void TrimRedundancy();
   //
   LocalMapOption options_;
-  transform::Rigid3d  local_pose_;
-  transform::Rigid3d  globle_pose_;
+
   //
   std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
-  std::unique_ptr<mapping::Covisibility> covisibility_;
+
   std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
-
-
-  // std::unique_ptr<LocalMapOptimization> local_opimization_;
-  std::map<KeyFrameId, transform::Rigid3d> ref_poses_;
-  MapById<KeyFrameId, const KeyFrameData> key_frames_datas_;
-  std::map<KeyFrameId,transform::Rigid3d>  key_frames_ref_pose;
-  MapById<MapPointId, MapPointData> map_points_;
-  std::vector<KeyFrameIdWithPose> key_frames_id_with_pose_;
-  //
-  std::set<KeyFrameId> trim_befor_key_frame_id_; 
   std::unique_ptr<DataCulling> data_culling_;
   bool finish_ = false;
   bool  is_optimization= false;
@@ -167,7 +167,7 @@ class LocalMap {
     LocalMap *local_map_;
   };
   std::mutex mutex_;
-  
+  transform::Rigid3d local_to_ref_;
   std::unique_ptr<LocalDataFuse> data_fuse_;
 };
 //

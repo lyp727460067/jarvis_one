@@ -603,7 +603,7 @@ void ParseYAMLOption(const std::string &file,
     option->use_stero = (use_stero == 1);
     option->feature_track_options[0].extric_camera_to_imu =
         calib_option.extric_camera_to_imu;
-    LOG(INFO)<<"!";
+   
     double cx_offset = calib_option.camera_options[1].intrinsics[2] -
                        calib_option.camera_options[0].intrinsics[2];
     double cy_offset = calib_option.camera_options[1].intrinsics[3] -
@@ -1045,6 +1045,21 @@ mapping::MapPointConstructOption ParseLocalConMapOptio(const cv::FileNode &fs) {
 
   return op_option;
 }
+//
+mapping::LocalMapOptimizationOption ParseLocalMapoptio(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::LocalMapOptimizationOption op_option;
+  op_option.re_preject_weight = fsSettings["re_preject_weight"];
+  op_option.huber_loss = fsSettings["huber_loss"];
+  int temp = fsSettings["optimize_intric"];
+  op_option.optimize_intric = bool(temp);
+
+  temp = fsSettings["use_rtk"];
+  op_option.use_rtk = bool(temp);
+  temp = fsSettings["only_pose_graph"];
+  op_option.only_pose_graph = bool(temp);
+  return op_option;
+}
 
 template <>
 void ParseYAMLOption(const std::string &file,
@@ -1089,9 +1104,16 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   ParseYAMLOption(file, &option->esti_option);
   ParseYAMLOption(file, &option->mapping_option);
   // 前后段不能共用一个相机模型
-
+    
   CalibrateOption calib_option = kCalibOption;
   auto  track_sequence =kTrackSequence;
+  //
+  option->mapping_option.map_manager_option.local_map_optimization_option
+      .extric_camera_to_imu =
+      option->esti_option.slide_windows_option.extric_camera_to_imu;
+  option->mapping_option.map_manager_option.local_map_optimization_option
+      .track_sequence = track_sequence;
+  //
   for (size_t i = 0; i < option->esti_option.feature_track_options.size(); i++) {
     //
 

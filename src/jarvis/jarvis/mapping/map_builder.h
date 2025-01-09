@@ -4,7 +4,6 @@
 #include <map>
 #include <memory>
 #include <set>
-
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 #include "jarvis/common/fixed_ratio_sampler.h"
@@ -19,6 +18,8 @@
 #include "jarvis/sensor/odometry_data.h"
 #include "jarvis/mapping/loop_detect.h"
 #include "jarvis/mapping/map_point_construct.h"
+
+#include "jarvis/common/thread_pool.h"
 namespace jarvis {
 namespace mapping {
 //
@@ -26,12 +27,12 @@ struct MapBuilderOption {
   bool enable_local_track =false;
   bool enable_local_opimization =false;
   bool enable_loop_closure =false;
-  bool enable_local_track_local_map_op =true;
+  bool enable_track_map_opti =true;
   MapManagerOption map_manager_option;
   LocalMapOption local_map_option;
   LocalMapTrackOption local_map_track_option;
   KeyFrameFilterOption key_frame_filter_option;
-
+  LocalMapOptimizationOption track_local_map_opt_option;
   LoopDetectOption loop_detect_option;
   MapPointConstructOption map_point_construct_option; 
   //
@@ -42,7 +43,7 @@ struct MapBuilderOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   std::map<int, camera_models::CameraPtr> cameras;
   std::vector<Eigen::AlignedBox2i> image_boxs;
-  
+  int thread_num =1; 
 };
 
 class MappingBuilder {
@@ -75,6 +76,7 @@ class MappingBuilder {
   }
 
  private:
+  void UpdataActiveWithOpLocal(std::map<LocalMapId, LocalMap*>* op_local_maps);
   //
   void TrimKeyFrameData();
   LocalMapOptimizationData ParseLocalMapData(const KeyFrameId& frame_id);
@@ -83,11 +85,13 @@ class MappingBuilder {
   std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;
   std::unique_ptr<LocalMapTrack> local_map_track_;
+  std::unique_ptr<LocalMapOptimization> track_local_map_opimization_;
   //
   std::shared_ptr<LocalMap> local_map_front_;
   std::unique_ptr<ActiveLocalMap> active_local_maps_;
   //
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
+  std::unique_ptr<common::ThreadPool> thread_pool_;    
   mutable std::mutex mutex_;
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;

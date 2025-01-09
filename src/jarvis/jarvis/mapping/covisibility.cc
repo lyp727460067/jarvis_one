@@ -11,7 +11,6 @@ constexpr int kMinCoviNumm = 10;
 void Covisibility::UpdateWithFrameData(
     const KeyFrameId& key_frame_id,
     std::map<MapPointId, FeatureId>&& frame_map_feature_data_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
   CHECK(!frame_map_feature_data_id.empty());
   for (auto const& feature_id : frame_map_feature_data_id) {
     //
@@ -51,7 +50,6 @@ void Covisibility::UpdateWithFrameData(
 //
 std::set<KeyFrameId> Covisibility::GetMapObservations(
     const MapPointId& map_point_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
   std::set<KeyFrameId> r;
   const auto& keyframezs = map_point_observe_frames_.at(map_point_id);
   for (const auto& key_frame_id : keyframezs) {

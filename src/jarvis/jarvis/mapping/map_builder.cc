@@ -21,18 +21,24 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option,dbow::Vocabulary *
   //
 
   //
-  if (option.enable_local_opimization || option.enable_loop_closure) {
+  if (option.enable_local_opimization || option.enable_loop_closure ||
+      option.enable_track_map_opti) {
     map_point_construct_ = std::make_unique<MapPointConstruct>(
         option.map_point_construct_option, options_.cameras, voc);
 
+    thread_pool_ = std::make_unique<common::ThreadPool>(options_.thread_num);
     map_manager_ = std::make_unique<MapManager>(
-        options_.map_manager_option, map_point_construct_.get(), true);
+        options_.map_manager_option, map_point_construct_.get(),
+        thread_pool_.get(),
+        [this](std::map<LocalMapId, LocalMap *> *op_local_maps) {
+          UpdataActiveWithOpLocal(op_local_maps);
+        });
     LOG(INFO) << "Enable mapp manger..";
   } else {
     map_point_construct_ = std::make_unique<MapPointConstruct>(
         option.map_point_construct_option, options_.cameras, nullptr);
     map_manager_ = std::make_unique<MapManager>(
-        options_.map_manager_option, map_point_construct_.get(), false);
+        options_.map_manager_option, map_point_construct_.get(), nullptr);
   }
   //
   //
@@ -63,6 +69,7 @@ std::unique_ptr<LocalMapMatchResult> MappingBuilder::TrackLocalMap(
 
   if (local_map_track_ == nullptr) return nullptr;
   if (local_map_front_) {
+    std::lock_guard<std::mutex> lock(mutex_);
     return local_map_track_->Track(
         local_map_front_,
         map_point_construct_->TrackDataToKeyFrameData(frame_data));
@@ -99,6 +106,16 @@ void MappingBuilder::TrimKeyFrameData() {
 //
 
 //
+
+void MappingBuilder::UpdataActiveWithOpLocal(
+    std::map<LocalMapId, LocalMap *> *op_local_maps) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!local_map_front_) return;
+  for (auto &local_map : *op_local_maps) {
+    local_map_front_->UpdateExistData(*local_map.second);
+  }
+}
+
 //
 //
 void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
@@ -108,9 +125,9 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
   //
   if (options_.enable_local_track || options_.enable_local_opimization) {
     auto key_frame_data = map_point_construct_->TrackDataToKeyFrameData(data);
-    //
+    auto local_to_globla_transfom = map_manager_->GetLocalToGlobla();
     key_frame_data.data->global_pos =
-        local_to_globla_ * key_frame_data.data->pose;
+        local_to_globla_transfom * key_frame_data.data->pose;
     //
     auto key_frame_id = map_manager_->AddKeyFrameData(t, key_frame_data);
     active_local_maps_->AddKeyFrameData(key_frame_id, key_frame_data);

@@ -1,8 +1,10 @@
 %YAML:1.0
 #
 enable_local_track: 1
-enable_local_opimization: 0
-enable_loop_closure : 0
+enable_track_map_opti: 1
+enable_local_opimization: 1
+enable_loop_closure : 1
+thread_pool_num : 1
 ##
 key_frame_filter_option:
  max_distance : 0.3
@@ -55,6 +57,12 @@ local_map_track_option:
   max_epi_search_steps : 1
   min_update_squared : 0.01   #0.03*0.03
 
+track_local_map_opt_option:
+  re_preject_weight: 300
+  huber_loss : 1.0
+  optimize_intric : 0
+  use_rtk: 0
+  only_pose_graph : false
 
 key_frame_data_option:
  min_core: 0.8
@@ -77,9 +85,13 @@ data_culling_option:
  map_culling_obs : 5
  grid_lenth : 10
  redundant_observations_ration : 0.7
-local_map_optimization_option:
-  dummy: 0
-
+map_manager_option: 
+  local_map_optimization_option:
+    re_preject_weight: 300
+    huber_loss : 1.0
+    optimize_intric : 0
+    use_rtk: 0
+    only_pose_graph : false
 
 map_point_construct_option:
  test_match_pic_write_path : "" #"/home/lyp/project/vslam/jarvis/test/image/"

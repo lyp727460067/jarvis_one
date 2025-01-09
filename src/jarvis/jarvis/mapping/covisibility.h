@@ -54,7 +54,6 @@ class Covisibility {
 
  private:
   //
-  std::mutex mutex_;
   std::map<KeyFrameId, std::map<KeyFrameId, int>>
       covisible_frames_;
 
