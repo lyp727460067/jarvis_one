@@ -1,4 +1,7 @@
 #include "jarvis/mapping/local_map_optimization.h"
+#include "jarvis/estimator/factor/pose_local_parameterization.h"
+#include "factor/projection_factor.h"
+#include "jarvis/common/time.h"
 
 #include "jarvis/mapping/auto_factor/re_projection_err.h"
 #include "jarvis/mapping/auto_factor/relative_pose_graph.h"
@@ -20,9 +23,210 @@ transform::Rigid3d ToTransform(const NodePose& node) {
 }
 //
 //
-LocalMapOptimization::LocalMapOptimization(
-    const LocalMapOptimizationOption& option)
-    : options_(option), extric_camera_to_imu_(option.extric_camera_to_imu) {}
+LocalMapOptimization::LocalMapOptimization(const LocalMapOptimizationOption &option)
+    : options_(option) {
+    para_Ex = new double *[options_.extric_camera_to_imu.size()];
+    for (size_t i = 0; i < options_.extric_camera_to_imu.size(); i++) {
+        para_Ex[i] = new double[jarvis::estimator::SIZE_POSE];
+        memset(para_Ex[i], 0, sizeof(double) * jarvis::estimator::SIZE_POSE);
+        para_Ex[i][0] = options_.extric_camera_to_imu[i].translation().x();
+        para_Ex[i][1] = options_.extric_camera_to_imu[i].translation().y();
+        para_Ex[i][2] = options_.extric_camera_to_imu[i].translation().z();
+        para_Ex[i][3] = options_.extric_camera_to_imu[i].rotation().w();
+        para_Ex[i][4] = options_.extric_camera_to_imu[i].rotation().x();
+        para_Ex[i][5] = options_.extric_camera_to_imu[i].rotation().y();
+        para_Ex[i][6] = options_.extric_camera_to_imu[i].rotation().z();
+    }
+}
+
+LocalMapOptimization::~LocalMapOptimization(){
+    for(size_t i = 0; i < options_.extric_camera_to_imu.size(); i++)
+        delete[] para_Ex[i];
+    delete[] para_Ex;
+}
+
+
+void LocalMapOptimization::Optimize(LocalMapOptimizationData *data) {
+        std::cout << "start optimize" << std::endl;
+        ceres::Problem problem;
+        ceres::LossFunction *loss_function = new ceres::HuberLoss(options_.huber_loss);
+        ceres::ParameterBlockOrdering *ordering = new ceres::ParameterBlockOrdering();
+
+        int num_OptKF = data->frame_datas.size();
+        int num_MapPoints = data->con_map_points.size();
+        std::cout << "key frame count: " << num_OptKF << std::endl;
+        std::cout << "map point count: " << num_MapPoints << std::endl;
+
+        // 为优化变量分配空间
+        para_Pose = new double *[num_OptKF];
+        for (int i = 0; i < num_OptKF; i++) {
+            para_Pose[i] = new double[jarvis::estimator::SIZE_POSE];
+            memset(para_Pose[i], 0, sizeof(double) * jarvis::estimator::SIZE_POSE);
+        }
+
+        para_MapPoint = new double *[num_MapPoints];
+        for (int i = 0; i < num_MapPoints; i++) {
+            para_MapPoint[i] = new double[jarvis::estimator::SIZE_MAPPOINT];
+            memset(para_MapPoint[i], 0, sizeof(double) * jarvis::estimator::SIZE_MAPPOINT);
+        }
+
+        para_SpeedBias = new double *[num_OptKF];
+        for (int i = 0; i < num_OptKF; i++) {
+            para_SpeedBias[i] = new double[jarvis::estimator::SIZE_SPEEDBIAS];
+            memset(para_SpeedBias[i], 0, sizeof(double) * jarvis::estimator::SIZE_SPEEDBIAS);
+        }
+
+        // 设置初值并记录id
+        std::map<KeyFrameId, int> KeyFrameIds;
+        int j = 0;
+        for (auto &frame_data : data->frame_datas) {
+            const auto t = frame_data.second.pose.translation();
+            const auto q = frame_data.second.pose.rotation();
+            para_Pose[j][0] = t.x();
+            para_Pose[j][1] = t.y();
+            para_Pose[j][2] = t.z();
+            para_Pose[j][3] = q.w();
+            para_Pose[j][4] = q.x();
+            para_Pose[j][5] = q.y();
+            para_Pose[j][6] = q.z();
+            KeyFrameIds[frame_data.first] = j;
+            j++;
+        }
+
+        std::map<MapPointId, int> MapPointIds;
+        j = 0;
+        for (auto &pt : data->con_map_points) {
+            const Eigen::Vector3d p = pt.second.pos;
+            para_MapPoint[j][0] = p.x();
+            para_MapPoint[j][1] = p.y();
+            para_MapPoint[j][2] = p.z();
+            MapPointIds[pt.first] = j;
+            j++;
+        }
+
+        // 将关键帧pose作为优化变量加入问题
+        for (int i = 0; i < num_OptKF; i++) {
+            ceres::LocalParameterization *local_parameterization =
+                new jarvis::estimator::PoseLocalParameterization();
+            problem.AddParameterBlock(para_Pose[i], jarvis::estimator::SIZE_POSE, local_parameterization);
+            ordering->AddElementToGroup(para_Pose[i], 1);
+        }
+        // 将第一帧位姿固定
+        problem.SetParameterBlockConstant(para_Pose[0]);
+
+        // 将地图点坐标作为优化变量加入问题
+        for (int i = 0; i < num_MapPoints; i++) {
+            problem.AddParameterBlock(para_MapPoint[i], jarvis::estimator::SIZE_MAPPOINT);
+            ordering->AddElementToGroup(para_MapPoint[i], 1);
+
+            if (options_.only_pose_graph) {
+                problem.SetParameterBlockConstant(para_MapPoint[i]);
+            }
+        }
+
+        // 将外参作为优化变量加入问题
+        for (size_t i = 0; i < options_.extric_camera_to_imu.size(); i++) {
+            ceres::LocalParameterization *local_parameterization =
+                new jarvis::estimator::PoseLocalParameterization();
+            problem.AddParameterBlock(para_Ex[i], jarvis::estimator::SIZE_POSE, local_parameterization);
+            ordering->AddElementToGroup(para_Ex[i], 1);
+
+            if (!options_.optimize_extric) {
+                problem.SetParameterBlockConstant(para_Ex[i]);
+            }
+        }
+
+        // 将IMU作为优化变量加入问题
+        if (options_.optimize_imu) {
+            for (int i = 0; i < num_OptKF - 1; i++) {
+                problem.AddParameterBlock(para_SpeedBias[i], jarvis::estimator::SIZE_SPEEDBIAS);
+                ordering->AddElementToGroup(para_SpeedBias[i], 1);
+            }
+        }
+
+        // 增加约束
+        int constraint_count = 0;
+        for (auto &map_point : data->con_map_points) {
+            for (auto &point_data : map_point.second.con_frame_datas) {
+                ceres::CostFunction *cost_function;
+                cost_function = ProjectionFactor::Create(
+                    data->feature_datas[point_data.second]->f.x(),
+                    data->feature_datas[point_data.second]->f.y());
+
+                
+                problem.AddResidualBlock(cost_function, loss_function,
+                                         para_Pose[KeyFrameIds[point_data.first]],
+                                         para_MapPoint[MapPointIds[map_point.first]],
+                                         para_Ex[point_data.second.sequence_id]);
+                // std::cout << "Pose: " << para_Pose[KeyFrameIds[point_data.first]][0] << ", " 
+                //           << para_Pose[KeyFrameIds[point_data.first]][1] << ", " 
+                //           << para_Pose[KeyFrameIds[point_data.first]][2] << ", " 
+                //           << para_Pose[KeyFrameIds[point_data.first]][3] << ", " 
+                //           << para_Pose[KeyFrameIds[point_data.first]][4] << ", " 
+                //           << para_Pose[KeyFrameIds[point_data.first]][5] << ", " 
+                //           << para_Pose[KeyFrameIds[point_data.first]][6] << std::endl;
+                // std::cout << "map point: " << para_MapPoint[MapPointIds[map_point.first]][0] << ", "
+                //           << para_MapPoint[MapPointIds[map_point.first]][1] << ", "
+                //           << para_MapPoint[MapPointIds[map_point.first]][2] << std::endl;
+                constraint_count++;
+            }
+        }
+        std::cout << "constraints count: " << constraint_count << std::endl;
+
+        // 注意map是有序的,按frame的id排序,而IMU值为两相邻frame构建约束,故顺序构建即可
+        // imu_datas的大小比frame_datas少1
+        if (options_.optimize_imu) {
+            int i = 0;
+            j = 1;
+            CHECK_EQ(data->frame_datas.size() - 1, data->imu_datas.size());
+            for (auto &imu_data : data->imu_datas) {
+                jarvis::estimator::IMUFactor *imu_factor =
+                    new jarvis::estimator::IMUFactor(imu_data.second);
+                problem.AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i],
+                                          para_Pose[j], para_SpeedBias[j]);
+                i++;
+                j++;
+            }
+        }
+
+
+
+        // 问题求解
+        ceres::Solver::Options options;
+        options.linear_solver_ordering.reset(ordering);
+        options.linear_solver_type = ceres::DENSE_SCHUR;
+        options.num_threads = 1;
+        options.trust_region_strategy_type = ceres::DOGLEG;
+        options.sparse_linear_algebra_library_type = ceres::NO_SPARSE;
+        options.use_explicit_schur_complement = true; // 是否使用显式计算的Schur补矩阵，默认为false
+        options.use_nonmonotonic_steps = true;        // 是否允许目标函数值没有严格下降
+        options.max_num_iterations = 5;
+        ceres::Solver::Summary summary;
+        jarvis::estimator::TicToc tt;
+        ceres::Solve(options, &problem, &summary);
+        std::cout << "solve time: " << tt.toc() << std::endl;
+
+        // 获取结果
+        j = 0;
+        for (auto &frame_data : data->frame_datas) {
+            Eigen::Vector3d t(para_Pose[j][0], para_Pose[j][1], para_Pose[j][2]);
+            Eigen::Quaterniond q(para_Pose[j][3], para_Pose[j][4], para_Pose[j][5], para_Pose[j][6]);
+            frame_data.second.pose = transform::Rigid3d(t, q);
+            j++;
+        }
+
+        // 释放內存
+        for (int i = 0; i < num_OptKF; i++)
+            delete[] para_Pose[i];
+
+        for (int i = 0; i < num_MapPoints; i++)
+            delete[] para_MapPoint[i];
+
+        delete[] para_Pose;
+        delete[] para_MapPoint;
+}
+
+
 //
 //
 void LocalMapOptimization::Optimize(

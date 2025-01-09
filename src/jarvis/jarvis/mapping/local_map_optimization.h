@@ -14,6 +14,8 @@
 #include "jarvis/transform/transform.h"
 #include "opencv2/opencv.hpp"
 //
+#include "jarvis/estimator/factor/integration_base.h"
+#include "jarvis/estimator/factor/imu_factor.h"
 //
 #include "jarvis/mapping/mapping_data.h"
 namespace jarvis {
@@ -30,6 +32,8 @@ struct LocalMapOptimizationOption {
   double relative_local_map_translation_weight = 3000;
   double huber_loss =0.1;
   bool optimize_intric = false;
+  bool optimize_extric = false;
+  bool optimize_imu = false;
   bool use_rtk = false;
   bool only_pose_graph = false;
   bool fix_extric = true;
@@ -45,33 +49,48 @@ struct LocalMapOptimizationOption {
 struct LocalMapOptimizationData {
   struct MapPointData {
     Eigen::Vector3d pos;
-    std::map<KeyFrameId, FeatureId> con_frame_datas;
-    std::map<FeatureId, FeatureData> feature_datas;
+    std::map<KeyFrameId, FeatureId> con_frame_datas;  // 地图点对应的观察帧及特征
   };
   std::map<MapPointId, MapPointData> con_map_points;
   struct FrameData {
-    common::Time time;
+    // common::Time time;
+    std::string time;
     transform::Rigid3d pose;
   };
   std::map<KeyFrameId, FrameData> frame_datas;
+  std::map<FeatureId, FeatureData*> feature_datas;
+  // 数量为frame_datas的数量-1,表示KeyFrameId与frame_datas中其前一帧keyframe间的预积分
+  std::map<KeyFrameId, jarvis::estimator::IntegrationBase*> imu_datas;
   //
 };
 
 class LocalMapOptimization {
  public:
   LocalMapOptimization(const LocalMapOptimizationOption& option);
+  ~LocalMapOptimization();
+  // for rtk
   void AddFixData(const sensor::FixedFramePoseData& fix_data) {}
+  // 原始IMU数据，需要积分
   void AddImuData(sensor::ImuData& imu_data) {}
   //
+    // input: 需要优化的帧数据
+  void Optimize(LocalMapOptimizationData* data);
   void Optimize(std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
-  //
+
  protected:
   virtual void StrategyOptimize(
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
+
   std::queue<sensor::ImuData> imu_datas_;
   std::queue<sensor::FixedFramePoseData> fix_datas_;
   LocalMapOptimizationOption  options_;
   std::vector<transform::Rigid3d> extric_camera_to_imu_;
+
+private:
+  double **para_Pose; // x,y,z,qw,qx,qy,qz
+  double **para_MapPoint;
+  double **para_Ex; // x,y,z,qw,qx,qy,qz
+  double **para_SpeedBias; // vx vy vz bax bay baz bgx bgy bgz
 };
 
 class EssentialGraphLocalMapOptimization : public LocalMapOptimization {

@@ -25,6 +25,7 @@ enum NoiseOrder { O_AN = 0, O_GN = 3, O_AW = 6, O_GW = 9 };
 enum SIZE_PARAMETERIZATION {
   SIZE_POSE = 7,
   SIZE_SPEEDBIAS = 9,
+  SIZE_MAPPOINT = 3,
   SIZE_FEATURE = 1
 };
 }  // namespace vins
