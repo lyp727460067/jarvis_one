@@ -54,6 +54,7 @@ class LocalMap {
 
   //
   bool operator=(LocalMap &&local_map);
+  bool operator=(const LocalMap &local_map);
   //
   ~LocalMap();
   void AddKeyFrameData(const KeyFrameId &kf_id,

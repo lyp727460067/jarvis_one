@@ -52,7 +52,23 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option,dbow::Vocabulary *
   key_frame_filter_ =
       std::make_unique<KeyFrameFilter>(option.key_frame_filter_option);
   //
-  
+  if (options_.enable_track_map_opti) {
+    when_done_task_ = std::make_unique<common::Task>();
+    track_local_map_op_sampler_ = std::make_unique<common::FixedRatioSampler>(
+        option.track_map_opti_culling_sampler);
+    LocalMapOptimizationOption op_option(option.track_local_map_opt_option);
+    //
+    op_option.track_sequence =
+        options_.map_manager_option.local_map_optimization_option
+            .track_sequence;
+    //
+    op_option.extric_camera_to_imu =
+        options_.map_manager_option.local_map_optimization_option
+            .extric_camera_to_imu;
+    //
+    track_local_map_opimization_ =
+        std::make_unique<LocalMapOptimization>(op_option);
+  }
   //
   //
   LocalMapOption local_map_option = options_.local_map_option;
@@ -117,6 +133,32 @@ void MappingBuilder::UpdataActiveWithOpLocal(
 }
 
 //
+
+void MappingBuilder::TrackLocalMapOptimize() {
+  if (!track_local_map_op_sampler_->Pulse() || local_map_front_ == nullptr)
+    return;
+  if (local_map_front_->Size() < 10) return;
+  std::map<LocalMapId, LocalMap *> op_local_maps;
+  // {
+    // std::lock_guard<std::mutex> lock(mutex_);
+    LocalMap tem_local_map(*local_map_front_);
+    tem_local_map = *local_map_front_;
+    op_local_maps[{0, 0}] = &tem_local_map;
+  // }
+  track_local_map_opimization_->Optimize(&op_local_maps);
+  UpdataActiveWithOpLocal(&op_local_maps);
+  //
+  // auto local_map_op_task = std::make_unique<common::Task>();
+  // local_map_op_task->SetWorkItem(
+  //     [&]() { track_local_map_opimization_->Optimize(&op_local_maps); });
+  // auto local_map_op_task_handle =
+  //     thread_pool_->Schedule(std::move(local_map_op_task));
+  // when_done_task_->AddDependency(local_map_op_task_handle);
+  // when_done_task_->SetWorkItem(
+  //     [&] { UpdataActiveWithOpLocal(&op_local_maps); });
+  //
+}
+
 //
 void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
   if (!key_frame_filter_->IsKeyFrame(data)) {
@@ -141,6 +183,9 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
       TrimKeyFrameData();
       std::lock_guard<std::mutex> lock(mutex_);
       local_map_front_ = active_local_maps_->GetLocalMap().front();
+    }
+    if (options_.enable_track_map_opti) {
+      TrackLocalMapOptimize();
     }
   }
 }

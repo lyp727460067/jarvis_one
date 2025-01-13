@@ -87,6 +87,25 @@ void LocalMap::UpdateExistData(const LocalMap &rhs) {
   }
 
 }
+  //
+bool LocalMap::operator=(const LocalMap &rhs) {
+  data_ = rhs.data_;
+  // local_opimization_ = std::move(rhs.local_opimization_);
+  culling_sampler_ =
+      std::make_unique<common::FixedRatioSampler>(options_.culling_sampler);
+
+  *key_frame_data_base_ = *rhs.key_frame_data_base_;
+  data_fuse_ = std::make_unique<LocalDataFuse>(this);
+  DataCullingOption data_culling_option = options_.data_culling_option;
+  data_culling_option.image_bboxs = options_.image_boxs;
+  data_culling_ =
+      std::make_unique<DataCulling>(data_culling_option, data_fuse_.get());
+  //
+  finish_ = rhs.finish_;
+  is_optimization = rhs.is_optimization;
+  return true;
+}
+
 //
 bool LocalMap::operator=(LocalMap &&rhs) {
   data_ = std::move(rhs.data_);
@@ -101,8 +120,8 @@ bool LocalMap::operator=(LocalMap &&rhs) {
   //
   finish_ = rhs.finish_;
   is_optimization = rhs.is_optimization;
+  key_frame_data_base_ =  std::move(key_frame_data_base_);
   return true;
-  // data_culling_ = std::move(rhs.data_culling_);
 }
 //
 void LocalMap::UpdadataExtendFinishData() {

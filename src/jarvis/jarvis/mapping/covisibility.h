@@ -11,7 +11,9 @@ namespace mapping {
 class Covisibility {
  public:
   Covisibility() = default;
+  // bool operator=(const Covisibility&rhs){
 
+  // }
   //
   void UpdateWithFrameData(
       const KeyFrameId& key_frame_id,

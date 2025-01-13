@@ -73,7 +73,6 @@ void LocalMapOptimization::Optimize(
           transform::Rot2ypr(pose_local_pose.rotation().toRotationMatrix()) /
           180. * M_PI;
       //
-      LOG(INFO) << pose_local_pose.translation();
       ceres_poses.emplace(pos.first, NodePose{
                                          pose_local_pose.translation(),
                                          pose_local_pose.rotation(),

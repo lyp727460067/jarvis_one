@@ -236,5 +236,6 @@ Covisibility::GetKeyFrameMapPointId(const KeyFrameId& frame_id) const {
   return {map_point_ids, feat_ids};
 }
 
+
 }  // namespace mapping
 }  // namespace jarvis

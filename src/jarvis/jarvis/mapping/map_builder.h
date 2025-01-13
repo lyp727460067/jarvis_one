@@ -37,6 +37,7 @@ struct MapBuilderOption {
   MapPointConstructOption map_point_construct_option; 
   //
   //
+
   //
   std::string vocabulary_filebrif = "/home/lyp/project/vslam/jarvis/jarvis.dbow";
   std::vector<std::vector<int>> track_sequence;
@@ -44,6 +45,7 @@ struct MapBuilderOption {
   std::map<int, camera_models::CameraPtr> cameras;
   std::vector<Eigen::AlignedBox2i> image_boxs;
   int thread_num =1; 
+  double track_map_opti_culling_sampler = 0.2;
 };
 
 class MappingBuilder {
@@ -76,12 +78,14 @@ class MappingBuilder {
   }
 
  private:
+  void  TrackLocalMapOptimize();
   void UpdataActiveWithOpLocal(std::map<LocalMapId, LocalMap*>* op_local_maps);
   //
   void TrimKeyFrameData();
   LocalMapOptimizationData ParseLocalMapData(const KeyFrameId& frame_id);
   void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
   //
+  std::unique_ptr<common::Task> when_done_task_ ;
   std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;
   std::unique_ptr<LocalMapTrack> local_map_track_;
@@ -90,6 +94,7 @@ class MappingBuilder {
   std::shared_ptr<LocalMap> local_map_front_;
   std::unique_ptr<ActiveLocalMap> active_local_maps_;
   //
+  std::unique_ptr<common::FixedRatioSampler> track_local_map_op_sampler_;
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
   std::unique_ptr<common::ThreadPool> thread_pool_;    
   mutable std::mutex mutex_;
