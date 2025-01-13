@@ -20,7 +20,8 @@ LocalMap::LocalMap(const LocalMapOption &option,
   data_culling_ =
       std::make_unique<DataCulling>(data_culling_option, data_fuse_.get());
 }
-//
+
+// 添加地图点,更新共视关系
 void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
                                const KeyFrameData &key_frame_data) {
   //
@@ -235,7 +236,7 @@ void LocalMap::Opimization(const std::vector<LocalMapConstraint>& constrants) {
 }
 //
 
-//
+// 取所有共视特征之间的中间值作为地图点的特征
 void LocalMap::ComputeMapPointDistinctiveDescriptors(const MapPointId &id) {
   auto obs = data_.covisibility.GetMapObservations(id);
   if (obs.empty()) {
@@ -410,15 +411,16 @@ void ActiveLocalMap::AddKeyFrameData(const KeyFrameId &id,
                                      const KeyFrameData &data) {
   //
   CHECK(data.data)<<"Keyframe data empty";
+  // 最新的局部地图窗口大小足够达到设置上限的一半,建立新的局部地图窗口
   if (localmaps_.empty() ||
       localmaps_.back()->Size() == local_map_option_.max_kf_num) {
     AddLocalMap(local_map_option_, data.data->pose);
   }
-  //
+  // localmaps_最多只会存在两个
   for (auto &local_map : localmaps_) {
     local_map->AddKeyFrameData(id, data);
   }
-  //
+  // 旧的局部地图窗口达到上限,边缘化得到固定约束
   if (localmaps_.front()->Size() == 2 * local_map_option_.max_kf_num) {
     localmaps_.front()->Finish();
     LOG(INFO)<<"Finish data";

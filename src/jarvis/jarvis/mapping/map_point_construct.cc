@@ -215,7 +215,7 @@ cv::Mat MapPointConstruct::GenerateMask(
 //
 //
 void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
-  //
+  // 新提取的特征点和描述子都会保存在data中
 
   auto sequence_feautes = data.data->features.trajectory_ids();
   for (const auto &sequence_id : sequence_feautes) {
@@ -229,6 +229,7 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
     const cv::Mat image = data.data->Pyramid(sequence_id)[0];
     // cv::imshow("image", image);
     // cv::waitKey(0);
+    // 在已跟踪特征点的基础上再提取新的特征点
     std::vector<cv::KeyPoint> key_points = key_points_extractor_->Extract(
         image,
         options_.masks[sequence_id] &
@@ -242,6 +243,7 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
     //
     exist_key_points.insert(exist_key_points.end(), key_points.begin(),
                             key_points.end());
+    // 提取特征
     Descriptors descriptors = des_extractor_->Extract(image, exist_key_points);
     for (size_t i = 0; i < exist_key_points.size(); i++) {
       const FeatureId feat_id(sequence_id, i);
@@ -331,7 +333,7 @@ void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
 
 
   for (const auto &map_point_id : connect_map_point_ids) {
-    //
+    // 投影后在一定半径范围內找特征最相似的点(汉明距离)作为匹配点
     auto index = SearchMatchesByProjection(project_option, data, area_searchs,
                                            map_points.at(map_point_id));
     if (index != FeatureId{-1, 0}) {

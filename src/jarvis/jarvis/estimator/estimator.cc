@@ -105,6 +105,7 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
     frame_data.data->images  = images;
     TicToc track_t_t;
 
+    // 光流跟踪,使用thread_pool管理,不同相机的跟踪多线程进行
     for (size_t i = 0; i < options_.track_sequence.size(); i++) {
       CHECK(!images.image[options_.track_sequence[i][0]].empty());
       // if (options_.track_sequence[i].size() == 2 &&  stereo_sample_->Pulse()

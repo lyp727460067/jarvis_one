@@ -76,6 +76,7 @@ class LocalMapOptimization {
     // input: 需要优化的帧数据
   void Optimize(LocalMapOptimizationData* data);
   void Optimize(std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
+  void Optimize2(std::map<LocalMapId, LocalMap*>* local_maps);
 
  protected:
   virtual void StrategyOptimize(

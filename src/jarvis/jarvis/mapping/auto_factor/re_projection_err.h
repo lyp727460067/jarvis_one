@@ -62,6 +62,44 @@ struct ReProjectionErr {
   const double factor_;
 };
 
+struct ReProjectionBaErr {
+ public:
+  ReProjectionBaErr(const Eigen::Vector2d& nor_poit, const double& factor)
+      : nor_point_(nor_poit), factor_(factor) {}
+
+  template <typename T>
+  bool operator()(const T* t1_, const T* q1_, const T* te_, const T* qe_,
+                  const T* point, const T* local_map_pose_, T* residul) const {
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> t1(t1_);
+    Eigen::Map<const Eigen::Quaternion<T>> q1(q1_);
+
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> te(te_);
+    Eigen::Map<const Eigen::Quaternion<T>> qe(qe_);
+
+    // 局部地图之间的旋转量是统一的
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_point_temp(point);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> local_map_pose(local_map_pose_);
+    const Eigen::Matrix<T, 3, 1> map_point = map_point_temp + local_map_pose;
+
+    Eigen::Matrix<T, 3, 1> project_p =
+        qe.inverse() * (q1.inverse() * (map_point.template cast<T>() - t1) - te);
+    T x_normal = project_p[0] / project_p[2];
+    T y_normal = project_p[1] / project_p[2];
+    residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));
+    residul[1] = T(factor_) * (y_normal - T(nor_point_.y()));
+    return true;
+  }
+  static ceres::CostFunction* Create(const Eigen::Vector3d& nor_poit,
+                                     double factor) {
+    return new ceres::AutoDiffCostFunction<ReProjectionBaErr, 2, 3, 4, 3, 4, 3, 3>(
+        new ReProjectionBaErr(nor_poit.head<2>(), factor));
+  }
+
+ private:
+  const Eigen::Vector2d nor_point_;
+  const double factor_;
+};
+
 struct FourReProjectionErr {
  public:
   FourReProjectionErr(const Eigen::Vector2d& nor_poit,

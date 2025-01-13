@@ -448,6 +448,7 @@ void ParseYAMLOptionFetureOption(
   //
   auto &fsSettings = *fs;
   //
+  std::cout << "test " << std::endl;
   std::string feat_tack = "feattrack" + std::to_string(index);
   feature_option->pyrmid_option.layer =
       fsSettings[feat_tack]["lk_pre_max_layer"];

@@ -124,6 +124,7 @@ std::map<int, Eigen::Vector3d> SlideWindow::PredictNextFrame(
     const transform::Rigid3d& predit_imu_pose, int s) {
   if (feature_managers_->Exist(s)) {
     std::vector<transform::Rigid3d> cam_pose;
+    // 此处imu_states是滑窗內各帧以IMU为参考的状态,cam_pose则通过外参计算出相机的pose
     for (size_t i = 0; i < imu_states_.size(); i++) {
       cam_pose.push_back(
           imu_states_[i].Pose() *
@@ -249,10 +250,12 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   //
 
   // if (is_keyframe) {
+    // 使用局部跟踪
     if (prior_factor_) {
       TicToc t_t;
       int k = options_.win_size;
       //  int k  = 0;
+      // 通过当前帧与局部地图进行光流匹配,得到先验pose
       auto prior_pose = prior_factor_(GetratePriorData(false, k));
       if (prior_pose) {
         // LOG(WARNING) << "Prior pose: " << *prior_pose

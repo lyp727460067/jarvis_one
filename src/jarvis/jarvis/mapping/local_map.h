@@ -107,10 +107,10 @@ class LocalMap {
 
   //
   struct Data {
-    transform::Rigid3d local_pose;
-    MapById<KeyFrameId, const KeyFrameData> key_frames_datas;
-    std::map<KeyFrameId, transform::Rigid3d> key_frames_ref_pose;
-    MapById<MapPointId, MapPointData> map_points;
+    transform::Rigid3d local_pose;                                // 局部地图相对全局系的坐标(旋转量与全局坐标一致,只有平移量)
+    MapById<KeyFrameId, const KeyFrameData> key_frames_datas;     // 局部地图中每帧的数据
+    std::map<KeyFrameId, transform::Rigid3d> key_frames_ref_pose; // 每帧相对local_pose的位姿
+    MapById<MapPointId, MapPointData> map_points;                 // 每个地图点在局部地图坐标系的位置
     Covisibility covisibility;
     std::set<KeyFrameId> trim_befor_key_frame_id;
   };

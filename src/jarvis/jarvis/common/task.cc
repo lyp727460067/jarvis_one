@@ -28,6 +28,8 @@ void Task::AddDependency(std::weak_ptr<Task> dependency) {
   {
     std::lock_guard<std::mutex> locker(mutex_);
     CHECK_EQ(state_, NEW);
+    // weak_ptr::lock返回其关联的shared_ptr,若其关联的shared_ptr不存在(计数为0,自动析构),则返回空指针
+    // 此处是赋值给shared_dependency并判断其是否为空
     if ((shared_dependency = dependency.lock())) {
       ++uncompleted_dependencies_;
     }
@@ -79,7 +81,7 @@ void Task::Execute() {
 
   // Execute the work item.
   if (work_item_) {
-    work_item_();
+    work_item_(); // 执行传进來的函数
   }
 
   std::lock_guard<std::mutex> locker(mutex_);

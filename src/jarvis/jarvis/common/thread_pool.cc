@@ -56,7 +56,7 @@ std::weak_ptr<Task> ThreadPool::Schedule(std::unique_ptr<Task> task) {
   {
     std::lock_guard<std::mutex> locker(mutex_); // 在构造时自动锁定mutex,在析构时自动解锁
     auto insert_result =
-        tasks_not_ready_.insert(std::make_pair(task.get(), std::move(task)));
+        tasks_not_ready_.insert(std::make_pair(task.get(), std::move(task))); // get返回指针
     CHECK(insert_result.second) << "Schedule called twice";
     shared_task = insert_result.first->second;
   }
