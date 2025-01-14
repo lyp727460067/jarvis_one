@@ -35,14 +35,10 @@ struct LocalMapData {
   std::shared_ptr<LocalMap> local_map;
   transform::Rigid3d globla_pose;
 };
-struct WorkItem {
-  enum class Result { Normal, kRunLocalOptimization };
-  std::chrono::steady_clock::time_point time;
-  std::function<Result()> task;
-};
 
-using LocalMapUpdateCallBack =
-    std::function<void(std::map<LocalMapId, LocalMap *> *op_local_maps)>;
+
+using LocalMapUpdateCallBack = std::function<void(
+    std::map<LocalMapId, std::shared_ptr<LocalMap>> *op_local_maps)>;
 
 class MapManager {
  public:
@@ -68,16 +64,13 @@ class MapManager {
   std::vector<Eigen::Vector3d> GetAllMapPoints() ;
   //
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
-  void UpdateLocalOpLocalMap(std::map<LocalMapId, LocalMap *> *op_local_maps);
+  void UpdateLocalOpLocalMap(
+      std::map<LocalMapId, std::shared_ptr<LocalMap>> *op_local_maps);
 
  private:
-  void DrainWorkQueue();
-  void AddWorkItem(const std::function<WorkItem::Result()> &work_item);
-  std::unique_ptr<LocalMapOptimization> local_opimization_;
-  std::mutex work_queue_mutex_;
-  using WorkQueue = std::deque<WorkItem>;
-  std::unique_ptr<WorkQueue> work_queue_;
   std::mutex mutex_;
+  std::unique_ptr<LocalMapOptimization> local_opimization_;
+
   std::set<KeyFrameId> last_new_update_key_frame_ids_;  
   MapManagerOption options_;
   MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;

@@ -54,7 +54,7 @@ void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
   data_.key_frames_datas.Insert(kf_id, key_frame_data);
   data_.key_frames_ref_pose.emplace(
       kf_id,
-      data_.local_pose.inverse() * local_to_ref_ * key_frame_data.data->pose);
+      local_to_ref_ * data_.local_pose.inverse() * key_frame_data.data->pose);
   data_.trim_befor_key_frame_id.insert(kf_id);
 }
 
@@ -62,30 +62,35 @@ void LocalMap::UpdateExistData(const LocalMap &rhs) {
   //
   transform::Rigid3d rhs_to_this = data_.local_pose.inverse() * rhs.LocalPose();
   //
-  
+  transform::Rigid3d local_front_to_ref;
   for (auto &kf_ref_pose : data_.key_frames_ref_pose) {
     if (rhs.data_.key_frames_ref_pose.count(kf_ref_pose.first) != 0) {
-      local_to_ref_ =
-          kf_ref_pose.second.inverse() *
-          (rhs_to_this * rhs.data_.key_frames_ref_pose.at(kf_ref_pose.first));
+      //
+      const transform::Rigid3d op_ref_pose =
+          rhs_to_this * rhs.data_.key_frames_ref_pose.at(kf_ref_pose.first);
+      local_to_ref_ = op_ref_pose *
+                      (data_.local_pose.inverse() *
+                       data_.key_frames_datas.at(kf_ref_pose.first).data->pose)
+                          .inverse();
+      //
+      local_front_to_ref = op_ref_pose * kf_ref_pose.second.inverse();
 
       //
       kf_ref_pose.second =
           rhs_to_this * rhs.data_.key_frames_ref_pose.at(kf_ref_pose.first);
     } else {
-      kf_ref_pose.second = local_to_ref_ * kf_ref_pose.second;
+      kf_ref_pose.second = local_front_to_ref * kf_ref_pose.second;
     }
   }
-  for (const  auto &mp : data_.map_points) {
+  for (const auto &mp : data_.map_points) {
     if (rhs.data_.map_points.Contains(mp.id)) {
       data_.map_points.at(mp.id).data->pos =
           rhs_to_this * rhs.data_.map_points.at(mp.id).data->pos;
     } else {
       data_.map_points.at(mp.id).data->pos =
-          local_to_ref_ *  data_.map_points.at(mp.id).data->pos;
+          local_front_to_ref * data_.map_points.at(mp.id).data->pos;
     }
   }
-
 }
   //
 bool LocalMap::operator=(const LocalMap &rhs) {
@@ -103,6 +108,7 @@ bool LocalMap::operator=(const LocalMap &rhs) {
   //
   finish_ = rhs.finish_;
   is_optimization = rhs.is_optimization;
+  local_to_ref_ = rhs.local_to_ref_;
   return true;
 }
 
@@ -121,6 +127,7 @@ bool LocalMap::operator=(LocalMap &&rhs) {
   finish_ = rhs.finish_;
   is_optimization = rhs.is_optimization;
   key_frame_data_base_ =  std::move(key_frame_data_base_);
+  local_to_ref_ = rhs.local_to_ref_;
   return true;
 }
 //

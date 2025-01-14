@@ -65,7 +65,7 @@ bool CheckDistEpipolarLine(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2,
 
 //
 KeyFrameData MapPointConstruct::TrackDataToKeyFrameData(
-    const TrackingData &data) {
+    const TrackingData &data,std::shared_ptr<LocalMapMatchResult> track_data) {
   KeyFrameData result{std::make_shared<KeyFrameData::Data>(
       KeyFrameData::Data{data.data->time, data.data->imu_state.Pose(),
                          data.data->extric_camera_to_imu,
@@ -83,22 +83,35 @@ KeyFrameData MapPointConstruct::TrackDataToKeyFrameData(
       //
     }
     for (size_t j = 0; j < feat_datas.size(); j++) {
-      FeatureId feat_id{senqu_features.first, j};
-      result.data->features.Insert(feat_id, feat_datas[j]);
-      const uint64_t track_id = track_ids.at(senqu_features.first).at(j);
+    //  {senqu_features.first, j};
+      // result.data->features.Insert(feat_id, feat_datas[j]);
+    FeatureId feat_id =
+        result.data->features.Append(senqu_features.first, feat_datas[j]);
+    const uint64_t track_id = track_ids.at(senqu_features.first).at(j);
 
-      const Eigen::Vector3d frame_re_map_point =
-          senqu_features.second.map_points.at(track_id);
-      result.data->map_points.Insert(feat_id, frame_re_map_point);
-      MapPointId map_point_local_id(0, 0);
-      if (!IsExist(senqu_features.first, track_id, &map_point_local_id)) {
-        const std::pair<int, uint64_t> tracking_id(senqu_features.first,
-                                                   track_id);
-        map_point_local_id = AppendMapPointId(&tracking_id);
+    const Eigen::Vector3d frame_re_map_point =
+        senqu_features.second.map_points.at(track_id);
+    result.data->map_points.Insert(feat_id, frame_re_map_point);
+    MapPointId map_point_local_id(0, 0);
+    if (!IsExist(senqu_features.first, track_id, &map_point_local_id)) {
+      const std::pair<int, uint64_t> tracking_id(senqu_features.first,
+                                                 track_id);
+      map_point_local_id = AppendMapPointId(&tracking_id);
 
       }else {
       }
       result.data->map_point_ids.emplace(feat_id, map_point_local_id);
+    }
+  }
+  if (track_data&& options_.use_local_track_match) {
+    for (auto &match : track_data->matchs) {
+      auto feat_id = result.data->features.Append(
+          match.s,
+          FeatureData{cv::KeyPoint(match.key_point.x(), match.key_point.y(), 2),
+                      Eigen::Vector3d(match.normal.x(), match.normal.y(), 1)});
+      result.data->map_points.Insert(feat_id, match.map_point);
+      //
+      result.data->map_point_ids.emplace(feat_id, match.mp_point_id);
     }
   }
   return result;

@@ -46,7 +46,7 @@ struct LocalMapTrackOption {
 class LocalMapTrack {
  public:
   LocalMapTrack(const LocalMapTrackOption& option);
-  std::unique_ptr<LocalMapMatchResult> Track(
+  std::shared_ptr<LocalMapMatchResult> Track(
       const std::shared_ptr<LocalMap>& local_map,
       const KeyFrameData& track_data);
   //

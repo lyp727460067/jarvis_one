@@ -29,7 +29,7 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
   if (options_.mapping_option.enable_local_track) {
     tracker_->SetPriorFactorFunction(
         [&](const TrackingData &track_data)
-            -> std::unique_ptr<LocalMapMatchResult> {
+            -> std::shared_ptr<LocalMapMatchResult> {
           if (track_data.data) {
             return map_builder_->TrackLocalMap(track_data);
           }
@@ -46,7 +46,7 @@ void TrajectorBuilder::ReSet() {
   if (options_.mapping_option.enable_local_track) {
     tracker_->SetPriorFactorFunction(
         [&](const TrackingData &track_data)
-            -> std::unique_ptr<LocalMapMatchResult> {
+            -> std::shared_ptr<LocalMapMatchResult> {
           if (track_data.data) {
             return map_builder_->TrackLocalMap(track_data);
           }

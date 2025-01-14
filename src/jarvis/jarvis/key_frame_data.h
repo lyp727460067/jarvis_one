@@ -86,6 +86,8 @@ struct LocalMapMatchResult {
     int s;
     Eigen::Vector3d map_point;
     Eigen::Vector2d normal;
+    MapPointId mp_point_id;
+    Eigen::Vector2d key_point;
   };
   std::vector<Match> matchs;
 };

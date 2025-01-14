@@ -78,7 +78,7 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
 void LocalMapTrack::RunWorks() {}
 
 //
-std::unique_ptr<LocalMapMatchResult> LocalMapTrack::Track(
+std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
     const std::shared_ptr<LocalMap>& local_map,
     const KeyFrameData& track_data) {
   local_map_ = local_map;
@@ -282,7 +282,7 @@ std::unique_ptr<LocalMapMatchResult> LocalMapTrack::Track(
                  track_data.data->extric_camera_to_imu, matchs,
                  std::array<float, 2>{options_.op_weight, options_.op_weight});
     //
-    return std::make_unique<LocalMapMatchResult>(
+    return std::make_shared<LocalMapMatchResult>(
         LocalMapMatchResult{local_map->LocalPose() * pose, {}});
   } else if (options_.op_type == 0) {
     transform::Rigid3d init_pose = pose;
@@ -305,7 +305,7 @@ std::unique_ptr<LocalMapMatchResult> LocalMapTrack::Track(
               << " t:" << init_pose.translation().transpose() << "-> "
               << pose.translation().transpose() << info.str();
 
-    return std::make_unique<LocalMapMatchResult>(
+    return std::make_shared<LocalMapMatchResult>(
         LocalMapMatchResult{local_map->LocalPose() * pose, {}});
 
   } else if (options_.op_type == 2) {
@@ -314,11 +314,12 @@ std::unique_ptr<LocalMapMatchResult> LocalMapTrack::Track(
       for (auto& match : constraist_matchs.second) {
         matchs_result.push_back(LocalMapMatchResult::Match{
             constraist_matchs.first, local_map->LocalPose() * match.map_point,
-            match.cur_normal_px});
+            match.cur_normal_px, match.candidate.value().mp_id,
+            match.candidate.value().cur_px});
       }
     }
 
-    return std::make_unique<LocalMapMatchResult>(
+    return std::make_shared<LocalMapMatchResult>(
         LocalMapMatchResult{local_map->LocalPose() * pose, matchs_result});
   }
 
@@ -413,8 +414,9 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
       }
       eixst_map_point_ids.insert(map_point_feature_ids.first[i]);
       candidates_temp.push_back(LocalMapTrack::Candidate{
-          ref_frame_id, map_point_feature_ids.second[i], px,0,static_cast<int>(distance*10),
-          map_ob_kf_num, map_point_feature_ids.first[i]});
+          ref_frame_id, map_point_feature_ids.second[i], px, 0,
+          static_cast<int>(distance), map_ob_kf_num,
+          map_point_feature_ids.first[i]});
     }
     if (candidates_temp.size() >
         size_t(options_.one_kf_match_candidates_min_num)) {
@@ -432,6 +434,11 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
               } 
                 return false;
             });
+  // std::stringstream info;
+  // for(const auto &cand:candidates){
+  //   info<<cand.score<<" ";
+  // }
+  // LOG(INFO)<<info.str();
   return candidates;
 }
 //

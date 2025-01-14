@@ -44,7 +44,7 @@ struct SlideWindowResult {
 
 
 //
-using PriorFactorFunction = std::function<std::unique_ptr<LocalMapMatchResult>(
+using PriorFactorFunction = std::function<std::shared_ptr<LocalMapMatchResult>(
     const TrackingData& track_data)>;
 class SlideWindow {
  public:

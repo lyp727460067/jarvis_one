@@ -259,11 +259,9 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
         //              << ",fisrt imu pose:" << imu_states_[k].Pose();
         optimization_->SetPrior(std::move(prior_pose), k);
         has_prio_pose = true;
-
-        // CHECK(false);
       }
       VLOG(kGlogCostTimeLevel) << "Local match cost: " << t_t.toc() << " ms";
-      LOG(INFO) << "Local match cost: " << t_t.toc() << " ms";
+      // LOG(INFO) << "Local match cost: " << t_t.toc() << " ms";
     }
   // }
 

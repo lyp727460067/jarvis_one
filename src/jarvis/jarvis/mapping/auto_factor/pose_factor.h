@@ -20,9 +20,9 @@ class TranslationCostFunctor {
 
   template <typename T>
   bool operator()(const T* const translation, T* residual) const {
-    residual[0] = factor_ * (x_ - translation[0]);
-    residual[1] = factor_ * (y_ - translation[1]);
-    residual[2] = factor_ * (z_ - translation[2]);
+    residual[0] = factor_ * (translation[0]-T(x_));
+    residual[1] = factor_ * (translation[1]-T(y_));
+    residual[2] = factor_ * (translation[2]-T(z_));
     return true;
   }
 

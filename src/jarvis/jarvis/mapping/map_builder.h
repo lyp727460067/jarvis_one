@@ -45,9 +45,13 @@ struct MapBuilderOption {
   std::map<int, camera_models::CameraPtr> cameras;
   std::vector<Eigen::AlignedBox2i> image_boxs;
   int thread_num =1; 
-  double track_map_opti_culling_sampler = 0.2;
+  double track_map_opti_sampler = 0.05;
 };
-
+struct WorkItem {
+  enum class Result { Normal, kRunLocalOptimization };
+  std::chrono::steady_clock::time_point time;
+  std::function<Result()> task;
+};
 class MappingBuilder {
  public:
   MappingBuilder(const MapBuilderOption& option,dbow::Vocabulary *voc);
@@ -58,7 +62,7 @@ class MappingBuilder {
   void AddImuData(const sensor::ImuData& imu_data);
   void AddOdometryData(const sensor::OdometryData& odo_data);
   //
-  std::unique_ptr<LocalMapMatchResult> TrackLocalMap(const TrackingData& frame_data);
+  std::shared_ptr<LocalMapMatchResult> TrackLocalMap(const TrackingData& frame_data);
   transform::Rigid3d Relocaiton(const TrackingData& frame_data);
   //
   std::vector<Eigen::Vector3d> GetAllMapPoints();
@@ -79,11 +83,13 @@ class MappingBuilder {
 
  private:
   void  TrackLocalMapOptimize();
-  void UpdataActiveWithOpLocal(std::map<LocalMapId, LocalMap*>* op_local_maps);
+  void UpdataActiveWithOpLocal(
+      std::map<LocalMapId, std::shared_ptr<LocalMap>>* op_local_maps);
   //
-  void TrimKeyFrameData();
+  //
+  void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
+  //
   LocalMapOptimizationData ParseLocalMapData(const KeyFrameId& frame_id);
-  void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
   //
   std::unique_ptr<common::Task> when_done_task_ ;
   std::unique_ptr<MapPointConstruct> map_point_construct_;
@@ -96,13 +102,21 @@ class MappingBuilder {
   //
   std::unique_ptr<common::FixedRatioSampler> track_local_map_op_sampler_;
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
-  std::unique_ptr<common::ThreadPool> thread_pool_;    
+  std::unique_ptr<common::ThreadPool> thread_pool_;
+
+  std::mutex work_queue_mutex_;
+  std::map<common::Time, std::shared_ptr<LocalMapMatchResult>>
+      local_map_match_result_catch_;
+  using WorkQueue = std::deque<WorkItem>;
+  std::unique_ptr<WorkQueue> work_queue_;
+  void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
+  void DrainWorkQueue();
   mutable std::mutex mutex_;
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;
   bool kill_thread_=false;
   transform::Rigid3d local_to_globla_;
- 
+  std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_;
 };
 }  // namespace mapping
 }  // namespace jarvis

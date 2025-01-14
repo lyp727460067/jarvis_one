@@ -50,7 +50,9 @@ class LocalMap {
   //
   transform::Rigid3d LocalPose()const { return data_.local_pose; }
   LocalMap(const LocalMap &local_map)
-      : LocalMap(local_map.options_, local_map.data_.local_pose) {}
+      : LocalMap(local_map.options_, local_map.data_.local_pose) {
+    local_to_ref_ = local_map.local_to_ref_;
+  }
 
   //
   bool operator=(LocalMap &&local_map);

@@ -62,7 +62,7 @@ class Optimization {
   OptimizationStateData* MutableData() { return &data_; }
   ~Optimization();
   double FinalCost() { return final_cost_; }
-  void SetPrior(std::unique_ptr<LocalMapMatchResult> matchs, int k = 0) {
+  void SetPrior(std::shared_ptr<LocalMapMatchResult> matchs, int k = 0) {
     prior_pose_ = std::make_pair(k, std::move(matchs));
   }
 
@@ -86,7 +86,7 @@ class Optimization {
   double final_cost_=0; 
   int num_= 0;
   //
-  std::optional<std::pair<int, std::unique_ptr<LocalMapMatchResult>>>
+  std::optional<std::pair<int, std::shared_ptr<LocalMapMatchResult>>>
       prior_pose_;
 
   // double** para_Pose = data_.pose;

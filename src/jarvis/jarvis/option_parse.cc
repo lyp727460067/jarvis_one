@@ -945,7 +945,7 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
 }
 //
 
-mapping::LocalMapOption ParseLocalMapOptio(const cv::FileNode &fs) {
+mapping::LocalMapOption ParseLocalMap(const cv::FileNode &fs) {
   auto &fsSettings = fs;
   mapping::LocalMapOption op_option;
 
@@ -991,13 +991,16 @@ mapping::LocalMapOption ParseLocalMapOptio(const cv::FileNode &fs) {
   op_option.data_culling_option.redundant_observations_ration =
       fsSettings["data_culling_option"]["redundant_observations_ration"];
 
+
+
   return op_option;
 }
 
 mapping::MapPointConstructOption ParseLocalConMapOptio(const cv::FileNode &fs) {
   auto &fsSettings = fs;
   mapping::MapPointConstructOption op_option;
-
+  int temp = fsSettings["use_local_track_match"];
+  op_option.use_local_track_match =bool(temp);
   op_option.con_struct_map_point_frame_min_distance =
       fsSettings["con_struct_map_point_frame_min_distance"];
   op_option.construct_map_point_near_keframd_num =
@@ -1051,13 +1054,43 @@ mapping::LocalMapOptimizationOption ParseLocalMapoptio(const cv::FileNode &fs) {
   mapping::LocalMapOptimizationOption op_option;
   op_option.re_preject_weight = fsSettings["re_preject_weight"];
   op_option.huber_loss = fsSettings["huber_loss"];
+  op_option.max_num_iterations = fsSettings["max_num_iterations"];
+  op_option.relative_weight = fsSettings["relative_weight"];
+  op_option.relative_local_map_translation_weight =
+      fsSettings["relative_local_map_translation_weight"];
   int temp = fsSettings["optimize_intric"];
   op_option.optimize_intric = bool(temp);
-
+  op_option.ceres_num_threads = fsSettings["ceres_num_threads"];
+  temp = fsSettings["fix_extric"];
+  op_option.fix_extric = bool(temp);
   temp = fsSettings["use_rtk"];
   op_option.use_rtk = bool(temp);
   temp = fsSettings["only_pose_graph"];
   op_option.only_pose_graph = bool(temp);
+
+  std::string convisi_level_search_num_str =
+      fsSettings["convisi_level_search_num"];
+  if (!convisi_level_search_num_str.empty()) {
+    op_option.sssential_graph_option.max_con_kf_num =
+        fsSettings["max_con_kf_num"];
+    op_option.sssential_graph_option.max_adjacent_kf_num =
+        fsSettings["max_adjacent_kf_num"];
+    std::vector<int> convisi_level_search_num;
+    std::string num;
+    for (size_t i = 0; i < convisi_level_search_num_str.size(); i++) {
+      if (convisi_level_search_num_str[i] != '{' &&
+          convisi_level_search_num_str[i] != '}' &&
+          convisi_level_search_num_str[i] != ',') {
+        num.push_back(convisi_level_search_num_str[i]);
+      } else if (convisi_level_search_num_str[i] == ',' ||
+                 convisi_level_search_num_str[i] == '}') {
+        convisi_level_search_num.push_back(std::stol(num));
+        num.clear();
+      }
+    }
+    op_option.sssential_graph_option.convisi_level_search_num =
+        convisi_level_search_num;
+  }
   return op_option;
 }
 
@@ -1079,23 +1112,30 @@ void ParseYAMLOption(const std::string &file,
   LOG(INFO)<<dbow_file ;
   auto fsSettings = CheckFile(mapping_file);
   std::string track_sequence_str = fsSettings["track_sequence"];
-  option->local_map_track_option =
-      ParseLocalMapTrackOptio(fsSettings["local_map_track_option"]);
+  option->local_map_track_option = ParseLocalMapTrackOptio(fsSettings["local_map_track_option"]);
+  option->thread_num = (fsSettings["thread_pool_num"]);
+  option->track_map_opti_sampler = (fsSettings["track_map_opti_sampler"]);
   int temp = fsSettings["enable_local_track"];
   option->enable_local_track = bool(temp);
   temp = fsSettings["enable_local_opimization"];
   option->enable_local_opimization = bool(temp);
-
-  temp = fsSettings["enable_loop_closure"];
-  option->enable_loop_closure = bool(temp);
+  temp = fsSettings["enable_local_opimization"];
+  option->enable_local_opimization = bool(temp);
+  temp = fsSettings["enable_track_map_opti"];
+  option->enable_track_map_opti = bool(temp);
   //
   option->key_frame_filter_option = ParseLocalKeyFrameFilterOptionOptio(
       fsSettings["key_frame_filter_option"]);
   option->vocabulary_filebrif = dbow_file;
   option->map_point_construct_option = ParseLocalConMapOptio(
       fsSettings["map_point_construct_option"]);
-  option->local_map_option = ParseLocalMapOptio(fsSettings["local_map_option"]);
-//
+  option->local_map_option = ParseLocalMap(fsSettings["local_map_option"]);
+  option->map_manager_option.local_map_optimization_option =
+      ParseLocalMapoptio(fsSettings["map_manager_option"]["local_map_optimization_option"]);
+  //
+  option->track_local_map_opt_option =
+      ParseLocalMapoptio(fsSettings["track_local_map_opt_option"]);
+  //
 }
 
 template <>
