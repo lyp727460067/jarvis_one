@@ -131,11 +131,14 @@ bool LocalMap::operator=(LocalMap &&rhs) {
   return true;
 }
 //
-void LocalMap::UpdadataExtendFinishData() {
-  for (const auto &data : data_.key_frames_datas) {
-    key_frame_data_base_->AddData(data.id, data.data.data);
+void LocalMap::UpdadataExtendFinishData(bool f) {
+  if (f) {
+    for (const auto &data : data_.key_frames_datas) {
+      key_frame_data_base_->AddData(data.id, data.data.data);
+    }
+    TrimRedundancy();
   }
-  TrimRedundancy();
+
   is_optimization  =true;
   // Opimization();
 }

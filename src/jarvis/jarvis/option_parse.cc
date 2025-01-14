@@ -1119,6 +1119,9 @@ void ParseYAMLOption(const std::string &file,
   option->enable_local_track = bool(temp);
   temp = fsSettings["enable_local_opimization"];
   option->enable_local_opimization = bool(temp);
+  temp = fsSettings["construct_use_des_match"];
+  option->construct_use_des_match = bool(temp);
+  
   temp = fsSettings["enable_local_opimization"];
   option->enable_local_opimization = bool(temp);
   temp = fsSettings["enable_track_map_opti"];
@@ -1135,6 +1138,9 @@ void ParseYAMLOption(const std::string &file,
   //
   option->track_local_map_opt_option =
       ParseLocalMapoptio(fsSettings["track_local_map_opt_option"]);
+  option->finish_track_local_map_opt_option =
+      ParseLocalMapoptio(fsSettings["finish_track_local_map_opt_option"]);
+
   //
 }
 

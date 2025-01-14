@@ -28,6 +28,7 @@ namespace mapping {
 
 struct MapManagerOption {
     LocalMapOptimizationOption local_map_optimization_option;
+    
 };
 //
 
@@ -70,7 +71,7 @@ class MapManager {
  private:
   std::mutex mutex_;
   std::unique_ptr<LocalMapOptimization> local_opimization_;
-
+ 
   std::set<KeyFrameId> last_new_update_key_frame_ids_;  
   MapManagerOption options_;
   MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;

@@ -265,6 +265,7 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
 //
 bool MapPointConstruct::ConstructExtend(
     const LocalMap& local_map, KeyFrameData *data) {
+  if (voc_ == nullptr) return false;
   if (!data->data->dbow_data.bow_vector.empty()) return false;
   GenerateForExtendKeyPoint(*data);
   // 优先把以前地图的点和当前做匹配

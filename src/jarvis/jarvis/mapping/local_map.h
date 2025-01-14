@@ -69,7 +69,7 @@ class LocalMap {
   bool IsOptimization() { return is_optimization ;};
   //
   void UpdateExistData(const LocalMap&rhs);
-  void UpdadataExtendFinishData();
+  void UpdadataExtendFinishData(bool f);
   //
   Eigen::Vector3d GetMapPointPosw(const MapPointId &mp_id) const {
     return data_.local_pose * data_.map_points.at(mp_id).data->pos;

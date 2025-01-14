@@ -66,8 +66,21 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option,
         options_.map_manager_option.local_map_optimization_option
             .extric_camera_to_imu;
     //
+    LocalMapOptimizationOption fi_op_option(option.finish_track_local_map_opt_option);
+
+    fi_op_option.track_sequence =
+        options_.map_manager_option.local_map_optimization_option
+            .track_sequence;
+    //
+    fi_op_option.extric_camera_to_imu =
+        options_.map_manager_option.local_map_optimization_option
+            .extric_camera_to_imu;
+
     track_local_map_opimization_ =
         std::make_unique<EssentialGraphLocalMapOptimization>(op_option);
+
+    finish_track_local_map_opimization__ =
+        std::make_unique<LocalMapOptimization>(fi_op_option);    
   }
   //
   //
@@ -143,19 +156,12 @@ void MappingBuilder::UpdataActiveWithOpLocal(
 //
 
 //
-void MappingBuilder::TrackLocalMapOptimize() {
-  if (!track_local_map_op_sampler_->Pulse() || local_map_front_ == nullptr)
-    return;
-  if (local_map_front_->Size() < 10) return;
-  op_local_maps_.clear();
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    op_local_maps_[{0, 0}] = std::make_shared<LocalMap>(*local_map_front_);
-    *op_local_maps_[{0, 0}] = *local_map_front_;
-  }
+void MappingBuilder::TrackLocalMapOptimize(
+    LocalMapOptimization *optimizer,
+    std::map<LocalMapId, std::shared_ptr<LocalMap>> *local_map) {
   //
-  track_local_map_opimization_->Optimize(&op_local_maps_);
-  UpdataActiveWithOpLocal(&op_local_maps_);
+  optimizer->Optimize(local_map);
+  UpdataActiveWithOpLocal(local_map);
 }
 //
 //
@@ -192,34 +198,74 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
     if (local_map_front_ == nullptr) {
       local_map_front_ = active_local_maps_->GetLocalMap().front();
     }
+
+    std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
+
+    
     if (active_local_maps_->GetLocalMap().front() != local_map_front_) {
       if (options_.enable_local_opimization || options_.enable_loop_closure) {
         map_manager_->AddLocalMap(t, local_map_front_);
       }
-      std::shared_ptr<LocalMap> last_local_map_front;
+      std::shared_ptr<LocalMap> last_local_map_front=nullptr;
       {
         std::lock_guard<std::mutex> lock(mutex_);
         last_local_map_front = local_map_front_;
         local_map_front_ = active_local_maps_->GetLocalMap().front();
       }
+      
       if (options_.enable_track_map_opti) {
-        std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
+        op_local_maps[{0, op_local_maps.size()}] =
+            std::make_shared<LocalMap>(*last_local_map_front);
         {
           std::lock_guard<std::mutex> lock(mutex_);
-          op_local_maps[{0, 0}] = last_local_map_front;
+          *op_local_maps[{0, op_local_maps.size() - 1}] = *last_local_map_front;
         }
-        UpdataActiveWithOpLocal(&op_local_maps);
+
+        if (options_.enable_track_map_opti) {
+          UpdataActiveWithOpLocal(&op_local_maps);
+        }
       }
 
       // AddWorkItem([this, last_local_map_front]() {
-        TrimKeyFrameData(last_local_map_front);
-        // return WorkItem::Result::Normal;
+      TrimKeyFrameData(last_local_map_front);
+      // return WorkItem::Result::Normal;
       // });
     }
-
+    //
+    op_local_maps[{0, op_local_maps.size()}] =
+        std::make_shared<LocalMap>(*local_map_front_);
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      *op_local_maps[{0, op_local_maps.size() - 1}] = *local_map_front_;
+    }
+    //
     if (options_.enable_track_map_opti) {
-      AddWorkItem([this]() {
-        TrackLocalMapOptimize();
+      AddWorkItem([this, op_local_maps]() {
+        //
+        std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_temp =
+            op_local_maps;
+        if ((op_local_maps_temp.rbegin()->second->Size() ==
+                 options_.local_map_option.max_kf_num + 1 &&
+             !options_.enable_local_opimization) ||
+            op_local_maps_temp.rbegin()->second->Size() ==
+                options_.local_map_option.max_kf_num) {
+          TrackLocalMapOptimize(finish_track_local_map_opimization__.get(),
+                                &op_local_maps_temp);
+          return WorkItem::Result::Normal;
+        }
+
+        if (track_local_map_op_sampler_->Pulse() &&
+            op_local_maps_temp.rbegin()->second->Size() >
+                options_.local_map_option.max_kf_num) {
+          {
+            std::lock_guard<std::mutex> lock(mutex_);
+          }
+          if (op_local_maps_temp.size() == 2) {
+            op_local_maps_temp.erase(op_local_maps_temp.begin());
+          }
+          TrackLocalMapOptimize(track_local_map_opimization_.get(),
+                                &op_local_maps_temp);
+        }
         return WorkItem::Result::Normal;
       });
     }

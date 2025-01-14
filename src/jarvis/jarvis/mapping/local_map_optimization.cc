@@ -68,7 +68,7 @@ void LocalMapOptimization::StrategyOptimize(
   for (auto& local_map : *local_maps) {
     transform::Rigid3d local_map_local_pose =
         fix_pose.inverse() * local_map.second->LocalPose();
-
+    LOG(INFO)<<local_map_local_pose ;
     ceres_local_map_poses.emplace(local_map.first,
                                   NodePose{
                                       local_map_local_pose.translation(),
@@ -91,6 +91,9 @@ void LocalMapOptimization::StrategyOptimize(
                                    pose_local_pose.rotation(),
                                    {ypr[0], ypr[1], ypr[2]},
                                    local_kf_datas.at(pos.first).data->pose});
+
+
+                                   
     }
 
     auto all_map_points = local_map.second->AllMapPoints();
@@ -177,9 +180,9 @@ void LocalMapOptimization::StrategyOptimize(
     auto local_map_data = local_map.second->MutableData();
     //
     //
-    local_map_data->local_pose =
-        fix_pose * transform::Rigid3d::Translation(
-                       ceres_local_map_poses.at(local_map.first).t);
+    // local_map_data->local_pose =
+    //     fix_pose * transform::Rigid3d::Translation(
+    //                    ceres_local_map_poses.at(local_map.first).t);
 
     auto& local_frame_poses = local_map_data->key_frames_ref_pose;
     for (auto& local_pose : local_frame_poses)

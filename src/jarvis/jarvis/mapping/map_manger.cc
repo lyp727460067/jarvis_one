@@ -53,8 +53,10 @@ LocalMapId MapManager::AddLocalMap(int trajector,
     op_local_maps[local_map_id] = std::make_shared<LocalMap>(*local_map);
     LocalMap &new_local_map = *op_local_maps[local_map_id];
     //
+    bool construct_state  =false;
     for (const auto &data : local_map->AllKeyFrameDatas()) {
       //
+      
       if (last_new_update_key_frame_ids_.count(data.id)) {
         new_local_map.AddKeyFrameData(data.id, data.data);
       } else {
@@ -69,7 +71,7 @@ LocalMapId MapManager::AddLocalMap(int trajector,
       localmap_update_callback_(&op_local_maps);
       UpdateLocalOpLocalMap(&op_local_maps);
     }
-    new_local_map.UpdadataExtendFinishData();
+    new_local_map.UpdadataExtendFinishData(construct_state);
     *local_map = std::move(new_local_map);
     last_new_update_key_frame_ids_ = std::move(new_update_ids);
   });
@@ -134,14 +136,36 @@ KeyFrameId MapManager::AddKeyFrameData(int trajector,
 //
 std::map<KeyFrameId, transform::TimestampedTransform>
 MapManager::GetAllKeyFramePose() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::map<KeyFrameId, transform::TimestampedTransform> result;
-  for (const auto &key_frame_data : key_frames_datas_) {
-    result.emplace(
-        key_frame_data.id,
-        transform::TimestampedTransform{key_frame_data.data.data->time,
-                                        key_frame_data.data.data->global_pos});
+
+
+  std::vector<std::shared_ptr<LocalMap>> finish_local_maps;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto &local_map_data : local_maps_) {
+      if (local_map_data.data.local_map->IsOptimization()) {
+        finish_local_maps.push_back(local_map_data.data.local_map);
+      }
+    }
   }
+  //
+  std::map<KeyFrameId, transform::TimestampedTransform> result;
+  for (const auto &local_map : finish_local_maps) {
+    const auto all_ref_pose = local_map->AllKeyFrameRefPose();
+    for (const auto &ref_pose : all_ref_pose) {
+      if (result.count(ref_pose.first)) continue;
+      result.emplace(ref_pose.first,
+                     transform::TimestampedTransform{
+                         key_frames_datas_.at(ref_pose.first).data->time,
+                         local_map->LocalPose() * ref_pose.second});
+    }
+  }
+
+  // for (const auto &key_frame_data : key_frames_datas_) {
+  //   result.emplace(
+  //       key_frame_data.id,
+  //       transform::TimestampedTransform{key_frame_data.data.data->time,
+  //                                       key_frame_data.data.data->global_pos});
+  // }
   return result;
 }
 

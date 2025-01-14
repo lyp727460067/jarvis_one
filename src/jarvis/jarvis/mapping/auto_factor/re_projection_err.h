@@ -124,7 +124,7 @@ struct FourReProjectionBaErr {
     //
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> local_map_pose(local_map_pose_);
     //
-    const Eigen::Matrix<T, 3, 1> map_point = map_point_temp + local_map_pose;
+    const Eigen::Matrix<T, 3, 1> map_point = map_point_temp ;
     const Eigen::Quaternion<T> q1 =
         Eigen::AngleAxis<T>(q1_[0], Eigen::Matrix<T, 3, 1>::UnitZ()) *
         pith_roll_rotation_.cast<T>();

@@ -28,11 +28,15 @@ struct MapBuilderOption {
   bool enable_local_opimization =false;
   bool enable_loop_closure =false;
   bool enable_track_map_opti =true;
+  //
+  bool construct_use_des_match = false;
+  //
   MapManagerOption map_manager_option;
   LocalMapOption local_map_option;
   LocalMapTrackOption local_map_track_option;
   KeyFrameFilterOption key_frame_filter_option;
   LocalMapOptimizationOption track_local_map_opt_option;
+  LocalMapOptimizationOption finish_track_local_map_opt_option;
   LoopDetectOption loop_detect_option;
   MapPointConstructOption map_point_construct_option; 
   //
@@ -82,7 +86,8 @@ class MappingBuilder {
   }
 
  private:
-  void  TrackLocalMapOptimize();
+  void TrackLocalMapOptimize(LocalMapOptimization*,
+                             std::map<LocalMapId, std::shared_ptr<LocalMap>>*);
   void UpdataActiveWithOpLocal(
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* op_local_maps);
   //
@@ -96,6 +101,8 @@ class MappingBuilder {
   std::unique_ptr<MapManager> map_manager_;
   std::unique_ptr<LocalMapTrack> local_map_track_;
   std::unique_ptr<LocalMapOptimization> track_local_map_opimization_;
+   std::unique_ptr<LocalMapOptimization> finish_track_local_map_opimization__;
+
   //
   std::shared_ptr<LocalMap> local_map_front_;
   std::unique_ptr<ActiveLocalMap> active_local_maps_;
@@ -116,7 +123,7 @@ class MappingBuilder {
   MapBuilderOption options_;
   bool kill_thread_=false;
   transform::Rigid3d local_to_globla_;
-  std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_;
+  // std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_;
 };
 }  // namespace mapping
 }  // namespace jarvis
