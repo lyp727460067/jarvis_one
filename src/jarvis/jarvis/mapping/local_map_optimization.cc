@@ -690,8 +690,8 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
 }
 
 
-void LocalMapOptimization::Optimize2(
-    std::map<LocalMapId, LocalMap*>* local_maps) {
+void GraphLocalMapOptimization6TOF::StrategyOptimize(
+    std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps) {
   //
   std::map<KeyFrameId, NodePose> ceres_poses;
   //

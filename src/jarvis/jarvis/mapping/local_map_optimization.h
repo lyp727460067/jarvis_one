@@ -76,7 +76,6 @@ class LocalMapOptimization {
     // input: 需要优化的帧数据
   void Optimize(LocalMapOptimizationData* data);
   void Optimize(std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
-  void Optimize2(std::map<LocalMapId, LocalMap*>* local_maps);
 
  protected:
   virtual void StrategyOptimize(
@@ -97,6 +96,21 @@ private:
 class EssentialGraphLocalMapOptimization : public LocalMapOptimization {
  public:
   EssentialGraphLocalMapOptimization(const LocalMapOptimizationOption& option)
+      : LocalMapOptimization(option),
+        ess_options_(option.sssential_graph_option) {}
+  void StrategyOptimize(
+      std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
+
+ private:
+  std::vector<std::pair<KeyFrameId, int>> GetKeyLevelConnectedKeyFrames(
+      const KeyFrameId& frame_id, const std::vector<int>& levels,
+      const LocalMap& local_map);
+  LocalMapOptimizationOption::EssentialGraphOption ess_options_;
+};
+
+class GraphLocalMapOptimization6TOF : public LocalMapOptimization {
+ public:
+  GraphLocalMapOptimization6TOF(const LocalMapOptimizationOption& option)
       : LocalMapOptimization(option),
         ess_options_(option.sssential_graph_option) {}
   void StrategyOptimize(

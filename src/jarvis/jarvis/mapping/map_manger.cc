@@ -27,7 +27,7 @@ MapManager::MapManager(const MapManagerOption &option,
       map_point_construct_(map_point_construct),
       thread_pool_(thread_pool),
       localmap_update_callback_(std::move(call_back)) {
-  local_opimization_ = std::make_unique<LocalMapOptimization>(
+  local_opimization_ = std::make_unique<GraphLocalMapOptimization6TOF>(
       option.local_map_optimization_option);
 }
 //
