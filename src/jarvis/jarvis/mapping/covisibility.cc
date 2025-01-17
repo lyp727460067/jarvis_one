@@ -2,7 +2,7 @@
 namespace jarvis {
 namespace mapping {
 //
-constexpr int kMinCoviNumm = 1;
+constexpr int kMinCoviNumm = 10;
 //
 
 //

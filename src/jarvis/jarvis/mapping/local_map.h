@@ -66,7 +66,7 @@ class LocalMap {
   //
   void Finish();
   bool IsFinish() { return finish_; }
-  bool IsOptimization() { return is_optimization ;};
+  bool IsOptimization() { return is_optimization ;}
   //
   void UpdateExistData(const LocalMap&rhs);
   void UpdadataExtendFinishData(bool f);
@@ -117,7 +117,10 @@ class LocalMap {
   //
   Data *MutableData() { return &data_; }
   const Data ConstData() const { return data_; }
-
+  //
+  void InsertOutOutliers(
+      const std::set<MapPointId> &new_out_outliers_map_points);
+  //
  public:
   //
   Data data_;
@@ -133,7 +136,7 @@ class LocalMap {
 
   std::map<int, camera_models::CameraPtr> cameras_;
   //
-
+  
   void TrimRedundancy();
   //
   LocalMapOption options_;
@@ -172,6 +175,8 @@ class LocalMap {
   std::mutex mutex_;
   transform::Rigid3d local_to_ref_;
   std::unique_ptr<LocalDataFuse> data_fuse_;
+
+  std::set<MapPointId> out_outliers_map_points_catch_;
 };
 //
 class ActiveLocalMap {

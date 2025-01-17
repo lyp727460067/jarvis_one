@@ -76,7 +76,7 @@ struct ReProjectionErrProblem : public ceres::SizedCostFunction<2, 7, 7> {
                          const Eigen::Vector3d &map_point, const double &factor)
       : nor_point_(nor_poit), map_point_(map_point), factor_(factor) {
     sqrt_info = Eigen::Matrix2d::Identity() * factor_;
-    t_sqrt_info = Eigen::Matrix2d::Identity() * factor_*0.1;
+    t_sqrt_info = Eigen::Matrix2d::Identity() * factor_*10;
   }
   bool Evaluate(double const *const *parameters, double *residuals,
                 double **jacobians) const {
@@ -119,7 +119,7 @@ struct ReProjectionErrProblem : public ceres::SizedCostFunction<2, 7, 7> {
         //忽略平移方向，只在旋转方向给约束
         //
         jacobians_.block<2, 3>(0, 0) =
-            sqrt_info * reduce *
+            t_sqrt_info * reduce *
             re1.transpose() *  -r1.transpose();
         jacobians_.block<2, 3>(0, 3) = sqrt_info * reduce * re1.transpose() *
                                        Utility::skewSymmetric(pts_imu_1);

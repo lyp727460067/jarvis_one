@@ -27,8 +27,8 @@ namespace mapping {
 //
 
 struct MapManagerOption {
-    LocalMapOptimizationOption local_map_optimization_option;
-    
+  bool use_6_tof_op = false;
+  LocalMapOptimizationOption local_map_optimization_option;
 };
 //
 

@@ -1,5 +1,5 @@
-#ifndef __JARVIS_MAPPING_MAP_OPTIMIZATION__H__
-#define __JARVIS_MAPPING_MAP_OPTIMIZATION__H__
+#ifndef __JARVIS_MAPPING_LOCAL_MAP_OPTIMIZATION__H__
+#define __JARVIS_MAPPING_LOCAL_MAP_OPTIMIZATION__H__
 
 #include <map>
 #include <memory>
@@ -27,6 +27,7 @@ struct LocalMapOptimizationOption {
   std::vector<std::vector<int>> track_sequence;
   bool essential_graph =  false;
   int max_num_iterations =10;
+  double repeat_mp_weight  =300;
   double re_preject_weight  =300;
   double relative_weight = 3000;
   double relative_local_map_translation_weight = 3000;
@@ -38,59 +39,43 @@ struct LocalMapOptimizationOption {
   bool only_pose_graph = false;
   bool fix_extric = true;
   int ceres_num_threads =6;
+  double optimazation_outliers_rejection_th = 10.0 / 377;
   struct EssentialGraphOption {
     int max_con_kf_num = 10;
     int max_adjacent_kf_num = 10;
     std::vector<int> convisi_level_search_num{5 ,3};
   } sssential_graph_option;
 };
-
 //
-struct LocalMapOptimizationData {
-  struct MapPointData {
-    Eigen::Vector3d pos;
-    std::map<KeyFrameId, FeatureId> con_frame_datas;  // 地图点对应的观察帧及特征
-  };
-  std::map<MapPointId, MapPointData> con_map_points;
-  struct FrameData {
-    // common::Time time;
-    std::string time;
-    transform::Rigid3d pose;
-  };
-  std::map<KeyFrameId, FrameData> frame_datas;
-  std::map<FeatureId, FeatureData*> feature_datas;
-  // 数量为frame_datas的数量-1,表示KeyFrameId与frame_datas中其前一帧keyframe间的预积分
-  std::map<KeyFrameId, jarvis::estimator::IntegrationBase*> imu_datas;
-  //
+struct NodePose {
+  Eigen::Vector3d t{0, 0, 0};
+  Eigen::Quaterniond q{1, 0, 0, 0};
+  double ypr[3] = {0, 0, 0};
+  transform::Rigid3d local_pose;
 };
-
+//
 class LocalMapOptimization {
  public:
   LocalMapOptimization(const LocalMapOptimizationOption& option);
-  ~LocalMapOptimization();
+  virtual ~LocalMapOptimization() {}
   // for rtk
   void AddFixData(const sensor::FixedFramePoseData& fix_data) {}
   // 原始IMU数据，需要积分
   void AddImuData(sensor::ImuData& imu_data) {}
-  //
-    // input: 需要优化的帧数据
-  void Optimize(LocalMapOptimizationData* data);
   void Optimize(std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
-
  protected:
   virtual void StrategyOptimize(
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
-
+  int RemoveOutliersRejection(const LocalMapId&map_id,std::shared_ptr<LocalMap> local_maps);
+  void UpdateLocalMapData(std::map<LocalMapId, std::shared_ptr<LocalMap>>*);
   std::queue<sensor::ImuData> imu_datas_;
   std::queue<sensor::FixedFramePoseData> fix_datas_;
   LocalMapOptimizationOption  options_;
-  std::vector<transform::Rigid3d> extric_camera_to_imu_;
-
-private:
-  double **para_Pose; // x,y,z,qw,qx,qy,qz
-  double **para_MapPoint;
-  double **para_Ex; // x,y,z,qw,qx,qy,qz
-  double **para_SpeedBias; // vx vy vz bax bay baz bgx bgy bgz
+  std::vector<NodePose> extric_camera_to_imu_;
+  std::map<LocalMapId, NodePose> ceres_local_map_poses_;
+  std::map<LocalMapId, std::map<MapPointId, Eigen::Vector3d>> ceres_map_points_;
+  std::map<LocalMapId, std::map<KeyFrameId, NodePose>> ceres_poses_;
+  void AddExtricToProblem(ceres::Problem*problem);
 };
 
 class EssentialGraphLocalMapOptimization : public LocalMapOptimization {
@@ -102,7 +87,7 @@ class EssentialGraphLocalMapOptimization : public LocalMapOptimization {
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
 
  private:
-  std::vector<std::pair<KeyFrameId, int>> GetKeyLevelConnectedKeyFrames(
+  std::vector<KeyFrameId> GetKeyLevelConnectedKeyFrames(
       const KeyFrameId& frame_id, const std::vector<int>& levels,
       const LocalMap& local_map);
   LocalMapOptimizationOption::EssentialGraphOption ess_options_;

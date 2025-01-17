@@ -2,9 +2,9 @@
 #
 enable_local_track: 1
 enable_track_map_opti: 1
-enable_local_opimization: 1
+enable_local_opimization: 0
 enable_loop_closure : 0
-thread_pool_num : 2
+thread_pool_num : 4
 track_map_opti_sampler : 0.2
 construct_use_des_match : 0
 ##
@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num : 100 
+ max_kf_num :  100
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  key_frame_data_option:
@@ -45,7 +45,7 @@ local_map_option:
   redundant_observations_ration : 0.7
 
 local_map_track_option:
- test_match_pic_write_path :   "" #"/home/lyp/project/vslam/jarvis/test/image/"
+ test_match_pic_write_path : ""  # "/home/lyp/project/vslam/jarvis/test/image/"
  min_track_frame_num : 40
  remove_unconstrained_points : 1
  min_convi_num : 4
@@ -62,8 +62,8 @@ local_map_track_option:
  sequence_match : "{0,1,2}"
  match_senquence0_alone: 0
  huber_loss : 0.1
- kf_max_distance : 7
- cell_sizes : "{0, 20}, {1, 10}, {2, 10}"
+ kf_max_distance : 4
+ cell_sizes : "{0, 10}, {1, 10}, {2, 10}"
  out_time : 0
  max_num_iterations : 3
  op_type  : 2  #0  four dof
@@ -71,44 +71,41 @@ local_map_track_option:
   use_affine_warp : 1
   affine_est_offset: 1 
   affine_est_gain : 1
-  align_max_iter: 5 
+  align_max_iter: 10 
   no_simd: 0
   max_patch_diff_ratio: 0.9
   subpix_refinement: 1
   align_1d : 0
   scan_on_unit_sphere: 0
   max_epi_search_steps : 1
-  min_update_squared : 0.01   #0.03*0.03
+  min_update_squared : 0.003   #0.03*0.03
 
 track_local_map_opt_option:
-  re_preject_weight: 377
-  max_num_iterations : 10
-  relative_weight : 20
-  relative_local_map_translation_weight: 1
-  huber_loss : 1
+  re_preject_weight: 1e3
+  relative_weight : 1e0
+  max_num_iterations : 10 
+  relative_local_map_translation_weight: 0
+  huber_loss : 5
   optimize_intric : 0
   use_rtk: 0
   fix_extric : 0
   only_pose_graph : false
-  ceres_num_threads : 6
-  max_con_kf_num : 50
+  ceres_num_threads : 16
+  max_con_kf_num : 200
   max_adjacent_kf_num : 10
-  convisi_level_search_num  : "{50,20}"
+  convisi_level_search_num  : "{50,50}"
 finish_track_local_map_opt_option:
   re_preject_weight: 377
+  relative_weight : 1e4  
   max_num_iterations : 10
-  relative_weight : 20
-  relative_local_map_translation_weight: 100
-  huber_loss : 1
+  huber_loss : 10
   optimize_intric : 0
   use_rtk: 0
   fix_extric : 0
   only_pose_graph : false
-  ceres_num_threads : 6
-  max_con_kf_num : 50
-  max_adjacent_kf_num : 10
-
+  ceres_num_threads : 16
 map_manager_option: 
+  use_6_tof_op : 0
   local_map_optimization_option:
    re_preject_weight: 377
    max_num_iterations : 10
@@ -118,7 +115,7 @@ map_manager_option:
    use_rtk: 0
    fix_extric : 0
    only_pose_graph : false
-   ceres_num_threads : 6
+   ceres_num_threads : 16
 
 map_point_construct_option:
  test_match_pic_write_path : "" #"/home/lyp/project/vslam/jarvis/test/image/"

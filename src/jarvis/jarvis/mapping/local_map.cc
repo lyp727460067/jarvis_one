@@ -29,6 +29,7 @@ void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
   std::map<MapPointId, FeatureId> key_point_map_point_index;
   for (const auto &map_data : key_frame_data.data->map_points) {
     const MapPointId mp_id = key_frame_data.data->map_point_ids.at(map_data.id);
+    if(out_outliers_map_points_catch_.count(mp_id))continue;
     const FeatureId feat_id = map_data.id;
     key_point_map_point_index.emplace(mp_id, feat_id);
     const Eigen::Vector3d ref_xyz =
@@ -58,15 +59,38 @@ void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
       local_to_ref_ * data_.local_pose.inverse() * key_frame_data.data->pose);
   data_.trim_befor_key_frame_id.insert(kf_id);
 }
-
+//
+//
+void LocalMap::InsertOutOutliers(
+    const std::set<MapPointId> &new_out_outliers_map_points) {
+  out_outliers_map_points_catch_.insert(new_out_outliers_map_points.begin(),
+                                        new_out_outliers_map_points.end());
+  for (const auto &mp_id : new_out_outliers_map_points) {
+    data_.covisibility.TrimMapPoint(mp_id);
+    data_.map_points.Trim(mp_id);
+  }
+  LOG(INFO)<<data_.map_points.size();
+}
+//
+//
 void LocalMap::UpdateExistData(const LocalMap &rhs) {
   //
   transform::Rigid3d rhs_to_this = data_.local_pose.inverse() * rhs.LocalPose();
   //
+  //
+  if (data_.key_frames_datas.begin()->data.data->time ==
+      rhs.data_.key_frames_datas.begin()->data.data->time) {
+    rhs_to_this = transform::Rigid3d::Identity();
+    data_.local_pose = rhs.LocalPose();
+  }
+  //
+
+  bool have_updated =false;
   transform::Rigid3d local_front_to_ref;
   for (auto &kf_ref_pose : data_.key_frames_ref_pose) {
     if (rhs.data_.key_frames_ref_pose.count(kf_ref_pose.first) != 0) {
       //
+      have_updated = true;
       const transform::Rigid3d op_ref_pose =
           rhs_to_this * rhs.data_.key_frames_ref_pose.at(kf_ref_pose.first);
       local_to_ref_ = op_ref_pose *
@@ -75,14 +99,16 @@ void LocalMap::UpdateExistData(const LocalMap &rhs) {
                           .inverse();
       //
       local_front_to_ref = op_ref_pose * kf_ref_pose.second.inverse();
-
       //
       kf_ref_pose.second =
           rhs_to_this * rhs.data_.key_frames_ref_pose.at(kf_ref_pose.first);
     } else {
-      kf_ref_pose.second = local_front_to_ref * kf_ref_pose.second;
+      if (have_updated) {
+        kf_ref_pose.second = local_front_to_ref * kf_ref_pose.second;
+      }
     }
   }
+  if (!have_updated) return;
   for (const auto &mp : data_.map_points) {
     if (rhs.data_.map_points.Contains(mp.id)) {
       data_.map_points.at(mp.id).data->pos =
@@ -92,6 +118,8 @@ void LocalMap::UpdateExistData(const LocalMap &rhs) {
           local_front_to_ref * data_.map_points.at(mp.id).data->pos;
     }
   }
+
+  // local_to_ref_ =transform::Rigid3d::Identity();
 }
   //
 bool LocalMap::operator=(const LocalMap &rhs) {
@@ -110,6 +138,16 @@ bool LocalMap::operator=(const LocalMap &rhs) {
   finish_ = rhs.finish_;
   is_optimization = rhs.is_optimization;
   local_to_ref_ = rhs.local_to_ref_;
+  out_outliers_map_points_catch_.clear();
+  //
+  for (const auto &mp_id : rhs.out_outliers_map_points_catch_) {
+    if (data_.map_points.Contains(mp_id)) {
+      data_.covisibility.TrimMapPoint(mp_id);
+      data_.map_points.Trim(mp_id);
+      out_outliers_map_points_catch_.insert(mp_id);
+    }
+  }
+
   return true;
 }
 
@@ -129,6 +167,17 @@ bool LocalMap::operator=(LocalMap &&rhs) {
   is_optimization = rhs.is_optimization;
   key_frame_data_base_ =  std::move(key_frame_data_base_);
   local_to_ref_ = rhs.local_to_ref_;
+  out_outliers_map_points_catch_.clear();
+  //
+  for (const auto &mp_id : rhs.out_outliers_map_points_catch_) {
+    if (data_.map_points.Contains(mp_id)) {
+      data_.covisibility.TrimMapPoint(mp_id);
+      data_.map_points.Trim(mp_id);
+      out_outliers_map_points_catch_.insert(mp_id);
+    }
+  }
+
+  //
   return true;
 }
 //

@@ -26,29 +26,28 @@ void LocalMapTrack::ToFrame(const KeyFrameData& key_frame_data,
 //
 int LocalMapTrack::IsInFrame(const MapPoint& map_point,
                              const KeyFrameData& track_data,
-                             const transform::Rigid3d& ref_key_frame_pos) {
+                             const transform::Rigid3d& ref_key_frame_pos,int s) {
   const Eigen::Vector3d xyz_w = map_point.pos;
   //
   //
-  for (size_t sequence_id = 0; sequence_id < options_.track_sequence.size();
-       sequence_id++) {
+  // for (size_t sequence_id = 0; sequence_id < options_.track_sequence.size();
+  //      sequence_id++) {
     const auto pose =
-        track_data.data->CameraPose(ref_key_frame_pos, sequence_id);
+        track_data.data->CameraPose(ref_key_frame_pos, s);
     Eigen::Vector3d xyz_f = pose.inverse() * xyz_w;
     //
-    if (xyz_f.z() < 0) continue;
-    return sequence_id;
+    if (xyz_f.z() < 0) return -1;
     // Eigen::Vector2d px_top_left(0.0, 0.0);
-    Eigen::Vector3d f_top_left = px_top_lefts_[sequence_id];
+    Eigen::Vector3d f_top_left = px_top_lefts_[s];
     // cameras_.at(sequence_id)
     // ->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
     const Eigen::Vector3d z(0.0, 0.0, 1.0);
     const double min_cos = f_top_left.dot(z);
     const double cur_cos = xyz_f.normalized().dot(z);
     if (cur_cos > min_cos) {
-      return sequence_id;
+      return 0;
     }
-  }
+  // }
   return -1;
 }
 
@@ -62,7 +61,7 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
   LOG(INFO) << options_.track_sequence.size();
   for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     Eigen::Vector3d f_top_left;
-    Eigen::Vector2d px_top_left(0.0, 0.0);
+    Eigen::Vector2d px_top_left(50.0, 50.0);
     cameras_.at(i)->liftProjective(px_top_left,
                                    f_top_left);  // 注意这里找对应的相机
 
@@ -106,6 +105,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
       all_kf_frames.begin()->id.trajectory_id,
       track_data.data->time - common::FromSeconds(options_.out_time));
   //
+  // LOG(INFO)<<all_kf_frames.size();
   for (auto it = all_kf_frames.begin(); it != time_it; ++it) {
     // for (const auto& kf : all_kf_frames) {
     // 这里选择领域和公视的关键帧，还有只能投影一个点的3D点的
@@ -114,15 +114,21 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
         (track_data.data->pose.inverse() * kf.data.data->pose)
             .translation()
             .norm();
+
     if (distance > options_.kf_max_distance) continue;
     const auto map_points = local_map_->GetKeyFrameMapPoints(kf.id);
     const transform::Rigid3d& ref_kf_pose = all_kf_re_poses.at(kf.id);
-    for (const auto& map_point : map_points) {
-      int index = IsInFrame(*map_point.second.data, track_data, ref_kf_pose);
-      if (options_.sequence_match.count(index) == 0) continue;
-      if (index >= 0) {
-        overlap_kfs[index].push_back(kf.id);
-        break;
+    //
+    for (size_t sequence_id = 0; sequence_id < options_.track_sequence.size();
+         sequence_id++) {
+      for (const auto& map_point : map_points) {
+        if (options_.sequence_match.count(sequence_id) == 0) continue;
+        int index = IsInFrame(*map_point.second.data, track_data, ref_kf_pose,
+                              sequence_id);
+        if (index != -1) {
+          overlap_kfs[sequence_id].push_back(kf.id);
+          break;
+        }
       }
     }
   }
@@ -133,24 +139,24 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
   std::map<int, std::vector<LocalMapTrack::Candidate>> pick_cadidates;
   std::stringstream cost_time_info;
   std::stringstream info;
-  for (size_t i = 0; i < cur_frames.size(); i++) {
-    if (options_.sequence_match.count(i) == 0) continue;
-    //
-    estimator::TicToc pick_candidata_tic;
-    auto candidates = PickCandidates(overlap_kfs[i], cur_frames[i], i);
-    cost_time_info << "s" << i << " " << pick_candidata_tic.toc();
+  // for (size_t i = 0; i < cur_frames.size(); i++) {
+  //   if (options_.sequence_match.count(i) == 0) continue;
+  //   //
+  //   estimator::TicToc pick_candidata_tic;
+  //   auto candidates = PickCandidates(overlap_kfs[i], cur_frames[i], i);
+  //   cost_time_info << "s" << i << " " << pick_candidata_tic.toc();
 
-    pick_cadidates[i] = std::move(candidates);
-    auto& grid = grids_[i];
-    if (!grid) {
-      grid.reset(new match::svo::OccupandyGrid2D(
-          options_.cell_sizes.at(i),
-          match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.x(),
-                                                options_.cell_sizes.at(i)),
-          match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.y(),
-                                                options_.cell_sizes.at(i))));
-    }
-  }
+  //   pick_cadidates[i] = std::move(candidates);
+  //   auto& grid = grids_[i];
+  //   if (!grid) {
+  //     grid.reset(new match::svo::OccupandyGrid2D(
+  //         options_.cell_sizes.at(i),
+  //         match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.x(),
+  //                                               options_.cell_sizes.at(i)),
+  //         match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.y(),
+  //                                               options_.cell_sizes.at(i))));
+  //   }
+  // }
 
   // for (size_t i = 0; i < cur_frames.size(); i++) {
   //   //
@@ -328,6 +334,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
 return nullptr;
 }
 //
+
 int LocalMapTrack::RemoveOutliersRejection(
     std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs,
     const std::vector<transform::Rigid3d>& extric_camera_to_imu,
@@ -415,7 +422,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
       eixst_map_point_ids.insert(map_point_feature_ids.first[i]);
       candidates_temp.push_back(LocalMapTrack::Candidate{
           ref_frame_id, map_point_feature_ids.second[i], px, 0,
-          static_cast<int>(distance), map_ob_kf_num,
+          static_cast<int>(ref_frame_id.keyframe_index), map_ob_kf_num,
           map_point_feature_ids.first[i]});
     }
     if (candidates_temp.size() >
@@ -427,7 +434,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
   std::sort(candidates.begin(), candidates.end(),
             [](const LocalMapTrack::Candidate& c,
                const LocalMapTrack::Candidate& c1) {
-              if (c.score > c1.score) {
+              if (c.score < c1.score) {
                 return true;
               } else if ((c.score == c1.score) && c.n_obs > c1.n_obs) {
                 return true;
@@ -459,6 +466,7 @@ std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
     if (options_.max_n_features_per_frame > 0 && grid->isOccupied(grid_index)) {
       continue;
     }
+    grid->setOccupied(grid_index);
     auto match_task = std::make_unique<common::Task>();
     // result.emplace_back(nullptr);
     std::shared_ptr<LocalMapTrack::MatchData>& back_result = result[i];

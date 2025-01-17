@@ -94,14 +94,13 @@ class MappingBuilder {
   //
   void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
   //
-  LocalMapOptimizationData ParseLocalMapData(const KeyFrameId& frame_id);
   //
   std::unique_ptr<common::Task> when_done_task_ ;
   std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;
   std::unique_ptr<LocalMapTrack> local_map_track_;
   std::unique_ptr<LocalMapOptimization> track_local_map_opimization_;
-   std::unique_ptr<LocalMapOptimization> finish_track_local_map_opimization__;
+  std::unique_ptr<LocalMapOptimization> finish_track_local_map_opimization_;
 
   //
   std::shared_ptr<LocalMap> local_map_front_;

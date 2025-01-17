@@ -79,7 +79,7 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option,
     track_local_map_opimization_ =
         std::make_unique<EssentialGraphLocalMapOptimization>(op_option);
 
-    finish_track_local_map_opimization__ =
+    finish_track_local_map_opimization_ =
         std::make_unique<LocalMapOptimization>(fi_op_option);    
   }
   //
@@ -244,13 +244,14 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
         //
         std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_temp =
             op_local_maps;
-        if ((op_local_maps_temp.rbegin()->second->Size() ==
-                 options_.local_map_option.max_kf_num + 1 &&
-             !options_.enable_local_opimization) ||
-            op_local_maps_temp.rbegin()->second->Size() ==
-                options_.local_map_option.max_kf_num) {
-          TrackLocalMapOptimize(finish_track_local_map_opimization__.get(),
-                                &op_local_maps_temp);
+        if (op_local_maps_temp.size() == 2) {
+          if (op_local_maps_temp.size() == 2) {
+            op_local_maps_temp.erase(op_local_maps_temp.begin());
+
+            TrackLocalMapOptimize(finish_track_local_map_opimization_.get(),
+                                  &op_local_maps_temp);
+          }
+
           return WorkItem::Result::Normal;
         }
 

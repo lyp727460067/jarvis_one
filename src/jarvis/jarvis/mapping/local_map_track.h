@@ -111,7 +111,7 @@ class LocalMapTrack {
                int index, const transform::Rigid3d& ref_key_frame_pos);
 
   int IsInFrame(const MapPoint& map_point, const KeyFrameData& track_data,
-                const transform::Rigid3d& ref_key_frame_pos);
+                const transform::Rigid3d& ref_key_frame_pos,int s);
   bool MatchCandidate(const Candidate& candidate,
                       estimator::FeatureData& feature);
   //

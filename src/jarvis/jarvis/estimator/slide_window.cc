@@ -249,24 +249,27 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   };
   //
 
-  // if (is_keyframe) {
+  if (is_keyframe) {
     // 使用局部跟踪
     if (prior_factor_) {
       TicToc t_t;
-      int k = options_.win_size;
-      //  int k  = 0;
+      // int k = options_.win_size-1;
+       int k  = 0;
       // 通过当前帧与局部地图进行光流匹配,得到先验pose
       auto prior_pose = prior_factor_(GetratePriorData(false, k));
       if (prior_pose) {
         // LOG(WARNING) << "Prior pose: " << *prior_pose
         //              << ",fisrt imu pose:" << imu_states_[k].Pose();
+
+        if (prior_pose->matchs.size() > 30) {
+          has_prio_pose = true;
+        }
         optimization_->SetPrior(std::move(prior_pose), k);
-        has_prio_pose = true;
       }
       VLOG(kGlogCostTimeLevel) << "Local match cost: " << t_t.toc() << " ms";
       // LOG(INFO) << "Local match cost: " << t_t.toc() << " ms";
     }
-  // }
+  }
 
   //
   odoms_factor_.push_back(
@@ -474,8 +477,8 @@ void SlideWindow::StateToFrameData() {
   if (has_prio_pose) {
     // LOG(INFO)<<y_diff ;
     rot_diff = Eigen::Matrix3d::Identity();
-    // origin_P0 =
-    //     Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
+    origin_P0 =
+        Eigen::Vector3d(para_Pose[0][0], para_Pose[0][1], para_Pose[0][2]);
   }
   for (int i = 0; i <= options_.win_size; i++) {
     const Eigen::Quaterniond r =

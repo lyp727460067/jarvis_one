@@ -70,7 +70,7 @@ optimization:
   estimate_td: 0                    # online estimate time offset between camera and imu
   td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
   camera_factor_num_th : 10
-  prio_pose_weight: 5e2
+  prio_pose_weight: 1e2
 init_optimization: 
   max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
   max_num_iterations: 10   # max solver itrations, to guarantee real time

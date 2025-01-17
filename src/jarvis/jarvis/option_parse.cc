@@ -1137,6 +1137,10 @@ void ParseYAMLOption(const std::string &file,
   option->map_manager_option.local_map_optimization_option =
       ParseLocalMapoptio(fsSettings["map_manager_option"]["local_map_optimization_option"]);
   //
+  temp = fsSettings["map_manager_option"]["use_6_tof_op"];
+  option->map_manager_option.use_6_tof_op =bool(temp);
+  //
+  
   option->track_local_map_opt_option =
       ParseLocalMapoptio(fsSettings["track_local_map_opt_option"]);
   option->finish_track_local_map_opt_option =
