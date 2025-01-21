@@ -39,7 +39,7 @@ struct LocalMapOptimizationOption {
   bool only_pose_graph = false;
   bool fix_extric = true;
   int ceres_num_threads =6;
-  double optimazation_outliers_rejection_th = 10.0 / 377;
+  double optimazation_outliers_rejection_th = 5.0 / 377;
   struct EssentialGraphOption {
     int max_con_kf_num = 10;
     int max_adjacent_kf_num = 10;

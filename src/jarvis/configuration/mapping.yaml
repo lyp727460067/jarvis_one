@@ -62,23 +62,23 @@ local_map_track_option:
  sequence_match : "{0,1,2}"
  match_senquence0_alone: 0
  huber_loss : 0.1
- kf_max_distance : 4
- cell_sizes : "{0, 10}, {1, 10}, {2, 10}"
- out_time : 0
+ kf_max_distance : 3
+ cell_sizes : "{0, 5}, {1, 5}, {2, 5}"
+ out_time : 10
  max_num_iterations : 3
  op_type  : 2  #0  four dof
  derect_match_option:
   use_affine_warp : 1
   affine_est_offset: 1 
   affine_est_gain : 1
-  align_max_iter: 10 
+  align_max_iter: 5 
   no_simd: 0
   max_patch_diff_ratio: 0.9
   subpix_refinement: 1
   align_1d : 0
   scan_on_unit_sphere: 0
   max_epi_search_steps : 1
-  min_update_squared : 0.003   #0.03*0.03
+  min_update_squared : 0.006   #0.03*0.03
 
 track_local_map_opt_option:
   re_preject_weight: 1e3
@@ -96,9 +96,9 @@ track_local_map_opt_option:
   convisi_level_search_num  : "{50,50}"
 finish_track_local_map_opt_option:
   re_preject_weight: 377
-  relative_weight : 1e4  
+  relative_weight : 1e1  
   max_num_iterations : 10
-  huber_loss : 10
+  huber_loss : 1
   optimize_intric : 0
   use_rtk: 0
   fix_extric : 0

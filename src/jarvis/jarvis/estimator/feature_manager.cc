@@ -970,7 +970,7 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
   std::vector<TrackFeatureId> FeatureManager::GetBack() {
     std::vector<TrackFeatureId> result;
     for (auto it = features_.begin(); it != features_.end(); it++) {
-      if (it->second.start_frame == 0 && it->second.solve_flag != 2 &&
+      if (it->second.start_frame == 0 && it->second.solve_flag == 1 &&
           it->second.UsedNum() >= options_.convin_used_num) {
         result.push_back(it->first);
       }

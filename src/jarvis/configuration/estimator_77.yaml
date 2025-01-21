@@ -5,7 +5,7 @@
 use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
 win_size : 6
 data_base_lenth : 1
-
+op_prior_match_min_num: 30
 track_sequence: "{0,1},{2},{3}"
 #feature traker paprameters
 
@@ -70,7 +70,7 @@ optimization:
   estimate_td: 0                    # online estimate time offset between camera and imu
   td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
   camera_factor_num_th : 10
-  prio_pose_weight: 1e2
+  prio_pose_weight: 1e3
 init_optimization: 
   max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
   max_num_iterations: 10   # max solver itrations, to guarantee real time

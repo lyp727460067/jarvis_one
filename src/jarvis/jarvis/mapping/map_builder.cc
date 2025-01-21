@@ -248,8 +248,8 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
           if (op_local_maps_temp.size() == 2) {
             op_local_maps_temp.erase(op_local_maps_temp.begin());
 
-            TrackLocalMapOptimize(finish_track_local_map_opimization_.get(),
-                                  &op_local_maps_temp);
+            // TrackLocalMapOptimize(finish_track_local_map_opimization_.get(),
+            //                       &op_local_maps_temp);
           }
 
           return WorkItem::Result::Normal;

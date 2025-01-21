@@ -76,7 +76,7 @@ struct ReProjectionErrProblem : public ceres::SizedCostFunction<2, 7, 7> {
                          const Eigen::Vector3d &map_point, const double &factor)
       : nor_point_(nor_poit), map_point_(map_point), factor_(factor) {
     sqrt_info = Eigen::Matrix2d::Identity() * factor_;
-    t_sqrt_info = Eigen::Matrix2d::Identity() * factor_*10;
+    t_sqrt_info = Eigen::Matrix2d::Identity() * factor_*100;
   }
   bool Evaluate(double const *const *parameters, double *residuals,
                 double **jacobians) const {
@@ -119,7 +119,7 @@ struct ReProjectionErrProblem : public ceres::SizedCostFunction<2, 7, 7> {
         //忽略平移方向，只在旋转方向给约束
         //
         jacobians_.block<2, 3>(0, 0) =
-            t_sqrt_info * reduce *
+            sqrt_info * reduce *
             re1.transpose() *  -r1.transpose();
         jacobians_.block<2, 3>(0, 3) = sqrt_info * reduce * re1.transpose() *
                                        Utility::skewSymmetric(pts_imu_1);
@@ -476,9 +476,13 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
           problem.AddResidualBlock(
               ReProjectionErrProblem::Creat(match.normal, match.map_point,
                                             options_.prio_pose_weight),
-              new ceres::HuberLoss(options_.huber_loss), para_Pose[k],
+              nullptr, para_Pose[k],
               para_Ex_Pose[options_.trace_sequence[match.s][0]]);
         }
+        const transform::Rigid3d pose = prior_pose_.value().second->pose;
+        InitialPoseFactor *f =
+            new InitialPoseFactor(1000, pose.translation(), pose.rotation());
+        problem.AddResidualBlock(f, nullptr, para_Pose[0]);
       }
       prior_pose_.reset();
     }

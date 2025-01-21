@@ -422,7 +422,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
       eixst_map_point_ids.insert(map_point_feature_ids.first[i]);
       candidates_temp.push_back(LocalMapTrack::Candidate{
           ref_frame_id, map_point_feature_ids.second[i], px, 0,
-          static_cast<int>(ref_frame_id.keyframe_index), map_ob_kf_num,
+          static_cast<int>(distance*10), map_ob_kf_num,
           map_point_feature_ids.first[i]});
     }
     if (candidates_temp.size() >
@@ -434,7 +434,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
   std::sort(candidates.begin(), candidates.end(),
             [](const LocalMapTrack::Candidate& c,
                const LocalMapTrack::Candidate& c1) {
-              if (c.score < c1.score) {
+              if (c.score > c1.score) {
                 return true;
               } else if ((c.score == c1.score) && c.n_obs > c1.n_obs) {
                 return true;

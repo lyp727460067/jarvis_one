@@ -688,6 +688,9 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["odom_option"]["angle_threas_hold"];
     option->slide_windows_option.odom_factor_option.optimize_weight =
         fsSettings["odom_option"]["odom_optimization_weight"];
+   option->slide_windows_option.op_prior_match_min_num =
+        fsSettings["op_prior_match_min_num"];
+        
     option->slide_windows_option.odom_factor_option.transform_imu_to_robot =
         calib_option.extric_camera_to_robot *
         calib_option.extric_camera_to_imu[0].inverse();

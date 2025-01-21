@@ -247,16 +247,16 @@ void LocalMapOptimization::StrategyOptimize(
           it->second.local_pose;
 
       
-      problem.AddResidualBlock(
-          FourRePoseGraphErr::Creat(
-              delta_pose.translation(), transform::GetYaw(delta_pose),
-              ceres_local_map_poses[local_map.first].ypr[2],
-              ceres_local_map_poses[local_map.first].ypr[1],
-              options_.relative_weight),
-          nullptr,
-          ceres_local_map_poses[local_map.first].t.data(),
-          &ceres_local_map_poses[local_map.first].ypr[0], it->second.t.data(),
-          &it->second.ypr[0]);
+      // problem.AddResidualBlock(
+      //     FourRePoseGraphErr::Creat(
+      //         delta_pose.translation(), transform::GetYaw(delta_pose),
+      //         ceres_local_map_poses[local_map.first].ypr[2],
+      //         ceres_local_map_poses[local_map.first].ypr[1],
+      //         options_.relative_weight),
+      //     nullptr,
+      //     ceres_local_map_poses[local_map.first].t.data(),
+      //     &ceres_local_map_poses[local_map.first].ypr[0], it->second.t.data(),
+      //     &it->second.ypr[0]);
     }
   }
 

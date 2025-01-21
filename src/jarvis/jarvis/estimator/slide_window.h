@@ -25,6 +25,7 @@ struct SlideWindowOption {
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   bool enable_zero_velocity = 0;
   int win_size=6;
+  int op_prior_match_min_num =10;
   // double optimazation_outliers_rejection_th = 0.3;
   double rejection_points_depth_max_th = 30;
   std::vector<std::vector<int>> track_sequence;
@@ -99,7 +100,7 @@ class SlideWindow {
   // std::vector<FrameData> frames_datas_;
   common::Time last_feature_time_;
   uint64_t global_id_ = 0;
-  bool has_prio_pose = false;
+  int has_prio_pose =0;
 };
 }  // namespace estimator
 }  // namespace jarvis
