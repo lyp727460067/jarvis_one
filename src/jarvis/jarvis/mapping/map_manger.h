@@ -77,9 +77,9 @@ class MapManager {
   MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;
   MapById<LocalMapId, LocalMapData> local_maps_;
   MapPointConstruct *map_point_construct_;
+  common::ThreadPool* thread_pool_;
   LocalMapUpdateCallBack localmap_update_callback_;
   transform::Rigid3d local_to_globla_transform_;
-  common::ThreadPool* thread_pool_;
   //
 };
 }  // namespace mapping

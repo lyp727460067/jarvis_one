@@ -9,7 +9,7 @@ track_map_opti_sampler : 0.2
 construct_use_des_match : 0
 ##
 key_frame_filter_option:
- max_distance : 0.3
+ max_distance : 0.5
  max_angle : 20
  max_time : 10000.0
  min_intersection_ration : 0.55
@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  100
+ max_kf_num :  70
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  key_frame_data_option:

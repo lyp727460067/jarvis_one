@@ -261,7 +261,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
         // LOG(WARNING) << "Prior pose: " << *prior_pose
         //              << ",fisrt imu pose:" << imu_states_[k].Pose();
 
-        if (prior_pose->matchs.size() > options_.op_prior_match_min_num) {
+        if (prior_pose->matchs.size() >
+            size_t(options_.op_prior_match_min_num)) {
           // has_prio_pose = 2;
         } else {
           has_prio_pose = 1;

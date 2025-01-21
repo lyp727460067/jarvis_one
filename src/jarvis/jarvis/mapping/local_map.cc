@@ -110,6 +110,7 @@ void LocalMap::UpdateExistData(const LocalMap &rhs) {
   }
   if (!have_updated) return;
   for (const auto &mp : data_.map_points) {
+    if(!data_.map_points.Contains(mp.id))continue;
     if (rhs.data_.map_points.Contains(mp.id)) {
       data_.map_points.at(mp.id).data->pos =
           rhs_to_this * rhs.data_.map_points.at(mp.id).data->pos;

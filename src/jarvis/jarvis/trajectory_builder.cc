@@ -19,8 +19,8 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
       thread_pool_.get();
   tracker_ = std::make_unique<estimator::Estimator>(options_.esti_option);
   if (option.mapping_option.enable_loop_closure ||
-      option.mapping_option.enable_local_opimization &&
-          option.mapping_option.construct_use_des_match) {
+      (option.mapping_option.enable_local_opimization &&
+          option.mapping_option.construct_use_des_match)) {
     voc_ = std::make_unique<dbow::Vocabulary>(
         dbow::GetVocabulary(0, option.mapping_option.vocabulary_filebrif));
   }

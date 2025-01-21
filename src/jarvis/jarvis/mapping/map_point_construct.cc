@@ -70,6 +70,9 @@ KeyFrameData MapPointConstruct::TrackDataToKeyFrameData(
       KeyFrameData::Data{data.data->time, data.data->imu_state.Pose(),
                          data.data->extric_camera_to_imu,
                          data.data->images.Pyramid(), &options_.image_boxs})};
+  //右目的图像删除
+  result.data->pyramid[1].clear();
+  //
   std::map<int, std::map<size_t, uint64>> track_ids;
   for (auto &senqu_features : data.data->features_datas) {
     std::vector<FeatureData> feat_datas;

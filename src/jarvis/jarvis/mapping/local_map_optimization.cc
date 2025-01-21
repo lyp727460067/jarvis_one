@@ -394,7 +394,7 @@ EssentialGraphLocalMapOptimization::GetKeyLevelConnectedKeyFrames(
 void EssentialGraphLocalMapOptimization::StrategyOptimize(
     std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps) {
   //
-  CHECK_EQ(local_maps->size(), 1)
+  CHECK_EQ(local_maps->size(), size_t(1))
       << "EssentialGraphLocalMapOptimization just need local mapsize=1";
   //
 
@@ -426,7 +426,6 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
   auto con_kfs = GetKeyLevelConnectedKeyFrames(
       end_kf_id, ess_options_.convisi_level_search_num, end_local_map);
   //
-  LOG(INFO) << end_kf_id;
 
   std::set<KeyFrameId> conv_kfs_set;
   for (const auto& kf : con_kfs) {
@@ -436,7 +435,7 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
     }
   }
 
-  if (conv_kfs_set.size() >= ess_options_.max_con_kf_num) {
+  if (conv_kfs_set.size() >= size_t(ess_options_.max_con_kf_num)) {
     conv_kfs_set.erase(
         std::prev(conv_kfs_set.begin(), ess_options_.max_con_kf_num),
         conv_kfs_set.end());
@@ -455,7 +454,7 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
     start_near_id = *conv_kfs_set.begin();
   }
   //
-  for (int i = near_id.keyframe_index; i <= end_kf_id.keyframe_index; i++) {
+  for (size_t i = near_id.keyframe_index; i <= end_kf_id.keyframe_index; i++) {
     const KeyFrameId near_id_(end_kf_id.trajectory_id, i);
     if (end_local_map_ref_kfs.count(near_id_)) {
       // LOG(INFO)<<near_id_;
@@ -513,7 +512,7 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
   const auto& all_kf_frames = end_local_map.AllKeyFrameDatas();
   auto& kf_rf_frames_poses = end_local_map.AllKeyFrameRefPose();
   // for (auto& local_map : *local_maps) {
-  for (const auto mp_id : ceres_map_points) {
+  for (const auto& mp_id : ceres_map_points) {
     const auto mp_obsers =
         end_local_map.GetCovisibility()->GetMapPointObserv(mp_id.first);
     for (const auto& ob_kf_f : mp_obsers) {
