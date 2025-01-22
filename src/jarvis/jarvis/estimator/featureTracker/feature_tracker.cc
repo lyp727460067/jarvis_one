@@ -97,7 +97,7 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
 //
 //
 cv::Mat FeatureTracker::UpdatePointAndMask(
-    std::map<uint64_t, PointCnt> &points) {
+    std::map<uint64_t, PointCnt> &points,int mask_min_dist) {
   //
   cv::Mat mask = options_.mask.clone();
   // prefer to keep features that are tracked for long time
@@ -120,7 +120,7 @@ cv::Mat FeatureTracker::UpdatePointAndMask(
       points[it.second.second].pt = it.second.first;
       points[it.second.second].track_cnt = it.first;
       cv::circle(mask, it.second.first,
-                 options_.feature_detect_option.mask_min_dist, 0, -1);
+                 mask_min_dist , 0, -1);
     }
   }
   return mask;
@@ -378,7 +378,7 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
 //
 ImageFeatureTrackerData FeatureTracker::TrackImage(
     const common::Time &time, const cv::Mat &_img,
-    const cv::Mat &_img1) {
+    const cv::Mat &_img1,bool init ) {
   curr_time_ =time;
   //
   TicToc t_t;
@@ -414,7 +414,8 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   //
 
   TicToc mask_t_t;
-  const cv::Mat mask = UpdatePointAndMask(cur_pts);
+  const cv::Mat mask = UpdatePointAndMask(
+      cur_pts, init ? 30 : options_.feature_detect_option.mask_min_dist);
 
   VLOG(kGlogCostTimeLevel) << "set mask costs " << mask_t_t.toc() << " ms";
   std::vector<cv::Point2f> v_cur_pts;
@@ -431,8 +432,9 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
 
   // cv::imshow("shwo_image1 ", shwo_image1);
   int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
-  auto n_pts = feature_detect_->Detect(_img, v_cur_pts, n_max_cnt,
-                                       pyramid_image_->CurrPyram()[1], mask);
+  auto n_pts =
+      feature_detect_->Detect(_img, v_cur_pts, init ? n_max_cnt * 2 : n_max_cnt,
+                              pyramid_image_->CurrPyram()[1], mask, init);
 
   VLOG(kGlogLevel) << "Feature detect new num " << n_pts.size();
 

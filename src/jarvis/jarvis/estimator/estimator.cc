@@ -205,7 +205,7 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
     VLOG(kGlogCostTimeLevel) << "other costs " << other_t_t.toc() << " ms";
   } else {
     ImageFeatureTrackerData featureFrame = feature_trackers_[0]->TrackImage(
-        images.time, images.image[0], images.image[1]);
+        images.time, images.image[0], images.image[1],true);
     auto init_result = initials_[0]->AddFeatureData(featureFrame);
 
 

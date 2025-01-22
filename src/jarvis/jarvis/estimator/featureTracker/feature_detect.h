@@ -35,10 +35,9 @@ class FeatureDetect {
  public:
   FeatureDetect(const FeatureDetectOption& options);
   std::vector<cv::Point2f> Detect(const cv::Mat& image,
-  
-const std::vector<cv::Point2f>&cur_points,
-   int max_corners,
-                                  const cv::Mat& derive, const cv::Mat& mask);
+                                  const std::vector<cv::Point2f>& cur_points,
+                                  int max_corners, const cv::Mat& derive,
+                                  const cv::Mat& mask, bool init =false);
 
   void FastNeon(const cv::Mat& mage, std::vector<cv::KeyPoint>& out,
                 int thresh_hodl,const cv::Mat&mask ,bool score = false);
@@ -52,7 +51,7 @@ const std::vector<cv::Point2f>&cur_points,
       const cv::Point2i& offset, const std::vector<cv::KeyPoint>&,
       const cv::Mat& derive, const cv::Mat& mask);
   bool CheckGridValid(const std::vector<std::vector<cv::Point2f>>& grid,
-                      const cv::Point2f& point, const cv::Mat& mask);
+                      const cv::Point2f& point, const cv::Mat& mask,int min_distance);
   void Convolution(const cv::Mat& image, const std::vector<cv::KeyPoint>& pts,
                    const cv::Mat& derive, std::vector<short>& x_c,
                    std::vector<short>& y_c);
@@ -68,7 +67,8 @@ const std::vector<cv::Point2f>&cur_points,
 
   const int grid_width_;
   const int grid_height_;
-  const int min_distance_=20; 
+ int min_distance_=20;
+ int init_min_distance_ = 20 * 20;
 };
 
 

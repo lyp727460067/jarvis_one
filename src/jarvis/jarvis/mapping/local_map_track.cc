@@ -135,7 +135,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
   std::map<int, std::vector<LocalMapTrack::MatchData>> matchs;
   //
   int match_sum_num = 0;
-  auto start = std::chrono::high_resolution_clock::now();
+
   std::map<int, std::vector<LocalMapTrack::Candidate>> pick_cadidates;
   std::stringstream cost_time_info;
   std::stringstream info;
@@ -148,16 +148,27 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
 
     pick_cadidates[i] = std::move(candidates);
     auto& grid = grids_[i];
-    if (!grid) {
-      grid.reset(new match::svo::OccupandyGrid2D(
-          options_.cell_sizes.at(i),
-          match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.x(),
-                                                options_.cell_sizes.at(i)),
-          match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.y(),
-                                                options_.cell_sizes.at(i))));
+    if (pick_cadidates[i].size() > size_t(options_.max_num_pick_num)) {
+      if (!grid) {
+        grid.reset(new match::svo::OccupandyGrid2D(
+            options_.cell_sizes.at(i),
+            match::svo::OccupandyGrid2D::getNCell(
+                cur_frames[i]->image_size.x(), options_.max_cell_sizes.at(i)),
+            match::svo::OccupandyGrid2D::getNCell(
+                cur_frames[i]->image_size.y(), options_.max_cell_sizes.at(i))));
+      }
+    } else {
+      if (!grid) {
+        grid.reset(new match::svo::OccupandyGrid2D(
+            options_.cell_sizes.at(i),
+            match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.x(),
+                                                  options_.cell_sizes.at(i)),
+            match::svo::OccupandyGrid2D::getNCell(cur_frames[i]->image_size.y(),
+                                                  options_.cell_sizes.at(i))));
+      }
     }
   }
-
+  auto start = std::chrono::high_resolution_clock::now();
   for (size_t i = 0; i < cur_frames.size(); i++) {
     //
     if (options_.sequence_match.count(i) == 0) continue;

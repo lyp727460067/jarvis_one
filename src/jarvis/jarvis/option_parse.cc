@@ -932,10 +932,32 @@ mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
       }
     }
   }
-  
+
+  op_option.cell_sizes = cell_sizes_map;
+  cell_sizes_map.clear();
+  {
+    int last_index = 0;
+    std::string track_sequence_str = fsSettings["max_cell_sizes"];
+    std::string num;
+    for (size_t i = 0; i < track_sequence_str.size(); i++) {
+      if (track_sequence_str[i] == '{') {
+        cell_sizes_map[track_sequence_str[i + 1] - '0'];
+        last_index = track_sequence_str[i + 1] - '0';
+        i++;
+      } else if (track_sequence_str[i] != ',' && track_sequence_str[i] != '}') {
+        num.push_back(track_sequence_str[i]);
+
+      } else if (track_sequence_str[i] == '}') {
+        cell_sizes_map[last_index] = std::stol(num);
+        num.clear();
+      }
+    }
+  }
+ 
+  op_option.max_cell_sizes = cell_sizes_map;
+  op_option.max_num_pick_num =fsSettings["max_num_pick_num"] ;
   std::string path =   fsSettings["test_match_pic_write_path"];
   op_option.test_match_pic_write_path = path;
-  op_option.cell_sizes = cell_sizes_map;
   op_option.derect_match_option =
       ParseLocalMapDirectMatchOptionOptio(fsSettings["derect_match_option"]);
   // op_option.map_option.kf_num = fsSettings["map_option"]["kf_num"];

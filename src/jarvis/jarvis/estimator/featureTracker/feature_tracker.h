@@ -120,13 +120,13 @@ class FeatureTracker {
   //
   ImageFeatureTrackerData TrackImage(
       const common::Time &, const cv::Mat &_img,
-      const cv::Mat &_img1 = cv::Mat());
+      const cv::Mat &_img1 = cv::Mat(),bool init =false);
 
   //
 
   //
   //
-  cv::Mat UpdatePointAndMask(std::map<uint64_t, PointCnt> &points);
+  cv::Mat UpdatePointAndMask(std::map<uint64_t, PointCnt> &points,int mask_min_dist);
   ImageFeatureTrackerData TransToTrackerData(
       const std::map<uint64_t, PointCnt> &cur_point,
       const std::map<uint64_t, PointCnt> &cur_r_point);

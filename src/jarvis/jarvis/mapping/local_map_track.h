@@ -35,7 +35,9 @@ struct LocalMapTrackOption {
   bool match_senquence0_alone=true;
   double huber_loss =0.1;
   double kf_max_distance =5;
+  int max_num_pick_num=150;
   std::map<int,int> cell_sizes{{0, 100}, {1, 20}, {2, 20}};
+  std::map<int,int> max_cell_sizes{{0, 100}, {1, 20}, {2, 20}};
   double out_time=20;
   std::string test_match_pic_write_path = "";
   int max_num_iterations =3;
@@ -142,6 +144,8 @@ class LocalMapTrack {
   //
   std::shared_ptr<LocalMap> local_map_ = nullptr;
   //
+  std::map<int,int> max_cell_sizes_{{0, 30}, {1, 30}, {2, 20}};
+
   std::unique_ptr<common::Task> when_done_task_ ;
   MapById<KeyFrameId, KeyFrameData> key_frames_datas_;
 

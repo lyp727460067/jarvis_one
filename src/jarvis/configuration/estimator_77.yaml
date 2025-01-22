@@ -90,7 +90,7 @@ feature_manager :
   convin_used_num : 4
   keyframe_parallax: 20.0 # keyframe selection threshold (pixel)
   init_depth : 5.0
-  init_pnp_inlier_num : 10
+  init_pnp_inlier_num : 8
   ###ParallaxOption
   start_frame : 2
   last_track_num : 20

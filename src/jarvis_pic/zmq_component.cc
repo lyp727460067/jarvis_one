@@ -428,7 +428,7 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
    ModSyncImuFb imudata;
    shm_mod_->GetModByID(MOD_ID_SYNC_IMU_FB, reinterpret_cast<void *>(&imudata));
    int64_t delta_time  = imudata.time_stamp-  mpc_data.timestamp/1000;
-   if(abs( delta_time )>350000 ){
+   if(abs( delta_time )>600000 ){
 
    LOG(ERROR)<<"imu vio delte_pose "<<imudata.time_stamp<<" "<<mpc_data.timestamp/1000<<" "<< delta_time;
   }
