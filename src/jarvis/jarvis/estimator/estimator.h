@@ -49,7 +49,7 @@ struct EstimatorOption {
   double use_stereo_sample_ration = 0.3;
   //
   int win_size=6;
-  int thread_num = 10;
+  int thread_num = 4;
   common::ThreadPool* thread_pool=nullptr;
 };
 struct EstimatorResult {

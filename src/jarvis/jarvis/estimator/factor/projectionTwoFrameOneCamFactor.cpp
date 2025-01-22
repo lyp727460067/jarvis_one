@@ -86,7 +86,7 @@ ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(
 bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters,
                                               double *residuals,
                                               double **jacobians) const {
-  return EvaluateNormal(parameters, residuals, jacobians);
+  return EvaluateSIMD(parameters, residuals, jacobians);
 }
 bool ProjectionTwoFrameOneCamFactor::EvaluateNormal(double const *const *parameters,
                                               double *residuals,
