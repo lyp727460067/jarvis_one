@@ -77,12 +77,33 @@ LocalMapId MapManager::AddLocalMap(int trajector,
     }
     new_local_map.UpdadataExtendFinishData(construct_state);
     *local_map = std::move(new_local_map);
-    last_new_update_key_frame_ids_ = std::move(new_update_ids);
+    if (options_.enable_loop_closure) {
+      std::vector<KeyFrameId> candidata_kfs;
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (const auto &kf : key_frames_datas_) {
+          if (loop_detect_sampler_->Pulse()) {
+            candidata_kfs.push_back(kf.id);
+          }
+        }
+      }
+      //
+
+      last_new_update_key_frame_ids_ = std::move(new_update_ids);
+      UpdateNewFinishLocalMapLoop(local_map_id,
+                                  local_maps_.at(local_map_id).local_map,
+                                  std::move(candidata_kfs));
+    }
+
+    //
   });
   thread_pool_->Schedule(std::move(local_map_process_tast));
   // needed_opt_local_maps_.insert(local_map_id);如果loopdetect开启的话就放在线程池慢慢优化
   return local_map_id;
 }
+//
+//
+
 //
 void MapManager::UpdateLocalOpLocalMap(
     std::map<LocalMapId, std::shared_ptr<LocalMap>> *op_local_maps) {
@@ -135,13 +156,74 @@ void MapManager::TrimOptimizedLocalMap() {
 KeyFrameId MapManager::AddKeyFrameData(int trajector,
                                        const KeyFrameData &data) {
   std::lock_guard<std::mutex> lock(mutex_);
-  return key_frames_datas_.Append(trajector, data);
+  auto kf_id = key_frames_datas_.Append(trajector, data);
+  if (!options_.enable_loop_closure) return kf_id;
+  std::map<LocalMapId, std::shared_ptr<LocalMap>> local_maps;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (loop_detect_kf_sampler_->Pulse()) {
+      for (auto it = local_maps_.BeginOfTrajectory(trajector);
+           it != local_maps_.EndOfTrajectory(trajector); ++it) {
+        const transform::Rigid3d delta_pose =
+            local_maps_.at(it->id).local_map->LocalPose().inverse() *
+            data.data->pose;
+        if (delta_pose.translation().norm() <
+            options_.max_loop_detct_distance) {
+          local_maps.emplace(it->id, it->data.local_map);
+        }
+      }
+    }
+  }
+  loop_closure_->Detect(
+      local_maps, std::map<KeyFrameId, KeyFrameData>{},
+      [this](std::vector<std::unique_ptr<LoopDetctResult>> result) {
+        UpdateLoopConstraint(std::move(result));
+        LOG(INFO) << "Loop detet.";
+      });
+  //
+  if (IsRunOptimization()) {
+    auto full_op_process_tast = std::make_unique<common::Task>();
+    full_op_process_tast->SetWorkItem([this]() {
+      Optimization();
+      UpdateOpimizeData();
+    });
+    //
+  }
+
+  return kf_id;
 }
 //
+bool MapManager::IsRunOptimization() {
+  CHECK(false);
+  return false;
+}
+//
+void MapManager::UpdateNewFinishLocalMapLoop(
+    const LocalMapId &local_map_id, std::shared_ptr<LocalMap> &,
+    const std::vector<KeyFrameId> &candidata_kf) {
+  //
+  // std::map<LocalMapId, std::shared_ptr<LocalMap>> local_maps;
+  // for (const auto &kf_id : candidata_kf) {
+  //   std::lock_guard<std::mutex> lock(mutex_);
+  //   loop_closure_->Detect(
+  //       local_maps, kf_id, key_frames_datas_.at(kf_id),
+  //       [this](std::vector<std::unique_ptr<LoopDetctResult>> result) {
+  //         LOG(INFO) << "Loop detet.";
+  //         UpdateLoopConstraint(std::move(result));
+  //       });
+  // }
+}
+//
+
+void MapManager::UpdateLoopConstraint(
+    std::vector<std::unique_ptr<LoopDetctResult>> result) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  // loop_constraints_.insert(loop_constraints_.end(), result.begin(),
+  //                          result.end());
+}
+    //
 std::map<KeyFrameId, transform::TimestampedTransform>
 MapManager::GetAllKeyFramePose() {
-
-
   std::vector<std::shared_ptr<LocalMap>> finish_local_maps;
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -171,37 +253,37 @@ MapManager::GetAllKeyFramePose() {
   //                                       key_frame_data.data.data->global_pos});
   // }
   return result;
-}
+  }
 
-//
-std::vector<Eigen::Vector3d> MapManager::GetAllMapPoints() {
-  std::vector<std::shared_ptr<LocalMap>> finish_local_maps;
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (const auto &local_map_data : local_maps_) {
-      if (local_map_data.data.local_map->IsOptimization()) {
-        finish_local_maps.push_back(local_map_data.data.local_map);
+  //
+  std::vector<Eigen::Vector3d> MapManager::GetAllMapPoints() {
+    std::vector<std::shared_ptr<LocalMap>> finish_local_maps;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      for (const auto &local_map_data : local_maps_) {
+        if (local_map_data.data.local_map->IsOptimization()) {
+          finish_local_maps.push_back(local_map_data.data.local_map);
+        }
       }
     }
-  }
-  //
-  std::vector<Eigen::Vector3d> result;
-  std::set<MapPointId> exisit_map_points;
-  for (const auto &local_map : finish_local_maps) {
-    const auto all_local_map_points = local_map->AllMapPoints();
-    for (const auto &map_point : all_local_map_points) {
-      if (exisit_map_points.count(map_point.id)) continue;
-      result.push_back(local_map->LocalPose() * map_point.data.data->pos);
-      exisit_map_points.insert(map_point.id);
+    //
+    std::vector<Eigen::Vector3d> result;
+    std::set<MapPointId> exisit_map_points;
+    for (const auto &local_map : finish_local_maps) {
+      const auto all_local_map_points = local_map->AllMapPoints();
+      for (const auto &map_point : all_local_map_points) {
+        if (exisit_map_points.count(map_point.id)) continue;
+        result.push_back(local_map->LocalPose() * map_point.data.data->pos);
+        exisit_map_points.insert(map_point.id);
+      }
     }
+    return result;
   }
-  return result;
-}
-//
-
-MapManager::~MapManager() {
   //
-}
+
+  MapManager::~MapManager() {
+    //
+  }
 
 }  // namespace mapping
 }  // namespace jarvis

@@ -11,7 +11,6 @@
 #include "jarvis/mapping/covisibility.h"
 #include "jarvis/mapping/key_frame_database.h"
 #include "jarvis/mapping/key_point_exract.h"
-#include "jarvis/mapping/local_map_optimization.h"
 #include "jarvis/mapping/mapping_data.h"
 #include "jarvis/mapping/match/des_matcher.h"
 #include "jarvis/transform/rigid_transform.h"
@@ -178,6 +177,12 @@ class LocalMap {
 
   std::set<MapPointId> out_outliers_map_points_catch_;
 };
+//
+struct LocalMapData {
+  std::shared_ptr<LocalMap> local_map;
+  transform::Rigid3d globla_pose;
+};
+//
 //
 class ActiveLocalMap {
  public:

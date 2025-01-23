@@ -75,10 +75,6 @@ class Estimator {
   // std::thread trackThread;
   // std::thread processThread;
   private:
-  //
-  void  PredictPtsInNextFrame(const FrameData&frame_data,
-                     const transform::Rigid3d&predit_pose);
-  // 
   std::map<int, std::unique_ptr<FeatureTracker>> feature_trackers_;
   std::map<int, std::unique_ptr<InitializationInterface>> initials_;
   EstimatorOption options_;

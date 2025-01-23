@@ -13,29 +13,30 @@
 //
 #include "jarvis/common/id.h"
 #include "jarvis/key_frame_data.h"
-#include "jarvis/mapping/covisibility.h"
 #include "jarvis/mapping/key_frame_database.h"
-#include "jarvis/mapping/key_point_exract.h"
 #include "jarvis/mapping/local_map.h"
 #include "jarvis/mapping/map_point_construct.h"
 #include "jarvis/mapping/mapping_data.h"
-#include "jarvis/mapping/match/des_matcher.h"
 #include "jarvis/transform/transform.h"
 #include "jarvis/common/thread_pool.h"
+#include "jarvis/mapping/loop_detect.h"
+#include "jarvis/mapping/loop_closure.h"
+#include "jarvis/mapping/local_map_optimization.h"
 namespace jarvis {
 namespace mapping {
 //
 
 struct MapManagerOption {
   bool use_6_tof_op = false;
+  double loop_detect__sampler = 0.05;
+  double max_loop_detct_distance =5;
+  double max_loop_detct_time = 5;
+  bool enable_loop_closure  =false;
+  LoopDetectOption loop_detect_option;
   LocalMapOptimizationOption local_map_optimization_option;
 };
 //
 
-struct LocalMapData {
-  std::shared_ptr<LocalMap> local_map;
-  transform::Rigid3d globla_pose;
-};
 
 
 using LocalMapUpdateCallBack = std::function<void(
@@ -69,9 +70,26 @@ class MapManager {
       std::map<LocalMapId, std::shared_ptr<LocalMap>> *op_local_maps);
 
  private:
+  std::unique_ptr<common::FixedRatioSampler> loop_detect_sampler_;
+  std::unique_ptr<common::FixedRatioSampler> loop_detect_kf_sampler_;
+  //
+  bool IsRunOptimization();
+  bool Optimization(){
+    CHECK(false);
+    return true;
+  }
+  void UpdateOpimizeData(){}
+  void UpdateNewFinishLocalMapLoop(const LocalMapId &local_map_id,
+                                   std::shared_ptr<LocalMap> &,
+                                   const std::vector<KeyFrameId> &candidata_kf);
+  //
+  void UpdateLoopConstraint(
+      std::vector<std::unique_ptr<LoopDetctResult>> result);
+  //
   std::mutex mutex_;
   std::unique_ptr<LocalMapOptimization> local_opimization_;
- 
+
+  std::unique_ptr<LoopClosure> loop_closure_;
   std::set<KeyFrameId> last_new_update_key_frame_ids_;  
   MapManagerOption options_;
   MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;
@@ -80,6 +98,7 @@ class MapManager {
   common::ThreadPool* thread_pool_;
   LocalMapUpdateCallBack localmap_update_callback_;
   transform::Rigid3d local_to_globla_transform_;
+  std::vector<std::unique_ptr<LoopDetctResult>> loop_constraints_;
   //
 };
 }  // namespace mapping

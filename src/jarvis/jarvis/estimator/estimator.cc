@@ -250,34 +250,7 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
   // return std::make_unique<FrameData>(frame_data);
 }
 //
-void Estimator::PredictPtsInNextFrame(const FrameData &frame_data,
-                                      const transform::Rigid3d &predit_pose) {
-  // std::map<int, Eigen::Vector3d> predictPts;
 
-  // for (auto &it_per_id : f_manager->feature) {
-  //   if (it_per_id.estimated_depth > 0) {
-  //     int firstIndex = it_per_id.start_frame;
-  //     int lastIndex =
-  //         it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
-  //     // printf("cur frame index  %d last frame index %d\n", frame_count,
-  //     // lastIndex);
-  //     if ((int)it_per_id.feature_per_frame.size() >= 2 &&
-  //         lastIndex == frame_count) {
-  //       double depth = it_per_id.estimated_depth;
-  //       Eigen::Vector3d pts_j =
-  //           ric[0] * (depth * it_per_id.feature_per_frame[0].point) + tic[0];
-  //       Eigen::Vector3d pts_w = Rs[firstIndex] * pts_j + Ps[firstIndex];
-  //       Eigen::Vector3d pts_local = nextT.block<3, 3>(0, 0).transpose() *
-  //                                   (pts_w - nextT.block<3, 1>(0, 3));
-  //       Eigen::Vector3d pts_cam = ric[0].transpose() * (pts_local - tic[0]);
-  //       int ptsIndex = it_per_id.feature_id;
-  //       predictPts[ptsIndex] = pts_cam;
-  //     }
-  //   }
-  // }
-  // feature_tracker_->setPrediction(predictPts);
-  // printf("estimator output %d predict pts\n",(int)predictPts.size());
-}
 
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {

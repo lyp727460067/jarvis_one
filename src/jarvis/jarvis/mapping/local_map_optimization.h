@@ -18,6 +18,8 @@
 #include "jarvis/estimator/factor/imu_factor.h"
 //
 #include "jarvis/mapping/mapping_data.h"
+#include "jarvis/mapping/optimization_data_base.h"
+//
 namespace jarvis {
 namespace mapping {
 //
@@ -47,12 +49,7 @@ struct LocalMapOptimizationOption {
   } sssential_graph_option;
 };
 //
-struct NodePose {
-  Eigen::Vector3d t{0, 0, 0};
-  Eigen::Quaterniond q{1, 0, 0, 0};
-  double ypr[3] = {0, 0, 0};
-  transform::Rigid3d local_pose;
-};
+
 //
 class LocalMapOptimization {
  public:
