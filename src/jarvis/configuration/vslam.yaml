@@ -15,8 +15,8 @@ write_mpc_pose_type: 0
 slip_option: simple_vo.yaml   
 # calibrate_path : /home/lyp/config_back/calibrate_file
 # calibrate_path : /data/bin/sys_data/calibrate_file
-calibrate_path : /home/lyp/config_back/mower_0017/calibrate_file
-# calibrate_path : /home/lyp/data/0102/calibrate_file
+# calibrate_path : /home/lyp/config_back/mower_0017/calibrate_file
+calibrate_path : /home/lyp/data/0102/calibrate_file
 estimator : estimator_77.yaml
 mapping: mapping.yaml
 vocabulary_filebrif :  jarvis.dbow

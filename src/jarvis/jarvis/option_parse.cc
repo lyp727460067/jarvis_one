@@ -1226,6 +1226,8 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   //
   option->mapping_option.map_point_construct_option.image_boxs =
       option->mapping_option.image_boxs;
+  option->mapping_option.local_map_track_option.image_boxs =
+      option->mapping_option.image_boxs;
   //
   option->mapping_option.local_map_track_option.first_outlier_err =
       option->mapping_option.local_map_track_option.first_outlier_err /

@@ -38,6 +38,7 @@ struct LocalMapTrackOption {
   int max_num_pick_num=150;
   std::map<int,int> cell_sizes{{0, 100}, {1, 20}, {2, 20}};
   std::map<int,int> max_cell_sizes{{0, 100}, {1, 20}, {2, 20}};
+  std::vector<Eigen::AlignedBox2i> image_boxs;
   double out_time=20;
   std::string test_match_pic_write_path = "";
   int max_num_iterations =3;
@@ -131,6 +132,8 @@ class LocalMapTrack {
 
   // std::shared_ptr<match::svo::OccupandyGrid2D> grid_;
   std::map<int, std::shared_ptr<match::svo::OccupandyGrid2D>> grids_;
+  std::map<int, std::shared_ptr<match::svo::OccupandyGrid2D>> max_grids_;
+  std::map<int, std::shared_ptr<match::svo::OccupandyGrid2D>> temp_grids_;
   std::unique_ptr<match::DirectMatch> direct_match_;
   const LocalMapTrackOption options_;
   std::map<KeyFrameId, std::map<int, std::shared_ptr<match::Frame>>>
