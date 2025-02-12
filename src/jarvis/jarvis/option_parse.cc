@@ -618,16 +618,6 @@ void ParseYAMLOption(const std::string &file,
     //     fsSettings["use_stereo_sample_ration"];
     // //
 
-    option->use_stero = (use_stero == 1);
-    option->feature_track_options[0].extric_camera_to_imu =
-        calib_option.extric_camera_to_imu;
-    double cx_offset = calib_option.camera_options[1].intrinsics[2] -
-                       calib_option.camera_options[0].intrinsics[2];
-    double cy_offset = calib_option.camera_options[1].intrinsics[3] -
-                       calib_option.camera_options[0].intrinsics[3];
-
-    option->feature_track_options[0].stere_cam_offset =
-        Eigen::Vector2d(cx_offset, cy_offset);
 
     option->stero_imu_init_option.feature_manager_option =
         ParseYAMLOptionFeatureManagerOption(option->win_size, option->use_stero,
