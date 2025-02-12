@@ -239,7 +239,8 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
       *op_local_maps[{0, op_local_maps.size() - 1}] = *local_map_front_;
     }
     //
-    if (options_.enable_track_map_opti) {
+    if (options_.enable_track_map_opti &&
+        track_local_map_op_sampler_->Pulse()) {
       AddWorkItem([this, op_local_maps]() {
         //
         std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_temp =
@@ -254,13 +255,8 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
 
           return WorkItem::Result::Normal;
         }
-
-        if (track_local_map_op_sampler_->Pulse() &&
-            op_local_maps_temp.rbegin()->second->Size() >
-                options_.local_map_option.max_kf_num) {
-          {
-            std::lock_guard<std::mutex> lock(mutex_);
-          }
+        if (op_local_maps_temp.rbegin()->second->Size() >
+            options_.local_map_option.max_kf_num) {
           if (op_local_maps_temp.size() == 2) {
             op_local_maps_temp.erase(op_local_maps_temp.begin());
           }
