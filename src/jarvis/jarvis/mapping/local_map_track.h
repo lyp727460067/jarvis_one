@@ -36,6 +36,7 @@ struct LocalMapTrackOption {
   double huber_loss =0.1;
   double kf_max_distance =5;
   int max_num_pick_num=150;
+  int min_out_time_kf_num =2;
   std::map<int,int> cell_sizes{{0, 100}, {1, 20}, {2, 20}};
   std::map<int,int> max_cell_sizes{{0, 100}, {1, 20}, {2, 20}};
   std::vector<Eigen::AlignedBox2i> image_boxs;

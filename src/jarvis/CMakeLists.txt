@@ -21,7 +21,7 @@ set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 
 set(ARUCO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/third_part/opencv/aruco/include/
-${PROJECT_SOURCE_DIR}/video/include/
+
 )
 file(GLOB_RECURSE ARUCO_SRC "third_part/opencv/aruco/src/*.cpp"
 )
@@ -90,6 +90,7 @@ if(PLATFORM_mr527)
     COMMAND ${CMAKE_COMMAND} -E make_directory ${LIBRARY_OUTPUT_PATH}/configuration/
     COMMAND ${CMAKE_COMMAND} -E copy_directory 
     ${PROJECT_SOURCE_DIR}/configuration/ ${LIBRARY_OUTPUT_PATH}/configuration/
+    COMMAND ${CMAKE_COMMAND} -E remove ${LIBRARY_OUTPUT_PATH}/configuration/jarvis.dbow
     COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${LIBRARY_OUTPUT_PATH}/configuration/"
   ) 
   INCLUDE_DIRECTORIES(
@@ -99,7 +100,7 @@ if(PLATFORM_mr527)
 else()
   file(GLOB_RECURSE PB_NOT_USE_SRC "/jarvis/mapping/dbow/proto/*.cc"  )
   file(GLOB_RECURSE VDEO_SRC "third_part/opencv/video/src/*.cpp")
-  set(VEDIO_INCLUDE_DIR  ${PROJECT_SOURCE_DIR}/third_part/opencv/aruco/include/ )
+  set(VEDIO_INCLUDE_DIR  ${PROJECT_SOURCE_DIR}/video/include/)
   list(APPEND ARUCO_INCLUDE_DIR  ${VEDIO_INCLUDE_DIR})
   list(APPEND  ARUCO_SRC ${VDEO_SRC})
   set(GENERATE_PROTOBUF ON) 

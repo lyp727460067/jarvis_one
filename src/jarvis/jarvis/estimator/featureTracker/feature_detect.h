@@ -68,7 +68,7 @@ class FeatureDetect {
   const int grid_width_;
   const int grid_height_;
  int min_distance_=20;
- int init_min_distance_ = 20 * 20;
+ int init_min_distance_ = 30 * 30;
 };
 
 

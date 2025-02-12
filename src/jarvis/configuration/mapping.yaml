@@ -46,7 +46,7 @@ local_map_option:
 
 local_map_track_option:
  test_match_pic_write_path : ""  # "/home/lyp/project/vslam/jarvis/test/image/"
- min_track_frame_num : 40
+ min_track_frame_num : 30
  remove_unconstrained_points : 1
  min_convi_num : 4
  max_n_features_per_frame : 420

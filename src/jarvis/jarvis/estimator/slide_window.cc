@@ -210,10 +210,10 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     if (int(init_feature_datas_.size()) > options_.win_size+1) {
       init_feature_datas_.erase(init_feature_datas_.begin());
     }
-    LOG(INFO) << init_feature_datas_.begin()->first << " "
-              << imu_states_.begin()->time;
-    LOG(INFO) << init_feature_datas_.rbegin()->first << " "
-              << imu_states_.back().time;
+    // LOG(INFO) << init_feature_datas_.begin()->first << " "
+    //           << imu_states_.begin()->time;
+    // LOG(INFO) << init_feature_datas_.rbegin()->first << " "
+    //           << imu_states_.back().time;
     if (init_feature_datas_.begin()->first == imu_states_.begin()->time  &&
     init_feature_datas_.rbegin()->first == imu_states_.back().time
     ) {

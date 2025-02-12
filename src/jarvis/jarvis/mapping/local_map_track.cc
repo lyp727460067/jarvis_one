@@ -125,10 +125,9 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
       all_kf_frames.begin()->id.trajectory_id,
       track_data.data->time - common::FromSeconds(options_.out_time));
   //
-  // LOG(INFO)<<all_kf_frames.size();
+
+  std::set<KeyFrameId> time_kf_ids;
   for (auto it = all_kf_frames.begin(); it != time_it; ++it) {
-    // for (const auto& kf : all_kf_frames) {
-    // 这里选择领域和公视的关键帧，还有只能投影一个点的3D点的
     const auto& kf = *it;
     const float distance =
         (track_data.data->pose.inverse() * kf.data.data->pose)
@@ -136,8 +135,35 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
             .norm();
 
     if (distance > options_.kf_max_distance) continue;
-    const auto map_points = local_map_->GetKeyFrameMapPoints(kf.id);
-    const transform::Rigid3d& ref_kf_pose = all_kf_re_poses.at(kf.id);
+    time_kf_ids.insert(it->id);
+  }
+
+  if (time_kf_ids.size() < size_t(options_.min_out_time_kf_num)) {
+    for (auto it = time_it; it != all_kf_frames.end(); ++it) {
+      const auto& kf = *it;
+      const float distance =
+          (track_data.data->pose.inverse() * kf.data.data->pose)
+              .translation()
+              .norm();
+
+      if (distance > options_.kf_max_distance) continue;
+      time_kf_ids.insert(it->id);
+    }
+    LOG(WARNING)
+        << "time out kf num too small,add all kf to track,new kf num :"
+        << time_kf_ids.size();
+  }
+  // LOG(INFO)<<all_kf_frames.size();
+  for (auto it = time_kf_ids.begin(); it != time_kf_ids.end(); ++it) {
+    // for (const auto& kf : all_kf_frames) {
+    // 这里选择领域和公视的关键帧，还有只能投影一个点的3D点的
+    const auto& kf = all_kf_frames.at(*it);
+    // const float distance =
+    //     (track_data.data->pose.inverse() * kf.data->pose).translation().norm();
+
+    // if (distance > options_.kf_max_distance) continue;
+    const auto map_points = local_map_->GetKeyFrameMapPoints(*it);
+    const transform::Rigid3d& ref_kf_pose = all_kf_re_poses.at(*it);
     //
     for (size_t sequence_id = 0; sequence_id < options_.track_sequence.size();
          sequence_id++) {
@@ -146,7 +172,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
         int index = IsInFrame(*map_point.second.data, track_data, ref_kf_pose,
                               sequence_id);
         if (index != -1) {
-          overlap_kfs[sequence_id].push_back(kf.id);
+          overlap_kfs[sequence_id].push_back(*it);
           break;
         }
       }
@@ -196,7 +222,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
         return;
       }
       matchs[i] = std::move(match_result);
-      LOG(INFO) << " mach:" << match_candidata_tic.toc();
+      VLOG(1) << " mach:" << match_candidata_tic.toc();
     });
     auto sequ_match_task_handle =
         thread_pool_->Schedule(std::move(sequ_match_task));
@@ -279,7 +305,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
       RemoveOutliersRejection(matchs, track_data.data->extric_camera_to_imu,
                               pose, options_.first_outlier_err);
   info << " init_inliner match cnt :" << inliner;
-  LOG(INFO) << "total match cost : "
+  VLOG(1) << "total match cost : "
             << std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::high_resolution_clock::now() - start)
                    .count()
