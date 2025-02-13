@@ -26,6 +26,9 @@ struct ObjectDetectOption {
   std::string opencv_aruco_dict = "DICT_6X6_1000";
   // float mark_lenth = 0.172;
   float mark_lenth = 0.3;
+  float detect_depth_thr_max = 0.7;  // 0.6
+  float detect_depth_thr_min = 0.25; // 0.3
+  float detect_angle_thr = 7.0f;     // 5.0
 };
 
 class CvDetect {
