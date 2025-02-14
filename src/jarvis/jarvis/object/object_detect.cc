@@ -101,8 +101,10 @@ std::map<uint64_t, ObejectData> ObjectDetect::Detect(const cv::Mat& image) {
     //
     LOG(INFO) << "marker detect, id: " << marker_ids[i]
               << ", depth: " << marker_depth << ", angle: " << marker_angle;
-    if (marker_depth > 0.6f || marker_depth < 0.3f || marker_angle > 5.0f)
-      continue;
+    if (marker_depth > option_.detect_depth_thr_max ||
+        marker_depth < option_.detect_depth_thr_min ||
+        marker_angle > option_.detect_angle_thr)
+        continue;
 
     // std::cout << "marker detect, id: " << marker_ids[i] << ", depth: " << marker_depth 
     //           << ", angle: " << marker_angle << std::endl;
