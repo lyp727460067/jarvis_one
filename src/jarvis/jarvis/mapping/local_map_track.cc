@@ -197,21 +197,22 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
     if (pick_cadidates[i].size() > size_t(options_.max_num_pick_num)) {
       temp_grids_[i] = max_grids_[i];
     }
+    matchs[i];
   }
   auto start = std::chrono::high_resolution_clock::now();
   for (size_t i = 0; i < cur_frames.size(); i++) {
     //
     if (options_.sequence_match.count(i) == 0) continue;
-
     auto sequ_match_task = std::make_unique<common::Task>();
     sequ_match_task->SetWorkItem([&, i]() {
       estimator::TicToc match_candidata_tic;
       auto& grid = temp_grids_[i];
       auto& candidates = pick_cadidates[i];
-
+      CHECK(grid);
       if (candidates.size() <
           size_t(options_.one_frame_pick_candidates_min_num)) {
         grid->reset();
+        LOG(INFO)<<"candidates  = 0";
         return;
       }
 
@@ -367,7 +368,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
             match.candidate.value().cur_px});
       }
     }
-
+    if(matchs_result.empty())return nullptr;
     return std::make_shared<LocalMapMatchResult>(
         LocalMapMatchResult{local_map->LocalPose() * pose, matchs_result});
   }
