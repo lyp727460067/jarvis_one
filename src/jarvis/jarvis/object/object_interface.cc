@@ -289,15 +289,15 @@ ObjectInterface::ObjectInterface(const camera_models::CameraPtr came_base,
     : map_builder_(map_builder),
       object_impl_(std::make_unique<ObjectImpl>(came_base, this)) {
     err_dis_avg_thr_ = 0.20;
-    err_dis_max_thr_ = 0.25;
-    err_angle_avg_thr_ = 7.0;
-    err_angle_max_thr_ = 10.0;
+    err_dis_max_thr_ = 0.30;
+    err_angle_avg_thr_ = 8.0;
+    err_angle_max_thr_ = 24.0;
     // cv::FileStorage fsSettings(config_path, cv::FileStorage::READ);
     // fsSettings["err_dis_avg_thr"] >> err_dis_avg_thr_;
     // fsSettings["err_dis_max_thr"] >> err_dis_max_thr_;
     // fsSettings["err_angle_avg_thr"] >> err_angle_avg_thr_;
     // fsSettings["err_angle_max_thr"] >> err_angle_max_thr_;
-    // std::cout << "error param: " << err_dis_avg_thr_ << ", " << err_dis_max_thr_ << ", " << err_angle_avg_thr_ << ", " << err_angle_max_thr_ << std::endl;
+    // LOG(INFO) << "error param: " << err_dis_avg_thr_ << ", " << err_dis_max_thr_ << ", " << err_angle_avg_thr_ << ", " << err_angle_max_thr_;
 }
 
 //
@@ -310,6 +310,7 @@ void ObjectInterface::UpdateGloblePose() {
 std::vector<ObjectImageResult> ObjectInterface::Detect(
     const uint64_t &time, const cv::Mat &image,
     const transform::Rigid3d &pose,const transform::Rigid3d &imu_to_cam) {
+  LOG_EVERY_N(INFO, 10) << "error param: " << err_dis_avg_thr_ << ", " << err_dis_max_thr_ << ", " << err_angle_avg_thr_ << ", " << err_angle_max_thr_;
   return object_impl_->Detect(time, image, pose, imu_to_cam);
 }
 //
