@@ -15,17 +15,22 @@ transform::Rigid3d ToTransform(const NodePose& node) {
   return transform::Rigid3d(node.t, node.q);
 }
 //
+
+std::vector<NodePose> LocalMapOptimization::ToExtric(
+    const std::vector<transform::Rigid3d>& extirc) {
+  std::vector<NodePose> extric_camera_to_imu;
+  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
+    extric_camera_to_imu.push_back(
+        NodePose{extirc[options_.track_sequence[i][0]].translation(),
+                 extirc[options_.track_sequence[i][0]].rotation()});
+  }
+  return extric_camera_to_imu;
+}
 //
 LocalMapOptimization::LocalMapOptimization(
     const LocalMapOptimizationOption& option)
     : options_(option) {
-  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
-    extric_camera_to_imu_.push_back(
-        NodePose{options_.extric_camera_to_imu[options_.track_sequence[i][0]]
-                     .translation(),
-                 options_.extric_camera_to_imu[options_.track_sequence[i][0]]
-                     .rotation()});
-  }
+      extric_camera_to_imu_ = ToExtric(options_.extric_camera_to_imu);
 }
 //
 //
@@ -36,14 +41,8 @@ void LocalMapOptimization::Optimize(
   for (auto& local_map : *local_maps) {
     RemoveOutliersRejection(local_map.first, local_map.second);
   }
-  extric_camera_to_imu_.clear();
-  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
-    extric_camera_to_imu_.push_back(
-        NodePose{options_.extric_camera_to_imu[options_.track_sequence[i][0]]
-                     .translation(),
-                 options_.extric_camera_to_imu[options_.track_sequence[i][0]]
-                     .rotation()});
-  }
+  extric_camera_to_imu_ = ToExtric(local_maps->begin()->second->FrontExtric());
+
   ceres_local_map_poses_.clear();
   ceres_map_points_.clear();
   ceres_poses_.clear();
@@ -133,10 +132,10 @@ void LocalMapOptimization::StrategyOptimize(
   //
 
   ceres::Problem problem;
-  ceres::LossFunction* loss_function =
-      new ceres::HuberLoss(options_.huber_loss);
-  ceres::LocalParameterization* quaternion_local =
-      new ceres::EigenQuaternionParameterization;
+  // ceres::LossFunction* loss_function =
+  //     new ceres::HuberLoss(options_.huber_loss);
+  // ceres::LocalParameterization* quaternion_local =
+  //     new ceres::EigenQuaternionParameterization;
   //
   transform::Rigid3d fix_local_map_pose =
       local_maps->begin()->second->LocalPose();
@@ -409,11 +408,11 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
   transform::Rigid3d fix_pose = local_maps->begin()->second->LocalPose();
   //
   ceres::Problem problem;
-  ceres::LossFunction* loss_function =
-      new ceres::HuberLoss(options_.huber_loss);
-  ceres::LocalParameterization* quaternion_local =
-      new ceres::EigenQuaternionParameterization;
-  //
+  // ceres::LossFunction* loss_function =
+  //     new ceres::HuberLoss(options_.huber_loss);
+  // ceres::LocalParameterization* quaternion_local =
+  //     new ceres::EigenQuaternionParameterization;
+  // //
   AddExtricToProblem(&problem);
 
   //
@@ -454,22 +453,22 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
     start_near_id = *conv_kfs_set.begin();
   }
   //
-  for (size_t i = near_id.keyframe_index; i <= end_kf_id.keyframe_index; i++) {
-    const KeyFrameId near_id_(end_kf_id.trajectory_id, i);
-    if (end_local_map_ref_kfs.count(near_id_)) {
-      // LOG(INFO)<<near_id_;
-      // conv_kfs_set.emplace(near_id,0);
-      // adjacent_kfs.insert(near_id);
-    }
-  }
-
-  // for (int i = start_near_id.keyframe_index; i <= end_kf_id.keyframe_index;
-  //      i++) {
-  //   const KeyFrameId near_id(end_kf_id.trajectory_id, i);
-  //   if (end_local_map_ref_kfs.count(near_id)) {
-  //     adjacent_kfs.insert(near_id);
+  // for (size_t i = near_id.keyframe_index; i <= end_kf_id.keyframe_index; i++) {
+  //   const KeyFrameId near_id_(end_kf_id.trajectory_id, i);
+  //   if (end_local_map_ref_kfs.count(near_id_)) {
+  //     // LOG(INFO)<<near_id_;
+  //     // conv_kfs_set.emplace(near_id,0);
+  //     adjacent_kfs.insert(near_id_);
   //   }
   // }
+  // LOG(INFO)<<adjacent_kfs.size();
+  for (uint64_t i = start_near_id.keyframe_index; i <= end_kf_id.keyframe_index;
+       i++) {
+    const KeyFrameId near_id(end_kf_id.trajectory_id, i);
+    if (end_local_map_ref_kfs.count(near_id)) {
+      adjacent_kfs.insert(near_id);
+    }
+  }
 
   auto local_poses = end_local_map.AllKeyFrameRefPose();
   auto local_kf_datas = end_local_map.AllKeyFrameDatas();
@@ -482,10 +481,9 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
     //
     transform::Rigid3d pose_local_pose = pos.second;
     const Eigen::Vector3d ypr =
-        transform::Rot2ypr(pose_local_pose.rotation().toRotationMatrix()) /
-        180. * M_PI;
+        transform::Rot2ypr(pose_local_pose.rotation().toRotationMatrix())* M_PI /
+        180. ;
     //
-
     if (ceres_poses.count(pos.first) == 0) {
       ceres_poses.emplace(pos.first,
                           NodePose{pose_local_pose.translation(),
@@ -517,12 +515,14 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
         end_local_map.GetCovisibility()->GetMapPointObserv(mp_id.first);
     for (const auto& ob_kf_f : mp_obsers) {
       const double weitht = options_.re_preject_weight;
-      if (ceres_poses.count(ob_kf_f.first) == 0) {
+      if (ceres_poses.count(ob_kf_f.first) == 0 /* ||
+        adjacent_kfs.count(ob_kf_f.first) == 0*/) {
         transform::Rigid3d pose_local_pose =
             kf_rf_frames_poses.at(ob_kf_f.first);
         const Eigen::Vector3d ypr =
-            transform::Rot2ypr(pose_local_pose.rotation().toRotationMatrix()) /
-            180. * M_PI;
+            transform::Rot2ypr(pose_local_pose.rotation().toRotationMatrix()) * M_PI/
+            180.;
+
         ceres_poses.emplace(
             ob_kf_f.first,
             NodePose{pose_local_pose.translation(),
@@ -543,13 +543,21 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
                                        ceres_poses.at(ob_kf_f.first).ypr[2],
                                        ceres_poses.at(ob_kf_f.first).ypr[1],
                                        weitht),
-          new ceres::HuberLoss(options_.huber_loss),
+          // new ceres::HuberLoss(options_.huber_loss),
+          nullptr,
           ceres_poses.at(ob_kf_f.first).t.data(),
           &ceres_poses.at(ob_kf_f.first).ypr[0],
           extric_camera_to_imu_[ob_kf_f.second.sequence_id].t.data(),
           extric_camera_to_imu_[ob_kf_f.second.sequence_id].q.coeffs().data(),
           ceres_map_points.at(mp_id.first).data());
+        // problem.SetParameterBlockConstant(
+        //     ceres_poses.at(ob_kf_f.first).t.data());
+        // problem.SetParameterBlockConstant(
+        //     &ceres_poses.at(ob_kf_f.first).ypr[0]);
+
+
     }
+
   }
 
   if (adjacent_kfs.size() >= 2) {
@@ -561,31 +569,44 @@ void EssentialGraphLocalMapOptimization::StrategyOptimize(
           ceres_poses.at(*adjacent_kfs_it).local_pose.inverse() *
           ceres_poses.at(*it).local_pose;
       //
-      // problem.AddResidualBlock(
-      //     FourRePoseGraphErr::Creat(delta_pose.translation(),
-      //                               transform::GetYaw(delta_pose),
-      //                               ceres_poses.at(*adjacent_kfs_it).ypr[2],
-      //                               ceres_poses.at(*adjacent_kfs_it).ypr[1],
-      //                               options_.relative_weight),
-      //     nullptr, ceres_poses.at(*adjacent_kfs_it).t.data(),
-      //     &ceres_poses.at(*adjacent_kfs_it).ypr[0],
-      //     ceres_poses.at(*it).t.data(), &ceres_poses.at(*it).ypr[0]);
-      // adjacent_kfs_it = it;
+      problem.AddResidualBlock(
+          FourRePoseGraphErr::Creat(
+              delta_pose.translation(),
+              transform::GetYaw(ceres_poses.at(*it).local_pose) -
+                  transform::GetYaw(
+                      ceres_poses.at(*adjacent_kfs_it).local_pose),
+              ceres_poses.at(*adjacent_kfs_it).ypr[2],
+              ceres_poses.at(*adjacent_kfs_it).ypr[1],
+              options_.relative_weight),
+          nullptr, ceres_poses.at(*adjacent_kfs_it).t.data(),
+          &ceres_poses.at(*adjacent_kfs_it).ypr[0],
+          ceres_poses.at(*it).t.data(), &ceres_poses.at(*it).ypr[0]);
+      adjacent_kfs_it = it;
     }
-    // for (const auto& id : adjacent_kfs) {
-    //   problem.AddResidualBlock(
-    //       TranslationCostFunctor::Create(
-    //           ceres_poses.at(id).t,
-    //           options_.relative_local_map_translation_weight),
-    //       nullptr, ceres_poses.at(id).t.data());
-    // }
+    for (const auto& id : adjacent_kfs) {
+      problem.AddResidualBlock(
+          TranslationCostFunctor::Create(
+              (end_local_map.LocalPose().inverse() *
+               ceres_poses.at(id).local_pose)
+                  .translation(),
+              options_.relative_local_map_translation_weight),
+          nullptr, ceres_poses.at(id).t.data());
+
+      problem.AddResidualBlock(
+          YawRotationDeltaCostFunctor::Create(
+              transform::GetYaw(ceres_poses.at(id).local_pose),
+              options_.relative_local_map_translation_weight),
+          nullptr, &ceres_poses.at(id).ypr[0]);
+    }
   }
   //
   //
   //
   LOG(INFO) << "Local op size: " << ceres_poses.size();
-  problem.SetParameterBlockConstant(ceres_poses.begin()->second.t.data());
-  problem.SetParameterBlockConstant(&ceres_poses.begin()->second.ypr[0]);
+  problem.SetParameterBlockConstant(
+      ceres_poses.at(*adjacent_kfs.begin()).t.data());
+  problem.SetParameterBlockConstant(
+      &ceres_poses.at(*adjacent_kfs.begin()).ypr[0]);
 
   ceres::Solver::Options options;
   options.minimizer_progress_to_stdout = false;

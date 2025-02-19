@@ -49,6 +49,8 @@ std::ofstream kOPoseFile;
 std::ofstream kSlipFile;
 std::string image_dir;
 int kuse_gpu = 0;
+double drop_ration =0.02;
+std::unique_ptr<jarvis::common::FixedRatioSampler> drop_sample_;
 // std::unique_ptr<jarvis::estimator::ImuExtrapolator> KImuExtrapolator;
 void ParseOption(const std::string& config) {
   cv::FileStorage fsSettings(config, cv::FileStorage::READ);
@@ -326,6 +328,8 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   int i = 0;
 
   uint64_t time = images_datas.begin()->first;
+  int drop_num  =100;
+  drop_sample_->Pulse();
   for (const auto& image : images_datas) {
     //
     time = image.second.time;
@@ -341,8 +345,16 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     //   continue;
     // }
     // usleep(10000);
+
     WriteImuData(time, imu_datas);
     WriteImuData(time, odom_datas);
+    // if (drop_sample_->Pulse()) {
+    //   drop_num = 0;
+    // }
+    // if (drop_num < 5 && time>2934384383000) {
+    //   drop_num++;
+    //   continue;
+    // }
     // cv::Mat image_l= cv::imread(image.second.image_name +
     // "_l_.png",cv::IMREAD_GRAYSCALE); cv::Mat image_r=
     // cv::imread(image.second.image_name + "_r_.png",cv::IMREAD_GRAYSCALE);
@@ -430,11 +442,12 @@ int main(int argc, char* argv[]) {
   // LocalGlogSink glog_sink;
   // google::AddLogSink(&glog_sink);
 const std::string data_dir(argv[2]);
-  rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("jarvis_ros2");
-  if (kRecordFlag) {
-    kOPoseFile.open(data_dir+"off_vio_pose.txt", std::ios::out);
-    kSlipFile.open("/tmp/slep_vio_pose.txt", std::ios::out);
+drop_sample_ = std::make_unique<jarvis::common::FixedRatioSampler>(drop_ration);
+rclcpp::init(argc, argv);
+auto node = rclcpp::Node::make_shared("jarvis_ros2");
+if (kRecordFlag) {
+  kOPoseFile.open(data_dir + "off_vio_pose.txt", std::ios::out);
+  kSlipFile.open("/tmp/slep_vio_pose.txt", std::ios::out);
   }
  
   FLAGS_alsologtostderr = true;

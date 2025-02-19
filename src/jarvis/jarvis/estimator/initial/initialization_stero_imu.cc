@@ -141,7 +141,7 @@ SteroImuInitialization::OptimizationResult() {
   //
 
   // 固定第一帧位姿和相机相对IMU外参
-  problem.SetParameterBlockConstant(para_pose[0].data());
+  // problem.SetParameterBlockConstant(para_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[1].data());
   

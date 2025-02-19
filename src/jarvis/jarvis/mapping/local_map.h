@@ -67,6 +67,9 @@ class LocalMap {
   bool IsFinish() { return finish_; }
   bool IsOptimization() { return is_optimization ;}
   //
+  std::vector<transform::Rigid3d> FrontExtric() {
+    return data_.key_frames_datas.begin()->data.data->extric_camera_to_imu;
+  }
   void UpdateExistData(const LocalMap&rhs);
   void UpdadataExtendFinishData(bool f);
   //

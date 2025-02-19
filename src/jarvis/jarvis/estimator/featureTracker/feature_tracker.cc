@@ -433,7 +433,7 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   // cv::imshow("shwo_image1 ", shwo_image1);
   int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
   auto n_pts =
-      feature_detect_->Detect(_img, v_cur_pts, init ? n_max_cnt * 2 : n_max_cnt,
+      feature_detect_->Detect(_img, v_cur_pts, init ? 100  : n_max_cnt,
                               pyramid_image_->CurrPyram()[1], mask, init);
 
   VLOG(kGlogLevel) << "Feature detect new num " << n_pts.size();

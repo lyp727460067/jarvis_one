@@ -1,11 +1,11 @@
 %YAML:1.0
 #
 enable_local_track: 1
-enable_track_map_opti: 0
+enable_track_map_opti: 1
 enable_local_opimization: 0
 enable_loop_closure : 0
 thread_pool_num : 4
-track_map_opti_sampler : 0.2
+track_map_opti_sampler : 0.1
 construct_use_des_match : 0
 ##
 key_frame_filter_option:
@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  60
+ max_kf_num :  70
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  key_frame_data_option:
@@ -83,22 +83,22 @@ local_map_track_option:
   min_update_squared : 0.006   #0.03*0.03
 
 track_local_map_opt_option:
-  re_preject_weight: 1e3
-  relative_weight : 1e0
-  max_num_iterations : 10 
-  relative_local_map_translation_weight: 0
-  huber_loss : 5
+  re_preject_weight: 1e2
+  relative_weight : 1e2
+  max_num_iterations : 5 
+  relative_local_map_translation_weight: 1e3
+  huber_loss : 1 
   optimize_intric : 0
   use_rtk: 0
-  fix_extric : 0
+  fix_extric : 1
   only_pose_graph : false
-  ceres_num_threads : 16
+  ceres_num_threads : 4
   max_con_kf_num : 200
-  max_adjacent_kf_num : 10
+  max_adjacent_kf_num : 30
   convisi_level_search_num  : "{50,50}"
 finish_track_local_map_opt_option:
   re_preject_weight: 377
-  relative_weight : 1e1  
+  relative_weight : 1e0  
   max_num_iterations : 10
   huber_loss : 1
   optimize_intric : 0

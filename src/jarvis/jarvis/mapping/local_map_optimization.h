@@ -61,6 +61,7 @@ class LocalMapOptimization {
   void AddImuData(sensor::ImuData& imu_data) {}
   void Optimize(std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
  protected:
+ std::vector<NodePose>  ToExtric(const std::vector<transform::Rigid3d>&extirc);
   virtual void StrategyOptimize(
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* local_maps);
   int RemoveOutliersRejection(const LocalMapId&map_id,std::shared_ptr<LocalMap> local_maps);
