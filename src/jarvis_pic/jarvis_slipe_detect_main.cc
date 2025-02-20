@@ -1,6 +1,6 @@
 #include <dirent.h>
 #include <sys/types.h>
-
+#include <jarvis/pose_extrapolator.h>
 #include <condition_variable>
 #include <map>
 #include <optional>
@@ -32,7 +32,9 @@
 namespace {
 jarvis::TrackingData tracking_data_temp;
 bool kill_thread_ = false;
-
+//
+std::unique_ptr<jarvis::PoseExtrapolator> kPoseExtrapolator_;
+//
 std::unique_ptr<jarvis_pic::DataRecord> data_record_ = nullptr;
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
@@ -67,6 +69,23 @@ struct jarvis_pic_call_back_data {
   bool slip_flag;
   jarvis::TrackingData data;
 };
+//
+jarvis::transform::Rigid3d ToPoseInOdom(
+    const jarvis::transform::Rigid3d& pose1,
+    const jarvis::transform::Rigid3d& extric) {
+  const transform::Rigid3d transform_odom_to_imu = extric;
+  auto transform_cam_to_odom_map_ = transform::Rigid3d::Rotation(
+      transform::RollPitchYaw(0, 0, transform::GetYaw(extric.rotation())));
+
+  const transform::Rigid3d pose =
+      transform_cam_to_odom_map_ * pose1 * transform_odom_to_imu.inverse();
+  //
+
+  return jarvis::transform::Rigid3d(
+      Eigen::Vector3d(pose.translation().x(), pose.translation().y(),
+                      pose.translation().z()),
+      pose.rotation());
+}
 
 class JarvisBuilder {
  public:
@@ -80,7 +99,9 @@ class JarvisBuilder {
     // if (kEnableSlipDetect) {
     //   slip_detect_ = jarvis::slip_detect::FactorSlipDetect(config);
     // }
-
+    jarvis::slip_detect::SlipDetectOption slip_option;
+    jarvis::ParseYAMLOption(config_path_, &slip_option);
+    transform_cam_to_odom_ = slip_option.transform_cam_to_odom;
     LOG(INFO) << "Capture start..";
 
     data_capture_->Rigister("slip_detect", [this](const OdomData& encode) {
@@ -174,11 +195,44 @@ class JarvisBuilder {
       }
       
     });
-    
-    data_capture_->Rigister(
-        "data_record", [this](const ImuData& imu) { data_record_->AddImu(imu); });
+
+    data_capture_->Rigister("data_record", [this](const ImuData& imu) {
+      InitializeExtrapolator(jarvis::common::FromUniversal(imu.time * 10));
+      transform::Rigid3d pose;
+      {
+      std::lock_guard<std::mutex> lock(pose_mutex_);
+      kPoseExtrapolator_->AddImuData(jarvis::sensor::ImuData{
+          jarvis::common::FromUniversal(imu.time * 10) -
+              common::FromSeconds(0),
+          imu.linear_acceleration,
+          imu.angular_velocity,
+      });
+      pose = kPoseExtrapolator_->ExtrapolatePose(
+          jarvis::common::FromUniversal(imu.time * 10));
+      } 
+
+
+      jarvis::TrackingData data{
+          std::make_shared<jarvis::TrackingData::Data>(
+              jarvis::TrackingData::Data{
+                  jarvis::common::FromUniversal(imu.time * 10)}),
+          2};
+      //
+      mpc_.Write(pose, data, 0, kSlipeState);
+      //
+      data_record_->AddImu(imu);
+    });
 
     data_capture_->Rigister("data_record", [this](const OdomData& odom) {
+      if (kPoseExtrapolator_ == nullptr) return;
+      {
+        std::lock_guard<std::mutex> lock(pose_mutex_);
+        kPoseExtrapolator_->AddOdometryData(jarvis::sensor::OdometryData{
+            jarvis::common::FromUniversal(odom.time * 10) -
+                common::FromSeconds(0),
+            transform::Rigid3d(odom.translation, odom.rotaion)});
+      }
+
       data_record_->AddOdom(odom);
     });
     data_capture_->Rigister("data_record", [this](const Frame& frame) {
@@ -191,6 +245,12 @@ class JarvisBuilder {
   }
 
   //
+  void InitializeExtrapolator(const common::Time time) {
+    if (kPoseExtrapolator_ != nullptr) return;
+    kPoseExtrapolator_ = std::make_unique<jarvis::PoseExtrapolator>(
+        common::FromSeconds(1.), 10.);
+    kPoseExtrapolator_->AddPose(time, transform::Rigid3d::Identity());
+  }
   //
   DataCapture* GetDataCapture() { return data_capture_.get(); }
   //
@@ -243,9 +303,16 @@ class JarvisBuilder {
                         slip_flag = slip_detect_->Detect(data.data->time);
                     }
                     if (kWriteMpcPoseType == 0) {
-                        transform::Rigid3d slipe_alignment_pose =
-                            slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
-                        mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
+                      if (kPoseExtrapolator_ != nullptr) {
+                          transform::Rigid3d slipe_alignment_pose =
+                              ToPoseInOdom(data.data->imu_state.Pose(),
+                                           transform_cam_to_odom_);
+                          std::lock_guard<std::mutex> lock(pose_mutex_);
+                          kPoseExtrapolator_->AddPose(data.data->time, slipe_alignment_pose);
+                      }
+                        // transform::Rigid3d slipe_alignment_pose =
+                        //     slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
+                        // mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
                     }
                 }
                 //
@@ -336,9 +403,16 @@ class JarvisBuilder {
                         slip_flag = slip_detect_->Detect(data.data->time);
                     }
                     if (kWriteMpcPoseType == 0) {
-                        transform::Rigid3d slipe_alignment_pose =
-                            slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
-                        mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
+                        // transform::Rigid3d slipe_alignment_pose =
+                        //     slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
+                        // mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
+                        if (kPoseExtrapolator_ != nullptr) {
+                          transform::Rigid3d slipe_alignment_pose =
+                              ToPoseInOdom(data.data->imu_state.Pose(),
+                                           transform_cam_to_odom_);
+                          std::lock_guard<std::mutex> lock(pose_mutex_);
+                          kPoseExtrapolator_->AddPose(data.data->time, slipe_alignment_pose);
+                        }
                     }
                 }
                 //
@@ -376,11 +450,15 @@ class JarvisBuilder {
   std::vector<jarvis::object::ObjectImageResult> object_result; // 提取arUco码返回的结果
   // std::unique_ptr<jarvis::estimator::ImuExtrapolator> imu_extrapolator_=nullptr;  //=
   uint8_t system_state_ = 0xff;
+  jarvis::transform::Rigid3d transform_cam_to_odom_;
   std::mutex mutex_;
+  std::mutex pose_mutex_;
   uint8_t event_dark_=0;
   uint8_t factory_state_ = 0;
+  bool slam_valid =false;
   std::array<std::vector<int>, 3> ParaExPoseIndex{
         std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};  
+  std::unique_ptr<PoseExtrapolator> kPoseExtrapolator_;
 
 };
 }  // namespace jarvis_pic
