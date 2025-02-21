@@ -3,7 +3,7 @@
 #include "Eigen/Eigen"
 #include "jarvis/camera_models/camera_models/camera.h"
 #include "jarvis/transform/transform.h"
-#include "mapping/mapping_data.h"
+#include "jarvis/mapping/mapping_data.h"
 namespace jarvis {
 namespace mapping {
 namespace match {
@@ -13,16 +13,18 @@ using GradientVector =   Eigen::Vector2d;
 using AffineTransformation2 = Eigen::Matrix2d;
 using Keypoint = Eigen::Vector2d;
 //
-constexpr int kHalfPatchSize = 5;
+constexpr int kHalfPatchSize = 7;
 struct Frame {
   Eigen::Vector2i image_size;
   transform::Rigid3d pose;    // cam pose
   transform::Rigid3d f_pose;  // imu pose
   std::shared_ptr<camera_models::Camera> cam;
   std::vector<cv::Mat> img_pyr;
+  
   int num_features;
   bool IsVisible(const Eigen::Vector3d& xyz_w, Eigen::Vector2d* pt);
   bool IsKeypointVisibleWithMargin(const Eigen::Vector2d& pt,int margin);
+  Eigen::Vector3d* f_top_left;
 };
 //
 enum class FeatureType : uint8_t {

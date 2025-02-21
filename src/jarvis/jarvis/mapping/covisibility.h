@@ -1,6 +1,6 @@
 #ifndef __JARVIS_MAPPING_COVISIBILITY_H
 #define __JARVIS_MAPPING_COVISIBILITY_H
-
+#include <mutex>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -11,7 +11,9 @@ namespace mapping {
 class Covisibility {
  public:
   Covisibility() = default;
+  // bool operator=(const Covisibility&rhs){
 
+  // }
   //
   void UpdateWithFrameData(
       const KeyFrameId& key_frame_id,
@@ -22,14 +24,19 @@ class Covisibility {
   std::set<MapPointId> TrimKeyFrame(const KeyFrameId& id);
   void TrimMapPoint(const MapPointId& id);
   //
-  std::set<KeyFrameId> GetMapObservations(
+ std::set<KeyFrameId> GetMapObservations(
       const MapPointId& map_point_id);
   //
+  const std::map<KeyFrameId, FeatureId>& GetMapPointObserv(
+      const MapPointId& mp) const {
+    CHECK(map_point_observe_frames_.count(mp));
+    return map_point_observe_frames_.at(mp);
+  }
   bool IsMapPointConnectKeyFrame(const MapPointId& mp_id,
                                              const KeyFrameId& kf_id) const;
 
   FeatureId GetMapPointFeatureIndex(const KeyFrameId& map_point_id,
-                                    const MapPointId& mp);
+                                    const MapPointId& mp)const;
   //
   void UpdateWithFuseMapPoint(const MapPointId& target, const MapPointId& sou);
 

@@ -5,9 +5,8 @@
 #include <list>
 #include <unordered_map>
 //
-#include "common/id.h"
-#include "jarvis/mapping/dbow/vocabulary.h"
-#include "mapping/mapping_data.h"
+#include "jarvis/common/id.h"
+#include "jarvis/mapping/mapping_data.h"
 #include "memory"
 namespace jarvis {
 namespace mapping {
@@ -19,11 +18,12 @@ struct KeyFrameDataBaseOption {
   double min_distance_threash_hold=5;
 
 };
-
+namespace dbow{
+class Vocabulary;
+}
 class KeyFrameDataBase {
  public:
-  KeyFrameDataBase(const KeyFrameDataBaseOption& option,
-                   std::shared_ptr<dbow::Vocabulary> voc);
+  KeyFrameDataBase(const KeyFrameDataBaseOption& option);
   ~KeyFrameDataBase();
   //
   void AddData(const KeyFrameId& key_frame_id,
@@ -36,7 +36,6 @@ class KeyFrameDataBase {
       const std::shared_ptr<const KeyFrameData::Data>& data,
       const std::set<KeyFrameId>& exclude_ids, double min_score = 10) const;
   //
-  dbow::Vocabulary* Vocabulary() const { return voc_.get(); }
 
  protected:
   std::pair<int, int> ComputeMaxMinCommonwords(
@@ -49,7 +48,6 @@ class KeyFrameDataBase {
   //
 
   KeyFrameDataBaseOption options_;
-  std::shared_ptr<dbow::Vocabulary> voc_;
   std::map<uint64_t, std::list<KeyFrameId>> inverted_file_;
   std::map<KeyFrameId, std::weak_ptr<const KeyFrameData::Data>>
       key_frame_datas_;

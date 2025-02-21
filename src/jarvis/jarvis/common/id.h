@@ -80,6 +80,28 @@ struct MapPointId {
   uint64_t index;
 };
 //
+struct LocalMapId {
+  LocalMapId(int trajectory_id_, uint64_t index_)
+      : trajectory_id(trajectory_id_),
+        index(index_) {}
+  bool operator==(const LocalMapId &other) const {
+    return std::forward_as_tuple(trajectory_id, index) ==
+           std::forward_as_tuple(other.trajectory_id,
+                                 other.index);
+  }
+
+  bool operator!=(const LocalMapId &other) const { return !operator==(other); }
+
+  bool operator<(const LocalMapId &other) const {
+    return std::forward_as_tuple(trajectory_id,index) <
+           std::forward_as_tuple(other.trajectory_id,other.index);
+  }
+  int trajectory_id;
+  uint64_t index;
+};
+inline std::ostream& operator<<(std::ostream& os, const LocalMapId& v) {
+  return os << "(" << v.trajectory_id << ", " << v.index << ")";
+}
 //
 inline std::ostream& operator<<(std::ostream& os, const MapPointId& v) {
   return os << "(" << v.trajectory_id << ", " << v.index << ")";
@@ -157,7 +179,7 @@ class MapById {
     }
 
     explicit ConstIterator(const MapById& map_by_id, const IdType& id)
-        : current_trajectory_(map_by_id.trajectories_.find(id.trajectory_id_)),
+        : current_trajectory_(map_by_id.trajectories_.find(id.trajectory_id)),
           end_trajectory_(map_by_id.trajectories_.end()) {
       if (current_trajectory_ != end_trajectory_) {
         current_data_ =
@@ -381,10 +403,10 @@ class MapById {
       return EndOfTrajectory(trajectory_id);
     }
 
-    const std::map<int, DataType>& trajectory =
+    const std::map<uint64_t, DataType>& trajectory =
         trajectories_.at(trajectory_id).data_;
 
-    if (internal::GetTime(std::prev(trajectory.end())->second) < time) {
+    if (internal::GetTime(*(std::prev(trajectory.end())->second.data)) < time) {
       return EndOfTrajectory(trajectory_id);
     }
 
@@ -392,7 +414,7 @@ class MapById {
     auto right = std::prev(trajectory.end());
     while (left != right) {
       // This is never 'right' which is important to guarantee progress.
-      const int middle = left->first + (right->first - left->first) / 2;
+      const uint64_t middle = left->first + (right->first - left->first) / 2;
       // This could be 'right' in the presence of gaps, so we need to use the
       // previous element in this case.
       auto lower_bound_middle = trajectory.lower_bound(middle);
@@ -400,7 +422,7 @@ class MapById {
         CHECK(lower_bound_middle != left);
         lower_bound_middle = std::prev(lower_bound_middle);
       }
-      if (internal::GetTime(lower_bound_middle->second) < time) {
+      if (internal::GetTime(*(lower_bound_middle->second.data)) < time) {
         left = std::next(lower_bound_middle);
       } else {
         right = lower_bound_middle;
@@ -419,7 +441,7 @@ class MapById {
   static uint64_t GetIndex(const KeyFrameId& id) { return id.keyframe_index; }
   static uint64_t GetIndex(const MapPointId& id) { return id.index; }
   static uint64_t GetIndex(const FeatureId& id) { return id.index; }
-
+  static uint64_t GetIndex(const LocalMapId& id) { return id.index; }
   std::map<int, MapByIndex> trajectories_;
 };
 
@@ -437,6 +459,16 @@ struct hash<jarvis::KeyFrameId> {
 template <>
 struct hash<jarvis::MapPointId> {
   std::size_t operator()(const jarvis::MapPointId& k) const {
+    using std::hash;
+    return ((hash<int>()(k.trajectory_id) ^
+             (hash<uint64_t>()(k.index) << 1)) >>
+            1);
+  }
+};
+
+template <>
+struct hash<jarvis::LocalMapId> {
+  std::size_t operator()(const jarvis::LocalMapId& k) const {
     using std::hash;
     return ((hash<int>()(k.trajectory_id) ^
              (hash<uint64_t>()(k.index) << 1)) >>

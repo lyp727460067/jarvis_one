@@ -8,6 +8,7 @@
 #include "opencv2/core.hpp"
 #include "transform/rigid_transform.h"
 #include "transform/timestamped_transform.h"
+#include "jarvis/sensor/image_data.h"
 //
 #include "jarvis/estimator/featureTracker/feature_tracker.h"
 namespace jarvis {
@@ -71,6 +72,7 @@ struct FrameData {
     std::map<CameraId, FeatureData> features_datas;
     std::vector<transform::Rigid3d> extric_camera_to_imu;
     transform::Rigid3d odo_to_imu_extric;
+    sensor::ImageData images;
     double opt_dt;
     bool  is_key_frame=false;
   };
@@ -78,7 +80,17 @@ struct FrameData {
   int status = -1;
 };
 //
-
+struct LocalMapMatchResult {
+  transform::Rigid3d pose;
+  struct Match {
+    int s;
+    Eigen::Vector3d map_point;
+    Eigen::Vector2d normal;
+    MapPointId mp_point_id;
+    Eigen::Vector2d key_point;
+  };
+  std::vector<Match> matchs;
+};
 using TrackingData = FrameData;
 
 // struct OptimizationStateData {

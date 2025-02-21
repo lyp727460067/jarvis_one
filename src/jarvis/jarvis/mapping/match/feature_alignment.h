@@ -31,16 +31,16 @@ bool align1D(const cv::Mat& cur_img,
 bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
              uint8_t* ref_patch, const int n_iter, const bool affine_est_offset,
              const bool affine_est_gain, Keypoint& cur_px_estimate,
-             bool no_simd = false,
+             double min_update_squared, bool no_simd = false,
              std::vector<Eigen::Vector2f>* each_step = nullptr);
 
 bool align2D_SSE2(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
                   uint8_t* ref_patch, const int n_iter,
-                  Keypoint& cur_px_estimate);
+                  Keypoint& cur_px_estimate,double min_update_squared);
 
 bool align2D_NEON(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
                   uint8_t* ref_patch, const int n_iter,
-                  Keypoint& cur_px_estimate);
+                  Keypoint& cur_px_estimate,const float min_update_squared);
 
 void alignPyr2DVec(const std::vector<cv::Mat>& img_pyr_ref,
                    const std::vector<cv::Mat>& img_pyr_cur, const int max_level,

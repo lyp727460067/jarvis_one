@@ -5,14 +5,15 @@
 use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
 win_size : 6
 data_base_lenth : 1
-
-track_sequence: "{0,1},{2}"
+op_prior_match_min_num: 30
+track_sequence: "{0,1},{2},{3}"
 #feature traker paprameters
 
 feattrack0:
   max_cnt: 60          # max feature number in feature tracking
-  min_dist:  35           # min distance between two features 
-  mask_min_dist:  30  
+  try_recalc_min_num: 30
+  min_dist:  50           # min distance between two features 
+  mask_min_dist:  65
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
@@ -22,26 +23,29 @@ feattrack0:
   grid_size_y : 68
   klt_type : 1
   back_flow_min_distance : 0.4
+
   mask : mask.png
 ####
 feattrack1:
-  max_cnt: 30          # max feature number in feature tracking
-  min_dist:  35           # min distance between two features 
-  mask_min_dist: 50  
+  max_cnt: 15          # max feature number in feature tracking
+  try_recalc_min_num: 5
+  min_dist:  60          # min distance between two features 
+  mask_min_dist:  30 
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
-  flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
+  flow_back: 0           # perform forward and backward optical flow to improve feature tracking accuracy
   lk_win_size : 7
   lk_pre_max_layer : 3
   grid_size_x : 68
   grid_size_y : 64
   klt_type : 1
-  back_flow_min_distance : 0.3
+  back_flow_min_distance : 0.5
   mask : mask0.png
 feattrack2:
-  max_cnt: 20          # max feature number in feature tracking
-  min_dist:  45           # min distance between two features 
-  mask_min_dist:  30  
+  max_cnt: 15        # max feature number in feature tracking
+  try_recalc_min_num: 5
+  min_dist:  60           # min distance between two features 
+  mask_min_dist:  30 
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
@@ -50,8 +54,8 @@ feattrack2:
   grid_size_x : 68
   grid_size_y : 64
   klt_type : 1
+  back_flow_min_distance : 0.5
   mask : mask0.png
-
 
 optimization: 
 #optimization parameters
@@ -66,7 +70,7 @@ optimization:
   estimate_td: 0                    # online estimate time offset between camera and imu
   td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
   camera_factor_num_th : 10
-
+  prio_pose_weight: 1e3
 init_optimization: 
   max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
   max_num_iterations: 10   # max solver itrations, to guarantee real time
@@ -75,7 +79,7 @@ init_optimization:
   estimate_extrinsic: 0  # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
 
-  huber_loss : 1
+  huber_loss : 0.5
   #unsynchronization parameters
   estimate_td: 0                     # online estimate time offset between camera and imu
   td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
@@ -86,19 +90,19 @@ feature_manager :
   convin_used_num : 4
   keyframe_parallax: 20.0 # keyframe selection threshold (pixel)
   init_depth : 5.0
-  init_pnp_inlier_num : 10
+  init_pnp_inlier_num : 8
   ###ParallaxOption
   start_frame : 2
   last_track_num : 20
   long_track_num : 10
   new_feature_ration : 0.5
-  optimazation_outliers_rejection_th : 5
+  optimazation_outliers_rejection_th : 3  
   rejection_points_depth_max_th : 20
 
 imu_option: 
   #imu parameters       The more accurate parameters you provide, the better performance
   acc_n: 0.1      # accelerometer measurement noise standard deviation. 
-  gyr_n: 0.02        # gyroscope measurement noise standard deviation.     
+  gyr_n: 0.005        # gyroscope measurement noise standard deviation.     
   acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
   gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
   g_norm: 9.81     # gravity magnitude
@@ -132,7 +136,7 @@ UpdataZeroVelocityOption:
 
 track_feat_lost_min_num: 10
 track_feat_lost_win_size :  10
-bas_norm_max : 0.6
+bas_norm_max : 1.6
 bgs_norm_max : 0.5
 translation_norm_max : 0.5
 translation_z_max : 0.4

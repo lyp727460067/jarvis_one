@@ -164,7 +164,7 @@ target_link_libraries(${PROJECT_NAME}_offline
   ${Boost_LIBRARIES}
   glog::glog
   yaml-cpp
-  jarvis
+  jarvis_main
 )
 
 

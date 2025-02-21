@@ -81,8 +81,12 @@ void ExtendPyramidImage::SetCurrPyram(const std::vector<cv::Mat>& pyram) {
     // curr_pyramids_buffer_.swap(prev_pyramids_buffer_);
 
   } else {
-    prev_img_pyramids_ = pyram;
-    curr_img_pyramids_ = pyram;
+    prev_img_pyramids_.resize(pyram.size());
+    curr_img_pyramids_.resize(pyram.size());
+    for (size_t i = 0; i < pyram.size(); i++) {
+      prev_img_pyramids_[i]  =  pyram[i].clone();
+      curr_img_pyramids_[i] =   pyram[i].clone();
+    }
   }
 }
 

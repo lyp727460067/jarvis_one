@@ -19,9 +19,10 @@
 
 #include <map>
 #include <vector>
-
+#include <memory>
 #include "glog/logging.h"
 #include "jarvis/common/port.h"
+#include <memory>
 
 namespace jarvis {
 namespace grid_map {

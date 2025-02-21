@@ -308,25 +308,19 @@ PoseOptimization::AlignmentOptimization() {
             rtk_interpolateion_->Lookup(odom_pose_[i].time),
             std::array<double, 2>{options_.fix_weitht_traslation,
                                   options_.fix_weitht_rotation}),
-        nullptr, local_to_fix_rotation.data(),
-        local_to_fix_translation.data(), node_poses[i].q.coeffs().data(),
-        node_poses[i].p.data());
+        nullptr, local_to_fix_rotation.data(), local_to_fix_translation.data(),
+        node_poses[i].q.coeffs().data(), node_poses[i].p.data());
     problem.SetParameterization(node_poses[i].q.coeffs().data(),
                                 quaternion_local);
-
-
 
     problem.SetParameterBlockConstant(node_poses[i].q.coeffs().data());
     problem.SetParameterBlockConstant(node_poses[i].p.data());
   }
 
-    problem.SetParameterLowerBound(local_to_fix_rotation.data(),1,-0.00001);
-    problem.SetParameterLowerBound(local_to_fix_rotation.data(),2,-0.00001);
-    problem.SetParameterUpperBound(local_to_fix_rotation.data(),1,0.00001);
-    problem.SetParameterUpperBound(local_to_fix_rotation.data(),2,0.00001);
-
-
-
+  problem.SetParameterLowerBound(local_to_fix_rotation.data(), 1, -0.00001);
+  problem.SetParameterLowerBound(local_to_fix_rotation.data(), 2, -0.00001);
+  problem.SetParameterUpperBound(local_to_fix_rotation.data(), 1, 0.00001);
+  problem.SetParameterUpperBound(local_to_fix_rotation.data(), 2, 0.00001);
 
   //
   // for (int i = 1; i < node_poses.size(); i++) {

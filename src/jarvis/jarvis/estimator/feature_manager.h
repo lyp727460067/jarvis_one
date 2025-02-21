@@ -50,7 +50,7 @@ struct FeatureManagerOption {
   int init_pnp_inlier_num = 15;
   int convin_used_num = 4;
   int keyframe_parallax=1;
-
+  bool predit_all_sw_frame =true;
   double optimazation_outliers_rejection_th = 5.0 / 377;
   double rejection_points_depth_max_th =30;
   struct ParallaxOption {
@@ -62,13 +62,20 @@ struct FeatureManagerOption {
 };
 
 struct FeatTrackInfo {
+  int frame  =0;
   int last_track_num = 0;
   int new_feature_num = 0;
   int long_track_num = 0;
+  double parallax_sum = 0;
+  int parallax_num =0;
   FeatTrackInfo &operator+=(const FeatTrackInfo &rhs) {
+    frame  = rhs.frame;
     last_track_num += rhs.last_track_num;
     new_feature_num += rhs.new_feature_num;
     long_track_num += rhs.long_track_num;
+    parallax_sum += rhs.parallax_sum;
+    parallax_num += rhs.parallax_num;
+
     return *this;
   }
 };
@@ -85,14 +92,17 @@ class FeatureManager {
   int GetFeatureCount();
   bool AddFeatureCheckParallax(int frame_count,
                                const ImageFeatureTrackerData &image, double td);
-
+    //
+  std::map<int, Eigen::Vector3d> GetPredictionInPose(const transform::Rigid3d&pose,int frame_count,
+ const   std::vector<transform::Rigid3d>& sw_poses 
+  );
   //
   const FeatTrackInfo &GetFeatTrackInfo() { return info; }
   std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> GetCorresponding(
       int frame_count_l, int frame_count_r);
   // void updateDepth(const VectorXd &x);
   void SetDepth(const std::vector<double> &x);
-  void RemoveFailures();
+  std::set<TrackFeatureId> RemoveFailures();
   void ClearDepth();
   std::vector<double> GetDepthVector();
 
@@ -134,6 +144,7 @@ class FeatureManager {
                             const transform::Rigid3d &new_p);
   // /
   void RemoveBack();
+  std::vector<TrackFeatureId> GetBack();
   void RemoveFront(int frame_count);
   void RemoveOutlier(const std::set<TrackFeatureId> &outlierIndex);
   std::set<TrackFeatureId> OutliersRejection(const std::vector<ImuState> &pose,
@@ -144,6 +155,7 @@ class FeatureManager {
     return features_;
   }
   bool IsParallax() const { return parallax_; }
+
   //
   double GetDepth(const TrackFeatureId &id) {
     if (!features_.count(id)) {
@@ -161,6 +173,9 @@ class FeatureManager {
     features_[id].estimated_depth = depth;
   }
 //
+ const FeatureManagerOption&  Options(){
+  return  options_;
+ }
  private:
   bool IsParallax(int frame_count, const ImageFeatureTrackerData &image);
   void TriangulateStero(uint64_t it_per_id,
@@ -190,6 +205,10 @@ class FeatureManagers {
   // FeatureManagers(const std::map<uint64_t, FeatureManager> &feat_ms)
   //     : feature_managers_(feat_ms) {}
   //
+  const std::map<uint64_t, std::shared_ptr<FeatureManager>> &
+  GetFeatureManagers() {
+    return feature_managers_;
+  }
   //
   //
   void AddFeatureManger(int cam_track_id, std::shared_ptr<FeatureManager> fm);
@@ -215,7 +234,7 @@ class FeatureManagers {
                    const std::vector<transform::Rigid3d> &ex_came_to_imu);
   //
   FeatTrackInfo GetFeatTrackInfo();
-  void RemoveFailures();
+  void RemoveFailures(std::map<CameraId, std::set<TrackFeatureId>>*ids);
   void RemoveBack();
   void RemoveBackShiftDepth(const transform::Rigid3d &marg_p,
                             const transform::Rigid3d &new_p);

@@ -10,36 +10,55 @@
 //
 #include "jarvis/key_frame_data.h"
 #include "sensor/odometry_data.h"
+#include "jarvis/mapping/map_builder.h"
 namespace jarvis {
 namespace estimator{
   class Estimator;
 }
 using CallBack = std::function<void(const TrackingData &)>;
+//
+struct TrajectorBuilderOption {
+  estimator::EstimatorOption esti_option;
+  mapping::MapBuilderOption mapping_option;
+};
+
 class TrajectorBuilder {
  public:
   // TrajectorBuilder(){}
-  TrajectorBuilder(const estimator::EstimatorOption& option, CallBack call_back);
+  TrajectorBuilder(const TrajectorBuilderOption& option, CallBack call_back);
   virtual void AddImageData(const sensor::ImageData &images);
-  //
   virtual void AddImuData(const sensor::ImuData &imu_data);
   virtual void AddOdometryData(const sensor::OdometryData& odometry_data);
-  // MapBuilderInterface *GetMapBuilder() { return map_builder_.get(); }
-
-   std::vector<Eigen::Vector3d> GetMapPoints();
+  virtual void AddFixData(const sensor::FixedFramePoseData& fix_data);
   //
-   std::map<
-      KeyFrameId,
-      transform::TimestampedTransform> virtual GetKeyFrameGlobalPose();
-  std::vector<std::pair<KeyFrameId, KeyFrameId>> virtual ConstraintId();
-   transform::Rigid3d GetLocalToGlobalTransform();
-  virtual ~TrajectorBuilder();
+  mapping::MappingBuilder *GetMapBuilder() { return map_builder_.get(); }
+  void Relocation(){};
 
+  void ReComputeTrajectorId() {}
+  //
+  std::vector<Eigen::Vector3d> GetMapPoints();
+  std::map<KeyFrameId, transform::TimestampedTransform> GetKeyFrameGlobalPose();
+
+  std::vector<Eigen::Vector3d> GetLocalMapPoints();
+  std::vector<transform::Rigid3d > GetLocalKeyFramePose();
+
+  transform::Rigid3d GetLocalToGlobalTransform();
+  // /
+  virtual ~TrajectorBuilder();
  private:
- const estimator::EstimatorOption esit_option_;
-  // std::unique_ptr<tracking::TrackingInterface> tracker_;
+  void ReSet();
+  std::unique_ptr<mapping::dbow::Vocabulary> voc_;
+  TrajectorBuilderOption options_;
+  std::unique_ptr<mapping::MappingBuilder> map_builder_;
+  std::unique_ptr<common::ThreadPool> thread_pool_;    
   std::unique_ptr<estimator::Estimator> tracker_;
-  // std::unique_ptr<MapBuilderInterface> map_builder_;
+  std::unique_ptr<mapping::LocalMapTrack> local_map_track_;
+
   CallBack call_back_;
+  int trajector_ =0;
+  int estimator_state_ =0;
+
+  
 };
 }  // namespace jarvis
 

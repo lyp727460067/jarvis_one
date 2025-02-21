@@ -5,8 +5,8 @@ project(jarvis_pic)
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 
 set_target_properties(jarvis PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
-set(BUILD_TYPE Release)
-set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+# set(BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s -Wno-unused-but-set-variable -Wno-maybe-uninitialized") #-Wno-unused-result
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -24,7 +24,7 @@ set(OpenCV_LIBS
 # 手动指定 OpenCL 的位置
 set(OPENCL_INCLUDE_DIRS ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/include)
 # set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/third_party/opencl/lib/libOpenCL.so)
-
+set(PROTOBUF_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/protobuf/)
 set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
 set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
 set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
@@ -44,11 +44,11 @@ set(OPENCL_LIBRARIES ${TOP_CMAKE_DIR}/toolchains/mr527-aarch64-gcc-12.3/usr/lib/
 #         ${glog_binary_dir}
 # )
 get_directory_property(out_var INCLUDE_DIRECTORIES)
-message(****${out_var})
+# message(****${out_var})
 string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
 set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
 get_directory_property(out_var1 INCLUDE_DIRECTORIES)
-message(********${out_var1})
+# message(********${out_var1})
 
 INCLUDE_DIRECTORIES(
   ${TOP_CMAKE_DIR}/vslam/src/jarvis/
@@ -62,16 +62,17 @@ INCLUDE_DIRECTORIES(
   ${TOP_CMAKE_DIR}/libs/libmpc/include/
   ${TOP_CMAKE_DIR}/libs/libimageproc/include/
   ${TOP_CMAKE_DIR}/libs/mpsdk/
+  ${PROTOBUF_INCLUDE_DIRS}/
 )
 
 option(view_debug " view_debug" ON)
 if(${view_debug})
 add_definitions(-D__ZMQ_ENABLAE__)
 endif()
-add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc
-  gpu_pyramid_compute.cc
-  opencl_handler.cpp
-)
+# add_executable(${PROJECT_NAME}_pic_main  jarvis_pic_main.cc
+#   gpu_pyramid_compute.cc
+#   opencl_handler.cpp
+# )
 add_executable(mpslam  jarvis_slipe_detect_main.cc  
  data_capture.cc zmq_component.cc dev_socket.cc 
  data_record.cc
@@ -109,7 +110,7 @@ target_link_libraries(jarvis_eigen_test PUBLIC
 
 target_link_libraries(calibrate_data_record PUBLIC
   # glog
-  jarvis
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
    mpc
@@ -117,7 +118,7 @@ target_link_libraries(calibrate_data_record PUBLIC
 )
 target_link_libraries(mpslam PUBLIC
   # glog
-  jarvis
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
    mpc
@@ -125,19 +126,19 @@ target_link_libraries(mpslam PUBLIC
 )
 
 
-target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
-  # glog
-  jarvis
-  ${OpenCV_LIBS}
-  -ldl
-   mpc
-  ${OPENCL_LIBRARIES}
+# target_link_libraries(${PROJECT_NAME}_pic_main PUBLIC
+#   # glog
+#   jarvis
+#   ${OpenCV_LIBS}
+#   -ldl
+#    mpc
+#   ${OPENCL_LIBRARIES}
 
-)
+# )
 
 target_include_directories(mpslam  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
 target_link_libraries(mpslam PUBLIC
-  jarvis
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
   mpc
@@ -145,8 +146,8 @@ target_link_libraries(mpslam PUBLIC
 )
 
 target_include_directories(calibrate_data_record  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(mpslam PUBLIC
-  jarvis
+target_link_libraries(calibrate_data_record PUBLIC
+  jarvis_main
   ${OpenCV_LIBS}
   -ldl
   mpc

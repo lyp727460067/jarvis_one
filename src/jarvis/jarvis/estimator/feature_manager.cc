@@ -56,14 +56,18 @@ bool FeatureManager::IsParallax(int frame_count,
     }
     //
   }
-  info = FeatTrackInfo{last_track_num, new_feature_num, long_track_num};
+  bool paraller = false;
+  info = FeatTrackInfo{frame_count, last_track_num, new_feature_num,
+                       long_track_num};
   if (frame_count < options_.parallax_option.start_frame ||
       last_track_num < options_.parallax_option.last_track_num ||
       long_track_num < options_.parallax_option.long_track_num ||
       new_feature_num >
           options_.parallax_option.new_feature_ration * last_track_num) {
-    return true;
+    paraller = true;
+    // return true;
   }
+
   //
   //
   for (const auto &pair_it_per_id : features_) {
@@ -75,19 +79,24 @@ bool FeatureManager::IsParallax(int frame_count,
       parallax_num++;
     }
   }
+  info.parallax_num = parallax_num;
+  info.parallax_sum = parallax_sum;
   if (parallax_num == 0) {
+    paraller = true;
     LOG(WARNING)<<"parallax_num :"<<parallax_num;
-    return true;
+    // return true;
   } else {
     VLOG(kGlogLevel) << "parallax_sum: " << parallax_sum
                      << ",parallax_num: " << parallax_num
                      << ",current parallax: ";
     // LOG(INFO)<< parallax_sum / parallax_num<<" " << options_.min_parallax;
     // LOG(INFO)<<options_.min_parallax;
-    return parallax_sum / parallax_num >= options_.min_parallax;
+    if(parallax_sum / parallax_num >= options_.min_parallax){
+      paraller = true;
+    }
   }
 
-  return false;
+  return paraller;
 }
 ///
 
@@ -220,20 +229,23 @@ void FeatureManager::SetDepth(const std::vector<double> &x) {
 }
 //
 //
-void FeatureManager::RemoveFailures() {
+std::set<TrackFeatureId> FeatureManager::RemoveFailures() {
   std::stringstream info;
   info << "Total features_ size: " << features_.size() << " ";
+  std::set<TrackFeatureId> result;
   for (auto it = features_.begin(), it_next = features_.begin();
        it != features_.end(); it = it_next) {
     it_next++;
     if (it->second.solve_flag == 2) {
       info<<it->first<<' ';
+      result.insert(it->first);
       features_.erase(it);
     }
   }
   if(!info.str().empty()){
     VLOG(kGlogLevel) <<  info.str();
   }
+  return result;
 }
 
 //
@@ -874,7 +886,40 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
     //   }
     // }
   }
+  //
+  std::map<int, Eigen::Vector3d> FeatureManager::GetPredictionInPose(
+      const transform::Rigid3d &pose, int frame_count,
+      const std::vector<transform::Rigid3d> &sw_poses) {
+    std::map<int, Eigen::Vector3d> predictPts;
+    for (auto &pair_it_per_id : features_) {
+      auto &it_per_id = pair_it_per_id.second;
+      if (it_per_id.estimated_depth > 0) {
+        int firstIndex = it_per_id.start_frame;
+        int lastIndex =
+            it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
+        // printf("cur frame index  %d last frame index %d\n", frame_count,
+        // lastIndex);
+        if ((int)it_per_id.feature_per_frame.size() >= 2 &&
+            (lastIndex == frame_count || options_.predit_all_sw_frame)) {
+          
+          double depth = it_per_id.estimated_depth;
+          const transform::Rigid3d &last_pose = sw_poses[it_per_id.start_frame];
+          Eigen::Vector3d pts_w =
+              last_pose * (depth * it_per_id.feature_per_frame[0]
+                                       .feature.camera_features[0]
+                                       .normal_points);
+          // Eigen::Vector3d pts_w = Rs[firstIndex] * pts_j + Ps[firstIndex];
+          Eigen::Vector3d pts_cam = pose.inverse() * pts_w;
 
+          int ptsIndex = pair_it_per_id.first;
+          predictPts[ptsIndex] = pts_cam;
+        }
+        
+      }
+    }
+    return predictPts;
+  }
+  //
   //
   void FeatureManager::RemoveOutlier(
       const std::set<TrackFeatureId> &outlierIndex) {
@@ -922,6 +967,16 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
       it++;
     }
   }
+  std::vector<TrackFeatureId> FeatureManager::GetBack() {
+    std::vector<TrackFeatureId> result;
+    for (auto it = features_.begin(); it != features_.end(); it++) {
+      if (it->second.start_frame == 0 && it->second.solve_flag == 1 &&
+          it->second.UsedNum() >= options_.convin_used_num) {
+        result.push_back(it->first);
+      }
+    }
+    return result;
+  }
 
   void FeatureManager::RemoveBack() {
     for (auto it = features_.begin(), it_next = features_.begin();
@@ -949,8 +1004,9 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
         it->second.start_frame--;
       } else {
         //
-        int j = options_.sw_size - 1 - it->second.start_frame;
         if (it->second.EndFrame() < frame_count - 1) continue;
+        //
+        int j = options_.sw_size - 1 - it->second.start_frame;
         //
         it->second.feature_per_frame.erase(
             it->second.feature_per_frame.begin() + j);
@@ -1040,12 +1096,31 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
 
   //
   bool FeatureManagers::CheckParallax() const {
-    for (const auto &f_m : feature_managers_) {
-      if (f_m.second->IsParallax()) {
+    FeatTrackInfo info;
+    for (auto &f_m : feature_managers_) {
+      info += f_m.second->GetFeatTrackInfo();
+    }
+    const auto options = feature_managers_.begin()->second->Options();
+    if (info.frame < options.parallax_option.start_frame ||
+        info.last_track_num < options.parallax_option.last_track_num ||
+        info.long_track_num < options.parallax_option.long_track_num ||
+        info.new_feature_num >
+            options.parallax_option.new_feature_ration * info.last_track_num) {
+      return true;
+    }
+    if (info.parallax_num == 0) {
+      return true;
+    } else {
+      if (info.parallax_sum / info.parallax_num >= options.min_parallax) {
         return true;
       }
     }
     return false;
+    // for (const auto &f_m : feature_managers_) {
+    // if (f_m.second->IsParallax()) {
+    //   return true;
+    // }
+    // }
   }
   //
   //
@@ -1070,7 +1145,7 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
            << " Remove: " << result[f_m.first].size()<<" ";
     }
     if (!info.str().empty()) {
-      LOG_EVERY_N(INFO, 5) << info.str();
+      LOG_EVERY_N(INFO, 1) << info.str();
     }
     VLOG(kGlogLevel) << info.str();
     return result;
@@ -1118,9 +1193,13 @@ void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0,
       f_m.second->RemoveFront(frame_count);
     }
   }
-  void FeatureManagers::RemoveFailures() {
+  void FeatureManagers::RemoveFailures(std::map<CameraId, std::set<TrackFeatureId>>*ids) {
     for (auto &f_m : feature_managers_) {
-      f_m.second->RemoveFailures();
+      auto fail_ids = f_m.second->RemoveFailures();
+      if (!fail_ids.empty())
+        for (const auto &id : fail_ids) {
+          ids->at(f_m.first).insert(id);
+        }
     }
   }
 

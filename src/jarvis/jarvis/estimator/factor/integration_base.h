@@ -98,7 +98,7 @@ class IntegrationBase {
       propagate(dt_buf[i], acc_buf[i], gyr_buf[i]);
   }
   bool IsValid() {
-    if (sum_dt > 4){
+    if (sum_dt > 10){
         return false;
     } 
     // LOG(INFO)<<acc_buf.size();

@@ -141,7 +141,7 @@ SteroImuInitialization::OptimizationResult() {
   //
 
   // 固定第一帧位姿和相机相对IMU外参
-  problem.SetParameterBlockConstant(para_pose[0].data());
+  // problem.SetParameterBlockConstant(para_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[0].data());
   problem.SetParameterBlockConstant(para_ex_pose[1].data());
   
@@ -227,10 +227,10 @@ SteroImuInitialization::OptimizationResult() {
 
   ceres::Solver::Options options;
   // options.linear_solver_ordering.reset(ordering);
-  options.linear_solver_type = ceres::DENSE_SCHUR;
+  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   options.num_threads = 4;
   options.trust_region_strategy_type = ceres::DOGLEG;
-  options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  options.sparse_linear_algebra_library_type = ceres::SUITE_SPARSE;
   options.use_explicit_schur_complement = true;
   options.use_nonmonotonic_steps = true;
   // options.max_solver_time_in_seconds =
@@ -267,6 +267,7 @@ SteroImuInitialization::OptimizationResult() {
         Eigen::Vector3d(para_speed[i][0], para_speed[i][1], para_speed[i][2]),
         Eigen::Vector3d(para_speed[i][3], para_speed[i][4], para_speed[i][5]),
         Eigen::Vector3d(para_speed[i][6], para_speed[i][7], para_speed[i][8])});
+    imu_state.back().time = image_frames_[i].time;
 
     Eigen::Vector3d vi(para_speed[i][0], para_speed[i][1], para_speed[i][2]);
     double vin = vi.norm();

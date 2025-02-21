@@ -51,7 +51,6 @@ struct ImageFeatureTrackerData {
     common::Time time;
     std::map<TrackFeatureId, FeatureData> features;  // feature_id
     std::map<TrackFeatureId, int> tracker_features_num;
-    std::vector<cv::Mat> images;
   };
   std::shared_ptr<Data> data;
 };
@@ -74,7 +73,6 @@ struct FeatureTrackerOption {
   std::vector<std::shared_ptr<PyramidImage>>pyramid_image;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   Eigen::Vector2d stere_cam_offset{0, 0};
-
 };
 struct CalcOpticalFlowPyrLKOption {
   int level = 4;
@@ -122,13 +120,13 @@ class FeatureTracker {
   //
   ImageFeatureTrackerData TrackImage(
       const common::Time &, const cv::Mat &_img,
-      const cv::Mat &_img1 = cv::Mat());
+      const cv::Mat &_img1 = cv::Mat(),bool init =false);
 
   //
 
   //
   //
-  cv::Mat UpdatePointAndMask(std::map<uint64_t, PointCnt> &points);
+  cv::Mat UpdatePointAndMask(std::map<uint64_t, PointCnt> &points,int mask_min_dist);
   ImageFeatureTrackerData TransToTrackerData(
       const std::map<uint64_t, PointCnt> &cur_point,
       const std::map<uint64_t, PointCnt> &cur_r_point);
@@ -151,6 +149,7 @@ class FeatureTracker {
       const std::map<uint64_t, PointCnt> &pre_pts);
   //
   void SetPrediction(const std::map<int, Eigen::Vector3d> &predictPts);
+  void SetPredictionWithPose(const transform::Rigid3d&pose);
   void RemoveOutliers(const std::set<uint64_t> &removePtsIds);
 
  private:
@@ -180,7 +179,6 @@ class FeatureTracker {
   uint64_t tranck_id_ = 0;
   transform::Rigid3d cam0_to_cam1_extric_;
   Eigen::Vector3d stere_cam_offset_{0,0};
-
 };
 
 }  // namespace estimator

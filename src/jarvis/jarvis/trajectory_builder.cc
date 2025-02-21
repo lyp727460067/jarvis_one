@@ -1,128 +1,156 @@
+#include "jarvis/trajectory_builder.h"
+
 #include "camera_models/camera_models/camera.h"
 #include "camera_models/camera_models/camera_factory.h"
-#include "jarvis/trajectory_builder.h"
 #include "jarvis/estimator/estimator.h"
 namespace jarvis {
 
-// namespace{
-// class  CameraModules : public CameraBase {
-//  public:
-//   CameraModules(const std::string &config_file) {
-//     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
-//     int pn = config_file.find_last_of('/');
-//     std::string configPath = config_file.substr(0, pn);
-//     std::string cam0Calib;
-//     fsSettings["cam0_calib"] >> cam0Calib;
-//     std::string cam0Path = configPath + "/" + cam0Calib;
-//     camera_ =
-//         camera_models::CameraFactory::instance()->generateCameraFromYamlFile(
-//             cam0Path);
-//   }
-//   std::vector<Eigen::Vector3d> UndistortPointsNormal(
-//       const std::vector<cv::KeyPoint> &key_points) const {
-//     std::vector<Eigen::Vector3d> result;
-//     for (const auto &points : key_points) {
-//       Eigen::Vector3d b;
-//       camera_->liftProjective(Eigen::Vector2d{points.pt.x, points.pt.y}, b);
-//       result.push_back(b / b.z());
-//     }
-//     return result;
-//   }
+using namespace mapping;
 
-//   Eigen::Vector2d Project(const Eigen::Vector3d &point) const {
-//     Eigen::Vector2d result;
-//     camera_->spaceToPlane(point, result);
-//     return result;
-//   }
-
-//   //
-//  private:
-//  camera_models::CameraPtr camera_;
-// };
-
-// }
-
-TrajectorBuilder::TrajectorBuilder(const estimator::EstimatorOption &option,
+TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
                                    CallBack call_back)
-    : esit_option_(option),
-      tracker_(std::make_unique<estimator::Estimator>(option)),
-      call_back_(call_back) {
-  //  cv::FileStorage fsSettings(config, cv::FileStorage::READ);
-  //  int pn = config.find_last_of('/');
-  //  std::string configPath = config.substr(0, pn);
-  //  std::string map_builder_file;
-  //  fsSettings["map_builder_option"] >> map_builder_file;
-  //  YAML::Node map_builder_paras = YAML::LoadFile(configPath +"/"+
-  //  map_builder_file); UrdfOption urdf_option; urdf_option.camera_num = 1;
-  //  CameraOption camera_option;
-  //  int image_width;
-  //  int image_height;
-  //  fsSettings["image_width"] >> image_width;
-  //  fsSettings["image_height"] >> image_height;
-  //  camera_option.resolution.x() = image_width;
-  //  camera_option.resolution.y() = image_height;
-  //  urdf_option.camera_options.push_back(camera_option);
-  //  const MappingBuilderOption map_builder_option =
-  //      ParseYAMLOption(map_builder_paras, urdf_option);
+    : options_(option), call_back_(call_back) {
+  //
+  thread_pool_ =
+      std::make_unique<common::ThreadPool>(options_.esti_option.thread_num);
+  //
+  options_.esti_option.thread_pool = thread_pool_.get();
+  options_.mapping_option.local_map_track_option.thread_pool =
+      thread_pool_.get();
+  tracker_ = std::make_unique<estimator::Estimator>(options_.esti_option);
+  if (option.mapping_option.enable_loop_closure ||
+      (option.mapping_option.enable_local_opimization &&
+          option.mapping_option.construct_use_des_match)) {
+    voc_ = std::make_unique<dbow::Vocabulary>(
+        dbow::GetVocabulary(0, option.mapping_option.vocabulary_filebrif));
+  }
+  if (option.mapping_option.enable_loop_closure) {
+    CHECK(option.mapping_option.construct_use_des_match)
+        << "Enable loop closure must set mapping.yaml "
+           "construct_use_des_match=1";
+  }
 
-  //  map_builder_ =
-  //      std::make_unique<MetaBoundsVIO::mapping::internal::MappingBuilder>(
-  //          map_builder_option, std::make_unique<CameraModules>(config));
-  //  map_builder_ = CreateMapBuilder(config);
+  map_builder_ =
+      std::make_unique<MappingBuilder>(options_.mapping_option, voc_.get());
+  if (options_.mapping_option.enable_local_track) {
+    tracker_->SetPriorFactorFunction(
+        [&](const TrackingData &track_data)
+            -> std::shared_ptr<LocalMapMatchResult> {
+          if (track_data.data) {
+            return map_builder_->TrackLocalMap(track_data);
+          }
+          return nullptr;
+        });
+  }
 }
 //
+
+void TrajectorBuilder::ReSet() {
+  tracker_ = std::make_unique<estimator::Estimator>(options_.esti_option);
+  //等上了后端的时候map_builder_就不需要重新启动了
+  map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option,voc_.get());
+  if (options_.mapping_option.enable_local_track) {
+    tracker_->SetPriorFactorFunction(
+        [&](const TrackingData &track_data)
+            -> std::shared_ptr<LocalMapMatchResult> {
+          if (track_data.data) {
+            return map_builder_->TrackLocalMap(track_data);
+          }
+          return nullptr;
+        });
+  }
+}
 void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   auto tracking_data = tracker_->AddImageData(images);
+  
   if (call_back_) {
-    call_back_(*tracking_data);
+    call_back_(tracking_data->front_data);
+  }
+  if (estimator_state_ == 2 && tracking_data->front_data.status == 0) {
+    Relocation();
+    ReComputeTrajectorId();
   }
 
-  if (tracking_data->status == 0) {
-    LOG(ERROR)<<"Lost ....restart ..";
-    tracker_ = std::make_unique<estimator::Estimator>(esit_option_);
+  estimator_state_ = tracking_data->front_data.status;
+  if (tracking_data->front_data.status == 0) {
+    LOG(ERROR) << "Lost ....restart ..";
+    ReSet(); 
   }
-
+  if (tracking_data->front_data.status == 2) {
+    if (map_builder_) {
+      if (tracking_data->slide_out_data.data) {
+        map_builder_->AddTrackingData(trajector_,
+                                      tracking_data->slide_out_data);
+      }
+    }
+  }
 }
 //
 void TrajectorBuilder::AddImuData(const sensor::ImuData &imu_data) {
   tracker_->AddImuData(imu_data);
+  if (map_builder_) {
+    map_builder_->AddImuData(imu_data);
+  }
 }
 void TrajectorBuilder::AddOdometryData(
     const sensor::OdometryData &odometry_data) {
   tracker_->AddOdometryData(odometry_data);
+  if (map_builder_) {
+    map_builder_->AddOdometryData(odometry_data);
+  }
 }
-TrajectorBuilder::~TrajectorBuilder() {}
+//
+//
+
+void TrajectorBuilder::AddFixData(const sensor::FixedFramePoseData &fix_data) {
+  if (map_builder_) {
+    map_builder_->AddFixData(fix_data);
+  }
+}
+//
 
 std::vector<Eigen::Vector3d> TrajectorBuilder::GetMapPoints() {
-  //  const auto all_map_points = map_builder_->GetAllMapPoints();
-  //  std::vector<Eigen::Vector3d> map_points;
-  //  for (const auto point : all_map_points) {
-  //     map_points.push_back(point.data.global_pose);
-  //  }
-  // LOG(INFO) << "All map points size: " << map_points.size();
-  //  return map_points;
+  if (map_builder_) {
+    return map_builder_->GetAllMapPoints();
+  }
   return {};
 }
 
 std::map<KeyFrameId, transform::TimestampedTransform>
 TrajectorBuilder::GetKeyFrameGlobalPose() {
-  return {};
-  //  return map_builder_->GetAllKeyFramePose();
+  return map_builder_->GetAllKeyFramePose();
 }
 //
-std::vector<std::pair<KeyFrameId, KeyFrameId>>
-TrajectorBuilder::ConstraintId() {
-  //  std::vector<std::pair<KeyFrameId, KeyFrameId>> result;
-  //  auto constraints = map_builder_->GetConstraints();
-  //  for (const auto &constraint : constraints) {
-  //     result.emplace_back(constraint.kf_id_i, constraint.kf_id_j);
-  //  }
-  //  return result;
-  return {};
+std::vector<Eigen::Vector3d> TrajectorBuilder::GetLocalMapPoints() {
+  if (map_builder_->GetLocalMap() == nullptr) return {};
+  std::vector<Eigen::Vector3d> result;
+  const auto &all_map_points = map_builder_->GetLocalMap()->AllMapPoints();
+  transform::Rigid3d local_map_pose = map_builder_->GetLocalMap()->LocalPose();
+  for (const auto &mp_point : all_map_points) {
+    result.push_back(local_map_pose * mp_point.data.data->pos);
+  }
+  return result;
 }
+//
+std::vector<transform::Rigid3d> TrajectorBuilder::GetLocalKeyFramePose() {
+  if (map_builder_->GetLocalMap() == nullptr) return {};
+  std::vector<transform::Rigid3d> result;
+
+  const auto &all_kf_re_pose =
+      map_builder_->GetLocalMap()->AllKeyFrameRefPose();
+
+  transform::Rigid3d local_map_pose = map_builder_->GetLocalMap()->LocalPose();
+  for (const auto &re_pose : all_kf_re_pose) {
+    result.push_back(local_map_pose * re_pose.second);
+  }
+  return result;
+}
+
 //
 transform::Rigid3d TrajectorBuilder::GetLocalToGlobalTransform() {
   return transform::Rigid3d::Identity();
   //  return map_builder_->GetLocalToGlobleTransfrom();
 }
+
+TrajectorBuilder::~TrajectorBuilder() {}
 }  // namespace jarvis

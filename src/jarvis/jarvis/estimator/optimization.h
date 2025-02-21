@@ -6,6 +6,7 @@
 #include "parameters.h"
 #include "jarvis/estimator/factor/integration_base.h"
 //
+#include "jarvis/key_frame_data.h"
 namespace jarvis {
 namespace estimator {
 
@@ -20,6 +21,7 @@ struct OptimizationOption {
   int estimate_extrinsic=1;
   double huber_loss =1.0;
   int camera_factor_num_th = 10;
+  float prio_pose_weight =1000;
   inline int TrackNum() const { return int(trace_sequence.size()); }
   int CamNum()const {
     int camera_num  =0;
@@ -60,6 +62,9 @@ class Optimization {
   OptimizationStateData* MutableData() { return &data_; }
   ~Optimization();
   double FinalCost() { return final_cost_; }
+  void SetPrior(std::shared_ptr<LocalMapMatchResult> matchs, int k = 0) {
+    prior_pose_ = std::make_pair(k, std::move(matchs));
+  }
 
  private:
   int AddCameraFactor(int id,ceres::Problem* Problem,
@@ -80,6 +85,10 @@ class Optimization {
   const OptimizationOption options_;
   double final_cost_=0; 
   int num_= 0;
+  //
+  std::optional<std::pair<int, std::shared_ptr<LocalMapMatchResult>>>
+      prior_pose_;
+
   // double** para_Pose = data_.pose;
   // double** para_SpeedBias = data_.speed_bias;
   // double** para_Ex_Pose = data_.ex_pose;

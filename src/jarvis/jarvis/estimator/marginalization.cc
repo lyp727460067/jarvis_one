@@ -256,7 +256,7 @@ void Marginalization::Marginalize(const OptimizationStateData *opt_data,
     VLOG(kGlogCostTimeLevel) << "pre marginalization " << t_pre_margin.toc();
 
     TicToc t_margin;
-    marginalization_info->marginalize();
+    marginalization_info->marginalize(options_.thread_pool);
     VLOG(kGlogCostTimeLevel) << "marginalization " << t_margin.toc();
     std::unordered_map<long, double *> addr_shift;
     if (!flag) {

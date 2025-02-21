@@ -8,28 +8,30 @@ namespace match {
 //
 using namespace svo;
 using BearingVector = Eigen::Vector3d;
-bool Frame::IsVisible(const Eigen::Vector3d& xyz_w,
-                                Eigen::Vector2d* pt) {
-  Eigen::Vector3d xyz_f = pose * xyz_w;
+bool Frame::IsVisible(const Eigen::Vector3d& xyz_w, Eigen::Vector2d* pt) {
+  Eigen::Vector3d xyz_f = pose.inverse() * xyz_w;
   //
-  Eigen::Vector2d px_top_left(0.0, 0.0);
-  Eigen::Vector3d f_top_left;
-  // cam_->backProject3(px_top_left, &f_top_left);
-  f_top_left.normalize();
+  if(xyz_f.z()<0)return false;
+  // Eigen::Vector2d px_top_left(0.01, 0.01);
+  // Eigen::Vector3d f_top_left;
+  // cam->liftProjective(px_top_left, f_top_left);  // 注意这里找对应的相机
   const Eigen::Vector3d z(0.0, 0.0, 1.0);
-  const double min_cos = f_top_left.dot(z);
+  const double min_cos = f_top_left->dot(z);
   const double cur_cos = xyz_f.normalized().dot(z);
   if (cur_cos < min_cos) {
     return false;
   }
-  if (pt == nullptr) {
+  if (pt) {
+    cam->spaceToPlane(xyz_f, *pt);
   }
+  return true;
 }
 
 bool Frame::IsKeypointVisibleWithMargin(const Eigen::Vector2d& keypoint,
                                         int margin) {
-  int image_with = cam->imageWidth();
-  int image_height = cam->imageWidth();
+
+  int image_with = image_size.x();
+  int image_height = image_size.y();
   return keypoint[0] >= margin && keypoint[1] >= margin &&
          keypoint[0] < (image_with - margin) &&
          keypoint[1] < (image_height - margin);
@@ -52,59 +54,78 @@ MatchResult DirectMatch::FindMatch(const Frame& ref_frame,
               boundary ||
       pxi[1] >=
           static_cast<int>(ref_frame.image_size.y() / (1 << ref_ftr.level)) -
-              boundary)
+              boundary) {
     return {MatchResultState::kFailVisibility};
-
+  }
   // warp affine
   //
+
   AffineTransformation2 A_cur_ref;
   warp::getWarpMatrixAffine(
       ref_frame.cam, cur_frame.cam, ref_ftr.px, ref_ftr.f, ref_depth,
       cur_frame.pose.inverse() * ref_frame.pose, ref_ftr.level, &A_cur_ref);
   //
   //
+  // LOG(INFO)<<ref_frame.img_pyr.size();
   int search_level =
       warp::getBestSearchLevel(A_cur_ref, ref_frame.img_pyr.size() - 1);
+  // LOG(INFO)<<search_level ;
   //
   //
+
   if (options_.use_affine_warp) {
     if (!warp::warpAffine(A_cur_ref, ref_frame.img_pyr[ref_ftr.level],
                           ref_ftr.px, ref_ftr.level, search_level,
-                          kHalfPatchSize + 1, patch_with_border_))
+                          kHalfPatchSize + 1, patch_with_border_)) {
       return {MatchResultState::kFailWarp};
+    }
+
   } else {
     // pixelwise warp:
     // TODO(zzc): currently using the search level from affine, good enough?
     if (!warp::warpPixelwise(cur_frame, ref_frame, ref_ftr, ref_ftr.level,
                              search_level, kHalfPatchSize + 1,
-                             patch_with_border_))
+                             patch_with_border_)) {
       return {MatchResultState::kFailWarp};
+    }
   }
+  
   patch_utils::createPatchFromPatchWithBorder(patch_with_border_, kPatchSize,
                                               patch_);
-  auto& px_cur = pr;
+   const Keypoint& px_cur = pr;
   // px_cur should be set
   Keypoint px_scaled(px_cur / (1 << search_level));
   Keypoint px_scaled_start(px_scaled);
-
+  // cv::imshow("cur_frame.img_pyr",cur_frame.img_pyr[search_level]);
+  // cv::Mat patch_image(kPatchSize, kPatchSize, CV_8UC1, patch_);
+  // cv::imshow("pach_image", patch_image);
+  // cv::waitKey(0);
   std::vector<Eigen::Vector2f>* last_fail_steps = nullptr;
+
+   estimator::TicToc align2D_tic; 
   bool res = feature_alignment::align2D(
       cur_frame.img_pyr[search_level], patch_with_border_, patch_,
       options_.align_max_iter, options_.affine_est_offset,
-      options_.affine_est_gain, px_scaled, false, last_fail_steps);
+      options_.affine_est_gain, px_scaled, options_.min_update_squared, false,
+      last_fail_steps);
+  // LOG(INFO) << "align cost: " << align2D_tic.toc();
   if (res) {
     if ((px_scaled - px_scaled_start).norm() >
         options_.max_patch_diff_ratio * kPatchSize) {
-      return {MatchResultState::kFailTooFar};
+      VLOG(2) << "Proejct -esitimator distance  "
+                << (px_scaled - px_scaled_start).norm() << " > "
+                << options_.max_patch_diff_ratio * kPatchSize;
+      // return {MatchResultState::kFailTooFar};
     }
-    auto px_cur = px_scaled * (1 << search_level);
+    // LOG(INFO)<<(px_scaled - px_scaled_start).norm();
+     const Keypoint px_cur = px_scaled * (1 << search_level);
     // set member variables with results (used in reprojector)
     Eigen::Vector3d f_cur;
     cur_frame.cam->backProject3(px_cur, &f_cur);
-    f_cur.normalize();
+    // f_cur.normalize();
     return {MatchResultState::kSuccess, px_cur, f_cur, search_level};
   } else {
-    VLOG(300) << "NOT CONVERGED: search level " << search_level;
+    // LOG(WARNING) << "NOT CONVERGED: search level " << search_level;
   }
   return {MatchResultState::kFailAlignment};
 }
@@ -250,7 +271,7 @@ MatchResultState DirectMatch::FindLocalMatch(
     res = feature_alignment::align2D(
         frame.img_pyr[patch_level], patch_with_border_, patch_,
         options_.align_max_iter, options_.affine_est_offset,
-        options_.affine_est_gain, px_scaled);
+        options_.affine_est_gain, px_scaled, options_.min_update_squared);
   };
   if (!res) return MatchResultState::kFailAlignment;
 

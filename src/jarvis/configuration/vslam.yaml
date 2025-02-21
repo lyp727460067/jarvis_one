@@ -1,7 +1,7 @@
 %YAML:1.0
 
 data_capture: 0
-image_sample : 0.4
+image_sample : 1
 # image_sample : 1
 record : 0
 GLOG_v :  -1
@@ -16,8 +16,10 @@ slip_option: simple_vo.yaml
 # calibrate_path : /home/lyp/config_back/calibrate_file
 calibrate_path : /data/bin/sys_data/calibrate_file
 # calibrate_path : /home/lyp/config_back/mower_0017/calibrate_file
+# calibrate_path : /home/lyp/data/0102/calibrate_file
 estimator : estimator_77.yaml
-
+mapping: mapping.yaml
+vocabulary_filebrif :  jarvis.dbow
 # factory param
 arUco_code_nums : 4
 scene_perimeter : 30      # m
@@ -25,4 +27,4 @@ marker_depth_max : 0.6
 marker_depth_min : 0.4
 marker_angle_max : 5.0
 dis_error_thr : 0.006        # %（distance / scene_perimeter）
-angle_error_thr : 5.0      # degree
+angle_error_thr : 5.0      # degreescene_perimeter）

@@ -170,23 +170,23 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
       // }
     });
   }
-  if (options_.num_thread_ != 1) {
-    std::vector<std::thread> threads;
-    // threads_.resize(options_.num_thread_);
-    for (int i = 0; i < options_.num_thread_; i++) {
-      threads.emplace_back([&tasks, i]() {
-        for (auto& f : tasks[i]) {
-          f();
-        }
-      });
-    }
-    for (int i = 0; i < options_.num_thread_; i++) {
-      TicToc t_t;
-      threads[i].join();
-    }
-    // LOG(INFO) << point_collection.size();
-    return point_collection;
-  }
+  // if (options_.num_thread_ != 1) {
+  //   std::vector<std::thread> threads;
+  //   // threads_.resize(options_.num_thread_);
+  //   for (int i = 0; i < options_.num_thread_; i++) {
+  //     threads.emplace_back([&tasks, i]() {
+  //       for (auto& f : tasks[i]) {
+  //         f();
+  //       }
+  //     });
+  //   }
+  //   for (int i = 0; i < options_.num_thread_; i++) {
+  //     TicToc t_t;
+  //     threads[i].join();
+  //   }
+  //   // LOG(INFO) << point_collection.size();
+  //   return point_collection;
+  // }
   for (auto& f : tasks[0]) {
     f();
   }
@@ -196,7 +196,7 @@ std::vector<cv::KeyPoint> FeatureDetect::ExtractFastWithGrid(
 //
 bool FeatureDetect::CheckGridValid(
     const std::vector<std::vector<cv::Point2f>>& grid,
-    const cv::Point2f& point,const cv::Mat& mask) {
+    const cv::Point2f& point,const cv::Mat& mask,int min_distance) {
 
   if (mask.at<uint8_t>((int)point.y, (int)point.x) < 255) {
     return false;
@@ -220,7 +220,7 @@ bool FeatureDetect::CheckGridValid(
         for (size_t j = 0; j < m.size(); j++) {
           float dx = point.x - m[j].x;
           float dy = point.y - m[j].y;
-          if (dx * dx + dy * dy < min_distance_) {
+          if (dx * dx + dy * dy < min_distance) {
             return false;
           }
         }
@@ -233,7 +233,7 @@ std::vector<cv::Point2f> FeatureDetect::Detect(const cv::Mat& image,
 const std::vector<cv::Point2f>&cur_points,
                                                int max_corners,
                                                const cv::Mat& derive,
-                                               const cv::Mat& mask) {
+                                               const cv::Mat& mask,bool init) {
   //
   if(max_corners==0)return {};
   CHECK(options_.min_distance >= 1);
@@ -279,7 +279,9 @@ const std::vector<cv::Point2f>&cur_points,
   }
 
   for (size_t i = 0; i < keypoints_.size(); i++) {
-    if (!CheckGridValid(grid, keypoints_[i].pt,mask)) continue;
+    if (!CheckGridValid(grid, keypoints_[i].pt, mask,
+                        init ? init_min_distance_ : min_distance_))
+      continue;
     int y = (int)(keypoints_[i].pt.y);
     int x = (int)(keypoints_[i].pt.x);
     int x_cell = x / options_.grid_size.x();

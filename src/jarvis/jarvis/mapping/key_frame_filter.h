@@ -2,17 +2,17 @@
 #define __JARVIS_MAPPING_KEYFRAMEFILTER_HPP__
 #include <set>
 
-#include "common/time.h"
+#include "jarvis/common/time.h"
 #include "jarvis/key_frame_data.h"
-#include "transform/rigid_transform.h"
+#include "jarvis/transform/rigid_transform.h"
 //
 namespace jarvis {
 namespace mapping {
 
 //
 struct KeyFrameFilterOption {
-  double max_distance = 0.4;
-  double max_angle = 20;
+  double max_distance = 0.1;
+  double max_angle = 10;
   double max_time = 10.0;
   double min_intersection_ration = 0.25;
 };

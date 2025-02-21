@@ -7,9 +7,8 @@ namespace jarvis {
 namespace mapping {
 //
 KeyFrameDataBase::KeyFrameDataBase(
-    const KeyFrameDataBaseOption& option,
-    std::shared_ptr<dbow::Vocabulary> voc)
-    : voc_(std::move(voc)), options_(option) {}
+    const KeyFrameDataBaseOption& option)
+    : options_(option) {}
 //
 KeyFrameDataBase::~KeyFrameDataBase() {}
 //
@@ -99,14 +98,8 @@ std::unordered_map<KeyFrameId, double> KeyFrameDataBase::ComputeSimilarityScore(
     CHECK(key_frame_datas_.count(id_count.first) != 0);
     if (id_count.second > min_common_words.second) {
       CHECK(key_frame_datas_.at(id_count.first).lock());
-      // double score =
-      //     voc_->score(data->dbow_bow_vec,
-      //                 key_frame_datas_.at(id_count.first).lock()->dbow_bow_vec);
       double score = data->dbow_data.Score(
           key_frame_datas_.at(id_count.first).lock()->dbow_data);
-      // voc_->score(data->dbow_bow_vec,
-      //             key_frame_datas_.at(id_count.first).lock()->dbow_bow_vec);
-
       //
       min_score = std::max(options_.min_core, min_score);
       if (score > min_score) {

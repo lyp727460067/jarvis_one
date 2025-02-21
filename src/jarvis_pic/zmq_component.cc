@@ -176,7 +176,9 @@ cv::Mat VMergeImage(const cv::Mat &m1, const cv::Mat &m2) {
   cv::Mat merge_image;
   cv::resize(m1, temp, resize);
   if (m2.empty()) {
-    cv::hconcat(temp, m1, merge_image);
+    cv::Mat image(resize, CV_8UC1, cv::Scalar::all(0));
+    cvtColor(image,image, cv::COLOR_GRAY2RGB);
+    cv::hconcat(temp,image, merge_image);
   } else {
     cv::resize(m2, temp1, resize);
     cv::hconcat(temp, temp1, merge_image);
@@ -203,12 +205,14 @@ std::vector<uint8_t> ToCData(
   params[6] = cv::IMWRITE_JPEG_RST_INTERVAL;
   params[7] = 0;
   cv::Mat merge_image;
+  std::array<std::vector<int>, 3> ParaExPoseIndex{
+        std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};  
   std::vector<cv::Mat> cvresult1;
   for (auto &cam_feature : tracking_data.data->features_datas) {
-    auto image_result =
-        GenerateImageWithKeyPoint(cam_feature.second.features.data->images[0],
-                                  cam_feature.second.key_points, {}, {}, {},
-                                  "pre_imag", "curr_imag", {0});
+    auto image_result = GenerateImageWithKeyPoint(
+        tracking_data.data->images.image[ParaExPoseIndex[cam_feature.first][0]],
+        cam_feature.second.key_points, {}, {}, {}, "pre_imag", "curr_imag",
+        {0});
 
     // image_result.resize(640, 544);
     // cv::hconcat(image_result, image_result, merge_image);
@@ -225,13 +229,10 @@ std::vector<uint8_t> ToCData(
         for (const auto &result : *object_result) {
           same_marks[result.id].push_back(result);
           if (result.coners.empty()) continue;
-
-          int cols = tracking_data.data->features_datas[0]
-                         .features.data->images[0]
-                         .cols;
-          int rows = tracking_data.data->features_datas[0]
-                         .features.data->images[0]
-                         .rows;
+          auto &image = tracking_data.data->images
+                            .image[ParaExPoseIndex[cam_feature.first][0]];
+          int cols = image.cols;
+          int rows = image.rows;
 
           image_object +=
               ObjectToCvImage(Eigen::AlignedBox2d(Eigen::Vector2d{0, 0},
@@ -280,9 +281,11 @@ std::vector<uint8_t> ToCData(
     merge_image = VMergeImage(cvresult1[0], cvresult1[1]);
   } else if (cvresult1.size() == 3) {
     auto merge_image0 = VMergeImage(cvresult1[0], cvresult1[1]);
+
     cv::Mat merge_image1 = VMergeImage(cvresult1[2], cv::Mat());
     cv::Mat temp;
     cv::vconcat(merge_image0, merge_image1, temp);
+
     merge_image = temp;
   } else if (cvresult1.size() == 4) {
     auto merge_image0 = VMergeImage(cvresult1[0], cvresult1[1]);
@@ -425,7 +428,7 @@ void MpcComponent::Write(const jarvis::transform::Rigid3d &pose,
    ModSyncImuFb imudata;
    shm_mod_->GetModByID(MOD_ID_SYNC_IMU_FB, reinterpret_cast<void *>(&imudata));
    int64_t delta_time  = imudata.time_stamp-  mpc_data.timestamp/1000;
-   if(abs( delta_time )>350000 ){
+   if(abs( delta_time )>600000 ){
 
    LOG(ERROR)<<"imu vio delte_pose "<<imudata.time_stamp<<" "<<mpc_data.timestamp/1000<<" "<< delta_time;
   }

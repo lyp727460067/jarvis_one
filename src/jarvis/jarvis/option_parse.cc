@@ -7,10 +7,12 @@
 
 #include "jarvis/estimator/estimator.h"
 #include "jarvis/estimator/initial/initialization_stero_imu.h"
+#include "jarvis/mapping/local_map_track.h"
+#include "jarvis/mapping/map_builder.h"
 #include "opencv2/core/eigen.hpp"
+#include "jarvis/trajectory_builder.h"
 #include "opencv2/opencv.hpp"
 #include "yaml-cpp/yaml.h"
-
 namespace jarvis {
 
 double timeshift_cam_imu = 0;
@@ -108,7 +110,7 @@ CameraOption ParseYAMLOptionCameraOption(const CheckNode &paras, int i) {
       cam_node["distortion_model"].as<std::string>();
   camera_option.resolution = {cam_node["resolution"].as<std::vector<int>>()[0],
                               cam_node["resolution"].as<std::vector<int>>()[1]};
-  camera_option.timeshift_cam_imu   =  cam_node["timeshift_cam_imu"].as<double>();
+  camera_option.timeshift_cam_imu = cam_node["timeshift_cam_imu"].as<double>();
   return camera_option;
 }
 
@@ -126,17 +128,17 @@ cv::Mat GetMask(const CheckNode &paras, const std::string &name,
   }
   //
   fillPoly(mask, pts, 0, 8, 0);
-  int dilation_size  =5;
+  int dilation_size = 5;
   cv::resize(mask, mask, cv::Size(res.x(), res.y()));
   cv::Mat element = getStructuringElement(
       cv::MORPH_RECT, cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
       cv::Point(dilation_size, dilation_size));
 
-//   cv::imshow("mask", mask);
+  //   cv::imshow("mask", mask);
   cv::Mat out;
-  cv::erode(mask,out,element);
-//   cv::imshow("dilatemask",out);
-//   cv::waitKey(0);
+  cv::erode(mask, out, element);
+  //   cv::imshow("dilatemask",out);
+  //   cv::waitKey(0);
   return out;
 }
 template <>
@@ -156,232 +158,223 @@ void ParseYAMLOption(const std::string &file_path,
       LOG(FATAL) << "ERROR: Wrong path to settings";
     }
     {
-    cv::Mat cv_T;
-    fsSettings["cam2RobotT"] >> cv_T;
-    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
-    cv::cv2eigen(cv_T, T);
-    calibrate_options->extric_camera_to_robot = jarvis::transform::Rigid3d(
-        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
-    calibrate_options->extric_camera_to_odom.push_back(
-        calibrate_options->extric_camera_to_robot);
-    //
+      cv::Mat cv_T;
+      fsSettings["cam2RobotT"] >> cv_T;
+      Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+      cv::cv2eigen(cv_T, T);
+      calibrate_options->extric_camera_to_robot = jarvis::transform::Rigid3d(
+          T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+      calibrate_options->extric_camera_to_odom.push_back(
+          calibrate_options->extric_camera_to_robot);
+      //
     }
     {
-    cv::Mat cv_T;
-    fsSettings["cam2RobotT_side_left"] >> cv_T;
-    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
-    cv::cv2eigen(cv_T, T);
-   auto extric_camera_to_robot = jarvis::transform::Rigid3d(
-        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)).normalized());
-    calibrate_options->extric_camera_to_odom.push_back(
-        extric_camera_to_robot);
-    //
+      cv::Mat cv_T;
+      fsSettings["cam2RobotT_side_left"] >> cv_T;
+      Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+      cv::cv2eigen(cv_T, T);
+      auto extric_camera_to_robot = jarvis::transform::Rigid3d(
+          T.block<3, 1>(0, 3),
+          Eigen::Quaterniond(T.block<3, 3>(0, 0)).normalized());
+      calibrate_options->extric_camera_to_odom.push_back(
+          extric_camera_to_robot);
+      //
     }
     {
-    cv::Mat cv_T;
-    fsSettings["cam2RobotT_side_right"] >> cv_T;
-    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
-    cv::cv2eigen(cv_T, T);
-    auto extric_camera_to_robot = jarvis::transform::Rigid3d(
-        T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
-    calibrate_options->extric_camera_to_odom.push_back(
-        extric_camera_to_robot);
-    //
+      cv::Mat cv_T;
+      fsSettings["cam2RobotT_side_right"] >> cv_T;
+      Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+      cv::cv2eigen(cv_T, T);
+      auto extric_camera_to_robot = jarvis::transform::Rigid3d(
+          T.block<3, 1>(0, 3), Eigen::Quaterniond(T.block<3, 3>(0, 0)));
+      calibrate_options->extric_camera_to_odom.push_back(
+          extric_camera_to_robot);
+      //
     }
-
-
-
   }
 
-
- {
+  {
     LOG(INFO) << "Start parse " << cam_chain_file;
     CheckNode paras = YAML::LoadFile(cam_chain_file);
     CheckNode defalt_paras = YAML::Load(defalt_extric);
 
-    auto GetCameraExt =
-        [](const CheckNode &cam_node) {
-          Eigen::Matrix4d camera_to_imu;
-          try {
-            const std::vector<std::vector<double>> camera_to_imu_vector =
-                cam_node["T_imu_cam"].as<std::vector<std::vector<double>>>();
-            for (int i = 0; i < 4; i++) {
-              camera_to_imu.row(i) =
-                  Eigen::Vector4d(camera_to_imu_vector[i].data());
-            }
-            return transform::Rigid3d(
-                camera_to_imu.block<3, 1>(0, 3),
-                Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)));
-          } catch (...) {
-            const std::vector<std::vector<double>> camera_to_imu_vector =
-                cam_node["T_cam_imu"].as<std::vector<std::vector<double>>>();
-            for (int i = 0; i < 4; i++) {
-              camera_to_imu.row(i) =
-                  Eigen::Vector4d(camera_to_imu_vector[i].data());
-            }
-            return transform::Rigid3d(
-                       camera_to_imu.block<3, 1>(0, 3),
-                       Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)))
-                .inverse();
-          }};
-          //
-          for (int i = 0; i < kCameraNum; i++) {
-            const CheckNode cam_node = paras["cam" + std::to_string(i)];
-            const transform::Rigid3d ext_para = GetCameraExt(cam_node);
+    auto GetCameraExt = [](const CheckNode &cam_node) {
+      Eigen::Matrix4d camera_to_imu;
+      try {
+        const std::vector<std::vector<double>> camera_to_imu_vector =
+            cam_node["T_imu_cam"].as<std::vector<std::vector<double>>>();
+        for (int i = 0; i < 4; i++) {
+          camera_to_imu.row(i) =
+              Eigen::Vector4d(camera_to_imu_vector[i].data());
+        }
+        return transform::Rigid3d(
+            camera_to_imu.block<3, 1>(0, 3),
+            Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)));
+      } catch (...) {
+        const std::vector<std::vector<double>> camera_to_imu_vector =
+            cam_node["T_cam_imu"].as<std::vector<std::vector<double>>>();
+        for (int i = 0; i < 4; i++) {
+          camera_to_imu.row(i) =
+              Eigen::Vector4d(camera_to_imu_vector[i].data());
+        }
+        return transform::Rigid3d(
+                   camera_to_imu.block<3, 1>(0, 3),
+                   Eigen::Quaterniond(camera_to_imu.block<3, 3>(0, 0)))
+            .inverse();
+      }
+    };
+    //
+    for (int i = 0; i < kCameraNum; i++) {
+      const CheckNode cam_node = paras["cam" + std::to_string(i)];
+      const transform::Rigid3d ext_para = GetCameraExt(cam_node);
 
-            const CheckNode defalt_cam_node =
-                defalt_paras["cam" + std::to_string(i)];
-            const transform::Rigid3d defalt_ext_para =
-                GetCameraExt(defalt_cam_node);
-            LOG(INFO) << i;
-            // if (abs(defalt_ext_para.translation().norm() -
-            //         ext_para.translation().norm()) > 0.03) {
-            //   LOG(ERROR)
-            //       << "The calibration result is too far from the reference "
-            //          "value. defalt:"
-            //       << defalt_ext_para << "cal " << ext_para << ". distance:"
-            //       << abs(defalt_ext_para.translation().norm() -
-            //              ext_para.translation().norm())
-            //       << ".Load defalt para.";
-            //   calibrate_options->extric_camera_to_imu.push_back(
-            //       defalt_ext_para);
-            //   // calibrate_options->camera_options.push_back(
-            //   //     ParseYAMLOptionCameraOption(defalt_paras, i));
-            // } else {
-              calibrate_options->extric_camera_to_imu.push_back(ext_para);
-            // }
-            //
-            calibrate_options->camera_options.push_back(
-                ParseYAMLOptionCameraOption(paras, i));
-            LOG(INFO) << calibrate_options->camera_options.back().DebugInfo();
-            LOG(INFO) << "imu_to_cam:"
-                      << calibrate_options->extric_camera_to_imu.back();
+      const CheckNode defalt_cam_node = defalt_paras["cam" + std::to_string(i)];
+      const transform::Rigid3d defalt_ext_para = GetCameraExt(defalt_cam_node);
+      // if (abs(defalt_ext_para.translation().norm() -
+      //         ext_para.translation().norm()) > 0.03) {
+      //   LOG(ERROR)
+      //       << "The calibration result is too far from the reference "
+      //          "value. defalt:"
+      //       << defalt_ext_para << "cal " << ext_para << ". distance:"
+      //       << abs(defalt_ext_para.translation().norm() -
+      //              ext_para.translation().norm())
+      //       << ".Load defalt para.";
+      //   calibrate_options->extric_camera_to_imu.push_back(
+      //       defalt_ext_para);
+      //   // calibrate_options->camera_options.push_back(
+      //   //     ParseYAMLOptionCameraOption(defalt_paras, i));
+      // } else {
+      calibrate_options->extric_camera_to_imu.push_back(ext_para);
+      // }
+      //
+      calibrate_options->camera_options.push_back(
+          ParseYAMLOptionCameraOption(paras, i));
+      LOG(INFO) << calibrate_options->camera_options.back().DebugInfo();
+      LOG(INFO) << "imu_to_cam:"
+                << calibrate_options->extric_camera_to_imu.back();
 
-            //
-            //
-          }
-          // Eigen::Matrix3d temp;
-          // temp << 9.9995443247882831e-01, 4.4208498469253781e-03,
-          //     8.4610314132053579e-03,
-          //     -4.4454512625568387e-03, 9.9998593988640494e-01,
-          //     2.8910192969837647e-03, -8.4481316879260245e-03,
-          //     -2.9285006631791207e-03, 9.9996002567845144e-01;
-          // Eigen::Vector3d
-          // temp_t(-7.9909196183143521e+01, 7.4353285997290131e-02,
-          //                        4.9535770968658988e-01);
+      //
+      //
+    }
+    // Eigen::Matrix3d temp;
+    // temp << 9.9995443247882831e-01, 4.4208498469253781e-03,
+    //     8.4610314132053579e-03,
+    //     -4.4454512625568387e-03, 9.9998593988640494e-01,
+    //     2.8910192969837647e-03, -8.4481316879260245e-03,
+    //     -2.9285006631791207e-03, 9.9996002567845144e-01;
+    // Eigen::Vector3d
+    // temp_t(-7.9909196183143521e+01, 7.4353285997290131e-02,
+    //                        4.9535770968658988e-01);
 
-          // temp_t = temp_t * 0.001;
-          // transform::Rigid3d temp_ex(temp_t,
-          // Eigen::Quaterniond(temp).normalized());
-          // LOG(INFO)<<transform::Rot2ypr(temp.transpose());
-          // //
-          // temp_ex = temp_ex.inverse();
-          // LOG(INFO) << "cam0cam1: "
-          //           << calibrate_options->extric_camera_to_imu[0].inverse() *
-          //                  calibrate_options->extric_camera_to_imu[1];
-          // transform::Rigid3d diff_temp_ex =
-          // (calibrate_options->extric_camera_to_imu[0].inverse() *
-          //                  calibrate_options->extric_camera_to_imu[1]).inverse()*
-          //                  temp_ex;
-          // LOG(INFO)<<diff_temp_ex <<" diff_temp_ex
-          // "<<transform::Rot2ypr(diff_temp_ex.rotation().toRotationMatrix());
-          // LOG(INFO) << "rcam0cam1 " << temp_ex;
-          // //
+    // temp_t = temp_t * 0.001;
+    // transform::Rigid3d temp_ex(temp_t,
+    // Eigen::Quaterniond(temp).normalized());
+    // LOG(INFO)<<transform::Rot2ypr(temp.transpose());
+    // //
+    // temp_ex = temp_ex.inverse();
+    // LOG(INFO) << "cam0cam1: "
+    //           << calibrate_options->extric_camera_to_imu[0].inverse() *
+    //                  calibrate_options->extric_camera_to_imu[1];
+    // transform::Rigid3d diff_temp_ex =
+    // (calibrate_options->extric_camera_to_imu[0].inverse() *
+    //                  calibrate_options->extric_camera_to_imu[1]).inverse()*
+    //                  temp_ex;
+    // LOG(INFO)<<diff_temp_ex <<" diff_temp_ex
+    // "<<transform::Rot2ypr(diff_temp_ex.rotation().toRotationMatrix());
+    // LOG(INFO) << "rcam0cam1 " << temp_ex;
+    // //
 
-          // LOG(INFO) <<
-          // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
-          //                                     .rotation()
-          //                                     .toRotationMatrix()) ;
+    // LOG(INFO) <<
+    // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
+    //                                     .rotation()
+    //                                     .toRotationMatrix()) ;
 
-          // // calibrate_options->extric_camera_to_imu[1] =
-          // //     calibrate_options->extric_camera_to_imu[0] * temp_ex;
-          // //
-          // LOG(INFO)<<calibrate_options->extric_camera_to_imu[0];
-          // LOG(INFO)<<calibrate_options->extric_camera_to_imu[1];
+    // // calibrate_options->extric_camera_to_imu[1] =
+    // //     calibrate_options->extric_camera_to_imu[0] * temp_ex;
+    // //
+    // LOG(INFO)<<calibrate_options->extric_camera_to_imu[0];
+    // LOG(INFO)<<calibrate_options->extric_camera_to_imu[1];
 
-          // LOG(INFO) <<
-          // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
-          //                                     .rotation()
-          //                                     .toRotationMatrix()) ;
-          // LOG(INFO) <<
-          // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[1]
-          //                                     .rotation()
-          //                                     .toRotationMatrix()) ;
+    // LOG(INFO) <<
+    // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[0]
+    //                                     .rotation()
+    //                                     .toRotationMatrix()) ;
+    // LOG(INFO) <<
+    // transform::Rot2ypr(calibrate_options->extric_camera_to_imu[1]
+    //                                     .rotation()
+    //                                     .toRotationMatrix()) ;
 
-          std::swap(calibrate_options->extric_camera_to_imu[2],
-                    calibrate_options->extric_camera_to_imu[3]);
-          std::swap(calibrate_options->camera_options[2],
-                    calibrate_options->camera_options[3]);
-          //
-          // transform::Rigid3d cam2tocam0 =
-          //     calibrate_options->extric_camera_to_odom[0].inverse() *
-          //     calibrate_options->extric_camera_to_odom[1];
-          // LOG(INFO) << "camcham " <<
-          // calibrate_options->extric_camera_to_imu[2] << " "
-          //           <<
-          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
-          //                                     .rotation()
-          //                                     .toRotationMatrix())
-          //                  .transpose();
-          // calibrate_options->extric_camera_to_imu[2] =
-          //     calibrate_options->extric_camera_to_imu[0] * cam2tocam0;
-          // //
-          // LOG(INFO) << "camodom " <<
-          // calibrate_options->extric_camera_to_imu[2] << " "
-          //           <<
-          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
-          //                                     .rotation()
-          //                                     .toRotationMatrix())
-          //                  .transpose();
+    std::swap(calibrate_options->extric_camera_to_imu[2],
+              calibrate_options->extric_camera_to_imu[3]);
+    std::swap(calibrate_options->camera_options[2],
+              calibrate_options->camera_options[3]);
+    //
+    // transform::Rigid3d cam2tocam0 =
+    //     calibrate_options->extric_camera_to_odom[0].inverse() *
+    //     calibrate_options->extric_camera_to_odom[1];
+    // LOG(INFO) << "camcham " <<
+    // calibrate_options->extric_camera_to_imu[2] << " "
+    //           <<
+    //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
+    // calibrate_options->extric_camera_to_imu[2] =
+    //     calibrate_options->extric_camera_to_imu[0] * cam2tocam0;
+    // //
+    // LOG(INFO) << "camodom " <<
+    // calibrate_options->extric_camera_to_imu[2] << " "
+    //           <<
+    //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[2]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
 
-          // transform::Rigid3d cam3tocam0 =
-          //     calibrate_options->extric_camera_to_odom[0].inverse() *
-          //     calibrate_options->extric_camera_to_odom[2];
+    // transform::Rigid3d cam3tocam0 =
+    //     calibrate_options->extric_camera_to_odom[0].inverse() *
+    //     calibrate_options->extric_camera_to_odom[2];
 
-          // LOG(INFO) << "camcham " <<
-          // calibrate_options->extric_camera_to_imu[3] << " "
-          //           <<
-          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
-          //                                     .rotation()
-          //                                     .toRotationMatrix())
-          //                  .transpose();
-          // calibrate_options->extric_camera_to_imu[3] =
-          //     calibrate_options->extric_camera_to_imu[0] * cam3tocam0;
-          // LOG(INFO) << "camodom " <<
-          // calibrate_options->extric_camera_to_imu[3] << " "
-          //           <<
-          //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
-          //                                     .rotation()
-          //                                     .toRotationMatrix())
-          //                  .transpose();
-        } info
-        << "Start parse " << mask_file << "\n";
-    CheckNode paras = YAML::LoadFile(mask_file);
-    calibrate_options->masks.resize(kCameraNum);
+    // LOG(INFO) << "camcham " <<
+    // calibrate_options->extric_camera_to_imu[3] << " "
+    //           <<
+    //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
+    // calibrate_options->extric_camera_to_imu[3] =
+    //     calibrate_options->extric_camera_to_imu[0] * cam3tocam0;
+    // LOG(INFO) << "camodom " <<
+    // calibrate_options->extric_camera_to_imu[3] << " "
+    //           <<
+    //           transform::Rot2ypr(calibrate_options->extric_camera_to_imu[3]
+    //                                     .rotation()
+    //                                     .toRotationMatrix())
+    //                  .transpose();
+  }
+  info << "Start parse " << mask_file << "\n";
+  CheckNode paras = YAML::LoadFile(mask_file);
+  calibrate_options->masks.resize(kCameraNum);
+  try {
+    cv::Mat tmp = GetMask(paras, "front_left_contour",
+                          calibrate_options->camera_options[0].resolution);
+    calibrate_options->masks[0] = tmp;
+  } catch (...) {
     try {
-      cv::Mat tmp = GetMask(paras, "front_left_contour",
+      cv::Mat tmp = GetMask(paras, "grass_front_contour",
                             calibrate_options->camera_options[0].resolution);
+
       calibrate_options->masks[0] = tmp;
- }catch(...){
-   try {
-     cv::Mat tmp = GetMask(paras, "grass_front_contour",
-                           calibrate_options->camera_options[0].resolution);
+    } catch (...) {
+    };
+  };
 
-     calibrate_options->masks[0] = tmp;
-   }catch(...){
-
-   };
- };
-
-//  /
-//  calibrate_options->masks[2] =
-//      GetMask(paras, "side_left_contour",
-//              calibrate_options->camera_options[2].resolution);
-//  calibrate_options->masks[3] =
-//      GetMask(paras, "side_right_contour",
-//              calibrate_options->camera_options[3].resolution);
-
-
+  //  /
+  //  calibrate_options->masks[2] =
+  //      GetMask(paras, "side_left_contour",
+  //              calibrate_options->camera_options[2].resolution);
+  //  calibrate_options->masks[3] =
+  //      GetMask(paras, "side_right_contour",
+  //              calibrate_options->camera_options[3].resolution);
 }
 
 void ParseYAMLOptionImuOption(cv::FileStorage *fs, jarvis::ImuOption *option,
@@ -410,6 +403,7 @@ jarvis::estimator::OptimizationOption ParseYAMLOptionOptimizationOption(
   op_option.use_odom = fsSettings["use_odom"];
   op_option.camera_weight = fsSettings["camera_weight"];
   op_option.estimate_td = fsSettings["estimate_td"];
+  op_option.prio_pose_weight = fsSettings["prio_pose_weight"];
   op_option.init_td = fsSettings["td"];
   op_option.estimate_extrinsic = fsSettings["estimate_extrinsic"];
   op_option.huber_loss = fsSettings["huber_loss"];
@@ -454,6 +448,7 @@ void ParseYAMLOptionFetureOption(
   //
   auto &fsSettings = *fs;
   //
+  std::cout << "test " << std::endl;
   std::string feat_tack = "feattrack" + std::to_string(index);
   feature_option->pyrmid_option.layer =
       fsSettings[feat_tack]["lk_pre_max_layer"];
@@ -462,6 +457,7 @@ void ParseYAMLOptionFetureOption(
   feature_option->ransac_threshold = fsSettings[feat_tack]["F_threshold"];
   feature_option->track_back = fsSettings[feat_tack]["flow_back"];
   feature_option->max_feat_cnt = fsSettings[feat_tack]["max_cnt"];
+  feature_option->try_recalc_min_num = fsSettings[feat_tack]["try_recalc_min_num"];
   feature_option->feature_detect_option.min_distance =
       fsSettings[feat_tack]["min_dist"];
   feature_option->feature_detect_option.mask_min_dist =
@@ -498,23 +494,24 @@ void ParseYAMLOptionFetureOption(
 //
 
 //
-
+std::vector<std::vector<int>> kTrackSequence;
+CalibrateOption kCalibOption;
 template <>
 void ParseYAMLOption(const std::string &file,
                      estimator::EstimatorOption *option) {
   info.clear();
+
   auto opencv_file = CheckFile(file);
   std::string cali_path = opencv_file["calibrate_path"];
-  //
   CalibrateOption calib_option;
   ParseYAMLOption(cali_path, &calib_option);
-  //
-  timeshift_cam_imu   = calib_option.camera_options[0].timeshift_cam_imu;
+  kCalibOption = calib_option;
+  timeshift_cam_imu = calib_option.camera_options[0].timeshift_cam_imu;
   int pn = file.find_last_of('/');
   std::string configPath = file.substr(0, pn);
   std::string estimator_name = opencv_file["estimator"];
   const std::string estimator_file = configPath + "/" + estimator_name;
-
+  std::vector<std::vector<int>> track_sequence;
   //
   {
     // esitmator yaml
@@ -525,7 +522,7 @@ void ParseYAMLOption(const std::string &file,
     // std::vector<std::vector<int>> trace_sequence =
     // fsSettings["trace_sequence"]; CHECK_EQ(trace_sequence.size(), 3);
     std::string track_sequence_str = fsSettings["track_sequence"];
-    std::vector<std::vector<int>> track_sequence;
+
     for (size_t i = 0; i < track_sequence_str.size(); i++) {
       if (track_sequence_str[i] == '{') {
         track_sequence.push_back(std::vector<int>{});
@@ -535,7 +532,8 @@ void ParseYAMLOption(const std::string &file,
     }
 
     option->track_sequence = track_sequence;
-    int track_cam_num =option->track_sequence.size();
+    kTrackSequence =  track_sequence;
+    int track_cam_num = option->track_sequence.size();
     option->win_size = fsSettings["win_size"];
     //
     info << "track_cam_num" << track_cam_num << "\n";
@@ -565,7 +563,7 @@ void ParseYAMLOption(const std::string &file,
       stero_imu_init_option.init_ba_th = fsSettings["init_bas_normal_max"];
       stero_imu_init_option.init_bg_th = fsSettings["init_bgs_normal_max"];
       stero_imu_init_option.init_v_th = fsSettings["init_velocity_th"];
-      
+
       //
       feature_manager_option.pyrmid_option.image_size =
           calib_option.camera_options[0].resolution;
@@ -578,8 +576,8 @@ void ParseYAMLOption(const std::string &file,
     }
     // cv::imshow("mask1",option->feature_track_options[0].mask);
     // cv::imshow("mask2",calib_option.masks[0]);
-    if(!calib_option.masks[0].empty()){
-        option->feature_track_options[0].mask &= calib_option.masks[0];
+    if (!calib_option.masks[0].empty()) {
+      option->feature_track_options[0].mask &= calib_option.masks[0];
     }
     // cv::imshow("mask",option->feature_track_options[0].mask);
     //
@@ -604,14 +602,9 @@ void ParseYAMLOption(const std::string &file,
 
     int use_stero = fsSettings["use_stero"];
     option->use_stero = (use_stero == 1);
-    // option->use_odom = fsSettings["use_odom"];
-    // option->use_stereo_sample_ration =
-    //     fsSettings["use_stereo_sample_ration"];
-    // //
-
-    option->use_stero = (use_stero == 1);
     option->feature_track_options[0].extric_camera_to_imu =
         calib_option.extric_camera_to_imu;
+   
     double cx_offset = calib_option.camera_options[1].intrinsics[2] -
                        calib_option.camera_options[0].intrinsics[2];
     double cy_offset = calib_option.camera_options[1].intrinsics[3] -
@@ -619,6 +612,12 @@ void ParseYAMLOption(const std::string &file,
 
     option->feature_track_options[0].stere_cam_offset =
         Eigen::Vector2d(cx_offset, cy_offset);
+
+    // option->use_odom = fsSettings["use_odom"];
+    // option->use_stereo_sample_ration =
+    //     fsSettings["use_stereo_sample_ration"];
+    // //
+
 
     option->stero_imu_init_option.feature_manager_option =
         ParseYAMLOptionFeatureManagerOption(option->win_size, option->use_stero,
@@ -663,7 +662,8 @@ void ParseYAMLOption(const std::string &file,
     //     fsSettings["slide_window"]["optimazation_outliers_rejection_th"];
 
     // option->slide_windows_option.optimazation_outliers_rejection_th =
-    //     option->slide_windows_option.optimazation_outliers_rejection_th / 377.0;
+    //     option->slide_windows_option.optimazation_outliers_rejection_th /
+    //     377.0;
 
     // option->slide_windows_option.rejection_points_depth_max_th =
     //     fsSettings["slide_window"]["rejection_points_depth_max_th"];
@@ -678,6 +678,9 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["odom_option"]["angle_threas_hold"];
     option->slide_windows_option.odom_factor_option.optimize_weight =
         fsSettings["odom_option"]["odom_optimization_weight"];
+   option->slide_windows_option.op_prior_match_min_num =
+        fsSettings["op_prior_match_min_num"];
+        
     option->slide_windows_option.odom_factor_option.transform_imu_to_robot =
         calib_option.extric_camera_to_robot *
         calib_option.extric_camera_to_imu[0].inverse();
@@ -693,7 +696,7 @@ void ParseYAMLOption(const std::string &file,
     //
     option->stero_imu_init_option.opti_option =
         ParseYAMLOptionOptimizationOption(fsSettings["init_optimization"]);
-    
+
     //
     option->slide_windows_option.opti_option =
         ParseYAMLOptionOptimizationOption(fsSettings["optimization"]);
@@ -751,7 +754,7 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["UpdataZeroVelocityOption"]["imag_disparity_option"]
                   ["max_disparity"];
   }
-//   LOG(INFO) << "\n" << info.str() << "\n";
+  //   LOG(INFO) << "\n" << info.str() << "\n";
 }
 
 // void ParseYAMLOptionSimpleVoOption(cv::FileStorage *fs,
@@ -812,6 +815,424 @@ void ParseYAMLOption(const std::string &file,
 //
 
 //
+jarvis::mapping::match::DirectMatchOption ParseLocalMapDirectMatchOptionOptio(
+    const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::match::DirectMatchOption op_option;
+  int tem = fsSettings["use_affine_warp"];
+  op_option.use_affine_warp = bool(tem);
+  tem = fsSettings["affine_est_offset"];
+  op_option.affine_est_offset = bool(tem);
+  tem = fsSettings["affine_est_gain "];
+  op_option.affine_est_gain = bool(tem);
+  op_option.align_max_iter = fsSettings["align_max_iter"];
+  tem = fsSettings["no_simd"];
+  op_option.no_simd = bool(tem);
 
+  op_option.max_patch_diff_ratio = fsSettings["max_patch_diff_ratio"];
+  tem = fsSettings["subpix_refinement"];
+  op_option.subpix_refinement = bool(tem);
+  tem = fsSettings["align_1d"];
+  op_option.align_1d = bool(tem);
+
+  tem = fsSettings["scan_on_unit_sphere"];
+  op_option.scan_on_unit_sphere = bool(tem);
+
+  tem = fsSettings["scan_on_unit_sphere"];
+  op_option.max_epi_search_steps = fsSettings["max_epi_search_steps"];
+  op_option.min_update_squared =
+      fsSettings["min_update_squared"];  // 0.009   #0.03*0.03
+  //
+  return op_option;
+}
+//
+jarvis::mapping::KeyFrameFilterOption ParseLocalKeyFrameFilterOptionOptio(
+    const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::KeyFrameFilterOption op_option;
+  op_option.max_distance = fsSettings["max_distance"];
+  op_option.max_angle = fsSettings["max_angle"];
+  op_option.max_time = fsSettings["max_time"];
+  op_option.min_intersection_ration = fsSettings["min_intersection_ration"];
+  return op_option;
+}
+//
+
+
+mapping::LocalMapTrackOption ParseLocalMapTrackOptio(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::LocalMapTrackOption op_option;
+  LOG(INFO)<<"!";
+  op_option.min_track_frame_num = fsSettings["min_track_frame_num"];
+
+  int tem = fsSettings["remove_unconstrained_points"];
+  op_option.remove_unconstrained_points = bool(tem);
+  op_option.min_convi_num = fsSettings["min_convi_num"];
+  op_option.max_n_features_per_frame = fsSettings["max_n_features_per_frame"];
+  op_option.op_weight = fsSettings["op_weight"];
+  op_option.op_init_t_weight = fsSettings["op_init_t_weight"];
+  op_option.op_init_r_weight = fsSettings["op_init_r_weight"];
+  op_option.min_match_size = fsSettings["min_match_size"];
+  op_option.min_op_inlier = fsSettings["min_op_inlier"];
+  op_option.one_frame_pick_candidates_min_num =
+      fsSettings["one_frame_pick_candidates_min_num"];
+  op_option.one_frame_match_candidates_min_num =
+      fsSettings["one_frame_match_candidates_min_num"];
+  op_option.one_kf_match_candidates_min_num =
+      fsSettings["one_kf_match_candidates_min_num"];
+  //
+
+  std::set<int> sequence_match;
+  {
+    std::string track_sequence_str = fsSettings["sequence_match"];
+    for (size_t i = 0; i < track_sequence_str.size(); i++) {
+      if (track_sequence_str[i] != '{' && track_sequence_str[i] != '}' &&
+          track_sequence_str[i] != ',') {
+        sequence_match.insert(track_sequence_str[i] - '0');
+      }
+    }
+  }
+  op_option.sequence_match = sequence_match;
+  //
+  tem = fsSettings["match_senquence0_alone"];
+  op_option.match_senquence0_alone = bool(tem);
+  op_option.huber_loss = fsSettings["huber_loss"];
+  op_option.kf_max_distance = fsSettings["kf_max_distance"];
+  //
+  
+  op_option.first_outlier_err = fsSettings["first_outlier_err"];
+  //
+
+  std::map<int, int> cell_sizes_map;
+  {
+    int last_index = 0;
+    std::string track_sequence_str = fsSettings["cell_sizes"];
+    std::string num;
+    for (size_t i = 0; i < track_sequence_str.size(); i++) {
+      if (track_sequence_str[i] == '{') {
+        cell_sizes_map[track_sequence_str[i + 1] - '0'];
+        last_index = track_sequence_str[i + 1] - '0';
+        i++;
+      } else if (track_sequence_str[i] != ',' && track_sequence_str[i] != '}') {
+        num.push_back(track_sequence_str[i]);
+
+      } else if (track_sequence_str[i] == '}') {
+        cell_sizes_map[last_index] = std::stol(num);
+        num.clear();
+      }
+    }
+  }
+
+  op_option.cell_sizes = cell_sizes_map;
+  cell_sizes_map.clear();
+  {
+    int last_index = 0;
+    std::string track_sequence_str = fsSettings["max_cell_sizes"];
+    std::string num;
+    for (size_t i = 0; i < track_sequence_str.size(); i++) {
+      if (track_sequence_str[i] == '{') {
+        cell_sizes_map[track_sequence_str[i + 1] - '0'];
+        last_index = track_sequence_str[i + 1] - '0';
+        i++;
+      } else if (track_sequence_str[i] != ',' && track_sequence_str[i] != '}') {
+        num.push_back(track_sequence_str[i]);
+
+      } else if (track_sequence_str[i] == '}') {
+        cell_sizes_map[last_index] = std::stol(num);
+        num.clear();
+      }
+    }
+  }
+ 
+  op_option.max_cell_sizes = cell_sizes_map;
+  op_option.max_num_pick_num =fsSettings["max_num_pick_num"] ;
+  std::string path =   fsSettings["test_match_pic_write_path"];
+  op_option.test_match_pic_write_path = path;
+  op_option.derect_match_option =
+      ParseLocalMapDirectMatchOptionOptio(fsSettings["derect_match_option"]);
+  // op_option.map_option.kf_num = fsSettings["map_option"]["kf_num"];
+
+  op_option.out_time = fsSettings["out_time"];
+
+  op_option.max_num_iterations = fsSettings["max_num_iterations"];
+  op_option.op_type = fsSettings["op_type"];
+
+  return op_option;
+}
+//
+
+mapping::LocalMapOption ParseLocalMap(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::LocalMapOption op_option;
+
+  op_option.max_kf_num = fsSettings["max_kf_num"];
+  op_option.culling_sampler = fsSettings["culling_sampler"];
+  op_option.compute_map_point_min_des_num =
+      fsSettings["compute_map_point_min_des_num"];
+
+  op_option.key_frame_data_option.min_core =
+      fsSettings["key_frame_data_option"]["min_core"];
+  op_option.key_frame_data_option.sharing_words_count_min_is_max_ration =
+      fsSettings["key_frame_data_option"]
+                ["sharing_words_count_min_is_max_ration"];
+  op_option.key_frame_data_option.min_shared_words_num =
+      fsSettings["key_frame_data_option"]["min_shared_words_num"];
+  op_option.key_frame_data_option.min_distance_threash_hold =
+      fsSettings["key_frame_data_option"]["min_distance_threash_hold"];
+  op_option.local_track_project_search_option.viewing_angle_threash_hold =
+      fsSettings["local_track_project_search_option"]
+                ["viewing_angle_threash_hold"];
+  op_option.local_track_project_search_option.area_search_radius =
+      fsSettings["local_track_project_search_option"]["area_search_radius"];
+  op_option.local_track_project_search_option.project_pix_err =
+      fsSettings["local_track_project_search_option"]["project_pix_err"];
+  op_option.local_track_project_search_option.project_best_des_dis =
+      fsSettings["local_track_project_search_option"]["project_best_des_dis"];
+  op_option.data_culling_option.viewing_angle =
+      fsSettings["data_culling_option"]["viewing_angle"];
+  op_option.data_culling_option.area_search_radius =
+      fsSettings["data_culling_option"]["area_search_radius"];
+  op_option.data_culling_option.project_pix_err =
+      fsSettings["data_culling_option"]["project_pix_err"];
+  op_option.data_culling_option.best_map_fuse_des_dis =
+      fsSettings["data_culling_option"]["best_map_fuse_des_dis"];
+  op_option.data_culling_option.fisrt_covisible_num =
+      fsSettings["data_culling_option"]["fisrt_covisible_num"];
+  op_option.data_culling_option.second_covisible_num =
+      fsSettings["data_culling_option"]["second_covisible_num"];
+  op_option.data_culling_option.map_culling_obs =
+      fsSettings["data_culling_option"]["map_culling_obs"];
+  op_option.data_culling_option.grid_lenth =
+      fsSettings["data_culling_option"]["grid_lenth"];
+  op_option.data_culling_option.redundant_observations_ration =
+      fsSettings["data_culling_option"]["redundant_observations_ration"];
+
+
+
+  return op_option;
+}
+
+mapping::MapPointConstructOption ParseLocalConMapOptio(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::MapPointConstructOption op_option;
+  int temp = fsSettings["use_local_track_match"];
+  op_option.use_local_track_match =bool(temp);
+  op_option.con_struct_map_point_frame_min_distance =
+      fsSettings["con_struct_map_point_frame_min_distance"];
+  op_option.construct_map_point_near_keframd_num =
+      fsSettings["construct_map_point_near_keframd_num"];
+  std::string path = fsSettings["test_match_pic_write_path"];
+  op_option.test_match_pic_write_path = path;
+  op_option.dbow_trasform_level = fsSettings["dbow_trasform_level"];
+  op_option.area_search_grid_lenth = fsSettings["area_search_grid_lenth"];
+  op_option.dbow_match_min_distance = fsSettings["dbow_match_min_distance"];
+
+  op_option.key_points_extract_option.type =
+      fsSettings["key_points_extract_option"]["type"];
+  op_option.key_points_extract_option.extend_key_points_num =
+      fsSettings["key_points_extract_option"]["extend_key_points_num"];
+  op_option.key_points_extract_option.minimal_accepted_quality_corners =
+      fsSettings["key_points_extract_option"]
+                ["minimal_accepted_quality_corners"];
+  op_option.key_points_extract_option.min_distance =
+      fsSettings["key_points_extract_option"]["min_distance"];
+  op_option.point_check_dist_epipolar_option
+      .check_dist_epipolar_line_cos_parallax =
+      fsSettings["point_check_dist_epipolar_option"]
+                ["check_dist_epipolar_line_cos_parallax"];
+  op_option.point_check_dist_epipolar_option.first_cam_min_z_distance =
+      fsSettings["point_check_dist_epipolar_option"]
+                ["first_cam_min_z_distance"];
+  op_option.point_check_dist_epipolar_option.first_cam_chi_squared =
+      fsSettings["point_check_dist_epipolar_option"]["first_cam_chi_squared"];
+  op_option.point_check_dist_epipolar_option.second_cam_min_z_distance =
+      fsSettings["point_check_dist_epipolar_option"]
+                ["second_cam_min_z_distance"];
+  op_option.point_check_dist_epipolar_option.second_cam_chi_squared =
+      fsSettings["point_check_dist_epipolar_option"]["second_cam_chi_squared"];
+
+  op_option.track_project_search_option.viewing_angle_threash_hold =
+      fsSettings["track_project_search_option"]["viewing_angle_threash_hold"];
+  op_option.track_project_search_option.area_search_radius =
+      fsSettings["track_project_search_option"]["area_search_radius"];
+  op_option.track_project_search_option.project_pix_err =
+      fsSettings["track_project_search_option"]["project_pix_err"];
+  op_option.track_project_search_option.project_best_des_dis =
+      fsSettings["track_project_search_option"]["project_best_des_dis"];
+  op_option.track_project_search_option.box_boundary_distance =
+      fsSettings["track_project_search_option"]["box_boundary_distance"];
+
+  return op_option;
+}
+//
+mapping::LocalMapOptimizationOption ParseLocalMapoptio(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::LocalMapOptimizationOption op_option;
+  op_option.re_preject_weight = fsSettings["re_preject_weight"];
+  op_option.huber_loss = fsSettings["huber_loss"];
+  op_option.max_num_iterations = fsSettings["max_num_iterations"];
+  op_option.relative_weight = fsSettings["relative_weight"];
+  op_option.relative_local_map_translation_weight =
+      fsSettings["relative_local_map_translation_weight"];
+  int temp = fsSettings["optimize_intric"];
+  op_option.optimize_intric = bool(temp);
+  op_option.ceres_num_threads = fsSettings["ceres_num_threads"];
+  temp = fsSettings["fix_extric"];
+  op_option.fix_extric = bool(temp);
+  temp = fsSettings["use_rtk"];
+  op_option.use_rtk = bool(temp);
+  temp = fsSettings["only_pose_graph"];
+  op_option.only_pose_graph = bool(temp);
+
+  std::string convisi_level_search_num_str =
+      fsSettings["convisi_level_search_num"];
+  if (!convisi_level_search_num_str.empty()) {
+    op_option.sssential_graph_option.max_con_kf_num =
+        fsSettings["max_con_kf_num"];
+    op_option.sssential_graph_option.max_adjacent_kf_num =
+        fsSettings["max_adjacent_kf_num"];
+    std::vector<int> convisi_level_search_num;
+    std::string num;
+    for (size_t i = 0; i < convisi_level_search_num_str.size(); i++) {
+      if (convisi_level_search_num_str[i] != '{' &&
+          convisi_level_search_num_str[i] != '}' &&
+          convisi_level_search_num_str[i] != ',') {
+        num.push_back(convisi_level_search_num_str[i]);
+      } else if (convisi_level_search_num_str[i] == ',' ||
+                 convisi_level_search_num_str[i] == '}') {
+        convisi_level_search_num.push_back(std::stol(num));
+        num.clear();
+      }
+    }
+    op_option.sssential_graph_option.convisi_level_search_num =
+        convisi_level_search_num;
+  }
+  return op_option;
+}
+
+template <>
+void ParseYAMLOption(const std::string &file,
+                     mapping::MapBuilderOption *option) {
+  auto opencv_file = CheckFile(file);
+  //
+//   timeshift_cam_imu = calib_option.camera_options[0].timeshift_cam_imu;
+  int pn = file.find_last_of('/');
+  std::string configPath = file.substr(0, pn);
+  std::string mapping_name = opencv_file["mapping"];
+  const std::string mapping_file = configPath + "/" + mapping_name;
+
+  std::string  vocabulary_filebrif= opencv_file["vocabulary_filebrif"];
+  const std::string dbow_file = configPath + "/" + vocabulary_filebrif;
+
+  LOG(INFO)<<mapping_file ;
+  LOG(INFO)<<dbow_file ;
+  auto fsSettings = CheckFile(mapping_file);
+  std::string track_sequence_str = fsSettings["track_sequence"];
+  option->local_map_track_option = ParseLocalMapTrackOptio(fsSettings["local_map_track_option"]);
+  option->thread_num = (fsSettings["thread_pool_num"]);
+  option->track_map_opti_sampler = (fsSettings["track_map_opti_sampler"]);
+  int temp = fsSettings["enable_local_track"];
+  option->enable_local_track = bool(temp);
+  temp = fsSettings["enable_local_opimization"];
+  option->enable_local_opimization = bool(temp);
+  temp = fsSettings["construct_use_des_match"];
+  option->construct_use_des_match = bool(temp);
+  
+  temp = fsSettings["enable_local_opimization"];
+  option->enable_local_opimization = bool(temp);
+  temp = fsSettings["enable_track_map_opti"];
+  option->enable_track_map_opti = bool(temp);
+  //
+  option->key_frame_filter_option = ParseLocalKeyFrameFilterOptionOptio(
+      fsSettings["key_frame_filter_option"]);
+  option->vocabulary_filebrif = dbow_file;
+  option->map_point_construct_option = ParseLocalConMapOptio(
+      fsSettings["map_point_construct_option"]);
+  option->local_map_option = ParseLocalMap(fsSettings["local_map_option"]);
+  option->map_manager_option.local_map_optimization_option =
+      ParseLocalMapoptio(fsSettings["map_manager_option"]["local_map_optimization_option"]);
+  //
+  temp = fsSettings["map_manager_option"]["use_6_tof_op"];
+  option->map_manager_option.use_6_tof_op =bool(temp);
+  //
+  
+  option->track_local_map_opt_option =
+      ParseLocalMapoptio(fsSettings["track_local_map_opt_option"]);
+  option->finish_track_local_map_opt_option =
+      ParseLocalMapoptio(fsSettings["finish_track_local_map_opt_option"]);
+
+  //
+}
+
+template <>
+void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
+  auto opencv_file = CheckFile(file);
+  ParseYAMLOption(file, &option->esti_option);
+  ParseYAMLOption(file, &option->mapping_option);
+  // 前后段不能共用一个相机模型
+    
+  CalibrateOption calib_option = kCalibOption;
+  auto  track_sequence =kTrackSequence;
+  //
+  option->mapping_option.map_manager_option.local_map_optimization_option
+      .extric_camera_to_imu =
+      option->esti_option.slide_windows_option.extric_camera_to_imu;
+  option->mapping_option.map_manager_option.local_map_optimization_option
+      .track_sequence = track_sequence;
+  //
+  for (size_t i = 0; i < option->esti_option.feature_track_options.size(); i++) {
+    //
+
+    {
+      camera_models::CameraPtr camera =
+          camera_models::CameraFactory::instance()->GenerateCameraFromOption(
+              calib_option.camera_options[track_sequence[i][0]]);
+      option->mapping_option.cameras.emplace(i, camera);
+    }
+
+    // {
+    //   camera_models::CameraPtr camera =
+    //       camera_models::CameraFactory::instance()->GenerateCameraFromOption(
+    //           calib_option.camera_options[track_sequence[i][0]]);
+    //   option->mapping_option.local_map_track_option.cameras.emplace(i,
+    //   camera);
+    //   //
+    // }
+
+    // 跟踪的可以跟前端公用一个相机模型
+    option->mapping_option.local_map_track_option.cameras.emplace(
+        i, option->esti_option.feature_track_options[i].cameras[0]);
+    //
+
+    option->mapping_option.image_boxs.emplace_back(
+        Eigen::Vector2i{0, 0},
+        option->esti_option.feature_track_options[i].pyrmid_option.image_size);
+
+    // mask
+    option->mapping_option.map_point_construct_option.masks.push_back(
+        option->esti_option.feature_track_options[i].mask);
+  }
+
+  //
+  option->mapping_option.map_point_construct_option.image_boxs =
+      option->mapping_option.image_boxs;
+  option->mapping_option.local_map_track_option.image_boxs =
+      option->mapping_option.image_boxs;
+  //
+  option->mapping_option.local_map_track_option.first_outlier_err =
+      option->mapping_option.local_map_track_option.first_outlier_err /
+      calib_option.camera_options[0].intrinsics[0];
+  //
+  option->mapping_option.track_sequence = option->esti_option.track_sequence;
+  option->mapping_option.local_map_track_option.track_sequence =
+      option->esti_option.track_sequence;
+    //
+  option->mapping_option.local_map_track_option.track_sequence =
+      option->esti_option.slide_windows_option.track_sequence;
+
+
+
+}
+//
 //
 }  // namespace jarvis

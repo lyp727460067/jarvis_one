@@ -2,7 +2,7 @@
 // /
 namespace jarvis {
 namespace sensor {
-constexpr double kSensorDataRatesLoggingPeriodSeconds = 15.;
+constexpr double kSensorDataRatesLoggingPeriodSeconds = 5.;
 
 //
 void OrderedMultiQueue::AddQueue(std::string name, ImageFuction call_back) {
@@ -66,7 +66,6 @@ void OrderedMultiQueue::AddData(const std::string &name,
     queues_[name].queue.push(std::move(data));
   }
 #ifndef __ARM_PLATFORM__
-
   Dispathch();
 #endif
 }
@@ -138,18 +137,12 @@ void OrderedMultiQueue::Dispathch() {
         std::lock_guard<std::mutex> lock(mutex_);
         #ifdef __ARM_PLATFORM__
         if (next_queue_key == "/usb_cam_1/image_raw/compressed") {
-          // if (next_queue->queue.size() >= 2) {
-          //   LOG(ERROR) << next_queue_key << " size > 2"
-          //              << next_queue->queue.front()->GetTime();
-          // }
-            bool image_data_delay=false;
-            while (next_queue->queue.size() >= 2) {
-              LOG(ERROR) << next_queue_key << " size > 2,Drop it."
-                         << next_queue->queue.front()->GetTime();
+            if (next_queue->queue.size() >= 2) {
+              // LOG(ERROR) << next_queue_key << " size > 2,Drop it."
+              //            << next_queue->queue.front()->GetTime();
               next_queue->queue.pop();
-              image_data_delay = true;
+              continue;
             }
-            if (image_data_delay) continue;
         }
         #endif
         data = std::move(next_queue->queue.front());
@@ -186,7 +179,7 @@ void OrderedMultiQueue::Dispathch() {
         last_dispatched_time_ = next_data_owner->GetTime();
         next_queue->callback(std::move(next_data_owner));
       }
-      LOG(INFO) << "Drop early " << next_queue_key << " data...";
+      // LOG(INFO) << "Drop early " << next_queue_key << " data...";
     }
   // }
   }

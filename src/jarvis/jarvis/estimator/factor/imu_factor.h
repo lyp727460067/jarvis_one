@@ -63,6 +63,7 @@ class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9> {
     residual =
         pre_integration->evaluate(Pi, Qi, Vi, Bai, Bgi, Pj, Qj, Vj, Baj, Bgj);
 
+    // 对称矩阵的LLT分解
     Eigen::Matrix<double, 15, 15> sqrt_info =
         Eigen::LLT<Eigen::Matrix<double, 15, 15>>(
             pre_integration->covariance.inverse())

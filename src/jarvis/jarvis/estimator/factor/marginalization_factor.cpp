@@ -256,7 +256,7 @@ void MarginalizationInfo::ConstructA(T &A, Tb &b){
 
 
 #if 1
-void MarginalizationInfo::marginalize() {
+void MarginalizationInfo::marginalize(common::ThreadPool* thread_pool) {
   int pos = 0;
   // LOG(INFO)<< parameter_block_idx.size();
   for (auto &it : parameter_block_idx) {
@@ -333,7 +333,10 @@ void MarginalizationInfo::marginalize() {
   ROS_INFO("summing up costs %f ms", t_summing.toc());
   */
   // multi thread
-  // int num_threads = factors.size() > NUM_THREADS ? NUM_THREADS : factors.size();
+  // size_t num_threads = factors.size() >= thread_pool->GetThreadNum()
+  //                          ? thread_pool->GetThreadNum()
+  //                          : factors.size();
+  // //
   // std::vector<std::vector<double>> pre_amem(num_threads,
   //                                           std::vector<double>(pos * pos,0));
   // std::vector<std::vector<double>> pre_bmem(num_threads,
@@ -347,33 +350,41 @@ void MarginalizationInfo::marginalize() {
   //   i++;
   //   i = i % num_threads;
   // }
-  // for (int i = 0; i < num_threads; i++) {
-  //   TicToc zero_matrix;
-  //   threadsstruct[i].A = Eigen::Map<Eigen::MatrixXd>(pre_amem[i].data(),pos,pos); 
-  //   threadsstruct[i].b = Eigen::Map<Eigen::VectorXd>(pre_bmem[i].data(),pos); 
+  // auto when_done_task_ = std::make_unique<common::Task>();
+  // for (size_t i = 0; i < num_threads; i++) {
+  //   threadsstruct[i].A =
+  //       Eigen::Map<Eigen::MatrixXd>(pre_amem[i].data(), pos, pos);
+  //   threadsstruct[i].b = Eigen::Map<Eigen::VectorXd>(pre_bmem[i].data(), pos);
   //   // threadsstruct[i].A = Eigen::MatrixXd::Zero(pos, pos);
   //   // threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
   //   threadsstruct[i].parameter_block_size = parameter_block_size;
   //   threadsstruct[i].parameter_block_idx = parameter_block_idx;
-  //   pthread_attr_t attr;
-  //   struct sched_param sched_param;
-  //   pthread_attr_init(&attr);
-  //   // 设置线程为实时线程
-  //   // pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
-  //   // pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-  //   // 设置线程优先级
-  //   sched_param.sched_priority = 90+i;
-  //   pthread_attr_setschedparam(&attr, &sched_param);
-  //   info << "\ntest 1: " << t_thread_summing.toc();
-  //   int ret = pthread_create(&tids[i], &attr, ThreadsConstructA,
-  //                            (void *)&(threadsstruct[i]));
-  //   CHECK(ret == 0) << "pthread_create error";
+  //   auto threads_constructa_task = std::make_unique<common::Task>();
+  //   void *threadsstruct_ptr = (void *)&(threadsstruct[i]);
+  //   threads_constructa_task->SetWorkItem(
+  //       [threadsstruct_ptr]() { ThreadsConstructA(threadsstruct_ptr); });
+
+  //   auto threads_constructa_task_handle =
+  //       thread_pool->Schedule(std::move(threads_constructa_task));
+  //   when_done_task_->AddDependency(threads_constructa_task_handle);
   // }
-  // info << "\ntest 2: " << t_thread_summing.toc();
+
+  // std::mutex mutex;
+  // std::condition_variable condtion;
+  // bool match_finish = false;
+  // when_done_task_->SetWorkItem([&] {
+  //   std::lock_guard<std::mutex> lock(mutex);
+  //   match_finish = true;
+  //   condtion.notify_all();
+  // });
+  // thread_pool->Schedule(std::move(when_done_task_));
+  // {
+  //   std::unique_lock<std::mutex> locker(mutex);
+  //   condtion.wait(locker, [&]() { return match_finish; });
+  // }
   // for (int i = num_threads - 1; i >= 0; i--) {
-  //   pthread_join(tids[i], NULL);
-  //   A.noalias() += threadsstruct[i].A;
-  //   b.noalias() += threadsstruct[i].b;
+  //   A += threadsstruct[i].A;
+  //   b += threadsstruct[i].b;
   // }
   ConstructA(A, b);
   info << "\nthread summing up cost: " << t_thread_summing.toc();

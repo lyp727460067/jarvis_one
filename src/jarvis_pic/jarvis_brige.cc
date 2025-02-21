@@ -38,9 +38,14 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       std::make_unique<jarvis::common::FixedRatioSampler>(image_sample / 2);
 
   //
-  esit_option_ = estimator::ParseEstimatorOption(std::string(config));
-  if(is_estrinsic_fixed)
+  TrajectorBuilderOption trajectorbuilder_option ;
+
+  ParseYAMLOption(config, &trajectorbuilder_option);
+  esit_option_ = trajectorbuilder_option.esti_option; 
+  //
+  if (is_estrinsic_fixed) {
     esit_option_.slide_windows_option.opti_option.estimate_extrinsic = 0;
+  }
 
   if (kuse_gpu) {
     for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
@@ -52,7 +57,10 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
     }
     //
   }
-  builder_ = std::make_unique<jarvis::TrajectorBuilder>(esit_option_,
+  //
+  trajectorbuilder_option.esti_option =esit_option_;
+
+  builder_ = std::make_unique<jarvis::TrajectorBuilder>(trajectorbuilder_option,
                                                         std::move(call_back));
 
   imu_cam_time_offset  = jarvis::GetTimeShiftCamImu();
@@ -78,8 +86,8 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
   order_queue_->AddQueue(kImagTopic0, [&](const jarvis::sensor::ImageData&
                                               imag_data) {
-    if (imag_data.image[0].empty() || imag_data.image[1].empty() /*||
-        imag_data.image[2].empty() || imag_data.image[3].empty()*/) {
+    if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
+        imag_data.image[2].empty() || imag_data.image[3].empty()) {
       LOG(WARNING) << "Input Image empty..";
       return;
     }
@@ -158,12 +166,12 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         });
       }
     } else {
-      // auto start = std::chrono::high_resolution_clock::now();
+      auto start = std::chrono::high_resolution_clock::now();
       builder_->AddImageData(imag_data);
-      // LOG(INFO) << "One frame cost: "
-                // << std::chrono::duration_cast<std::chrono::milliseconds>(
-                      //  std::chrono::high_resolution_clock::now() - start)
-                      //  .count();
+      LOG(INFO) << "One frame cost: "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::high_resolution_clock::now() - start)
+                       .count();
     }
     // auto start = std::chrono::high_resolution_clock::now();
     // builder_->AddImageData(imag_data);

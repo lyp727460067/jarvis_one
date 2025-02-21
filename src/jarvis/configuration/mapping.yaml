@@ -1,150 +1,154 @@
 %YAML:1.0
-
-#common parameters
-#support: 1 imu 1 cam; 1 imu 2 cam: 2 cam; 
-use_stero : 1   #  0 vector 0 cam0:    1   used vecotr{0,1} stereo
-win_size : 6
-data_base_lenth : 1
-
-track_sequence: "{0,1},{2}"
-#feature traker paprameters
-
-feattrack0:
-  max_cnt: 60          # max feature number in feature tracking
-  min_dist:  35           # min distance between two features 
-  mask_min_dist:  30  
-  F_threshold: 1.0        # ransac threshold (pixel)
-  fast_th:  15
-  flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 7
-  lk_pre_max_layer : 3
-  grid_size_x : 64
-  grid_size_y : 68
-  klt_type : 1
-  back_flow_min_distance : 0.4
-  mask : mask.png
-####
-feattrack1:
-  max_cnt: 30          # max feature number in feature tracking
-  min_dist:  35           # min distance between two features 
-  mask_min_dist: 50  
-  F_threshold: 1.0        # ransac threshold (pixel)
-  fast_th:  15
-  flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 7
-  lk_pre_max_layer : 3
-  grid_size_x : 68
-  grid_size_y : 64
-  klt_type : 1
-  back_flow_min_distance : 0.3
-  mask : mask0.png
-feattrack2:
-  max_cnt: 20          # max feature number in feature tracking
-  min_dist:  45           # min distance between two features 
-  mask_min_dist:  30  
-  F_threshold: 1.0        # ransac threshold (pixel)
-  fast_th:  15
-  flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 7
-  lk_pre_max_layer : 3
-  grid_size_x : 68
-  grid_size_y : 64
-  klt_type : 1
-  mask : mask0.png
-
-
-optimization: 
-#optimization parameters
-  max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
-  max_num_iterations: 1   # max solver itrations, to guarantee real time
-  use_odom : 1
-  camera_weight : 251
-  estimate_extrinsic: 1  # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
-                        # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
-  huber_loss : 1
-  #unsynchronization parameters
-  estimate_td: 0                    # online estimate time offset between camera and imu
-  td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
-  camera_factor_num_th : 10
-
-init_optimization: 
-  max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
-  max_num_iterations: 10   # max solver itrations, to guarantee real time
-  use_odom : 0
-  camera_weight : 350 
-  estimate_extrinsic: 0  # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
-                        # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
-
-  huber_loss : 1
-  #unsynchronization parameters
-  estimate_td: 0                     # online estimate time offset between camera and imu
-  td: 0                                  # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
-
-  
-
-feature_manager :
-  convin_used_num : 4
-  keyframe_parallax: 20.0 # keyframe selection threshold (pixel)
-  init_depth : 5.0
-  init_pnp_inlier_num : 10
-  ###ParallaxOption
-  start_frame : 2
-  last_track_num : 20
-  long_track_num : 10
-  new_feature_ration : 0.5
-  optimazation_outliers_rejection_th : 5
-  rejection_points_depth_max_th : 20
-
-imu_option: 
-  #imu parameters       The more accurate parameters you provide, the better performance
-  acc_n: 0.1      # accelerometer measurement noise standard deviation. 
-  gyr_n: 0.02        # gyroscope measurement noise standard deviation.     
-  acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
-  gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
-  g_norm: 9.81     # gravity magnitude
-
-
-
-odom_option :
-  use_odom : 1
-  odom_optimization_weight: 50
-  angle_threas_hold : 10
-
-
-
+#
+enable_local_track: 1
+enable_track_map_opti: 0
+enable_local_opimization: 0
+enable_loop_closure : 0
+thread_pool_num : 4
+track_map_opti_sampler : 0.1
+construct_use_des_match : 0
 ##
-UpdataZeroVelocityOption:
-  enable: 1
-  optimize_weight: 3e6
-  optimize_bias_weight: 1e1
-  outlier_max_disparity: 1
-  zupt_max_velocity: 1.0
-  zupt_delay_frames: 10
-  imu_velocity_option :
-    integrated_accel_constraint: false
-    zupt_noise_multiplier: 1.0
-    zupt_chi2_multipler: 0.2
-  imag_disparity_option:
-    min_disparity_num: 20
-    max_disparity: 0.5
-  que_time_duration: 0.5
+key_frame_filter_option:
+ max_distance : 0.5
+ max_angle : 20
+ max_time : 10000.0
+ min_intersection_ration : 0.55
 
 
-track_feat_lost_min_num: 10
-track_feat_lost_win_size :  10
-bas_norm_max : 0.6
-bgs_norm_max : 0.5
-translation_norm_max : 0.5
-translation_z_max : 0.4
-ratation_max : 50
-enable_odo_zero_lost_detect : 1
-zero_translation_norm_max : 0.15
-zero_translation_z_max : 0.01
-zero_ratation_max : 10.1
-zero_odo_win_size : 30
-zero_odo_pose_size : 40
 
-init_rotation_th : 20
-init_bas_normal_max : 0.5
-init_bgs_normal_max : 0.3
-init_velocity_th : 1.0
+
+
+local_map_option: 
+ max_kf_num :  70
+ culling_sampler : 0.2
+ compute_map_point_min_des_num : 5
+ key_frame_data_option:
+  min_core: 0.8
+  sharing_words_count_min_is_max_ration: 0.8
+  min_shared_words_num  : 10
+  min_distance_threash_hold: 5
+ local_track_project_search_option:
+  viewing_angle_threash_hold : 0.5
+  area_search_radius : 8 
+  project_pix_err : 0.0
+  project_best_des_dis : 80
+  box_boundary_distance: 5
+ data_culling_option:
+  viewing_angle : 0.5
+  area_search_radius : 2
+  project_pix_err : 8.99
+  best_map_fuse_des_dis : 120
+  fisrt_covisible_num : 10
+  second_covisible_num : 20
+  map_culling_obs : 5
+  grid_lenth : 10
+  redundant_observations_ration : 0.7
+
+local_map_track_option:
+ test_match_pic_write_path : ""  # "/home/lyp/project/vslam/jarvis/test/image/"
+ min_track_frame_num : 30
+ remove_unconstrained_points : 1
+ min_convi_num : 4
+ max_n_features_per_frame : 420
+ op_weight : 20
+ op_init_t_weight : 0
+ op_init_r_weight : 0
+ min_match_size : 5
+ min_op_inlier: 3
+ first_outlier_err : 10 
+ one_frame_pick_candidates_min_num : 0
+ one_frame_match_candidates_min_num : 0
+ one_kf_match_candidates_min_num : 0
+ sequence_match : "{0,1,2}"
+ match_senquence0_alone: 0
+ huber_loss : 0.1
+ kf_max_distance : 2
+ cell_sizes : "{0, 16}, {1, 16}, {2, 16}"
+ max_num_pick_num : 100
+ max_cell_sizes : "{0, 32}, {1, 32}, {2, 32}"
+ out_time : 10
+ max_num_iterations : 3
+ op_type  : 2  #0  four dof
+ derect_match_option:
+  use_affine_warp : 1
+  affine_est_offset: 1 
+  affine_est_gain : 1
+  align_max_iter: 5 
+  no_simd: 0
+  max_patch_diff_ratio: 0.9
+  subpix_refinement: 1
+  align_1d : 0
+  scan_on_unit_sphere: 0
+  max_epi_search_steps : 1
+  min_update_squared : 0.006   #0.03*0.03
+
+track_local_map_opt_option:
+  re_preject_weight: 1e2
+  relative_weight : 1e2
+  max_num_iterations : 5 
+  relative_local_map_translation_weight: 1e3
+  huber_loss : 1 
+  optimize_intric : 0
+  use_rtk: 0
+  fix_extric : 1
+  only_pose_graph : false
+  ceres_num_threads : 4
+  max_con_kf_num : 200
+  max_adjacent_kf_num : 30
+  convisi_level_search_num  : "{50,50}"
+finish_track_local_map_opt_option:
+  re_preject_weight: 377
+  relative_weight : 1e0  
+  max_num_iterations : 10
+  huber_loss : 1
+  optimize_intric : 0
+  use_rtk: 0
+  fix_extric : 0
+  only_pose_graph : false
+  ceres_num_threads : 16
+map_manager_option: 
+  use_6_tof_op : 0
+  local_map_optimization_option:
+   re_preject_weight: 377
+   max_num_iterations : 10
+   relative_weight : 200
+   huber_loss : 1
+   optimize_intric : 0
+   use_rtk: 0
+   fix_extric : 0
+   only_pose_graph : false
+   ceres_num_threads : 16
+
+map_point_construct_option:
+ test_match_pic_write_path : "" #"/home/lyp/project/vslam/jarvis/test/image/"
+ use_local_track_match : 1
+ con_struct_map_point_frame_min_distance : 0.1
+ dbow_trasform_level : 4
+ area_search_grid_lenth : 10
+ construct_map_point_near_keframd_num : 10
+ dbow_match_min_distance : 60
+ ##
+ track_project_search_option:
+  viewing_angle_threash_hold : 0.5
+  area_search_radius : 8 
+  project_pix_err : 0.0
+  project_best_des_dis : 60
+  box_boundary_distance : 20
+
+ key_points_extract_option:
+  type : 0
+  extend_key_points_num : 1000
+  minimal_accepted_quality_corners : 0.01
+  min_distance : 2
+ # descriptor_option:  
+ point_check_dist_epipolar_option:
+  check_dist_epipolar_line_cos_parallax : 0.9998
+  first_cam_min_z_distance : 0.05
+  first_cam_chi_squared : 5.991
+  second_cam_min_z_distance : 0.05
+  second_cam_chi_squared : 5.991
+    
+
+loop_detect_option:
+
+

@@ -177,6 +177,12 @@ const int map_size=500;
 TEST_F(GridMapTest, GridMapTesInsert) {
   auto ai_object =  ParseObjecs( kTesData);
   LOG(INFO)<<"parse done ,size:"<<ai_object.size();
+  std::vector<std::pair<uint8_t, ObResultValue>> vs;
+  vs.push_back({1,{}});
+  vs.push_back({2,{}});
+  vs.push_back({3,{}});
+  vs.push_back({4,{}});
+  vs.push_back({4,{}});
 
   std::map<int, cv::Mat> images;
   for (auto n : type_name) {
@@ -188,7 +194,7 @@ TEST_F(GridMapTest, GridMapTesInsert) {
     GridImpl* grid = dynamic_cast<GridImpl*>(grid_map_.get());
     for (int i = -map_size / 2; i < map_size / 2; i++) {
       for (int j = -map_size / 2; j < map_size / 2; j++) {
-        auto vs = grid_map_->IndexValue(Eigen::Vector2f(i * 0.01, j * 0.01));
+        grid_map_->IndexValue(Eigen::Vector2f(i * 0.01, j * 0.01),&vs);
         for (const auto& v : vs) {
           // images[v.first].at<uint8_t>(map_size - (i + map_size / 2)-1,
           //                             j + map_size / 2) = v.second.p;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(jarvis VERSION 1.0.0)
+project(jarvis_main VERSION 1.0.0)
 # define GLOG_EXPORT __attribute__((visibility("default")))
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 # set(BUILD_TYPE Debug)
@@ -20,6 +20,13 @@ set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 
 
+set(ARUCO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/third_part/opencv/aruco/include/
+
+)
+file(GLOB_RECURSE ARUCO_SRC "third_part/opencv/aruco/src/*.cpp"
+)
+
+
 
 if(PLATFORM_mr527)
   add_definitions(-DOPENCV_ENABLE_MEMORY_SANITIZER)
@@ -28,16 +35,18 @@ if(PLATFORM_mr527)
   ##ofast编译会有问题，需要查看原因
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}   -O3 -s  -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable ") #-Wno-unused-result
   option(build_test "build test" OFF)
-  set(ARUCO_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/aruco/include/)
-  file(GLOB_RECURSE ARUCO_SRC "aruco/src/*.cpp")
+  set(PROTOBUF_PROTOC_EXECUTABLE  ${TOP_CMAKE_DIR}/third_party/protobuf/lib/protoc)
+  set(PROTOBUF_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/protobuf/)
+  set(PROTOBUF_LIBRARIES  ${TOP_CMAKE_DIR}/third_party/protobuf/lib/libprotobuf.a)
   set(EIGEN3_INCLUDE_DIR ${TOP_CMAKE_DIR}/third_party/eigen-3.4.0)
   set(OpenCV_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/include/opencv4)
   set(CERES_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/ceres-solver/include/)
-  set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres.a)
+  set(CERES_LIBRARIES ${TOP_CMAKE_DIR}/third_party/ceres-solver/lib/libceres_suitsparse.a)
   set(Opencv_lib_dir ${TOP_CMAKE_DIR}/third_party/opencv-4.6.0/lib/mr527)
   set(YAML_INCLUDE_DIRS ${TOP_CMAKE_DIR}/third_party/yaml-cpp/include)
   set(yaml_lib ${TOP_CMAKE_DIR}/third_party/yaml-cpp/lib/libyaml-cpp.a)
-  message(${YAML_INCLUDE_DIRS})
+
+  # message(${YAML_INCLUDE_DIRS})
   set(OpenCV_LIBS
       ${Opencv_lib_dir}/libopencv_core.so            # ${OpenCV_LIBRARIES}
       ${Opencv_lib_dir}/libopencv_imgcodecs.so
@@ -76,67 +85,91 @@ if(PLATFORM_mr527)
   string(REPLACE  "eigen3" "eigen5" new_include_dirs ${out_var})
   set_directory_properties(DIRECTORY  PROPERTY  jarvis INCLUDE_DIRECTORIES ${new_include_dirs})
   get_directory_property(out_var INCLUDE_DIRECTORIES)
-  message(${LIBRARY_OUTPUT_PATH})
   add_custom_target(COPY_COFIG ALL
     VERBATIM 
     COMMAND ${CMAKE_COMMAND} -E make_directory ${LIBRARY_OUTPUT_PATH}/configuration/
     COMMAND ${CMAKE_COMMAND} -E copy_directory 
     ${PROJECT_SOURCE_DIR}/configuration/ ${LIBRARY_OUTPUT_PATH}/configuration/
+    COMMAND ${CMAKE_COMMAND} -E remove ${LIBRARY_OUTPUT_PATH}/configuration/jarvis.dbow
     COMMENT "Copy config ${PROJECT_SOURCE_DIR}/configuration/ to  ${LIBRARY_OUTPUT_PATH}/configuration/"
   ) 
   INCLUDE_DIRECTORIES(
     ${TOP_CMAKE_DIR}/vslam/
+    ${PROJECT_BINARY_DIR}/vslam/src/jarvis/
   )
-  file(GLOB_RECURSE NOT_USE_SRC_MAPPING  "jarvis/mapping/*.cc" )
 else()
-
+  file(GLOB_RECURSE PB_NOT_USE_SRC "/jarvis/mapping/dbow/proto/*.cc"  )
+  file(GLOB_RECURSE VDEO_SRC "third_part/opencv/video/src/*.cpp")
+  set(VEDIO_INCLUDE_DIR  ${PROJECT_SOURCE_DIR}/video/include/)
+  list(APPEND ARUCO_INCLUDE_DIR  ${VEDIO_INCLUDE_DIR})
+  list(APPEND  ARUCO_SRC ${VDEO_SRC})
+  set(GENERATE_PROTOBUF ON) 
   option(build_test "build test" ON)
-  option(build_mapping "build_mapping" ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -msse4.1 -fPIC -O3  -mpopcnt") #-Wno-unused-result
   add_definitions(-D__SSE2__)
   find_package(Eigen3 3.4.0 EXACT)
-  find_package(OpenCV REQUIRED)
+  # set(OpenCV_DIR "/home/lyp/third_part/opencv/build") 
+  ## export PKG_CONFIG_PATH=/home/lyp/third_part/opencv/build/:$PKG_CONFIG_PATH
+  find_package(OpenCV REQUIRED COMPONENTS highgui core imgproc calib3d  imgcodecs ) 
+  message( "Found OpenCV version: ${OpenCV_VERSION}")
+# message( "OpenCV Include Dir: ${OpenCV_INCLUDE_DIRS}")
+# message( "OpenCV Libraries: ${OpenCV_LIBS}")
   find_package(Ceres REQUIRED)
   find_package(Glog REQUIRED) 
   find_package(yaml-cpp  REQUIRED) #version 0.7.0
   find_package(GTest  REQUIRED) #version 1.12.0
-  find_package(Protobuf  REQUIRED)  #v3.4.1
+  
+find_package(Protobuf  REQUIRED) 
 endif()
 
 INCLUDE_DIRECTORIES(
   ${ARUCO_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/jarvis
-  ${PROJECT_SOURCE_DIR}/rtm/includes/
+  ${PROJECT_SOURCE_DIR}/third_part/rtm/includes/
   ${YAML_INCLUDE_DIRS}/
   ${Boost_INCLUDE_DIR}
   ${CERES_INCLUDE_DIRS}
-  ${PROTOBUF_INCLUDE_DIRS}
 )
 ##copy config
 
-add_subdirectory("${PROJECT_SOURCE_DIR}/rtm")
+add_subdirectory("${PROJECT_SOURCE_DIR}/third_part/rtm")
 ##
 
 file(GLOB_RECURSE ALL_LIBRARY_HDRS "jarvis/*.hpp" "jarvis/*.h" )
 file(GLOB_RECURSE ALL_LIBRARY_SRCS "jarvis/*.cc" "jarvis/*.cpp" "slip_detection/*.cc")
 
 file(GLOB_RECURSE NOT_USE_SRC "jarvis/camera_models/chessboard/*.cc"  )
+file(GLOB_RECURSE GRID_MAP_SRC "jarvis/grid_map/*.cc")
 ##
-list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC} ${NOT_USE_SRC_MAPPING})
+
+
+
+##
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${NOT_USE_SRC} ${PB_NOT_USE_SRC})
 list(APPEND ALL_LIBRARY_SRCS ${ARUCO_SRC})
 ##
 file(GLOB_RECURSE ALL_TEST_SRCS  "jarvis/*_test.cc" "jarvis/*_test.cpp")
-list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS})
+
+list(REMOVE_ITEM ALL_LIBRARY_SRCS ${ALL_TEST_SRCS} ${GRID_MAP_SRC})
+list(REMOVE_ITEM GRID_MAP_SRC  ${ALL_TEST_SRCS})
+file(GLOB_RECURSE GRID_LIBRARY_SRC "jarvis/common/*.cc" "jarvis/transform/*.cc")
+file(GLOB_RECURSE GRID_LIBRARY_HDRS "jarvis/common/*.h" "jarvis/transform/*.h")
+
+message(${GRID_MAP_SRC})
+add_library(jarvis SHARED ${GRID_LIBRARY_SRC} ${GRID_MAP_SRC})
+target_include_directories(jarvis   SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
+target_include_directories(jarvis   PUBLIC   ${PROJECT_SOURCE_DIR}/)
+target_include_directories(jarvis  PRIVATE           ${GLOG_INCLUDE_DIRS})
+target_link_libraries (jarvis PUBLIC glog::glog)
 # file(GLOB_RECURSE ALL_TEST_SRCS  "src/*_test.cc" "src/*_test.cpp")
-if(${build_mapping})
 file(GLOB_RECURSE ALL_PROTOS "jarvis/mapping/*.proto")
 set(ALL_PROTO_SRCS)
 set(ALL_PROTO_HDRS)
 ####
 ##
+if(GENERATE_PROTOBUF)
 foreach(ABS_FIL ${ALL_PROTOS})
-message(${ABS_FIL})
   file(RELATIVE_PATH REL_FIL ${PROJECT_SOURCE_DIR} ${ABS_FIL})
   get_filename_component(DIR ${REL_FIL} DIRECTORY)
   get_filename_component(FIL_WE ${REL_FIL} NAME_WE)
@@ -153,28 +186,31 @@ message(${ABS_FIL})
     VERBATIM
 )
 endforeach()
+endif()
 set_source_files_properties(${ALL_PROTO_SRCS} ${ALL_PROTO_HDRS} PROPERTIES GENERATED TRUE)
 list(APPEND ALL_LIBRARY_HDRS ${ALL_PROTO_HDRS})
 list(APPEND ALL_LIBRARY_SRCS ${ALL_PROTO_SRCS})
-endif()
 
+add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
 
-
-# add_library(${PROJECT_NAME} STATIC ${ALL_LIBRARY_SRCS}  )
-add_library(${PROJECT_NAME} SHARED ${ALL_LIBRARY_SRCS}  )
 
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${PROTOBUF_INCLUDE_LIB}  )
 target_include_directories( ${PROJECT_NAME}  SYSTEM PRIVATE   ${EIGEN3_INCLUDE_DIR})
-target_include_directories( ${PROJECT_NAME}  PUBLIC           ${GLOG_INCLUDE_DIRS})
+target_include_directories( ${PROJECT_NAME}  PRIVATE           ${GLOG_INCLUDE_DIRS})
 target_link_libraries (${PROJECT_NAME} PUBLIC glog::glog)
+# message(${PROTOBUF_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROTOBUF_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROTOBUF_LIBRARIES})
+# link_directories(${OpenCV_DIR}/lib/)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
+
 # target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
 # target_compile_definitions (${PROJECT_NAME} INTERFACE GLOG_EXPORT=__attribute__((visibility("default"))))
 target_link_libraries(
   ${PROJECT_NAME} PUBLIC
   yaml-cpp
-  ${OpenCV_LIBS}
   ${CERES_LIBRARIES}
-  ${PROTOBUF_LIBRARIES}
+  
 )
 #
 if(${build_test})
@@ -188,8 +224,9 @@ if(${build_test})
       -lgtest_main
       -lgtest
       -lpthread
-
+      jarvis
       ${PROJECT_NAME}
+      ${OpenCV_LIBS}
     )
    endforeach()
 endif()
