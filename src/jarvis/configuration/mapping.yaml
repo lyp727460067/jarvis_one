@@ -1,7 +1,7 @@
 %YAML:1.0
 #
 enable_local_track: 1
-enable_track_map_opti: 1
+enable_track_map_opti: 0
 enable_local_opimization: 0
 enable_loop_closure : 0
 thread_pool_num : 4

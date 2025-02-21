@@ -2,7 +2,7 @@
 // /
 namespace jarvis {
 namespace sensor {
-constexpr double kSensorDataRatesLoggingPeriodSeconds = 15.;
+constexpr double kSensorDataRatesLoggingPeriodSeconds = 5.;
 
 //
 void OrderedMultiQueue::AddQueue(std::string name, ImageFuction call_back) {
@@ -137,10 +137,11 @@ void OrderedMultiQueue::Dispathch() {
         std::lock_guard<std::mutex> lock(mutex_);
         #ifdef __ARM_PLATFORM__
         if (next_queue_key == "/usb_cam_1/image_raw/compressed") {
-            while (next_queue->queue.size() >= 2) {
+            if (next_queue->queue.size() >= 2) {
               // LOG(ERROR) << next_queue_key << " size > 2,Drop it."
               //            << next_queue->queue.front()->GetTime();
               next_queue->queue.pop();
+              continue;
             }
         }
         #endif
