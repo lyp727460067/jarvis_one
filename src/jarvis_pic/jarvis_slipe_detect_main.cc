@@ -26,7 +26,7 @@
 #include "data_record.h"
 #include "glog_sink.h"
 #include "data_protocol.h"
-
+#include "pose_extrapolator_brige.h"
 //
 
 namespace {
@@ -202,15 +202,12 @@ class JarvisBuilder {
       {
       std::lock_guard<std::mutex> lock(pose_mutex_);
       kPoseExtrapolator_->AddImuData(jarvis::sensor::ImuData{
-          jarvis::common::FromUniversal(imu.time * 10) -
-              common::FromSeconds(0),
+          jarvis::common::FromUniversal(imu.time * 10) - common::FromSeconds(0),
           imu.linear_acceleration,
           imu.angular_velocity,
       });
-      pose = kPoseExtrapolator_->ExtrapolatePose(
-          jarvis::common::FromUniversal(imu.time * 10));
-      } 
-
+      pose = kPoseExtrapolator_->LastPose();
+      }
 
       jarvis::TrackingData data{
           std::make_shared<jarvis::TrackingData::Data>(
@@ -247,8 +244,8 @@ class JarvisBuilder {
   //
   void InitializeExtrapolator(const common::Time time) {
     if (kPoseExtrapolator_ != nullptr) return;
-    kPoseExtrapolator_ = std::make_unique<jarvis::PoseExtrapolator>(
-        common::FromSeconds(1.), 10.);
+    kPoseExtrapolator_ = std::make_unique<jarvis_pic::PoseExtrapolatorBrige>(
+        common::FromSeconds(1.), 10., time);
     kPoseExtrapolator_->AddPose(time, transform::Rigid3d::Identity());
   }
   //
@@ -303,7 +300,7 @@ class JarvisBuilder {
                         slip_flag = slip_detect_->Detect(data.data->time);
                     }
                     if (kWriteMpcPoseType == 0) {
-                      if (kPoseExtrapolator_ != nullptr) {
+                      if (kPoseExtrapolator_ != nullptr&& data.status != 2) {
                           transform::Rigid3d slipe_alignment_pose =
                               ToPoseInOdom(data.data->imu_state.Pose(),
                                            transform_cam_to_odom_);
@@ -406,7 +403,7 @@ class JarvisBuilder {
                         // transform::Rigid3d slipe_alignment_pose =
                         //     slip_detect_->ToPoseInOdom(data.data->imu_state.Pose());
                         // mpc_.Write(slipe_alignment_pose, data, 0, slip_flag);
-                        if (kPoseExtrapolator_ != nullptr) {
+                        if (kPoseExtrapolator_ != nullptr && data.status != 2) {
                           transform::Rigid3d slipe_alignment_pose =
                               ToPoseInOdom(data.data->imu_state.Pose(),
                                            transform_cam_to_odom_);
@@ -458,7 +455,7 @@ class JarvisBuilder {
   bool slam_valid =false;
   std::array<std::vector<int>, 3> ParaExPoseIndex{
         std::vector<int>{0, 1}, std::vector<int>{2}, std::vector<int>{3}};  
-  std::unique_ptr<PoseExtrapolator> kPoseExtrapolator_;
+  std::unique_ptr<jarvis_pic::PoseExtrapolatorBrige> kPoseExtrapolator_;
 
 };
 }  // namespace jarvis_pic
