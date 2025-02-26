@@ -41,6 +41,9 @@ class SlipDetect {
  public:
   explicit SlipDetect(const SlipDetectOption& option);
   ~SlipDetect();
+  jarvis::transform::Rigid3d GetTransformCamToOdom() {
+    return options_.transform_cam_to_odom;
+  }
   void AddImu(const jarvis::sensor::ImuData& imu_data);
   void AddOdometry(const jarvis::sensor::OdometryData& odom);
   void AddPose(const TimePose& pose);

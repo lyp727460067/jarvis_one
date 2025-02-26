@@ -80,6 +80,7 @@ add_executable(mpslam  jarvis_slipe_detect_main.cc
  glog_sink.cc
  gpu_pyramid_compute.cc
  opencl_handler.cpp
+ pose_extrapolator_brige.cc
  )
 add_executable(jarvis_eigen_test  jarvis_eigen_test.cc
  )

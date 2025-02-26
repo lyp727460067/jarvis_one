@@ -151,8 +151,15 @@ void DataCapture::ReadImu() {
       while (res > 0) {
         res = mem_ssq_->PopImuData(&imudata);
         if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
-          last_imu_time_stamp_ = imudata.time_stamp;
+          int64_t delta_t = imudata.time_stamp - last_imu_time_stamp_;
           std::lock_guard<std::mutex> lock(mutex_);
+          if (delta_t <= 0) {
+            LOG(WARNING) << "imu time reorde.." << delta_t
+                         << " cur: " << imudata.time_stamp
+                         << " last: " << last_imu_time_stamp_;
+            continue;
+          }
+          last_imu_time_stamp_ = imudata.time_stamp;
           ProcessImu(imudata);
         }
       }
@@ -163,27 +170,36 @@ void DataCapture::ReadImu() {
     while (ret_len > 0) {
       ret_len = mem_ssq_->PopEncodeData(&odom_data);
       if (ret_len > 0 && last_odom_time_stamp_ != odom_data.time_stamp) {
+        int64_t delta_t = odom_data.time_stamp - last_odom_time_stamp_;
+        if (delta_t <= 0) {
+          LOG(WARNING) << "odom time reorde.." << delta_t
+                       << " cur: " << odom_data.time_stamp
+                       << " last : " << last_odom_time_stamp_;
+          // last_odom_time_stamp_ = odom_data.time_stamp;
+          continue;
+        }
         last_odom_time_stamp_ = odom_data.time_stamp;
         std::lock_guard<std::mutex> lock(mutex_);
         ProcessOdom(odom_data);
       }
     }
-    {
-      ModRTKFB rtk_data;
-      int ret_len = 1;
-      while (ret_len > 0) {
-        ret_len = mem_ssq_->PopRtkData(&rtk_data);
-        if (ret_len && last_rtk_time_stamp_ != rtk_data.timestamp) {
-          last_rtk_time_stamp_ = rtk_data.timestamp;
-          std::lock_guard<std::mutex> lock(mutex_);
-          ProcessRtk(rtk_data);
+
+      {
+        ModRTKFB rtk_data;
+        int ret_len = 1;
+        while (ret_len > 0) {
+          ret_len = mem_ssq_->PopRtkData(&rtk_data);
+          if (ret_len && last_rtk_time_stamp_ != rtk_data.timestamp) {
+            last_rtk_time_stamp_ = rtk_data.timestamp;
+            std::lock_guard<std::mutex> lock(mutex_);
+            ProcessRtk(rtk_data);
+          }
         }
       }
-    }
 
-    //
-    std::this_thread::sleep_for(std::chrono::milliseconds(3));
-  };
+      //
+      std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    };
 }
 
 //
