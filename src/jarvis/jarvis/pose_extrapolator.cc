@@ -130,6 +130,7 @@ void PoseExtrapolator::AddOdometryData(
 transform::Rigid3d PoseExtrapolator::ExtrapolatePose(const common::Time time) {
   if( timed_pose_queue_.empty())return transform::Rigid3d::Identity();
   const TimedPose& newest_timed_pose = timed_pose_queue_.back();
+  
   CHECK_GE(time, newest_timed_pose.time);
   if (cached_extrapolated_pose_.time != time) {
     const Eigen::Vector3d translation =

@@ -10,33 +10,44 @@ PoseExtrapolatorBrige::PoseExtrapolatorBrige(
     double imu_gravity_time_constant, jarvis::common::Time start_time)
     : extrapolator_(
           new PoseExtrapolator(pose_queue_duration, imu_gravity_time_constant)),
+      last_extrapolator_(
+          new PoseExtrapolator(pose_queue_duration, imu_gravity_time_constant)),
       last_pose_time_(start_time) {}
 
 void PoseExtrapolatorBrige::AddPose(common::Time time,
-                                    const transform::Rigid3d& pose) {
+                                    const transform::Rigid3d& pose,
+                                    bool is_v ) {
   //
-  if (common::ToSeconds(time - last_pose_time_) > KTimeImuVioOffsetTime) {
-    vio_to_odom_transform_ = catch_last_pose_ * pose.inverse();
+  //
+  if (is_v && pose_state_ == false) {
+    auto time_pose = last_extrapolator_->ExtrapolatePose(time);
+    vio_to_odom_transform_ = time_pose * pose.inverse();
     LOG(INFO) << "restart vio: " << vio_to_odom_transform_;
   }
+  if (is_v) {
+    extrapolator_->AddPose(time, vio_to_odom_transform_ * pose);
+    last_extrapolator_->AddPose(time, vio_to_odom_transform_ * pose);
+  } else {
+    auto time_pose = last_extrapolator_->ExtrapolatePose(time);
+    extrapolator_->AddPose(time, time_pose);
+    last_extrapolator_->AddPose(time, time_pose);
+  }
+  if (is_v != pose_state_) {
+    pose_state_ = is_v;
+  }
+ 
   last_pose_time_ = time;
-  extrapolator_->AddPose(time, vio_to_odom_transform_ * pose);
 }
 //
 //
 void PoseExtrapolatorBrige::AddImuData(const sensor::ImuData& imu_data) {
   extrapolator_->AddImuData(imu_data);
-  if (common::ToSeconds(imu_data.time - last_pose_time_) >
-      KTimeImuVioOffsetTime) {
-    LOG_EVERY_N(WARNING, 10) << "vio maby ivalid...";
-    catch_last_pose_ = extrapolator_->ExtrapolatePose(imu_data.time);
-    extrapolator_->AddPose(imu_data.time, catch_last_pose_);
-  } else {
-    catch_last_pose_ = extrapolator_->ExtrapolatePose(imu_data.time);
-  }
+  catch_last_pose_ = extrapolator_->ExtrapolatePose(imu_data.time);
+  last_extrapolator_->AddImuData(imu_data);
 }
 void PoseExtrapolatorBrige::AddOdometryData(
     const sensor::OdometryData& odometry_data) {
   extrapolator_->AddOdometryData(odometry_data);
+  last_extrapolator_->AddOdometryData(odometry_data);
 }
 }  // namespace jarvis_pic

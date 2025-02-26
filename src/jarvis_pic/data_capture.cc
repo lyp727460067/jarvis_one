@@ -152,13 +152,14 @@ void DataCapture::ReadImu() {
         res = mem_ssq_->PopImuData(&imudata);
         if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
           int64_t delta_t = imudata.time_stamp - last_imu_time_stamp_;
-          last_imu_time_stamp_ = imudata.time_stamp;
           std::lock_guard<std::mutex> lock(mutex_);
           if (delta_t <= 0) {
             LOG(WARNING) << "imu time reorde.." << delta_t
-                         << " cur: " << imudata.time_stamp << " last: " << last_imu_time_stamp_;
+                         << " cur: " << imudata.time_stamp
+                         << " last: " << last_imu_time_stamp_;
             continue;
           }
+          last_imu_time_stamp_ = imudata.time_stamp;
           ProcessImu(imudata);
         }
       }
@@ -174,7 +175,7 @@ void DataCapture::ReadImu() {
           LOG(WARNING) << "odom time reorde.." << delta_t
                        << " cur: " << odom_data.time_stamp
                        << " last : " << last_odom_time_stamp_;
-          last_odom_time_stamp_ = odom_data.time_stamp;
+          // last_odom_time_stamp_ = odom_data.time_stamp;
           continue;
         }
         last_odom_time_stamp_ = odom_data.time_stamp;

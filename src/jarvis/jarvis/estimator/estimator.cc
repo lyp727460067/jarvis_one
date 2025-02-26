@@ -163,12 +163,12 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
     VLOG(kGlogCostTimeLevel) << "side costs " << slide_t_t.toc() << " ms";
     frame_data = slie_result->frame_data;
     imu_state_ = frame_data.data->imu_state;
-    if (init_delay_state_num_ < 20) {
-      init_delay_state_num_++;
-      frame_data.status = TrackState::INIT;
-    } else {
+    // if (init_delay_state_num_ < 20) {
+    //   init_delay_state_num_++;
+    //   frame_data.status = TrackState::INIT;
+    // } else {
       frame_data.status = TrackState::TRACKING;
-    }
+    // }
     //
     result.slide_out_data = slie_result->slide_out_data;
     //
