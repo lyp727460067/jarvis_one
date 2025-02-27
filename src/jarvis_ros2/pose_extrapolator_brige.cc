@@ -1,4 +1,5 @@
 #include "pose_extrapolator_brige.h"
+#include "jarvis/transform/transform.h"
 using namespace jarvis;
 namespace jarvis_pic {
 
@@ -21,8 +22,29 @@ void PoseExtrapolatorBrige::AddPose(common::Time time,
   //
   if (is_v && pose_state_ == false) {
     auto time_pose = last_extrapolator_->ExtrapolatePose(time);
-    vio_to_odom_transform_ = time_pose * pose.inverse();
-    LOG(INFO) << "restart vio: " << vio_to_odom_transform_;
+    auto ypr =
+        transform::Rot2ypr(pose.rotation().toRotationMatrix()) * M_PI / 180.;
+    auto ypr1 = transform::Rot2ypr(time_pose.rotation().toRotationMatrix()) *
+               M_PI / 180.;
+    //
+    auto time_pose1 =
+        transform::Rigid3d(time_pose.translation(),
+                           transform::RollPitchYaw(ypr[2], ypr[1], ypr1[0]));
+
+    // double delta_yaw = ypr1[0] -ypr[0];
+    // //
+    // vio_to_odom_transform_ = transform::Rigid3d(time);
+    vio_to_odom_transform_ = time_pose1 * pose.inverse();
+    // vio_to_odom_transform_ = transform::Rigid3d(
+    //     Eigen::Vector3d(vio_to_odom_transform_.translation().x(),
+    //                     vio_to_odom_transform_.translation().y(), 0),
+    //     vio_to_odom_transform_.rotation());
+    auto ypr2 = transform::Rot2ypr(
+                    vio_to_odom_transform_.rotation().toRotationMatrix()) *
+                M_PI / 180.;
+    // 
+    LOG(INFO)<<ypr2[0]<<" "<< ypr2[1]<<" "  <<ypr2[2]; 
+    LOG(INFO) << "restart_vio: " << vio_to_odom_transform_;
   }
   if (is_v) {
     extrapolator_->AddPose(time, vio_to_odom_transform_ * pose);
