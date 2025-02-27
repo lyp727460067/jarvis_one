@@ -93,6 +93,7 @@ class Estimator {
   PriorFactorFunction prior_factor_;
   std::unique_ptr<common::Task> when_done_task_ ;
   int init_delay_state_num_  =0; 
+  int lost_num_test_ = 0;
 };
 
 

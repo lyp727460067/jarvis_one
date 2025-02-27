@@ -142,7 +142,11 @@ std::map<int, Eigen::Vector3d> SlideWindow::PredictNextFrame(
 std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     const FrameData& frame) {
   //
-
+  if (init_steady_num_ < 20) {
+    init_steady_num_++;
+  } else {
+    optimization_->SetSlideCamOp(true);
+  }
   //
   const double dt = camera_imu_time_offset_;
   //
@@ -207,6 +211,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     }
   }
   if (!init_feature_datas_.empty()) {
+    init_steady_num_ = 0;
     if (int(init_feature_datas_.size()) > options_.win_size+1) {
       init_feature_datas_.erase(init_feature_datas_.begin());
     }
@@ -231,7 +236,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
         LOG(INFO) << "Add FeatureManger " << f.first << ",init size "
                   << init_feature_datas_.size();
       }
-
+      
       init_feature_datas_.clear();
     }
   }

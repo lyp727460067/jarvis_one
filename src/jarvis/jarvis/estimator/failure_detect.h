@@ -6,7 +6,7 @@ namespace jarvis {
 namespace estimator {
 
 struct FailureDetectOptoin {
-  double option_time_lost = 5;
+  double option_time_lost = 3;
   int track_feat_lost_min_num = 2;
   int track_feat_lost_win_size = 10;
   double bas_norm_max = 0.5;
