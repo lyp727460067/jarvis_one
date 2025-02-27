@@ -21,13 +21,14 @@
 #include "slip_detection/simple_vo.h"
 #include "slip_detection/slip_detect.h"
 #include "std_msgs/msg/string.hpp"
-
+#include "pose_extrapolator_brige.h"
 #include "unistd.h"
 //
 #include <sensor_msgs/msg/imu.hpp>
 #include "jarvis/estimator/featureTracker/pyramid_image.h"
 #include <glog/logging.h>
-
+std::mutex pose_mutex_;
+ std::unique_ptr<jarvis_pic::PoseExtrapolatorBrige> kPoseExtrapolator_;
 // #include "jarvis/estimator/imu_extrapolator.h"
 // #define CHECK_DATA
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
@@ -36,6 +37,38 @@ constexpr char kImuTopic[] = "/imu";
 constexpr char kOdomTopic[] = "/odom";
 std::unique_ptr<jarvis_ros::RosCompont> ros_compont;
 //
+using namespace jarvis;
+rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path_;
+
+  nav_msgs::msg::Path path_;
+void PosePub(const transform::Rigid3d &pose,
+                         const transform::Rigid3d &local_to_global) {
+  ::geometry_msgs::msg::TransformStamped tf_trans;
+  ::geometry_msgs::msg::TransformStamped global_tf_trans;
+  const Eigen::Quaterniond &q = pose.rotation();
+  
+  geometry_msgs::msg::PoseStamped pose_stamped;
+  pose_stamped.header.stamp = rclcpp::Time();
+  pose_stamped.header.frame_id = "map";
+  pose_stamped.pose.position.x = pose.translation().x();
+  pose_stamped.pose.position.y = pose.translation().y();
+  pose_stamped.pose.position.z = pose.translation().z();
+
+  // poses_["local_imu_pose"].push_back(
+  //     pose.translation());
+  path_.header.frame_id = "map";
+  if (pub_path_->get_subscription_count() != 0) {
+    path_.poses.push_back(pose_stamped);
+    pub_path_->publish(path_);
+  } else {
+    path_.poses.clear();
+  }
+
+  //
+}
+
+
+jarvis::transform::Rigid3d transform_cam_to_odom_ ;
 std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub2_;
 namespace {
@@ -64,6 +97,29 @@ void ParseOption(const std::string& config) {
   // fsSettings["data_capture"] >> kDataCaputureType;
 }
 using namespace jarvis;
+jarvis::transform::Rigid3d ToPoseInOdom(
+    const jarvis::transform::Rigid3d& pose1,
+    const jarvis::transform::Rigid3d& extric) {
+  const transform::Rigid3d transform_odom_to_imu = extric;
+  auto transform_cam_to_odom_map_ = transform::Rigid3d::Rotation(
+      transform::RollPitchYaw(0, 0, transform::GetYaw(extric.rotation())));
+
+  const transform::Rigid3d pose =
+      transform_cam_to_odom_map_ * pose1 * transform_odom_to_imu.inverse();
+  //
+
+  return jarvis::transform::Rigid3d(
+      Eigen::Vector3d(pose.translation().x(), pose.translation().y(),
+                      pose.translation().z()),
+      pose.rotation());
+}
+
+void InitializeExtrapolator(const common::Time time) {
+  if (kPoseExtrapolator_ != nullptr) return;
+  kPoseExtrapolator_ = std::make_unique<jarvis_pic::PoseExtrapolatorBrige>(
+      common::FromSeconds(1.), 10., time);
+  kPoseExtrapolator_->AddPose(time, transform::Rigid3d::Identity());
+}
 
 std::unique_ptr<sensor::OrderedMultiQueue> order_queue_ = nullptr;
 std::unique_ptr<TrajectorBuilder> builder_ = nullptr;
@@ -120,10 +176,19 @@ struct OdomData {
   Eigen::Quaterniond rotation;
   static std::string Name() { return kOdomTopic; }
   std::unique_ptr<sensor::Data> ToPatchData() {
+    if (kPoseExtrapolator_ != nullptr){
+    {
+      std::lock_guard<std::mutex> lock(pose_mutex_);
+      kPoseExtrapolator_->AddOdometryData(jarvis::sensor::OdometryData{
+          jarvis::common::FromUniversal(time / 100) - common::FromSeconds(0),
+          transform::Rigid3d(translation, rotation)});
+    }
+    }
     return std::make_unique<sensor::DispathcData<sensor::OdometryData>>(
         sensor::OdometryData{common::FromUniversal(time / 100)- common::FromSeconds(0.1),
                              transform::Rigid3d(translation, rotation)});
   }
+  
   static std::map<uint64_t, OdomData> Parse(const std::string& dir_file);
 };
 constexpr double kGryUnit = 0.001;
@@ -273,19 +338,46 @@ void WriteImuData(uint64_t time, std::map<uint64_t, Sensor>& imu_datas) {
 void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
   auto it = imu_datas.upper_bound(time);
   for (auto itor = imu_datas.begin(); itor != it; ++itor) {
-      sensor_msgs::msg::Imu msg;
-        // uint64_t time;
-      msg.angular_velocity.set__x(itor->second.angular_velocity.x());
-      msg.angular_velocity.set__y(itor->second.angular_velocity.y());
-      msg.angular_velocity.set__z(itor->second.angular_velocity.z());
-      msg.linear_acceleration.set__x(itor->second.linear_acceleration.x());
-      msg.linear_acceleration.set__y(itor->second.linear_acceleration.y());
-      msg.linear_acceleration.set__z(itor->second.linear_acceleration.z());
-      msg.header.frame_id = "imu";
-      msg.header.stamp =  rclcpp::Time(itor->second.time);
-      if (imu_tracker_ == nullptr) {
-        imu_tracker_ = std::make_unique<ImuTracker>(
-            10, common::FromUniversal(itor->second.time / 100));
+    // std::lock_guard<std::mutex> lock(pose_mutex_);
+    if (kPoseExtrapolator_ !=nullptr) {
+      kPoseExtrapolator_->AddImuData(jarvis::sensor::ImuData{
+          jarvis::common::FromUniversal(itor->second.time / 100) - common::FromSeconds(0),
+         transform_cam_to_odom_.rotation()* itor->second.linear_acceleration,
+         transform_cam_to_odom_.rotation()* itor->second.angular_velocity
+      });
+      auto pose = kPoseExtrapolator_->LastPose();
+      // LOG(INFO)<<pose ;
+      ::geometry_msgs::msg::TransformStamped tf_trans;
+      tf_trans.header.stamp = rclcpp::Time(itor->second.time);
+      tf_trans.header.frame_id = "map";
+      tf_trans.child_frame_id = "odom_link";
+      
+      tf_trans.transform.translation.x = pose.translation().x();
+      tf_trans.transform.translation.y = pose.translation().y();
+      tf_trans.transform.translation.z = pose.translation().z();
+      auto & q = pose.rotation();
+      tf_trans.transform.rotation.x = q.x();
+      tf_trans.transform.rotation.y = q.y();
+      tf_trans.transform.rotation.z = q.z();
+      tf_trans.transform.rotation.w = q.w();
+      tf_broadcaster_->sendTransform(tf_trans);
+
+      PosePub(pose,transform::Rigid3d::Identity());
+    }
+  
+  sensor_msgs::msg::Imu msg;
+  // uint64_t time;
+  msg.angular_velocity.set__x(itor->second.angular_velocity.x());
+  msg.angular_velocity.set__y(itor->second.angular_velocity.y());
+  msg.angular_velocity.set__z(itor->second.angular_velocity.z());
+  msg.linear_acceleration.set__x(itor->second.linear_acceleration.x());
+  msg.linear_acceleration.set__y(itor->second.linear_acceleration.y());
+  msg.linear_acceleration.set__z(itor->second.linear_acceleration.z());
+  msg.header.frame_id = "imu";
+  msg.header.stamp = rclcpp::Time(itor->second.time);
+  if (imu_tracker_ == nullptr) {
+    imu_tracker_ = std::make_unique<ImuTracker>(
+        10, common::FromUniversal(itor->second.time / 100));
       }
       //
 
@@ -299,15 +391,15 @@ void WriteImuData(uint64_t time, std::map<uint64_t, ImuData>& imu_datas) {
       //
       imu_pub2_->publish(msg);
       //
-      ::geometry_msgs::msg::TransformStamped tf_trans;
-      tf_trans.header.stamp = rclcpp::Time(itor->second.time);
-      tf_trans.header.frame_id = "map";
-      tf_trans.child_frame_id = "imu_link";
-      tf_trans.transform.rotation.x = q.x();
-      tf_trans.transform.rotation.y = q.y();
-      tf_trans.transform.rotation.z = q.z();
-      tf_trans.transform.rotation.w = q.w();
-      tf_broadcaster_->sendTransform(tf_trans);
+      // ::geometry_msgs::msg::TransformStamped tf_trans;
+      // tf_trans.header.stamp = rclcpp::Time(itor->second.time);
+      // tf_trans.header.frame_id = "map";
+      // tf_trans.child_frame_id = "imu_link";
+      // tf_trans.transform.rotation.x = q.x();
+      // tf_trans.transform.rotation.y = q.y();
+      // tf_trans.transform.rotation.z = q.z();
+      // tf_trans.transform.rotation.w = q.w();
+      // tf_broadcaster_->sendTransform(tf_trans);
 
       // LOG(INFO)<<"!";
       order_queue_->AddData(ImuData::Name(), itor->second.ToPatchData());
@@ -477,11 +569,18 @@ if (kRecordFlag) {
   LOG(INFO) << "config file : " << argv[1];
   //
   ParseOption(argv[1]);
+  jarvis::slip_detect::SlipDetectOption slip_option;
+  jarvis::ParseYAMLOption(argv[1], &slip_option);
+   transform_cam_to_odom_ = slip_option.transform_cam_to_odom;
+  LOG(INFO) << "Capture start..";
+
   // std::unique_ptr<jarvis_ros::RosCompont> ros_compont =
   //     std::make_unique<jarvis_ros::RosCompont>(node.get());
   ros_compont = std::make_unique<jarvis_ros::RosCompont>(node.get());
   imu_pub2_ = node->create_publisher<sensor_msgs::msg::Imu>("imu", 1000);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node);
+
+   pub_path_ = node->create_publisher<nav_msgs::msg::Path>("odom_path", 10);
   //
   // /
   TrackingData tracking_data_temp;
@@ -588,6 +687,16 @@ builder_ = std::make_unique<TrajectorBuilder>(
       // true);
       //
       std::vector<jarvis::object::ObjectImageResult> object_result;
+      {
+        auto& data = tracking_data;
+        transform::Rigid3d slipe_alignment_pose =
+            ToPoseInOdom(data.data->imu_state.Pose(), transform_cam_to_odom_);
+        // std::lock_guard<std::mutex> lock(pose_mutex_);
+        InitializeExtrapolator(data.data->time);
+        kPoseExtrapolator_->AddPose(data.data->time, slipe_alignment_pose,
+                                    data.status ==2);
+      }
+
       if (tracking_data.status == 2) {
         if (object_interface == nullptr) {
           object_interface = std::make_unique<jarvis::object::ObjectInterface>(

@@ -393,8 +393,13 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
 
     ordering->AddElementToGroup(para_Ex_Pose[i], 1);
     // LOG(INFO)<<vs.norm() ;
-    if (options_.estimate_extrinsic == 0 || vs.norm() < 0.2 ) {
+    if (options_.estimate_extrinsic == 0 || vs.norm() < 0.2) {
       problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+    }
+    if (!slide_came_extirc) {
+      if (i >= 2) {
+        problem.SetParameterBlockConstant(para_Ex_Pose[i]);
+      }
     }
     //
     // for (int k = 0; k < 3; k++) {

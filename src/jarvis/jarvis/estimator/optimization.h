@@ -54,7 +54,7 @@ struct OptimizationData {
 
 class Optimization {
  public:
- 
+  void SetSlideCamOp(bool x) { slide_came_extirc = x; }
   //
   Optimization(int win_size, const OptimizationOption& option);
   OptimizationStateData* Solve(Marginalization* marg,
@@ -86,6 +86,7 @@ class Optimization {
   double final_cost_=0; 
   int num_= 0;
   //
+  bool slide_came_extirc=false;
   std::optional<std::pair<int, std::shared_ptr<LocalMapMatchResult>>>
       prior_pose_;
 

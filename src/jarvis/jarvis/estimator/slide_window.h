@@ -84,6 +84,7 @@ class SlideWindow {
 
   void SlideNew(); 
   DataBase* data_base_;
+  int init_steady_num_=0;
   //
   void StateToFrameData();
   void FrameDataToState();
