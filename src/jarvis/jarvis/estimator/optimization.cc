@@ -398,6 +398,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     }
     if (!slide_came_extirc) {
       if (i >= 2) {
+        LOG(INFO)<<"FIX"<<i;
         problem.SetParameterBlockConstant(para_Ex_Pose[i]);
       }
     }
