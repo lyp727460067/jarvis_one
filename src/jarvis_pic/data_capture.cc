@@ -153,13 +153,14 @@ void DataCapture::ReadImu() {
         if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
           int64_t delta_t = imudata.time_stamp - last_imu_time_stamp_;
           std::lock_guard<std::mutex> lock(mutex_);
-          if (delta_t <= 0) {
+          if (delta_t <= 0 ) {
             LOG(WARNING) << "imu time reorde.." << delta_t
                          << " cur: " << imudata.time_stamp
                          << " last: " << last_imu_time_stamp_;
             continue;
           }
           last_imu_time_stamp_ = imudata.time_stamp;
+          
           ProcessImu(imudata);
         }
       }
@@ -358,6 +359,13 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
   }
 #else
   const auto imu_data = ToImuData(imu, {});
+  if (imu_data.angular_velocity.norm() > jarvis::common::DegToRad(1000) ||
+      imu_data.linear_acceleration.norm() > 8 * 9.8) {
+    LOG(WARNING) << "Imu value err->"
+                 << "gry: " << imu_data.angular_velocity.norm()
+                 << " acc: " << imu_data.linear_acceleration.norm();
+    return;
+  }
   for (const auto& f : imu_call_backs_) {
     f.second(imu_data);
   }

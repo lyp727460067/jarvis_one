@@ -54,23 +54,24 @@ void DataRecord::CreateDataDir() {
 
 DataRecord::DataRecord(const std::string& data_path, bool record)
     : record_(record),data_path_(data_path) {
-  LOG(INFO)<< record_;
+  LOG(INFO) << record_;
   if (record_) {
-  CreateDataDir();
-    thread_ = std::thread([this]() {
-      while (!kill_thread_) {
-        Run();
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        // usleep(1000);
-      }
-    });
+    CreateDataDir();
   }
+  thread_ = std::thread([this]() {
+    while (!kill_thread_) {
+      Run();
+      std::this_thread::sleep_for(std::chrono::milliseconds(3));
+      // usleep(1000);
+    }
+  });
 }
 //
 
 //
 void DataRecord::AddAtTimeFram(const uint64_t& time) {
   //
+  return ;
   if (!record_) return;
   std::lock_guard<std::mutex> lock(mutex_);
   while (!frames_.empty() && frames_.front().time * 10 < time) {
@@ -147,6 +148,7 @@ void DataRecord::AddAtTimeFram(const uint64_t& time) {
 }
 //
 void DataRecord::AddFrame(const Frame& frame) {
+  return ;
   if (!record_) return;
   // static int i = 0;
   // if ((++i) % 2) {
@@ -239,24 +241,40 @@ void DataRecord::AddVioData(jarvis::common::Time& time,
     pose_file_ << info.str();
   // });
 }
+
+void DataRecord::ClearTaskTemp() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::queue<std::function<void(void)>> empty_task;
+  {
+    start_add_task_ = true;
+    tasks_.swap(empty_task);
+  }
+}
+void DataRecord::AddTastTemp(std::function<void(void)> f) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if(start_add_task_)return;
+  tasks_.push(std::move(f));
+}
 void DataRecord::Run() {
   size_t task_size = 0;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     task_size = tasks_.size();
+    if (task_size == 0) return;
   }
   std::function<void(void)> f;
   while (task_size != 0) {
     {
       std::lock_guard<std::mutex> lock(mutex_);
+      if(tasks_.empty())return ;
       f = std::move(tasks_.front());
       tasks_.pop();
       task_size = tasks_.size();
     }
-    LOG_EVERY_N(INFO,100) << "Record task size " << task_size;
+    LOG_EVERY_N(INFO, 100) << "Record task size " << task_size;
     f();
   }
-};
+}
 DataRecord::~DataRecord() {
   kill_thread_ = true;
   if (thread_.joinable()) {

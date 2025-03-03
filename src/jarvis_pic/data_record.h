@@ -24,6 +24,12 @@ namespace jarvis_pic {
     explicit DataRecord(const std::string& data_path, bool record = false);
     ~DataRecord();
     void AddFrame(const Frame& frame);
+    void AddTastTemp(std::function<void(void)>f);
+    void StartTaskAdd() {
+      std::lock_guard<std::mutex> lock(mutex_);
+      start_add_task_ = false;
+    }
+    void ClearTaskTemp();
     void AddImu(const ImuData& imu);
     void AddOdom(const OdomData& odom);
     void AddRtk(const RtkData& rtk);
@@ -34,6 +40,7 @@ namespace jarvis_pic {
     void Run();
     void CreateDataDir();
     bool record_;
+    bool start_add_task_ =true;
     std::string data_path_;
     std::mutex mutex_;
     std::thread thread_;

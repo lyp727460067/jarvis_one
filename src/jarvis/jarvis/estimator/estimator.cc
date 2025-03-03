@@ -203,7 +203,7 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
         frame_data.status = TrackState::LOST;
       }
     }
-    // if (lost_num_test_++ > 60) {
+    // if (lost_num_test_++ > 1000) {
     //   frame_data.status = TrackState::LOST;
     // }
     if (failure_detect_->Detect(*slie_result)) {

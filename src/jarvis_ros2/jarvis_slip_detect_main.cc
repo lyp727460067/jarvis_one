@@ -30,7 +30,7 @@
 std::mutex pose_mutex_;
  std::unique_ptr<jarvis_pic::PoseExtrapolatorBrige> kPoseExtrapolator_;
 // #include "jarvis/estimator/imu_extrapolator.h"
-// #define CHECK_DATA
+#define CHECK_DATA
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";
@@ -204,12 +204,12 @@ std::istringstream& operator>>(std::istringstream& ifs, ImuData& imu_data) {
 
   static uint64_t last_time = time;
   if ((time - last_time) > 10000000) {
-    // LOG(INFO) << "   " << time - last_time;
+    LOG(INFO) << "   " << time - last_time<<" "<<time;
   }
   last_time = time;
 #ifdef CHECK_DATA
   static uint64_t last_imu_time = time;
-  LOG(INFO) << (time - last_imu_time);
+  // LOG(INFO) << (time - last_imu_time);
   last_imu_time = time;
 #endif
 
@@ -835,10 +835,10 @@ order_queue_->AddQueue(kImuTopic, [&](const sensor::ImuData& imu) {
 });
 LOG(INFO) << "Parse image dir: " << image_file;
 LOG(INFO) << "Parse imu dir: " << odom_file;
-auto image_datas = ImageData::Parse(image_file);
-auto odom_datas = SesorDataParse<OdomData>(odom_file);
 auto imu_datas = SesorDataParse<ImuData>(odom_file);
 //
+auto odom_datas = SesorDataParse<OdomData>(odom_file);
+auto image_datas = ImageData::Parse(image_file);
 //
 LOG(INFO) << "Start run...";
 std::thread pub_map_points([&]() {

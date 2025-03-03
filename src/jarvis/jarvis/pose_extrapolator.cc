@@ -180,7 +180,7 @@ void PoseExtrapolator::TrimImuData() {
          imu_data_[1].time <= timed_pose_queue_.back().time) {
     imu_data_.pop_front();
   }
-  LOG_EVERY_N(INFO, 10) << "IMU size: " << imu_data_.size();
+  // LOG_EVERY_N(INFO, 10) << "IMU size: " << imu_data_.size();
 }
 
 void PoseExtrapolator::TrimOdometryData() {
@@ -189,7 +189,7 @@ void PoseExtrapolator::TrimOdometryData() {
     odometry_data_.pop_front();
   }
 
-  LOG_EVERY_N(INFO,10)<<"IMU size: "<<odometry_data_.size();
+  // LOG_EVERY_N(INFO,10)<<"IMU size: "<<odometry_data_.size();
 }
 
 void PoseExtrapolator::AdvanceImuTracker(const common::Time time,
