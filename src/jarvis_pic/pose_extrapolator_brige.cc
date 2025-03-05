@@ -13,7 +13,10 @@ PoseExtrapolatorBrige::PoseExtrapolatorBrige(
           new PoseExtrapolator(pose_queue_duration, imu_gravity_time_constant)),
       last_extrapolator_(
           new PoseExtrapolator(pose_queue_duration, imu_gravity_time_constant)),
-      last_pose_time_(start_time) {}
+      last_pose_time_(start_time) {
+  extrapolator_->AddPose(start_time, transform::Rigid3d::Identity());
+  last_extrapolator_->AddPose(start_time, transform::Rigid3d::Identity());
+}
 
 //
 void PoseExtrapolatorBrige::Reset(jarvis::common::Duration pose_queue_duration,
@@ -32,7 +35,10 @@ void PoseExtrapolatorBrige::Reset(jarvis::common::Duration pose_queue_duration,
   vio_to_odom_transform_ = transform::Rigid3d::Identity();
   catch_last_pose_ = transform::Rigid3d::Identity();
   pose_state_ = true;
-  AddPose(start_time, transform::Rigid3d::Identity());
+  // AddPose(start_time, transform::Rigid3d::Identity());
+  extrapolator_->AddPose(last_pose_time_, transform::Rigid3d::Identity());
+  last_extrapolator_->AddPose(last_pose_time_, transform::Rigid3d::Identity());
+  LOG(INFO)<<"Reset start "<<last_pose_time_;
 }
 //
 void PoseExtrapolatorBrige::AddPose(common::Time time,

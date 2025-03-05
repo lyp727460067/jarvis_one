@@ -21,6 +21,7 @@ struct FailureDetectOptoin {
   int zero_odo_win_size = 10;
   int zero_odo_pose_size = 40;
   bool use_odom =false;
+  double max_velocity_normal = 1.5;
 };
 
 class FailureDetect {

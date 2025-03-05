@@ -80,7 +80,7 @@ local_map_track_option:
   align_1d : 0
   scan_on_unit_sphere: 0
   max_epi_search_steps : 1
-  min_update_squared : 0.003   #0.03*0.03
+  min_update_squared : 0.004   #0.03*0.03
 
 track_local_map_opt_option:
   re_preject_weight: 1e2

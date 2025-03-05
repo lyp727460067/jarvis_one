@@ -84,11 +84,28 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
   TicToc add_image_data_cost;
   //
 
+  EstimatorResult result;
+  if (images.image[0].empty() || images.image[1].empty() ||
+      images.image[2].empty() || images.image[3].empty() ||
+      last_time_ > images.time) {
+    LOG(ERROR) << "Inpute camera empty." << images.image[0].empty() << " "
+              << images.image[1].empty() << " " << images.image[2].empty()
+              << " " << images.image[3].empty();
+    FrameData frame_data =
+        FrameData{std::make_shared<FrameData::Data>(FrameData::Data{
+            images.time,
+            frame_id_,
+            imu_state_,
+        })};
+    last_time_ = images.time;
+    frame_data.status = TrackState::INIT;
+    result.front_data = frame_data;
+    return std::make_unique<EstimatorResult>(result);
+  }
   //  FrameData::FeatureData featureFrame;
   common::Time cur_time = images.time + common::FromSeconds(estimator_td_);
   TrackState state = TrackState::INIT;
   FrameData frame_data;
-  EstimatorResult result;
   if (slide_wondows_) {
       TicToc t_t;
     imu_state_ = pose_predit_->PreditDataBase(imu_state_, data_base_.get(),

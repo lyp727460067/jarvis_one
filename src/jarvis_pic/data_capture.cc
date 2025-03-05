@@ -160,8 +160,9 @@ void DataCapture::ReadImu() {
             continue;
           }
           last_imu_time_stamp_ = imudata.time_stamp;
-          
-          ProcessImu(imudata);
+          // if (test_lost_ < 800 || test_lost_ > 810) {
+            ProcessImu(imudata);
+          // }
         }
       }
     }
@@ -498,11 +499,16 @@ uint64_t DataCapture::GetOrigImuTime(const uint64_t& time) {
 //
 //
 void DataCapture::ProcessImag(const CameraFrame& frame) {
-  const auto frame_data = ToFrameData(frame, option_);
-  if (frame_data.images[0].empty()||frame_data.images[1].empty()) {
-    LOG(ERROR)<<"Parse image err..";
-    return;
-  }
+   auto frame_data = ToFrameData(frame, option_);
+// test_lost_ ++;
+//    test_lost_ = (test_lost_) % 1000;
+//    if (test_lost_ >=600  && test_lost_ <=604) {
+//      frame_data.images[0] = cv::Mat();
+//    }
+   // if (frame_data.images[0].empty()||frame_data.images[1].empty()) {
+   //   LOG(ERROR)<<"Parse image err..";
+   //   return;
+   // }
 #ifdef NEED_SYNC
   image_catch_.push_back(std::make_pair(frame.head.sys_count, frame_data));
   if (image_catch_.size() <= 2) {

@@ -81,6 +81,13 @@ bool FailureDetect::OdoZeroDetect(const SlideWindowResult& frame_data) {
 //
 //
 bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
+  double time_diff = 0.0;
+  if (last_frame_data_.has_value()) {
+    time_diff = common::ToSeconds(frame_data.frame_data.data->time -
+                                  last_frame_data_.value());
+    //
+  }
+
   if (TimeLost(frame_data.frame_data.data->time)) {
     return true;
   }
@@ -127,7 +134,14 @@ bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
   //
   double delta_angle = abs(common::RadToDeg(transform::GetAngle(delta_pose)));
   //
-
+  if (time_diff >= 0.001) {
+    const double velocity_normal = delta_pose.translation().norm() / time_diff;
+    LOG(INFO)<<velocity_normal ;
+    if (velocity_normal > options_.max_velocity_normal) {
+      LOG(ERROR) << " max_velocity_normal too big" << velocity_normal;
+      return true;
+    }
+  }
   last_frame_poses_ = curr_pose;
   if (delta_pose.translation().norm() > translation_threash_hold ||
       delta_angle > options_.ratation_max ||
