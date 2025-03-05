@@ -86,10 +86,10 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
       });
   order_queue_->AddQueue(kImagTopic0, [&](const jarvis::sensor::ImageData&
                                               imag_data) {
+    bool image_valid = true;
     if (imag_data.image[0].empty() || imag_data.image[1].empty() ||
         imag_data.image[2].empty() || imag_data.image[3].empty()) {
-      LOG(WARNING) << "Input Image empty..";
-      return;
+      image_valid = false;
     }
 
     if (kuse_gpu) {
@@ -112,15 +112,17 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         image_datas_pyra_.back().second.pyramid_derive.resize(
             image_datas_pyra_.back().second.image.size());
         //
-        pyramid_thread_ = std::thread([this, imag_data]() {
+        pyramid_thread_ = std::thread([this, imag_data,image_valid]() {
           for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
             for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-
-              std::vector<cv::Mat> pyrmd_drev = BuildPyramidsUsingGPU(
-                  imag_data.image[esit_option_.track_sequence[i][j]],
-                  opencl_handler_.get(),
-                  &esit_option_.feature_track_options[i].pyrmid_option,
-                  esit_option_.feature_track_options[i].klt_type);
+              std::vector<cv::Mat> pyrmd_drev;
+              if (image_valid) {
+                pyrmd_drev = BuildPyramidsUsingGPU(
+                    imag_data.image[esit_option_.track_sequence[i][j]],
+                    opencl_handler_.get(),
+                    &esit_option_.feature_track_options[i].pyrmid_option,
+                    esit_option_.feature_track_options[i].klt_type);
+              }
               image_datas_pyra_.back()
                   .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
                   pyrmd_drev;
@@ -149,14 +151,17 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
         image_datas_pyra_.push_back({false, imag_data});
         image_datas_pyra_.back().second.pyramid_derive.resize(
             image_datas_pyra_.back().second.image.size());
-        pyramid_thread_ = std::thread([this, imag_data]() {
+        pyramid_thread_ = std::thread([this, imag_data,image_valid]() {
           for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
             for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-              std::vector<cv::Mat> pyrmd_drev = BuildPyramidsUsingGPU(
-                  imag_data.image[esit_option_.track_sequence[i][j]],
-                  opencl_handler_.get(),
-                  &esit_option_.feature_track_options[i].pyrmid_option,
-                  esit_option_.feature_track_options[i].klt_type);
+              std::vector<cv::Mat> pyrmd_drev;
+              if (image_valid) {
+                pyrmd_drev = BuildPyramidsUsingGPU(
+                    imag_data.image[esit_option_.track_sequence[i][j]],
+                    opencl_handler_.get(),
+                    &esit_option_.feature_track_options[i].pyrmid_option,
+                    esit_option_.feature_track_options[i].klt_type);
+              }
               image_datas_pyra_.back()
                   .second.pyramid_derive[esit_option_.track_sequence[i][j]] =
                   pyrmd_drev;

@@ -192,25 +192,45 @@ class JarvisBuilder {
     });
 
     data_capture_->Rigister("data_record", [this](const ImuData& imu) {
-      transform::Rigid3d pose;
-      {
-      std::lock_guard<std::mutex> lock(pose_mutex_);
-      if(kPoseExtrapolator_ ==nullptr)return ;
-      kPoseExtrapolator_->AddImuData(jarvis::sensor::ImuData{
-          jarvis::common::FromUniversal(imu.time * 10) - common::FromSeconds(0),
-          transform_cam_to_odom_.rotation() * imu.linear_acceleration,
-          transform_cam_to_odom_.rotation() * imu.angular_velocity,
-      });
-      pose = kPoseExtrapolator_->LastPose();
-      }
+      data_record_->AddTastTemp([this,imu]() {
+        transform::Rigid3d pose;
+        bool is_valid =false;
+        {
+          std::lock_guard<std::mutex> lock(pose_mutex_);
+          if (kPoseExtrapolator_ == nullptr) return;
+        }
+        // auto start = std::chrono::high_resolution_clock::now();
+        {
+          std::lock_guard<std::mutex> lock(pose_mutex_);
+          if (kPoseExtrapolator_ == nullptr) return;
+          is_valid =
+              kPoseExtrapolator_->AddImuData(jarvis::sensor::ImuData{
+                  jarvis::common::FromUniversal(imu.time * 10) -
+                      common::FromSeconds(0),
+                  transform_cam_to_odom_.rotation() * imu.linear_acceleration,
+                  transform_cam_to_odom_.rotation() * imu.angular_velocity,
+              });
+          pose = kPoseExtrapolator_->LastPose();
+          if (!is_valid) {
+            kPoseExtrapolator_->Reset(
+                common::FromSeconds(1.), 10.,
+                jarvis::common::FromUniversal(imu.time * 10));
+          }
+        }
 
-      jarvis::TrackingData data{
-          std::make_shared<jarvis::TrackingData::Data>(
-              jarvis::TrackingData::Data{
-                  jarvis::common::FromUniversal(imu.time * 10)}),
-          2};
-      //
-      mpc_.Write(pose, data, 0, kSlipeState);
+        jarvis::TrackingData data{
+            std::make_shared<jarvis::TrackingData::Data>(
+                jarvis::TrackingData::Data{
+                    jarvis::common::FromUniversal(imu.time * 10)}),
+            is_valid ? 2 : 0};
+        //
+        mpc_.Write(pose, data, 0, kSlipeState);
+          // LOG(INFO) << "kPoseExtrapolator_: "
+          //         << std::chrono::duration_cast<std::chrono::milliseconds>(
+          //                std::chrono::high_resolution_clock::now() - start)
+          //                .count();
+      });
+
       //
       data_record_->AddImu(imu);
     });
@@ -219,13 +239,18 @@ class JarvisBuilder {
       {
         std::lock_guard<std::mutex> lock(pose_mutex_);
         if (kPoseExtrapolator_ == nullptr) return;
-        {
-          kPoseExtrapolator_->AddOdometryData(jarvis::sensor::OdometryData{
-              jarvis::common::FromUniversal(odom.time * 10) -
-                  common::FromSeconds(0),
-              transform::Rigid3d(odom.translation, odom.rotaion)});
-        }
       }
+      data_record_->AddTastTemp([this,odom]() {
+        {
+          std::lock_guard<std::mutex> lock(pose_mutex_);
+          {
+            kPoseExtrapolator_->AddOdometryData(jarvis::sensor::OdometryData{
+                jarvis::common::FromUniversal(odom.time * 10) -
+                    common::FromSeconds(0),
+                transform::Rigid3d(odom.translation, odom.rotaion)});
+          }
+        }
+      });
       data_record_->AddOdom(odom);
     });
     data_capture_->Rigister("data_record", [this](const Frame& frame) {
@@ -241,6 +266,9 @@ class JarvisBuilder {
     jarvis_brige_.reset(nullptr);
     LOG(WARNING) << "Rest  sliep detect...";
     slip_detect_.reset(nullptr);
+
+    data_record_->ClearTaskTemp();
+    LOG(WARNING) << "Rest ClearTaskTemp ...";
     kPoseExtrapolator_.reset(nullptr);
     LOG(WARNING) << "Rest  sliep done...";
   }
@@ -249,7 +277,7 @@ class JarvisBuilder {
     if (kPoseExtrapolator_ != nullptr) return;
     kPoseExtrapolator_ = std::make_unique<jarvis_pic::PoseExtrapolatorBrige>(
         common::FromSeconds(1.), 10., time);
-    kPoseExtrapolator_->AddPose(time, transform::Rigid3d::Identity());
+    // kPoseExtrapolator_->AddPose(time, transform::Rigid3d::Identity());
   }
   //
   DataCapture* GetDataCapture() { return data_capture_.get(); }
@@ -272,7 +300,7 @@ class JarvisBuilder {
   }
   //
   void CreateJarvisBrige(bool factory_mode = false) {
-
+    data_record_->StartTaskAdd();
     {
       std::lock_guard<std::mutex> lock(mutex_);
       // imu_extrapolator_ =
@@ -308,9 +336,13 @@ class JarvisBuilder {
                       {
                         std::lock_guard<std::mutex> lock(pose_mutex_);
                         InitializeExtrapolator(data.data->time);
-                        kPoseExtrapolator_->AddPose(data.data->time,
-                                                    slipe_alignment_pose,
-                                                    (data.status == 2));
+                        const common::Time time = data.data->time;
+                        const int status = data.status;
+                        data_record_->AddTastTemp(
+                            [this, slipe_alignment_pose, time, status]() {
+                              kPoseExtrapolator_->AddPose(
+                                  time, slipe_alignment_pose, (status == 2));
+                            });
                       }
 
                       // transform::Rigid3d slipe_alignment_pose =
@@ -414,9 +446,14 @@ class JarvisBuilder {
                       {
                         std::lock_guard<std::mutex> lock(pose_mutex_);
                         InitializeExtrapolator(data.data->time);
-                        kPoseExtrapolator_->AddPose(data.data->time,
-                                                    slipe_alignment_pose,
-                                                    (data.status == 2));
+                        const common::Time time = data.data->time;
+                        const int status = data.status;
+                        LOG(INFO)<<status <<" "<<data.data->time;
+                        data_record_->AddTastTemp(
+                            [this, slipe_alignment_pose, time, status]() {
+                              kPoseExtrapolator_->AddPose(
+                                  time, slipe_alignment_pose, (status == 2));
+                            });
                       }
                     }
                 }

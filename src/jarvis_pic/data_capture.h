@@ -132,6 +132,7 @@ class DataCapture {
   std::array<pthread_t,2> threads_;
   std::unique_ptr<EventBus> event_bus_;
   int dark_state_ =0;
+  int test_lost_  =0;
 };
 std::unique_ptr<DataCapture> CreateDataCaputure(
     const DataCaptureOption& option);

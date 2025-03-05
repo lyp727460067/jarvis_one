@@ -153,14 +153,16 @@ void DataCapture::ReadImu() {
         if (res > 0 && last_imu_time_stamp_ != imudata.time_stamp) {
           int64_t delta_t = imudata.time_stamp - last_imu_time_stamp_;
           std::lock_guard<std::mutex> lock(mutex_);
-          if (delta_t <= 0) {
+          if (delta_t <= 0 ) {
             LOG(WARNING) << "imu time reorde.." << delta_t
                          << " cur: " << imudata.time_stamp
                          << " last: " << last_imu_time_stamp_;
             continue;
           }
           last_imu_time_stamp_ = imudata.time_stamp;
-          ProcessImu(imudata);
+          // if (test_lost_ < 800 || test_lost_ > 810) {
+            ProcessImu(imudata);
+          // }
         }
       }
     }
@@ -358,6 +360,13 @@ void DataCapture::ProcessImu(const ModSyncImuFb& imu) {
   }
 #else
   const auto imu_data = ToImuData(imu, {});
+  if (imu_data.angular_velocity.norm() > jarvis::common::DegToRad(1000) ||
+      imu_data.linear_acceleration.norm() > 8 * 9.8) {
+    LOG(WARNING) << "Imu value err->"
+                 << "gry: " << imu_data.angular_velocity.norm()
+                 << " acc: " << imu_data.linear_acceleration.norm();
+    return;
+  }
   for (const auto& f : imu_call_backs_) {
     f.second(imu_data);
   }
@@ -490,11 +499,16 @@ uint64_t DataCapture::GetOrigImuTime(const uint64_t& time) {
 //
 //
 void DataCapture::ProcessImag(const CameraFrame& frame) {
-  const auto frame_data = ToFrameData(frame, option_);
-  if (frame_data.images[0].empty()||frame_data.images[1].empty()) {
-    LOG(ERROR)<<"Parse image err..";
-    return;
-  }
+   auto frame_data = ToFrameData(frame, option_);
+// test_lost_ ++;
+//    test_lost_ = (test_lost_) % 1000;
+//    if (test_lost_ >=600  && test_lost_ <=604) {
+//      frame_data.images[0] = cv::Mat();
+//    }
+   // if (frame_data.images[0].empty()||frame_data.images[1].empty()) {
+   //   LOG(ERROR)<<"Parse image err..";
+   //   return;
+   // }
 #ifdef NEED_SYNC
   image_catch_.push_back(std::make_pair(frame.head.sys_count, frame_data));
   if (image_catch_.size() <= 2) {

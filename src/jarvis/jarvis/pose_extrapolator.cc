@@ -128,7 +128,8 @@ void PoseExtrapolator::AddOdometryData(
 }
 
 transform::Rigid3d PoseExtrapolator::ExtrapolatePose(const common::Time time) {
-  if( timed_pose_queue_.empty())return transform::Rigid3d::Identity();
+  // if( timed_pose_queue_.empty())return transform::Rigid3d::Identity();
+  CHECK(!timed_pose_queue_.empty());
   const TimedPose& newest_timed_pose = timed_pose_queue_.back();
   
   CHECK_GE(time, newest_timed_pose.time);
@@ -180,7 +181,7 @@ void PoseExtrapolator::TrimImuData() {
          imu_data_[1].time <= timed_pose_queue_.back().time) {
     imu_data_.pop_front();
   }
-  LOG_EVERY_N(INFO, 10) << "IMU size: " << imu_data_.size();
+  // LOG_EVERY_N(INFO, 10) << "IMU size: " << imu_data_.size();
 }
 
 void PoseExtrapolator::TrimOdometryData() {
@@ -189,7 +190,7 @@ void PoseExtrapolator::TrimOdometryData() {
     odometry_data_.pop_front();
   }
 
-  LOG_EVERY_N(INFO,10)<<"IMU size: "<<odometry_data_.size();
+  // LOG_EVERY_N(INFO,10)<<"IMU size: "<<odometry_data_.size();
 }
 
 void PoseExtrapolator::AdvanceImuTracker(const common::Time time,

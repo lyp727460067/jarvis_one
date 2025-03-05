@@ -123,7 +123,6 @@ void OrderedMultiQueue::Dispathch() {
       }
       ++it;
     }
-    
     const common::Time common_start_time = GetStartCommontime();
     int next_queue_size = 0;
     {
@@ -135,16 +134,18 @@ void OrderedMultiQueue::Dispathch() {
       std::unique_ptr<Data> data = nullptr;
       {
         std::lock_guard<std::mutex> lock(mutex_);
+        bool is_image_continue =false;
         #ifdef __ARM_PLATFORM__
         if (next_queue_key == "/usb_cam_1/image_raw/compressed") {
-            if (next_queue->queue.size() >= 2) {
-              // LOG(ERROR) << next_queue_key << " size > 2,Drop it."
-              //            << next_queue->queue.front()->GetTime();
-              next_queue->queue.pop();
-              continue;
-            }
+          while (next_queue->queue.size() >= 3) {
+            LOG(ERROR) << next_queue_key << " size > 3,Drop it."
+                       << next_queue->queue.front()->GetTime();
+            next_queue->queue.pop();
+            is_image_continue = true;
+          }
         }
-        #endif
+        if (is_image_continue) continue;
+#endif
         data = std::move(next_queue->queue.front());
         next_queue->queue.pop();
       }
