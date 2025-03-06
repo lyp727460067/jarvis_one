@@ -487,7 +487,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
         }
         const transform::Rigid3d pose = prior_pose_.value().second->pose;
         InitialPoseFactor *f =
-            new InitialPoseFactor(1000, pose.translation(), pose.rotation());
+            new InitialPoseFactor(2000, pose.translation(), pose.rotation());
         problem.AddResidualBlock(f, nullptr, para_Pose[0]);
       }
       prior_pose_.reset();
