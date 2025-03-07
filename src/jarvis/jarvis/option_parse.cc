@@ -365,16 +365,33 @@ void ParseYAMLOption(const std::string &file_path,
 
       calibrate_options->masks[0] = tmp;
     } catch (...) {
+      LOG(ERROR) << "Get Mask 0 erro";
+      calibrate_options->masks[0] = cv::Mat();
     };
   };
+  //
 
-  //  /
-  //  calibrate_options->masks[2] =
-  //      GetMask(paras, "side_left_contour",
-  //              calibrate_options->camera_options[2].resolution);
-  //  calibrate_options->masks[3] =
-  //      GetMask(paras, "side_right_contour",
-  //              calibrate_options->camera_options[3].resolution);
+  try {
+    calibrate_options->masks[2] =
+        GetMask(paras, "side_left_contour",
+                calibrate_options->camera_options[2].resolution);
+  } catch (...) {
+    calibrate_options->masks[2] = cv::Mat();
+    LOG(ERROR)<<"Get Mask 2 erro";
+  };
+  //  
+  try {
+   calibrate_options->masks[3] =
+       GetMask(paras, "side_right_contour",
+               calibrate_options->camera_options[3].resolution);
+  } catch (...) {
+    LOG(ERROR)<<"Get Mask 3 erro";
+    calibrate_options->masks[3] = cv::Mat();
+  };
+  //  
+
+
+
 }
 
 void ParseYAMLOptionImuOption(cv::FileStorage *fs, jarvis::ImuOption *option,
@@ -574,11 +591,9 @@ void ParseYAMLOption(const std::string &file,
       //
       option->feature_track_options.push_back(feature_manager_option);
     }
-    // cv::imshow("mask1",option->feature_track_options[0].mask);
-    // cv::imshow("mask2",calib_option.masks[0]);
-    if (!calib_option.masks[0].empty()) {
-      option->feature_track_options[0].mask &= calib_option.masks[0];
-    }
+    //
+    //
+
     // cv::imshow("mask",option->feature_track_options[0].mask);
     //
     for (int i = 1; i < track_cam_num; i++, j++) {
@@ -599,7 +614,19 @@ void ParseYAMLOption(const std::string &file,
     }
     //
     //
-
+    if (!calib_option.masks[0].empty()) {
+      // cv::imshow("mask0", calib_option.masks[0]);
+      option->feature_track_options[0].mask &= calib_option.masks[0];
+    }
+    if (!calib_option.masks[2].empty()) {
+      // cv::imshow("mask1", calib_option.masks[2]);
+      option->feature_track_options[1].mask &= calib_option.masks[2];
+    }
+    if (!calib_option.masks[3].empty()) {
+      option->feature_track_options[2].mask &= calib_option.masks[3];
+      // cv::imshow("mask2", calib_option.masks[3]);
+    }
+    // cv::waitKey(0);
     int use_stero = fsSettings["use_stero"];
     option->use_stero = (use_stero == 1);
     option->feature_track_options[0].extric_camera_to_imu =

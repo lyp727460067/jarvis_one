@@ -62,7 +62,7 @@ local_map_track_option:
  sequence_match : "{0,1,2}"
  match_senquence0_alone: 0
  huber_loss : 0.1
- kf_max_distance : 2
+ kf_max_distance : 3
  cell_sizes : "{0, 16}, {1, 16}, {2, 16}"
  max_num_pick_num : 100
  max_cell_sizes : "{0, 32}, {1, 32}, {2, 32}"

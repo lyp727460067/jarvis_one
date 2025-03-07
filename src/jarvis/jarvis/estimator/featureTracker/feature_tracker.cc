@@ -429,8 +429,9 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   }
   // auto shwo_image1 =
   //     GenerateImageWithKeyPoint(_img, cur_pts, cv::Mat(),{});
-
   // cv::imshow("shwo_image1 ", shwo_image1);
+  // cv::imshow("mask_image",_img&options_.mask);
+  // cv::waitKey(0);
   int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
   auto n_pts =
       feature_detect_->Detect(_img, v_cur_pts, init ? 100  : n_max_cnt,

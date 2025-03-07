@@ -13,7 +13,10 @@ PoseExtrapolatorBrige::PoseExtrapolatorBrige(
           new PoseExtrapolator(pose_queue_duration, imu_gravity_time_constant)),
       last_extrapolator_(
           new PoseExtrapolator(pose_queue_duration, imu_gravity_time_constant)),
-      last_pose_time_(start_time) {}
+      last_pose_time_(start_time) {
+  extrapolator_->AddPose(last_pose_time_, transform::Rigid3d::Identity());
+  last_extrapolator_->AddPose(last_pose_time_, transform::Rigid3d::Identity());
+}
 
 //
 void PoseExtrapolatorBrige::Reset(jarvis::common::Duration pose_queue_duration,
@@ -32,7 +35,8 @@ void PoseExtrapolatorBrige::Reset(jarvis::common::Duration pose_queue_duration,
   vio_to_odom_transform_ = transform::Rigid3d::Identity();
   catch_last_pose_ = transform::Rigid3d::Identity();
   pose_state_ = true;
-  AddPose(start_time, transform::Rigid3d::Identity());
+  extrapolator_->AddPose(last_pose_time_, transform::Rigid3d::Identity());
+  last_extrapolator_->AddPose(last_pose_time_, transform::Rigid3d::Identity());
 }
 //
 void PoseExtrapolatorBrige::AddPose(common::Time time,
@@ -90,7 +94,7 @@ bool PoseExtrapolatorBrige::AddImuData(const sensor::ImuData& imu_data) {
     last_imu_time_ = imu_data.time;
   }
   if (common::ToSeconds(imu_data.time - last_imu_time_.value()) > 0.03) {
-    LOG(WANRING) << "Imu interval too large,"
+    LOG(WARNING) << "Imu interval too large,"
                  << common::ToSeconds(imu_data.time - last_imu_time_.value());
     return false;
   }
@@ -103,10 +107,10 @@ bool PoseExtrapolatorBrige::AddImuData(const sensor::ImuData& imu_data) {
 void PoseExtrapolatorBrige::AddOdometryData(
     const sensor::OdometryData& odometry_data) {
   if (!last_odo_time_.has_value()) {
-    last_imu_time_ = odometry_data.time;
+    last_odo_time_ = odometry_data.time;
   }
   if (common::ToSeconds(odometry_data.time - last_odo_time_.value()) > 0.5) {
-    LOG(WANRING) << "odo interval too large,"
+    LOG(WARNING) << "odo interval too large,"
                  << common::ToSeconds(odometry_data.time -
                                       last_odo_time_.value());
   }
