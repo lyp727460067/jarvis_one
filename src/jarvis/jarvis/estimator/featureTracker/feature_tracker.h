@@ -111,7 +111,7 @@ class XpCalcOpticalFlowPyrLK : public CalcOpticalFlowPyrLK {
                   const std::map<uint64_t, PointCnt> &prev_pts,
                   std::map<uint64_t, PointCnt> &cur_pts, int flags = 0
 
-  );
+  )override;
 };
 
 class FeatureTracker {

@@ -142,11 +142,7 @@ std::map<int, Eigen::Vector3d> SlideWindow::PredictNextFrame(
 std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     const FrameData& frame) {
   //
-  if (init_steady_num_ < 20) {
-    init_steady_num_++;
-  } else {
-    optimization_->SetSlideCamOp(true);
-  }
+  
   //
   const double dt = camera_imu_time_offset_;
   //
@@ -341,6 +337,11 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
       imu_states_, extric_camera_to_imu_);
   TrackingData front_data;
   if (is_keyframe) {
+    if (init_steady_num_ < 30) {
+      init_steady_num_++;
+    } else {
+      optimization_->SetSlideCamOp(true);
+    }
     front_data = GetratePriorData(true);
   }
   SlideData(is_keyframe);
