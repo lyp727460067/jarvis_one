@@ -69,10 +69,14 @@ class GridMap {
   //
   virtual bool HasValue(const Eigen::Vector2i& index)=0;
   //
+  virtual std::string ComputeSensorRatio(const std::string& sensor_id, double time,
+                                 double period_sencod) = 0;
+
   virtual ~GridMap() {}
   static std::unique_ptr<GridMap> Create(
       const std::map<int, GridMapOption>& option);
 };
+
 }  // namespace grid_map
 }  // namespace jarvis
 #endif

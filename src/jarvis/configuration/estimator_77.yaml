@@ -11,9 +11,9 @@ track_sequence: "{0,1},{2},{3}"
 
 feattrack0:
   max_cnt: 50          # max feature number in feature tracking
-  try_recalc_min_num: 20
-  min_dist:   40          # min distance between two features 
-  mask_min_dist:  45
+  try_recalc_min_num: 30
+  min_dist:  40           # min distance between two features 
+  mask_min_dist:  55
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
@@ -28,7 +28,7 @@ feattrack0:
 ####
 feattrack1:
   max_cnt:  20         # max feature number in feature tracking
-  try_recalc_min_num: 8
+  try_recalc_min_num: 5
   min_dist:  60          # min distance between two features 
   mask_min_dist:  30 
   F_threshold: 1.0        # ransac threshold (pixel)
@@ -43,7 +43,7 @@ feattrack1:
   mask : mask0.png
 feattrack2:
   max_cnt: 20        # max feature number in feature tracking
-  try_recalc_min_num: 8
+  try_recalc_min_num: 5
   min_dist:  60           # min distance between two features 
   mask_min_dist:  30 
   F_threshold: 1.0        # ransac threshold (pixel)
@@ -62,7 +62,7 @@ optimization:
   max_solver_time: 0.05  # max solver itration time (ms), to guarantee real time
   max_num_iterations: 1   # max solver itrations, to guarantee real time
   use_odom : 1
-  camera_weight : 300
+  camera_weight : 251
   estimate_extrinsic: 1  # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
   huber_loss : 1
@@ -96,13 +96,13 @@ feature_manager :
   last_track_num : 20
   long_track_num : 10
   new_feature_ration : 0.5
-  optimazation_outliers_rejection_th : 5  
+  optimazation_outliers_rejection_th : 3  
   rejection_points_depth_max_th : 20
 
 imu_option: 
   #imu parameters       The more accurate parameters you provide, the better performance
   acc_n: 0.1      # accelerometer measurement noise standard deviation. 
-  gyr_n: 0.01        # gyroscope measurement noise standard deviation.     
+  gyr_n: 0.005        # gyroscope measurement noise standard deviation.     
   acc_w: 0.001        # accelerometer bias random work noise standard deviation.  
   gyr_w: 0.001       # gyroscope bias random work noise standard deviation.     
   g_norm: 9.81     # gravity magnitude

@@ -3,10 +3,11 @@
 #include "jarvis/grid_map/2d/voxel_filter.h"
 #include "opencv2/opencv.hpp"
 #include "jarvis/utility/tic_toc.h"
+#include "jarvis/common/rate_timer.h"
 namespace jarvis {
 namespace grid_map {
 //
-
+std::map<std::string, common::RateTimer<>> rate_timers_;
 //
 sensor::PointCloud ToLaserData(const GridMapOption& option,
                                const PointCloud& point_cloud) {
@@ -229,6 +230,33 @@ void GridImpl::ToPgn(const std::string& dir) {
     // cv::waitKey(0);
     cv::imwrite(dir + "_" + std::to_string(submap_pair.first) + ".png", image);
   }
+}
+std::string GridImpl::ComputeSensorRatio(const std::string& sensor_id, double time,
+                               double period_sencod) {
+  static std::chrono::steady_clock::time_point last_logging_time_ =
+      std::chrono::steady_clock::now();
+  auto it = rate_timers_.find(sensor_id);
+  if (it == rate_timers_.end()) {
+    it = rate_timers_
+             .emplace(
+                 std::piecewise_construct, std::forward_as_tuple(sensor_id),
+                 std::forward_as_tuple(
+                     common::FromSeconds(period_sencod)))
+             .first;
+  }
+  it->second.Pulse(common::Time(common::FromSeconds(time)));
+  std::string result;
+  if (std::chrono::steady_clock::now() - last_logging_time_ >
+      common::FromSeconds(period_sencod)) {
+    for (const auto& pair : rate_timers_) {
+      // LOG(INFO) << pair.first << " rate: " << pair.second.DebugString();
+      result += pair.first;
+      result += "rate:";
+      result += pair.second.DebugString();
+    }
+    last_logging_time_ = std::chrono::steady_clock::now();
+  }
+  return result;
 }
 
 }  // namespace grid_map

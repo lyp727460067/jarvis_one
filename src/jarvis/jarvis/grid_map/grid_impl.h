@@ -28,9 +28,14 @@ class GridImpl : public GridMap {
   PointCloud Votex(const PointCloud& point_clous,float size=0.5) override;
   void ToPgn(const std::string& dir);
   //
+  std::string ComputeSensorRatio(const std::string& sensor_id, double time,
+                                 double period_sencod) ;
+  // std::map<std::string, common::RateTimer<>> rate_timers_;
+
  private:
   std::map<int, GridMapOption> options_;
   //
+  // std::chrono::steady_clock::time_point last_logging_time_;
   transform::Rigid2f last_pose_;
   std::map<uint8_t, std::unique_ptr<ActiveSubmaps2D>> active_submaps_;
 };
