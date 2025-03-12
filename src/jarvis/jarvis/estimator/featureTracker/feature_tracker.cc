@@ -61,7 +61,6 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
         std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
 
 
-
   }
   //
   klt_option.win_size = cv::Size(21, 21);
@@ -78,8 +77,8 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
     LOG(INFO) << "stereo offset : " << options_.stere_cam_offset.transpose()
               << ",undistort " << stere_cam_offset_.head<2>().transpose();
   }
-  klt_option.win_size = cv::Size(21, 21);
-  calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
+  // klt_option.win_size = cv::Size(21, 21);
+  // calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
   //
   if(!options_.extric_camera_to_imu.empty()){
     cam0_to_cam1_extric_ = options_.extric_camera_to_imu[1].inverse() *
@@ -226,6 +225,7 @@ void CalcOpticalFlowPyrLK::operator()(
   // CHECK_EQ(int(pre_image.size()), (options_.level+1) * 2)
       // << "Image need deriv image";
   //
+  CHECK(false);
   std::vector<uchar> status;
   std::vector<float> err;
   std::vector<cv::Point2f> v_prev_pts(prev_pts.size());
@@ -348,7 +348,7 @@ std::map<uint64_t, PointCnt> FeatureTracker::TrackImage(
   const int succ_num = cur_pts.size();
   if (succ_num < options_.try_recalc_min_num && flags != 0) {
     cur_pts.clear();
-    calc_optical_flow_pyrlk(pre_image, cur_image, prev_pts, cur_pts);
+    calc_optical_flow_pyrlk_r_->operator()(pre_image, cur_image, prev_pts, cur_pts);
   }
   //
   if(cur_pts.empty())return {};
@@ -429,8 +429,9 @@ ImageFeatureTrackerData FeatureTracker::TrackImage(
   }
   // auto shwo_image1 =
   //     GenerateImageWithKeyPoint(_img, cur_pts, cv::Mat(),{});
-
   // cv::imshow("shwo_image1 ", shwo_image1);
+  // cv::imshow("mask_image",_img&options_.mask);
+  // cv::waitKey(0);
   int n_max_cnt = options_.max_feat_cnt - static_cast<int>(cur_pts.size());
   auto n_pts =
       feature_detect_->Detect(_img, v_cur_pts, init ? 100  : n_max_cnt,

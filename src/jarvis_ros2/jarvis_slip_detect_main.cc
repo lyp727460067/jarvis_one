@@ -118,7 +118,7 @@ void InitializeExtrapolator(const common::Time time) {
   if (kPoseExtrapolator_ != nullptr) return;
   kPoseExtrapolator_ = std::make_unique<jarvis_pic::PoseExtrapolatorBrige>(
       common::FromSeconds(2.), 10., time);
-  kPoseExtrapolator_->AddPose(time, transform::Rigid3d::Identity());
+  // kPoseExtrapolator_->AddPose(time, transform::Rigid3d::Identity());
 }
 
 std::unique_ptr<sensor::OrderedMultiQueue> order_queue_ = nullptr;

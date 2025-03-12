@@ -134,14 +134,14 @@ bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
   //
   double delta_angle = abs(common::RadToDeg(transform::GetAngle(delta_pose)));
   //
-  if (time_diff >= 0.001) {
-    const double velocity_normal = delta_pose.translation().norm() / time_diff;
-    LOG(INFO)<<velocity_normal ;
-    if (velocity_normal > options_.max_velocity_normal) {
-      LOG(ERROR) << " max_velocity_normal too big" << velocity_normal;
-      return true;
-    }
-  }
+  // if (time_diff >= 0.001) {
+  //   const double velocity_normal = delta_pose.translation().norm() / time_diff;
+  //   LOG(INFO)<<velocity_normal ;
+  //   if (velocity_normal > options_.max_velocity_normal) {
+  //     LOG(ERROR) << " max_velocity_normal too big" << velocity_normal;
+  //     return true;
+  //   }
+  // }
   last_frame_poses_ = curr_pose;
   if (delta_pose.translation().norm() > translation_threash_hold ||
       delta_angle > options_.ratation_max ||

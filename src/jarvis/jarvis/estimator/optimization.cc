@@ -438,9 +438,10 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
     VLOG(kGlogCostTimeLevel) << "add frame factor costs " << t_t.toc() << " ms";
   }
   //
+
+  int camera_factor_num = 0;
   {
     TicToc t_t;
-    int camera_factor_num = 0;
     for (int i = 0; i < options_.TrackNum(); i++) {
       if (frames_data->feat_manager_factors->Exist(i)) {
         camera_factor_num += AddCameraFactor(
@@ -477,17 +478,19 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
         LOG(INFO) << "Add prio local map match:"
                   << prior_pose_.value().second->matchs.size();
         const int k = prior_pose_.value().first;
-        for (const auto &match : prior_pose_.value().second->matchs) {
-          //
-          problem.AddResidualBlock(
-              ReProjectionErrProblem::Creat(match.normal, match.map_point,
-                                            options_.prio_pose_weight),
-              nullptr, para_Pose[k],
-              para_Ex_Pose[options_.trace_sequence[match.s][0]]);
+        if (camera_factor_num > options_.camera_factor_num_th) {
+          for (const auto &match : prior_pose_.value().second->matchs) {
+            //
+            problem.AddResidualBlock(
+                ReProjectionErrProblem::Creat(match.normal, match.map_point,
+                                              options_.prio_pose_weight),
+                nullptr, para_Pose[k],
+                para_Ex_Pose[options_.trace_sequence[match.s][0]]);
+          }
         }
         const transform::Rigid3d pose = prior_pose_.value().second->pose;
         InitialPoseFactor *f =
-            new InitialPoseFactor(1000, pose.translation(), pose.rotation());
+            new InitialPoseFactor(100, pose.translation(), pose.rotation());
         problem.AddResidualBlock(f, nullptr, para_Pose[0]);
       }
       prior_pose_.reset();
