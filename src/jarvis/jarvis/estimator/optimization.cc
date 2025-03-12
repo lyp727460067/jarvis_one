@@ -478,6 +478,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
         LOG(INFO) << "Add prio local map match:"
                   << prior_pose_.value().second->matchs.size();
         const int k = prior_pose_.value().first;
+        bool need_add_init_factory = false;
         if (camera_factor_num > options_.camera_factor_num_th) {
           for (const auto &match : prior_pose_.value().second->matchs) {
             //
@@ -487,11 +488,14 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
                 nullptr, para_Pose[k],
                 para_Ex_Pose[options_.trace_sequence[match.s][0]]);
           }
+          need_add_init_factory = true;
         }
-        const transform::Rigid3d pose = prior_pose_.value().second->pose;
-        InitialPoseFactor *f =
-            new InitialPoseFactor(100, pose.translation(), pose.rotation());
-        problem.AddResidualBlock(f, nullptr, para_Pose[0]);
+        if (need_add_init_factory) {
+          const transform::Rigid3d pose = prior_pose_.value().second->pose;
+          InitialPoseFactor *f =
+              new InitialPoseFactor(100, pose.translation(), pose.rotation());
+          problem.AddResidualBlock(f, nullptr, para_Pose[0]);
+        }
       }
       prior_pose_.reset();
     }
