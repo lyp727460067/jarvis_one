@@ -22,22 +22,34 @@ struct FailureDetectOptoin {
   int zero_odo_pose_size = 40;
   bool use_odom =false;
   double max_velocity_normal = 1.5;
+  transform::Rigid3d transform_odom_to_imu ;
+  double odo_pose_delta_s =0.4;
 };
 
 class FailureDetect {
  public:
+  struct TimePose {
+    jarvis::common::Time time;
+    jarvis::transform::Rigid3d pose;
+  };
+
   FailureDetect(const FailureDetectOptoin& option) : options_(option) {}
   bool Detect(const SlideWindowResult& frame_data);
+  void AddOdometryData(const sensor::OdometryData& odometry_data);
 
  private:
   bool TimeLost(const common::Time& time);
   bool OdoZeroDetect(const SlideWindowResult& frame_data);
+  template <typename T>
+  void DropData(const common::Time& time, std::deque<T>* deque);
+  // void TrimData(const common::Time& time);
   std::optional<common::Time> last_frame_data_;
   FailureDetectOptoin options_;
   std::vector<bool> failuer_track_lost_;
   std::vector<bool> failuer_zero_odo_lost_;
   std::optional<transform::Rigid3d> last_frame_poses_;
-  std::vector<transform::Rigid3d> lost_last_poses_;
+  std::deque<jarvis::sensor::OdometryData> odometry_data_;
+  std::deque<TimePose> lost_last_poses_;
 };
 
 }  // namespace estimator

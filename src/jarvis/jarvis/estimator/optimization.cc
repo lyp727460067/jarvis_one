@@ -485,7 +485,7 @@ OptimizationStateData *Optimization::Solve(Marginalization *marg,
             problem.AddResidualBlock(
                 ReProjectionErrProblem::Creat(match.normal, match.map_point,
                                               options_.prio_pose_weight),
-                nullptr, para_Pose[k],
+                new ceres::HuberLoss(3.0), para_Pose[k],
                 para_Ex_Pose[options_.trace_sequence[match.s][0]]);
           }
           need_add_init_factory = true;

@@ -682,6 +682,11 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["zero_odo_pose_size"];
     //
     //
+    //
+    option->fail_detect_option.transform_odom_to_imu =
+        calib_option.extric_camera_to_robot *
+        calib_option.extric_camera_to_imu[0].inverse();
+    //
     // option->slide_windows_option.track_cam_num = option->track_cam_num;
     option->slide_windows_option.track_sequence = option->track_sequence;
     option->slide_windows_option.win_size = option->win_size;
