@@ -27,11 +27,11 @@ constexpr char WHITE[] = "\033[37m";   /* White */
 }  // namespace log_info
 //
 struct MapPoint {
-  Eigen::Vector3d pos;//相对于
+  Eigen::Vector3d pos;//相对于局部地图
   mapping::Descriptor des;
   MapPointId local_id;
   KeyFrameId reference_frame_id;
-  bool extend = false;
+  bool extend = false;   //是否为扩展的地图点
   // Eigen::Vector3d global_pos;
 };
 
@@ -49,45 +49,47 @@ struct FeatureData {
   const Eigen::Vector2d Point() const {
     return Eigen::Vector2d{key_point.pt.x, key_point.pt.y};
   }
-  Eigen::Vector3d f;
+  Eigen::Vector3d f;//归一化坐标
   cv::KeyPoint r_key_point_normal;
   Eigen::Vector3d r_normal{0,0,0};
 };
 //
-
+enum TrajectorStates { Normal, Frozen, Finish };
 extern const std::vector<std::vector<int>> track_sequence ;//= {{0, 1}, {2}, {3}};
 struct KeyFrameData {
   struct Data {
     common::Time time;
     transform::Rigid3d pose;  // imu_pose
-    std::vector<transform::Rigid3d> extric_camera_to_imu;
-    //
-    std::vector<std::vector<cv::Mat>> pyramid;
-    std::vector<Eigen::AlignedBox2i> *image_sizes;
+    std::vector<transform::Rigid3d> extric_camera_to_imu;  //  Tic*Pc = Pi   
+    // 0 1 2 3  
+    std::vector<std::vector<cv::Mat>> pyramid;  // lk_pre_max_layer : 3+1
+    std::vector<Eigen::AlignedBox2i> *image_sizes; //图像大小
 
-    MapById<FeatureId, Eigen::Vector3d> map_points;  // esitimap points
-    std::map<FeatureId, MapPointId> map_point_ids;
+    MapById<FeatureId, Eigen::Vector3d> map_points;  // esitimap points  + extend map points (extend_key_points_num)
+    std::map<FeatureId, MapPointId> map_point_ids; 
     //
     MapById<FeatureId, Descriptor> descriptors;
     MapById<FeatureId, FeatureData> features;
     dbow::DbowData dbow_data;
     //
-    std::vector<sensor::ImuData> imu_datas;
+    // std::vector<sensor::ImuData> imu_datas;
     const std::vector<cv::Mat> &Pyramid(int s) const {
       return pyramid.at(track_sequence[s][0]);
     }
-    transform::Rigid3d CameraPose(int s) {
+    transform::Rigid3d CameraPose(int s)const {
       return pose * extric_camera_to_imu[track_sequence[s][0]];
+    }
+    transform::Rigid3d ImuPose(const transform::Rigid3d &pos, int s) const {
+      return pos * extric_camera_to_imu[track_sequence[s][0]].inverse();
     }
     //
     transform::Rigid3d CameraPose(const transform::Rigid3d &pos, int s) {
       return pos * extric_camera_to_imu[track_sequence[s][0]];
     }
     bool extend_data_compute = false;
-
-    transform::Rigid3d global_pos;
   };
   std::shared_ptr<Data> data;
+  transform::Rigid3d global_pose;
 };
 
 }  // namespace mapping

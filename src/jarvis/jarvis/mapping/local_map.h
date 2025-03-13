@@ -22,7 +22,6 @@ namespace mapping {
 //
 struct LocalMapOption {
   int max_kf_num = 100;
-  KeyFrameDataBaseOption key_frame_data_option;
   match::ProjectionOption local_track_project_search_option;
   DataCullingOption data_culling_option;
 
@@ -93,8 +92,8 @@ class LocalMap {
     return data_.key_frames_ref_pose;
   }
   //
-  std::set<KeyFrameId> GetTrimBeforKeyFrameId() {
-    return data_.trim_befor_key_frame_id;
+  std::set<KeyFrameId> GetBeforTrimKeyFrameId() {
+    return data_.removed_keyframes_ids_before_trim;
   };
   //
   int Size() { return data_.key_frames_datas.size(); }
@@ -106,7 +105,7 @@ class LocalMap {
   //
   std::pair<std::map<FeatureId, MapPointId>, MapById<MapPointId, MapPointData>>
   GetKeyFrameMapPointsData(const KeyFrameId &frame_id) const;
-
+ 
   //
   struct Data {
     transform::Rigid3d local_pose;                                // 局部地图相对全局系的坐标(旋转量与全局坐标一致,只有平移量)
@@ -114,11 +113,11 @@ class LocalMap {
     std::map<KeyFrameId, transform::Rigid3d> key_frames_ref_pose; // 每帧相对local_pose的位姿
     MapById<MapPointId, MapPointData> map_points;                 // 每个地图点在局部地图坐标系的位置
     Covisibility covisibility;
-    std::set<KeyFrameId> trim_befor_key_frame_id;
+    std::set<KeyFrameId> removed_keyframes_ids_before_trim;
   };
   //
   Data *MutableData() { return &data_; }
-  const Data ConstData() const { return data_; }
+  const Data& ConstData() const { return data_; }
   //
   void InsertOutOutliers(
       const std::set<MapPointId> &new_out_outliers_map_points);
@@ -144,8 +143,6 @@ class LocalMap {
   LocalMapOption options_;
 
   //
-  std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
-
   std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
   std::unique_ptr<DataCulling> data_culling_;
   bool finish_ = false;

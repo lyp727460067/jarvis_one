@@ -3,8 +3,8 @@
 enable_local_track: 1
 enable_track_map_opti: 0
 enable_local_opimization: 0
-enable_loop_closure : 0
-thread_pool_num : 4
+enable_loop_closure : 1
+thread_pool_num : 1
 track_map_opti_sampler : 0.1
 construct_use_des_match : 0
 ##
@@ -19,14 +19,9 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  70
+ max_kf_num :  60
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
- key_frame_data_option:
-  min_core: 0.8
-  sharing_words_count_min_is_max_ration: 0.8
-  min_shared_words_num  : 10
-  min_distance_threash_hold: 5
  local_track_project_search_option:
   viewing_angle_threash_hold : 0.5
   area_search_radius : 8 
@@ -73,7 +68,7 @@ local_map_track_option:
   use_affine_warp : 1
   affine_est_offset: 1 
   affine_est_gain : 1
-  align_max_iter: 5 
+  align_max_iter: 10 
   no_simd: 0
   max_patch_diff_ratio: 0.9
   subpix_refinement: 1
@@ -107,48 +102,119 @@ finish_track_local_map_opt_option:
   only_pose_graph : false
   ceres_num_threads : 16
 map_manager_option: 
-  use_6_tof_op : 0
+  local_map_op_use_6dof : 0
+  pose_graph_op_use_6dof: 0
+  enable_local_map_full_op : 0
+  same_trajectory_max_loop_detect_distance : 50.0
+  max_loop_detct_distance : 60.0
+  continuous_candidate_loop_frame : 10
+  pose_graph_optimize_min_kf_min_num : 50
+  constraint_compute_sampler : 0.1
+  global_constraint_search_after_n_seconds : 10
+  ##
   local_map_optimization_option:
-   re_preject_weight: 377
-   max_num_iterations : 10
-   relative_weight : 200
-   huber_loss : 1
-   optimize_intric : 0
-   use_rtk: 0
-   fix_extric : 0
-   only_pose_graph : false
-   ceres_num_threads : 16
+    re_preject_weight: 377
+    max_num_iterations : 10
+    relative_weight : 200
+    huber_loss : 1
+    optimize_intric : 0
+    use_rtk: 0
+    fix_extric : 0
+    only_pose_graph : false
+    ceres_num_threads : 16
+  ##
+  pose_graph_option:
+    fix_extric :1
+    max_num_iterations : 20
+    ceres_num_threads : 4
+    relative_t_weitht : 1e4
+    relative_r_weitht : 1e4
+    huber_scale : 2.0
+    constraint_loop_closer_t_weigth : 1e3
+    constraint_loop_closer_r_weigth : 1e3
+    constraint_t_weigth : 1e4
+    constraint_r_weigth : 1e4
+
+  loop_detect_option:
+    convisi_level_search_num  : "{5,3}" #共視關係的數量   
+    pnp_solve_typ :0  #  pnp  opekcv orb 多目
+    huber_loss : 1.0   #   優化核函數
+    outlier_min_err : 8.0  #像素 
+    max_num_iterations : 2  #優化迭代次數
+    op_weight : 1e3 # 優化優化權重
+    op_init_t_weight : 10  #沒用
+    op_init_r_weight : 10 #沒用
+    min_filter_dbow_covisi_score : 0.75  #  共视dobw相似分数大于最大分数*score 
+    candidata_reproject_min_num : 15  #反向投影特征的最小数量
+    area_search_grid_lenth : 10  # 区域搜索的格子大小
+    end_non_adjacent_id_count : 5 #没用
+    constraint_consistent_filter_num : 5 #連續組的數量
+    dbow_match_describe_distance_threashold : 80 #搜索數量
+    dbow_search_match_num : 20  ##dbow匹配最小數量
+    min_pnp_need_features_num : 20 #pnp最小特正數量
+    min_pnp_inliers_num : 15 #pnp inlie數量
+    test_match_pic_write_path :   "" #"/home/lyp/project/vslam/jarvis/test/image/"
+    constraint_max_yaw : 50 #無用
+    constraint_max_distance : 30 #約束最大距離
+    pnp_solver_option:  
+      min_inliers : 10
+      probability : 0.99
+      max_iterations : 100
+      iterations : 10
+      min_set : 8
+      epsilon : 0.7
+      th2 : 0.017570423
+    project_option:  #候选帧和目标关键帧的投影
+      viewing_angle_threash_hold : 0.5 #没用
+      area_search_radius : 10  #投影搜索半径
+      project_pix_err : 0.0   #没用
+      project_best_des_dis : 90  #描述子距离
+      box_boundary_distance : 10  #边界距离
+    additional_project_option:   #附近的关键帧投影
+      viewing_angle_threash_hold : 0.5
+      area_search_radius : 20
+      project_pix_err : 0.0
+      project_best_des_dis : 100
+      box_boundary_distance : 10
+    key_frame_data_option:
+      # min_core :0.03
+      min_core :0.015   #相似度 L1
+      sharing_words_count_min_is_max_ration: 0.95  #   0。95*相似的个数>min_shared_words_num  
+      min_shared_words_num  : 50    #特帧点共同的数
+      min_distance_threash_hold : 5 #米 两个关键帧之间的距离
+
+
+
+
+
 
 map_point_construct_option:
- test_match_pic_write_path : "" #"/home/lyp/project/vslam/jarvis/test/image/"
+ test_match_pic_write_path :  "/home/lyp/project/vslam/jarvis/test/image/"
  use_local_track_match : 1
- con_struct_map_point_frame_min_distance : 0.1
+ con_struct_map_point_frame_min_distance : 0.5
  dbow_trasform_level : 4
  area_search_grid_lenth : 10
  construct_map_point_near_keframd_num : 10
- dbow_match_min_distance : 60
+ dbow_match_min_distance : 100
  ##
  track_project_search_option:
   viewing_angle_threash_hold : 0.5
-  area_search_radius : 8 
+  area_search_radius : 10
   project_pix_err : 0.0
-  project_best_des_dis : 60
-  box_boundary_distance : 20
+  project_best_des_dis : 120
+  box_boundary_distance : 10
 
  key_points_extract_option:
   type : 0
-  extend_key_points_num : 1000
+  extend_key_points_num : "{2000,500,500}"
   minimal_accepted_quality_corners : 0.01
-  min_distance : 2
+  min_distance : 1
  # descriptor_option:  
  point_check_dist_epipolar_option:
-  check_dist_epipolar_line_cos_parallax : 0.9998
+  check_dist_epipolar_line_cos_parallax : 0.99999
   first_cam_min_z_distance : 0.05
   first_cam_chi_squared : 5.991
   second_cam_min_z_distance : 0.05
   second_cam_chi_squared : 5.991
-    
-
-loop_detect_option:
 
 

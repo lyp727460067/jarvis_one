@@ -18,17 +18,15 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
   options_.mapping_option.local_map_track_option.thread_pool =
       thread_pool_.get();
   tracker_ = std::make_unique<estimator::Estimator>(options_.esti_option);
-  if (option.mapping_option.enable_loop_closure ||
-      (option.mapping_option.enable_local_opimization &&
-          option.mapping_option.construct_use_des_match)) {
+  if (option.mapping_option.enable_loop_closure) {
     voc_ = std::make_unique<dbow::Vocabulary>(
         dbow::GetVocabulary(0, option.mapping_option.vocabulary_filebrif));
   }
-  if (option.mapping_option.enable_loop_closure) {
-    CHECK(option.mapping_option.construct_use_des_match)
-        << "Enable loop closure must set mapping.yaml "
-           "construct_use_des_match=1";
-  }
+  // if (option.mapping_option.enable_loop_closure) {
+  //   CHECK(option.mapping_option.construct_use_des_match)
+  //       << "Enable loop closure must set mapping.yaml "
+  //          "construct_use_des_match=1";
+  // }
 
   map_builder_ =
       std::make_unique<MappingBuilder>(options_.mapping_option, voc_.get());

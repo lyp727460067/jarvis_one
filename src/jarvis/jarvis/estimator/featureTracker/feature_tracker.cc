@@ -31,7 +31,6 @@ namespace {}
 FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
     : options_(option) {
   m_camera = options_.cameras;
-
   VLOG(kGlogLevel) << option.pyrmid_option.image_size;
   feature_detect_ =
       std::make_unique<FeatureDetect>(option.feature_detect_option);
@@ -46,6 +45,7 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
   }
   cv::TermCriteria criteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30,
                             0.01);
+
   CalcOpticalFlowPyrLKOption klt_option{
       options_.pyrmid_option.layer,
       cv::Size{options_.pyrmid_option.lk_win_size,
@@ -67,6 +67,7 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
   // klt_option.level = 4;
   calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
   //
+
   if (!options_.extric_camera_to_imu.empty()) {
     cam0_to_cam1_extric_ = options_.extric_camera_to_imu[1].inverse() *
                            options_.extric_camera_to_imu[0];
@@ -77,21 +78,7 @@ FeatureTracker::FeatureTracker(const FeatureTrackerOption &option)
     LOG(INFO) << "stereo offset : " << options_.stere_cam_offset.transpose()
               << ",undistort " << stere_cam_offset_.head<2>().transpose();
   }
-  // klt_option.win_size = cv::Size(21, 21);
-  // calc_optical_flow_pyrlk_r_ = std::make_unique<XpCalcOpticalFlowPyrLK>(klt_option);
   //
-  if(!options_.extric_camera_to_imu.empty()){
-    cam0_to_cam1_extric_ = options_.extric_camera_to_imu[1].inverse() *
-                           options_.extric_camera_to_imu[0];
-    Eigen::Vector3d b;
-    m_camera[0]->liftProjective(options_.stere_cam_offset, b);
-    stere_cam_offset_ = (b / b.z());
-    // stere_cam_offset_.head<2>() = options_.stere_cam_offset;
-    stere_cam_offset_.z() =0;
-    LOG(INFO) << "stereo offset : " << options_.stere_cam_offset.transpose()
-              << ",undistort " << stere_cam_offset_.head<2>().transpose();
-
-  }
 }
 //
 //

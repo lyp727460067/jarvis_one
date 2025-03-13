@@ -12,9 +12,7 @@ namespace slip_detect {
 //
 SlipDetect::SlipDetect(const SlipDetectOption& option)
     : options_(option),
-      feature_tracker_(new estimator::FeatureTracker(
-          *static_cast<estimator::FeatureTrackerOption*>(
-              option.feat_tracker_option))) {
+      feature_tracker_(nullptr) {
   Eigen::Matrix3d rotaion;
   rotaion << 0, 0, 1, -1, 0, 0, 0, -1, 0;
   // LOG(INFO) << rotaion;

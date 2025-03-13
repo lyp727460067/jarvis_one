@@ -1,6 +1,6 @@
 #ifndef _JARVIS_LAOCAL_MAP_TRACK_H
 #define _JARVIS_LAOCAL_MAP_TRACK_H
-#include "jarvis/mapping/map_manger.h"
+#include "jarvis/key_frame_data.h"
 #include "jarvis/mapping/match/direct_match.h"
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/transform/transform.h"
@@ -83,10 +83,9 @@ class LocalMapTrack {
       const std::array<float, 2>& weight);
 
  private:
-
-
-  void WriteCheckMatchResult(const KeyFrameData& key_frame_data,
-      const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs);
+  void WriteCheckMatchResult(
+      const KeyFrameData& key_frame_data,
+      const std::map<int, std::vector<LocalMapTrack::MatchData>>& match_ids);
   //
   MapById<KeyFrameId, match::Frame> frame_warps_;
   //

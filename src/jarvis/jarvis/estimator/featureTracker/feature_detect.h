@@ -11,14 +11,14 @@ struct FeatureDetectOption {
   int fast_thresh_hold = 10;
   int min_distance = 30;
   int mask_min_dist =40;
-  Eigen::Vector2i imag_size;
+  Eigen::Vector2i imag_size{644,480};
   Eigen::Vector2i grid_size{64, 68};
   int num_thread_ = 1;
 };
 
 struct GridOption {
-  Eigen::Vector2i size;
-  int resolution;
+  Eigen::Vector2i size{10,10};
+  int resolution=10;
 };
 class Grid {
  public:

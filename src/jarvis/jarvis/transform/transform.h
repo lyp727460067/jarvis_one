@@ -96,6 +96,7 @@ Rigid3<T> Embed3D(const Rigid2<T> &transform) {
 }
 
 Eigen::Vector3d Rot2ypr(const Eigen::Matrix3d &R);
+Eigen::Vector3d ToRollPitchYaw(const Eigen::Quaterniond &q);
 
 }  // namespace transform
 }  // namespace jarvis

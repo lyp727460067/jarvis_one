@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.0)
 project(jarvis_main VERSION 1.0.0)
 # define GLOG_EXPORT __attribute__((visibility("default")))
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
-# set(BUILD_TYPE Debug)
 
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,7 +14,9 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   # -Wshadow # shadow local variable
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
-set(BUILD_TYPE Release)
+
+set(BUILD_TYPE Debug)
+# set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 

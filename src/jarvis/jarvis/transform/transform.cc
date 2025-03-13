@@ -4,6 +4,7 @@
 namespace jarvis {
 namespace transform {
 
+
 Eigen::Vector3d Rot2ypr(const Eigen::Matrix3d &R) {
   Eigen::Vector3d n = R.col(0);
   Eigen::Vector3d o = R.col(1);
@@ -20,5 +21,12 @@ Eigen::Vector3d Rot2ypr(const Eigen::Matrix3d &R) {
 
   return ypr / M_PI * 180.0;
 }
+
+Eigen::Vector3d ToRollPitchYaw(const Eigen::Quaterniond &q) {
+  Eigen::Vector3d ypr = Rot2ypr(q.toRotationMatrix());
+  return Eigen::Vector3d{common::DegToRad(ypr[2]), common::DegToRad(ypr[1]),
+                         common::DegToRad(ypr[0])};
+}
+
 }  // namespace transform
 }  // namespace jarvis

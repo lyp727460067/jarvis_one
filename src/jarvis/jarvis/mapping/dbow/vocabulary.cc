@@ -51,6 +51,7 @@ double DbowData::Score(const DbowData& v) const {
     const auto& vi = v.bow_vector.at(r);
     const auto& wi = this->bow_vector.at(r);
     score += fabs(vi - wi) - fabs(vi) - fabs(wi);
+    // score +=  sqrt(vi-wi);
   }
   return -score / 2.0;
 }
@@ -135,8 +136,8 @@ std::unique_ptr<proto::VocabularyData> GetVocabulary(
   std::unique_ptr<proto::VocabularyData> result = nullptr;
   info << "Pb has voc size: " << proto.vocabulary_datas_size() << "\n";
   for (int i = 0; i < proto.vocabulary_datas_size(); i++) {
-    // const VocabularyData p  ;//proto.vocabulary_datas().at(i);
-    // info << "Index : " << i << " \n" << p.info().DebugString() << "\n\n";
+    const proto::VocabularyData p = proto.vocabulary_datas().at(i);
+    info << "Index : " << i << " \n" << p.info().DebugString() << "\n\n";
   }
   info << "Option choose voc id : ";
   result =

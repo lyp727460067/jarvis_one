@@ -65,12 +65,12 @@ bool CheckDistEpipolarLine(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2,
 
 //
 KeyFrameData MapPointConstruct::TrackDataToKeyFrameData(
-    const TrackingData &data,std::shared_ptr<LocalMapMatchResult> track_data) {
+    const TrackingData &data, std::shared_ptr<LocalMapMatchResult> track_data) {
   KeyFrameData result{std::make_shared<KeyFrameData::Data>(
       KeyFrameData::Data{data.data->time, data.data->imu_state.Pose(),
                          data.data->extric_camera_to_imu,
                          data.data->images.Pyramid(), &options_.image_boxs})};
-  //右目的图像删除
+  // 右目的图像删除
   result.data->pyramid[1].clear();
   //
   std::map<int, std::map<size_t, uint64>> track_ids;
@@ -86,27 +86,27 @@ KeyFrameData MapPointConstruct::TrackDataToKeyFrameData(
       //
     }
     for (size_t j = 0; j < feat_datas.size(); j++) {
-    //  {senqu_features.first, j};
+      //  {senqu_features.first, j};
       // result.data->features.Insert(feat_id, feat_datas[j]);
-    FeatureId feat_id =
-        result.data->features.Append(senqu_features.first, feat_datas[j]);
-    const uint64_t track_id = track_ids.at(senqu_features.first).at(j);
+      FeatureId feat_id =
+          result.data->features.Append(senqu_features.first, feat_datas[j]);
+      const uint64_t track_id = track_ids.at(senqu_features.first).at(j);
 
-    const Eigen::Vector3d frame_re_map_point =
-        senqu_features.second.map_points.at(track_id);
-    result.data->map_points.Insert(feat_id, frame_re_map_point);
-    MapPointId map_point_local_id(0, 0);
-    if (!IsExist(senqu_features.first, track_id, &map_point_local_id)) {
-      const std::pair<int, uint64_t> tracking_id(senqu_features.first,
-                                                 track_id);
-      map_point_local_id = AppendMapPointId(&tracking_id);
+      const Eigen::Vector3d frame_re_map_point =
+          senqu_features.second.map_points.at(track_id);
+      result.data->map_points.Insert(feat_id, frame_re_map_point);
+      MapPointId map_point_local_id(0, 0);
+      if (!IsExist(senqu_features.first, track_id, &map_point_local_id)) {
+        const std::pair<int, uint64_t> tracking_id(senqu_features.first,
+                                                   track_id);
+        map_point_local_id = AppendMapPointId(&tracking_id);
 
-      }else {
+      } else {
       }
       result.data->map_point_ids.emplace(feat_id, map_point_local_id);
     }
   }
-  if (track_data&& options_.use_local_track_match) {
+  if (track_data && options_.use_local_track_match) {
     for (auto &match : track_data->matchs) {
       auto feat_id = result.data->features.Append(
           match.s,
@@ -172,7 +172,6 @@ bool MapPointConstruct::CheckDistEpipolarLine(
                                       relative_pose.inverse()},
       normal_kp);
   //
-
   if (map_point_pos.z() <= option.first_cam_min_z_distance) return false;
   //
   Eigen::Vector2d project_p1;
@@ -184,10 +183,12 @@ bool MapPointConstruct::CheckDistEpipolarLine(
   //
   auto pose_in_2 = relative_pose.inverse() * map_point_pos;
   if (pose_in_2.z() <= option.second_cam_min_z_distance) return false;
+
   Eigen::Vector2d project_p2;
   camera[1]->spaceToPlane(pose_in_2, project_p2);
   auto err1 = Eigen::Vector2d(project_p2 - kp2.Point());
   //
+
   if (err1.squaredNorm() > option.second_cam_chi_squared) return false;
   *triang_map_point = map_point_pos;
   return true;
@@ -217,24 +218,24 @@ cv::Mat MapPointConstruct::GenerateMask(
 }
 //
 //
-void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
+void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData::Data &data) {
   // 新提取的特征点和描述子都会保存在data中
 
-  auto sequence_feautes = data.data->features.trajectory_ids();
+  auto sequence_feautes = data.features.trajectory_ids();
   for (const auto &sequence_id : sequence_feautes) {
-    auto one_sequence_feautes = data.data->features.trajectory(sequence_id);
+    auto one_sequence_feautes = data.features.trajectory(sequence_id);
 
     std::vector<cv::KeyPoint> exist_key_points;
     for (const auto &feat : one_sequence_feautes) {
       exist_key_points.push_back(feat.data.key_point);
     }
-    CHECK(!data.data->pyramid.empty());
-    const cv::Mat image = data.data->Pyramid(sequence_id)[0];
+    CHECK(!data.pyramid.empty());
+    const cv::Mat image = data.Pyramid(sequence_id)[0];
     // cv::imshow("image", image);
     // cv::waitKey(0);
     // 在已跟踪特征点的基础上再提取新的特征点
     std::vector<cv::KeyPoint> key_points = key_points_extractor_->Extract(
-        image,
+        image, options_.extend_key_points_nums[sequence_id],
         options_.masks[sequence_id] &
             GenerateMask(cv::Size(options_.image_boxs[sequence_id].sizes().x(),
                                   options_.image_boxs[sequence_id].sizes().y()),
@@ -250,29 +251,35 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
     Descriptors descriptors = des_extractor_->Extract(image, exist_key_points);
     for (size_t i = 0; i < exist_key_points.size(); i++) {
       const FeatureId feat_id(sequence_id, i);
-      
-      if (!data.data->features.Contains(feat_id)) {
+
+      if (!data.features.Contains(feat_id)) {
         Eigen::Vector2d a(exist_key_points[i].pt.x, exist_key_points[i].pt.y);
         Eigen::Vector3d b;
         cameras_.at(sequence_id)->liftProjective(a, b);  // 注意这里找对应的相机
-        data.data->features.Insert(feat_id,
-                                   FeatureData{exist_key_points[i], b / b.z()});
+        data.features.Insert(feat_id,
+                             FeatureData{exist_key_points[i], b / b.z()});
       }
       //
-      data.data->descriptors.Insert(feat_id, descriptors[i]);
+      data.descriptors.Insert(feat_id, descriptors[i]);
     }
   }
+
   //
-  data.data->dbow_data =
-      voc_->Transform(data.data->descriptors, options_.dbow_trasform_level);
+  data.dbow_data =
+      voc_->Transform(data.descriptors, options_.dbow_trasform_level);
 }
 //
-//
-bool MapPointConstruct::ConstructExtend(
-    const LocalMap& local_map, KeyFrameData *data) {
+
+bool MapPointConstruct::ExtractExtendData(const LocalMap &local_map,
+                                          KeyFrameData::Data *data) {
   if (voc_ == nullptr) return false;
-  if (!data->data->dbow_data.bow_vector.empty()) return false;
+  // if (!data->dbow_data.bow_vector.empty()) return false;
   GenerateForExtendKeyPoint(*data);
+  return true;
+}
+//
+bool MapPointConstruct::ConstructExtend(const LocalMap &local_map,
+                                        KeyFrameData::Data *data) {
   // 优先把以前地图的点和当前做匹配
   if (local_map.AllKeyFrameDatas().size() <= 1) return false;
   UpdateConnectMapPointProjectMatchSearch(local_map, *data);
@@ -280,9 +287,10 @@ bool MapPointConstruct::ConstructExtend(
   //
   return true;
 }
+
 //
 void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
-    const LocalMap &local_map, KeyFrameData &data) {
+    const LocalMap &local_map, KeyFrameData::Data &data) {
   //
 
   auto &key_frames_datas = local_map.AllKeyFrameDatas();
@@ -294,10 +302,10 @@ void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
   const auto connect_frames =
       local_map.GetCovisibility()->GetOrderConnectedKeyFrames(pre_id, 20);
   //
-  const auto &current_id_data =data.data; 
+  const auto &current_id_data = data;
   //
   std::set<MapPointId> cur_exsist_map_point_ids;
-  for (const auto &id : data.data->map_point_ids) {
+  for (const auto &id : data.map_point_ids) {
     cur_exsist_map_point_ids.insert(id.second);
   }
   //
@@ -325,7 +333,8 @@ void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
                                     Eigen::Vector2d *p) {
     const Eigen::Vector3d p_point =
         cam_pose.inverse() * local_map.LocalPose() * point;
-    if (point.z() < 0.1) return false;
+        // LOG(INFO)<<s <<" "<<p_point.transpose();
+    if (point.z() < 0.) return false;
     Eigen::Vector2d b;
     cameras_.at(s)->spaceToPlane(p_point, b);
     *p = b;
@@ -333,7 +342,6 @@ void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
   };
   //
   std::map<MapPointId, FeatureId> index_map_point_ids;
-
 
   for (const auto &map_point_id : connect_map_point_ids) {
     // 投影后在一定半径范围內找特征最相似的点(汉明距离)作为匹配点
@@ -351,8 +359,8 @@ void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
         //
         std::vector<std::pair<FeatureId, FeatureId>> pair_index{
             std::make_pair(index, feture_id)};
-        match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
-                                      *data.data, *connect_id_data, pair_index);
+        // match::WriteImageWithKeyPoint(options_.test_match_pic_write_path, data,
+        //                               *connect_id_data, pair_index);
       }
     }
   }
@@ -360,31 +368,30 @@ void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
 
   if (!index_map_point_ids.empty()) {
     for (auto &mp_id : index_map_point_ids) {
-      //以前的地图点匹配到当前有地图点的特征上了
-      if(data.data->map_points.Contains(mp_id.second))continue;
+      // 以前的地图点匹配到当前有地图点的特征上了
+      if (data.map_points.Contains(mp_id.second)) continue;
       //
       track_point_size++;
       info << mp_id.first;
-      data.data->map_point_ids.emplace(
+      data.map_point_ids.emplace(
           mp_id.second, map_points.at(mp_id.first).data->local_id);
-      data.data->map_points.Insert(mp_id.second,
+      data.map_points.Insert(mp_id.second,
                                    local_map.GetMapPointPosw(mp_id.first));
-      data.data->map_point_ids.emplace(mp_id.second, mp_id.first);
+      data.map_point_ids.emplace(mp_id.second, mp_id.first);
     }
   }
 
-
-   //
-  LOG(INFO) << log_info::GREEN
+  //
+  LOG(INFO) << log_info::RED<<pre_id<<" --> "
             << "Track near map point size: " << track_point_size << "-->"
-            << info.str() << log_info::RESET;  
+            << info.str() << log_info::RESET;
 }
 //
-void MapPointConstruct::ConStructExtendMapPoints(
-    const LocalMap &local_map, KeyFrameData &data) {
- const auto &key_frames_datas = local_map.AllKeyFrameDatas();
+void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
+                                                 KeyFrameData::Data &data) {
+  const auto &key_frames_datas = local_map.AllKeyFrameDatas();
   //
-//
+  //
   const KeyFrameId pre_id = std::prev(key_frames_datas.end())->id;
   const auto connect_frames_temp_1 =
       local_map.GetCovisibility()->GetOrderConnectedKeyFrames(pre_id, 20);
@@ -393,8 +400,9 @@ void MapPointConstruct::ConStructExtendMapPoints(
     connect_key_frames_ids.insert(id.first);
   }
   std::vector<std::pair<KeyFrameId, int>> connect_frames_temp;
-  const auto &current_id_data =data.data; 
+  const auto &current_id_data = &data;
   //
+  connect_frames_temp.emplace_back(pre_id, 0);  
   //
   for (int i = -options_.construct_map_point_near_keframd_num; i < -1; i++) {
     const KeyFrameId near_id(pre_id.trajectory_id, pre_id.keyframe_index + i);
@@ -405,46 +413,50 @@ void MapPointConstruct::ConStructExtendMapPoints(
                        current_id_data->pose)
                           .translation()
                           .norm();
-    if (delta_pose < options_.con_struct_map_point_frame_min_distance) continue;
+    // if (delta_pose < options_.con_struct_map_point_frame_min_distance) continue;
     connect_frames_temp.emplace_back(near_id, 0);
+
     // connected_key_frame_ids.insert(near_id);
   }
-  if (connect_frames_temp.empty()) return;
-  double min_angle = -10;
-  double sencode_min_angle = -10;
-  std::vector<std::pair<KeyFrameId, int>> connect_frames;
-  // //
-  KeyFrameId min_key_frame_id(-1, 0);
-  KeyFrameId senco_min_key_frame_id(-1, 0);
-  for (const auto& id : connect_frames_temp) {
-    auto delta_pose = (key_frames_datas.at(id.first).data->pose.inverse() *
-                       current_id_data->pose)
-                          .translation()
-                          .norm();
-    auto const delta_angle = delta_pose;
-    if (min_angle < delta_angle) {
-      min_angle = delta_angle;
-      min_key_frame_id = id.first;
 
-    } else if (sencode_min_angle < delta_angle) {
-      sencode_min_angle = delta_angle;
-      senco_min_key_frame_id = id.first;
-    }
-  }
-  if (min_key_frame_id != KeyFrameId(-1, 0)) {
-    connect_frames.push_back({min_key_frame_id, 0});
-  }
-  if (senco_min_key_frame_id != KeyFrameId(-1, 0)) {
-    connect_frames.push_back({senco_min_key_frame_id, 0});
-  }
+  
+  // if (connect_frames_temp.empty()) return;
+  // double min_angle = -10;
+  // double sencode_min_angle = -10;
+  //
+  std::vector<std::pair<KeyFrameId, int>> connect_frames = connect_frames_temp;
+  // // //
+  // KeyFrameId min_key_frame_id(-1, 0);
+  // KeyFrameId senco_min_key_frame_id(-1, 0);
+  // for (const auto &id : connect_frames_temp) {
+  //   auto delta_pose = (key_frames_datas.at(id.first).data->pose.inverse() *
+  //                      current_id_data->pose)
+  //                         .translation()
+  //                         .norm();
+  //   auto const delta_angle = delta_pose;
+  //   if (min_angle < delta_angle) {
+  //     min_angle = delta_angle;
+  //     min_key_frame_id = id.first;
+
+  //   } else if (sencode_min_angle < delta_angle) {
+  //     sencode_min_angle = delta_angle;
+  //     senco_min_key_frame_id = id.first;
+  //   }
+  // }
+  // if (min_key_frame_id != KeyFrameId(-1, 0)) {
+  //   connect_frames.push_back({min_key_frame_id, 0});
+  // }
+  // if (senco_min_key_frame_id != KeyFrameId(-1, 0)) {
+  //   connect_frames.push_back({senco_min_key_frame_id, 0});
+  // }
 
   std::map<MapPointId, FeatureId> index_map_point_ids;
   //
   //
 
   for (const auto &frame_id : connect_frames) {
-  std::stringstream point_id_info;
-  std::stringstream track_point_id_info;
+    std::stringstream point_id_info;
+    std::stringstream track_point_id_info;
 
     const auto connect_id_data = key_frames_datas.at(frame_id.first).data;
     auto paired_idex = match::DbowFindMathed(
@@ -454,8 +466,7 @@ void MapPointConstruct::ConStructExtendMapPoints(
     if (paired_idex.size() < 4) continue;
     //
 
-
-    const auto &current_id_map_data = data.data->map_point_ids;
+    const auto &current_id_map_data = data.map_point_ids;
     //
     const auto connect_id_map_data =
         local_map.GetKeyFrameMapPointsData(frame_id.first);
@@ -463,10 +474,14 @@ void MapPointConstruct::ConStructExtendMapPoints(
     std::stringstream info;
     int new_construct_map_point_size = 0;
     int tracking_construct_map_point_size = 0;
-    // LOG(INFO)<<paired_idex.size();
+    LOG(INFO)<<paired_idex.size();
+
+
     std::vector<std::pair<FeatureId, FeatureId>> check_paired_idex;
+    std::set<FeatureId>match_ids;
     for (const auto &index : paired_idex) {
       //
+      if(match_ids.count(index.first))continue;
       const auto &cur_feat_id = index.first;
       const auto &connect_feat_id = index.second;
       if (current_id_map_data.count(cur_feat_id)) continue;
@@ -510,9 +525,10 @@ void MapPointConstruct::ConStructExtendMapPoints(
             triangulate_point_in_pose1;
         //
         auto map_point_local_id = AppendMapPointId(nullptr);
-        data.data->map_point_ids.emplace(cur_feat_id, map_point_local_id);
-        data.data->map_points.Insert(cur_feat_id, map_point_pos);
+        data.map_point_ids.emplace(cur_feat_id, map_point_local_id);
+        data.map_points.Insert(cur_feat_id, map_point_pos);
         //
+        match_ids.insert(cur_feat_id);
         // index_map_point_ids.emplace(map_point_id, cur_feat_id);
         new_construct_map_point_size++;
         point_id_info << map_point_local_id;
@@ -522,31 +538,33 @@ void MapPointConstruct::ConStructExtendMapPoints(
     }
 
     if (!options_.test_match_pic_write_path.empty()) {
-      match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
-                                    *current_id_data, *connect_id_data,
-                                    check_paired_idex);
+      // match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
+      //                               *current_id_data, *connect_id_data,
+      //                               check_paired_idex);
     }
 
-    info << "conect_kf_" << frame_id.first
-         << "New Construct Map point  " << new_construct_map_point_size
-         << ",Tracking Construct Map point: "
+    info << pre_id << "-" << frame_id.first << "New Construct Map point  "
+         << new_construct_map_point_size << ",Tracking Construct Map point: "
          << tracking_construct_map_point_size << ",Total: "
          << new_construct_map_point_size + tracking_construct_map_point_size
          << " [" << point_id_info.str() << "]" << "-->[t "
          << track_point_id_info.str() << "]";
     LOG(INFO) << log_info::YELLOW << info.str() << log_info::RESET;
+    // match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
+    //                               *current_id_data, *connect_id_data,
+    //                               paired_idex);
   }
   auto const &map_points = local_map.AllMapPoints();
   if (!index_map_point_ids.empty()) {
     for (auto &mp_id : index_map_point_ids) {
-            //以前的地图点匹配到当前有地图点的特征上了
-      if(data.data->map_points.Contains(mp_id.second))continue;
-      data.data->map_point_ids.emplace(
+      // 以前的地图点匹配到当前有地图点的特征上了
+      if (data.map_points.Contains(mp_id.second)) continue;
+      data.map_point_ids.emplace(
           mp_id.second, map_points.at(mp_id.first).data->local_id);
-      CHECK(!data.data->map_points.Contains(mp_id.second));
-      data.data->map_points.Insert(mp_id.second,
+      CHECK(!data.map_points.Contains(mp_id.second));
+      data.map_points.Insert(mp_id.second,
                                    local_map.GetMapPointPosw(mp_id.first));
-      data.data->map_point_ids.emplace(mp_id.second, mp_id.first);
+      data.map_point_ids.emplace(mp_id.second, mp_id.first);
     }
   }
 }

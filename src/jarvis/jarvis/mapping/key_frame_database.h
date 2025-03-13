@@ -12,8 +12,8 @@ namespace jarvis {
 namespace mapping {
 //
 struct KeyFrameDataBaseOption {
-  double min_core=0.8;
-  double sharing_words_count_min_is_max_ration=0.8;
+  double min_core=0.04;  
+  double sharing_words_count_min_is_max_ration=0.6;
   int min_shared_words_num  =10;
   double min_distance_threash_hold=5;
 
@@ -34,7 +34,7 @@ class KeyFrameDataBase {
   //
   std::unordered_map<KeyFrameId, double> FindSimilarCandidate(
       const std::shared_ptr<const KeyFrameData::Data>& data,
-      const std::set<KeyFrameId>& exclude_ids, double min_score = 10) const;
+      const std::set<KeyFrameId>& exclude_ids, double min_score = 0.5) const;
   //
 
  protected:
