@@ -4,30 +4,30 @@
 #include <map>
 #include <memory>
 #include <set>
+
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 #include "jarvis/common/fixed_ratio_sampler.h"
 #include "jarvis/key_frame_data.h"
 #include "jarvis/mapping/key_frame_filter.h"
 #include "jarvis/mapping/local_map_track.h"
-#include "jarvis/mapping/map_manger.h"
+#include "jarvis/mapping/map_manager.h"
 #include "jarvis/sensor/fixed_frame_pose_data.h"
 //
+#include "jarvis/common/thread_pool.h"
 #include "jarvis/mapping/data_culling.h"
 #include "jarvis/mapping/local_map_optimization.h"
-#include "jarvis/sensor/odometry_data.h"
 #include "jarvis/mapping/loop_detect.h"
 #include "jarvis/mapping/map_point_construct.h"
-
-#include "jarvis/common/thread_pool.h"
+#include "jarvis/sensor/odometry_data.h"
 namespace jarvis {
 namespace mapping {
 //
 struct MapBuilderOption {
-  bool enable_local_track =true;
-  bool enable_local_opimization =false;
-  bool enable_loop_closure =false;
-  bool enable_track_map_opti =true;
+  bool enable_local_track = true;
+  bool enable_local_opimization = false;
+  bool enable_loop_closure = false;
+  bool enable_track_map_opti = true;
   //
   bool construct_use_des_match = false;
   //
@@ -37,28 +37,26 @@ struct MapBuilderOption {
   KeyFrameFilterOption key_frame_filter_option;
   LocalMapOptimizationOption track_local_map_opt_option;
   LocalMapOptimizationOption finish_track_local_map_opt_option;
-  LoopDetectOption loop_detect_option;
-  MapPointConstructOption map_point_construct_option; 
+ 
+  MapPointConstructOption map_point_construct_option;
   //
   //
-
+  bool updated_active_track_localmap_data_from_mapmanger = false;
   //
-  std::string vocabulary_filebrif = "/home/lyp/project/vslam/jarvis/jarvis.dbow";
+  std::string vocabulary_filebrif =
+      "/home/lyp/project/vslam/jarvis/jarvis.dbow";
   std::vector<std::vector<int>> track_sequence;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   std::map<int, camera_models::CameraPtr> cameras;
   std::vector<Eigen::AlignedBox2i> image_boxs;
-  int thread_num =1; 
+  int relocation_constraint_consistent_filter_num = 10;
+  int thread_num = 1;
   double track_map_opti_sampler = 0.05;
 };
-struct WorkItem {
-  enum class Result { Normal, kRunLocalOptimization };
-  std::chrono::steady_clock::time_point time;
-  std::function<Result()> task;
-};
+
 class MappingBuilder {
  public:
-  MappingBuilder(const MapBuilderOption& option,dbow::Vocabulary *voc);
+  MappingBuilder(const MapBuilderOption& option, dbow::Vocabulary* voc);
   ~MappingBuilder();
   void AddTrackingData(const int t, const TrackingData& track_data);
   //
@@ -66,36 +64,49 @@ class MappingBuilder {
   void AddImuData(const sensor::ImuData& imu_data);
   void AddOdometryData(const sensor::OdometryData& odo_data);
   //
-  std::shared_ptr<LocalMapMatchResult> TrackLocalMap(const TrackingData& frame_data);
+  std::shared_ptr<LocalMapMatchResult> TrackLocalMap(
+      const TrackingData& frame_data);
   transform::Rigid3d Relocaiton(const TrackingData& frame_data);
   //
   std::vector<Eigen::Vector3d> GetAllMapPoints();
-  std::map<KeyFrameId, transform::TimestampedTransform> GetKeyFrameGlobalPose(){
+  std::map<KeyFrameId, transform::TimestampedTransform>
+  GetKeyFrameGlobalPose() {
     CHECK(false);
     return {};
   }
-  transform::Rigid3d GetLocalToGlobalTransform(){
-    CHECK(false);
-    return {};
-  }
+  transform::Rigid3d GetLocalToGlobalTransform() { return {}; }
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
   //
   std::shared_ptr<LocalMap> GetLocalMap() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return local_map_front_;
   }
+  //
+  std::vector<std::pair<KeyFrameId, KeyFrameId>> GetConstraintsKfIds() {
+    return map_manager_->GetConstraintsKfIds();
+  }
+  //
 
+  void Relocation(
+      const std::map<LocalMapId, std::shared_ptr<LocalMap>>& local_maps,
+      const KeyFrameId& id);
+
+  void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
+  //
+  //
+  //直接法去匹配
+  void Relocation(const TrackingData& track_data);
+  //
+  //
+  void ResetActiveLocalMap(int t);
  private:
   void TrackLocalMapOptimize(LocalMapOptimization*,
                              std::map<LocalMapId, std::shared_ptr<LocalMap>>*);
   void UpdataActiveWithOpLocal(
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* op_local_maps);
   //
-  //
-  void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
-  //
-  //
-  std::unique_ptr<common::Task> when_done_task_ ;
+  void LocalTrackOptimize(std::shared_ptr<LocalMap> last_finish_local_map);
+  std::unique_ptr<common::Task> when_done_task_;
   std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;
   std::unique_ptr<LocalMapTrack> local_map_track_;
@@ -109,20 +120,28 @@ class MappingBuilder {
   std::unique_ptr<common::FixedRatioSampler> track_local_map_op_sampler_;
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
   std::unique_ptr<common::ThreadPool> thread_pool_;
+  //
 
-  std::mutex work_queue_mutex_;
+  //
   std::map<common::Time, std::shared_ptr<LocalMapMatchResult>>
       local_map_match_result_catch_;
-  using WorkQueue = std::deque<WorkItem>;
-  std::unique_ptr<WorkQueue> work_queue_;
-  void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
-  void DrainWorkQueue();
+  std::unique_ptr<WorkItemQueue> work_item_queue_;
+
   mutable std::mutex mutex_;
+  std::mutex   relocation_mutex_;
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;
-  bool kill_thread_=false;
+  bool kill_thread_ = false;
   transform::Rigid3d local_to_globla_;
   // std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_;
+    //
+  bool start_relocation_ =false;;
+  std::map<LocalMapId, std::shared_ptr<LocalMap>> relocation_local_maps_;   
+  std::unique_ptr<WorkItemQueue> relocation_work_item_queue_;
+  std::unique_ptr<ConstraintConsistentFilter> consistent_filter_;
+  std::map<KeyFrameId, KeyFrameData> kf_datas_for_relocation_temp_;
+  std::queue<KeyFrameId> relocation_node_ids_;
+  std::vector<std::unique_ptr<LoopDetctResult>> loop_result_catchs_;
 };
 }  // namespace mapping
 }  // namespace jarvis

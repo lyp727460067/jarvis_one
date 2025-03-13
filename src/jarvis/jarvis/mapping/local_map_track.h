@@ -1,6 +1,6 @@
 #ifndef _JARVIS_LAOCAL_MAP_TRACK_H
 #define _JARVIS_LAOCAL_MAP_TRACK_H
-#include "jarvis/mapping/map_manger.h"
+#include "jarvis/key_frame_data.h"
 #include "jarvis/mapping/match/direct_match.h"
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/transform/transform.h"
@@ -53,7 +53,8 @@ class LocalMapTrack {
   LocalMapTrack(const LocalMapTrackOption& option);
   std::shared_ptr<LocalMapMatchResult> Track(
       const std::shared_ptr<LocalMap>& local_map,
-      const KeyFrameData& track_data);
+      const KeyFrameData& track_data,
+      const std::set<MapPointId>& exist_map_id = std::set<MapPointId>{});
   //
   struct Candidate {
     KeyFrameId frame_id;
@@ -83,10 +84,9 @@ class LocalMapTrack {
       const std::array<float, 2>& weight);
 
  private:
-
-
-  void WriteCheckMatchResult(const KeyFrameData& key_frame_data,
-      const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs);
+  void WriteCheckMatchResult(
+      const KeyFrameData& key_frame_data,
+      const std::map<int, std::vector<LocalMapTrack::MatchData>>& match_ids);
   //
   MapById<KeyFrameId, match::Frame> frame_warps_;
   //
@@ -98,7 +98,8 @@ class LocalMapTrack {
   //
   std::vector<Candidate> PickCandidates(
       std::vector<KeyFrameId> overlap_kfs,
-      const std::shared_ptr<match::Frame>& frame,int cur_s);
+      const std::shared_ptr<match::Frame>& frame, int cur_s,
+      const std::set<MapPointId>& exist_map_id);
   //
   //
   //

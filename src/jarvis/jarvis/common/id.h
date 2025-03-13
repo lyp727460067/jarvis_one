@@ -1,5 +1,3 @@
-
-
 #ifndef _JARVIS_VIO_COMMON_ID_H_
 #define _JARVIS_VIO_COMMON_ID_H_
 
@@ -19,6 +17,8 @@
 #include "glog/logging.h"
 
 namespace jarvis {
+
+
 namespace internal {
 
 template <class T>
@@ -33,8 +33,26 @@ template <class T>
 common::Time GetTime(const T& t) {
   return GetTimeImpl(t, 0);
 }
-
 }  // namespace internal
+struct MapPointId {
+  MapPointId(int trajectory_id_, uint64_t index_)
+      : trajectory_id(trajectory_id_),
+        index(index_) {}
+  bool operator==(const MapPointId &other) const {
+    return std::forward_as_tuple(trajectory_id, index) ==
+           std::forward_as_tuple(other.trajectory_id,
+                                 other.index);
+  }
+
+  bool operator!=(const MapPointId &other) const { return !operator==(other); }
+
+  bool operator<(const MapPointId &other) const {
+    return std::forward_as_tuple(trajectory_id,index) <
+           std::forward_as_tuple(other.trajectory_id,other.index);
+  }
+  int trajectory_id;
+  uint64_t index;
+};
 
 struct KeyFrameId {
   KeyFrameId(int trajectory_id_, uint64_t keyframe_index_)
@@ -56,30 +74,11 @@ struct KeyFrameId {
   }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const KeyFrameId& v) {
-  return os << "(" << v.trajectory_id << ", " << v.keyframe_index << ")";
-}
 
-struct MapPointId {
-  MapPointId(int trajectory_id_, uint64_t index_)
-      : trajectory_id(trajectory_id_),
-        index(index_) {}
-  bool operator==(const MapPointId &other) const {
-    return std::forward_as_tuple(trajectory_id, index) ==
-           std::forward_as_tuple(other.trajectory_id,
-                                 other.index);
-  }
 
-  bool operator!=(const MapPointId &other) const { return !operator==(other); }
 
-  bool operator<(const MapPointId &other) const {
-    return std::forward_as_tuple(trajectory_id,index) <
-           std::forward_as_tuple(other.trajectory_id,other.index);
-  }
-  int trajectory_id;
-  uint64_t index;
-};
-//
+
+
 struct LocalMapId {
   LocalMapId(int trajectory_id_, uint64_t index_)
       : trajectory_id(trajectory_id_),
@@ -99,15 +98,17 @@ struct LocalMapId {
   int trajectory_id;
   uint64_t index;
 };
+
 inline std::ostream& operator<<(std::ostream& os, const LocalMapId& v) {
   return os << "(" << v.trajectory_id << ", " << v.index << ")";
 }
-//
+inline std::ostream& operator<<(std::ostream& os, const KeyFrameId& v) {
+  return os << "(" << v.trajectory_id << ", " << v.keyframe_index << ")";
+}
 inline std::ostream& operator<<(std::ostream& os, const MapPointId& v) {
   return os << "(" << v.trajectory_id << ", " << v.index << ")";
 }
 
-//
 struct FeatureId {
   FeatureId(int sequence_id_, uint64_t index_)
       : sequence_id(sequence_id_), index(index_), trajectory_id(sequence_id) {}
@@ -126,11 +127,10 @@ struct FeatureId {
   int trajectory_id;
 };
 
-//
 inline std::ostream& operator<<(std::ostream& os, const FeatureId& v) {
   return os << "(" << v.sequence_id << "," << v.index << ")";
 }
-//
+
 template <typename IteratorType>
 class Range {
  public:
@@ -446,6 +446,7 @@ class MapById {
 };
 
 }  // namespace jarvis
+
 namespace std {
 template <>
 struct hash<jarvis::KeyFrameId> {
@@ -486,4 +487,5 @@ struct hash<jarvis::FeatureId> {
 };
 
 }  // namespace std
-#endif  //
+
+#endif  // _JARVIS_VIO_COMMON_ID_H_

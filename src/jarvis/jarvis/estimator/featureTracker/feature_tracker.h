@@ -178,7 +178,7 @@ class FeatureTracker {
   common::Time curr_time_;
   uint64_t tranck_id_ = 0;
   transform::Rigid3d cam0_to_cam1_extric_;
-  Eigen::Vector3d stere_cam_offset_{0,0};
+  Eigen::Vector3d stere_cam_offset_{0,0,0};
 };
 
 }  // namespace estimator

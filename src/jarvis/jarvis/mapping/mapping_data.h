@@ -54,7 +54,7 @@ struct FeatureData {
   Eigen::Vector3d r_normal{0,0,0};
 };
 //
-
+enum TrajectorStates { Normal, Frozen, Finish };
 extern const std::vector<std::vector<int>> track_sequence ;//= {{0, 1}, {2}, {3}};
 struct KeyFrameData {
   struct Data {
@@ -68,6 +68,7 @@ struct KeyFrameData {
     MapById<FeatureId, Eigen::Vector3d> map_points;  // esitimap points
     std::map<FeatureId, MapPointId> map_point_ids;
     //
+    std::set<FeatureId> extend_map_point_ids;
     MapById<FeatureId, Descriptor> descriptors;
     MapById<FeatureId, FeatureData> features;
     dbow::DbowData dbow_data;
@@ -76,18 +77,20 @@ struct KeyFrameData {
     const std::vector<cv::Mat> &Pyramid(int s) const {
       return pyramid.at(track_sequence[s][0]);
     }
-    transform::Rigid3d CameraPose(int s) {
+    transform::Rigid3d CameraPose(int s)const {
       return pose * extric_camera_to_imu[track_sequence[s][0]];
+    }
+    transform::Rigid3d ImuPose(const transform::Rigid3d &pos, int s) const {
+      return pos * extric_camera_to_imu[track_sequence[s][0]].inverse();
     }
     //
     transform::Rigid3d CameraPose(const transform::Rigid3d &pos, int s) {
       return pos * extric_camera_to_imu[track_sequence[s][0]];
     }
     bool extend_data_compute = false;
-
-    transform::Rigid3d global_pos;
   };
   std::shared_ptr<Data> data;
+  transform::Rigid3d global_pose;
 };
 
 }  // namespace mapping

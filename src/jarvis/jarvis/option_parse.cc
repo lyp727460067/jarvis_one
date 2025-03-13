@@ -1006,15 +1006,6 @@ mapping::LocalMapOption ParseLocalMap(const cv::FileNode &fs) {
   op_option.compute_map_point_min_des_num =
       fsSettings["compute_map_point_min_des_num"];
 
-  op_option.key_frame_data_option.min_core =
-      fsSettings["key_frame_data_option"]["min_core"];
-  op_option.key_frame_data_option.sharing_words_count_min_is_max_ration =
-      fsSettings["key_frame_data_option"]
-                ["sharing_words_count_min_is_max_ration"];
-  op_option.key_frame_data_option.min_shared_words_num =
-      fsSettings["key_frame_data_option"]["min_shared_words_num"];
-  op_option.key_frame_data_option.min_distance_threash_hold =
-      fsSettings["key_frame_data_option"]["min_distance_threash_hold"];
   op_option.local_track_project_search_option.viewing_angle_threash_hold =
       fsSettings["local_track_project_search_option"]
                 ["viewing_angle_threash_hold"];
@@ -1044,7 +1035,6 @@ mapping::LocalMapOption ParseLocalMap(const cv::FileNode &fs) {
       fsSettings["data_culling_option"]["redundant_observations_ration"];
 
 
-
   return op_option;
 }
 
@@ -1065,8 +1055,30 @@ mapping::MapPointConstructOption ParseLocalConMapOptio(const cv::FileNode &fs) {
 
   op_option.key_points_extract_option.type =
       fsSettings["key_points_extract_option"]["type"];
-  op_option.key_points_extract_option.extend_key_points_num =
+
+  std::string convisi_level_search_num_str =
       fsSettings["key_points_extract_option"]["extend_key_points_num"];
+  if (!convisi_level_search_num_str.empty()) {
+    std::vector<int> convisi_level_search_num;
+    std::string num;
+    for (size_t i = 0; i < convisi_level_search_num_str.size(); i++) {
+      if (convisi_level_search_num_str[i] != '{' &&
+          convisi_level_search_num_str[i] != '}' &&
+          convisi_level_search_num_str[i] != ',') {
+        num.push_back(convisi_level_search_num_str[i]);
+      } else if (convisi_level_search_num_str[i] == ',' ||
+                 convisi_level_search_num_str[i] == '}') {
+        convisi_level_search_num.push_back(std::stol(num));
+        num.clear();
+      }
+    }
+    op_option.extend_key_points_nums =
+        convisi_level_search_num;
+  }
+
+//   op_option.key_points_extract_option.extend_key_points_num =
+//       fsSettings["key_points_extract_option"]["extend_key_points_num"];
+  //
   op_option.key_points_extract_option.minimal_accepted_quality_corners =
       fsSettings["key_points_extract_option"]
                 ["minimal_accepted_quality_corners"];
@@ -1100,6 +1112,129 @@ mapping::MapPointConstructOption ParseLocalConMapOptio(const cv::FileNode &fs) {
 
   return op_option;
 }
+//
+
+mapping::LoopDetectOption ParseLoopDetectOption(const cv::FileNode &fs) {
+  mapping::LoopDetectOption option;
+  auto &fsSettings = fs;
+  option.pnp_solve_typ = fsSettings["pnp_solve_typ"];
+  option.huber_loss = fsSettings["huber_loss"];
+  option.outlier_min_err = fsSettings["outlier_min_err"];
+  option.max_num_iterations = fsSettings["max_num_iterations"];
+  option.op_weight = fsSettings["op_weight"];
+  option.op_init_t_weight = fsSettings["op_init_t_weight"];
+  option.op_init_r_weight = fsSettings["op_init_r_weight"];
+  option.min_filter_dbow_covisi_score =
+      fsSettings["min_filter_dbow_covisi_score"];
+  option.candidata_reproject_min_num =
+      fsSettings["candidata_reproject_min_num"];
+  option.area_search_grid_lenth = fsSettings["area_search_grid_lenth"];
+  option.end_non_adjacent_id_count = fsSettings["end_non_adjacent_id_count"];
+  option.constraint_consistent_filter_num =
+      fsSettings["constraint_consistent_filter_num"];
+  option.dbow_match_describe_distance_threashold =
+      fsSettings["dbow_match_describe_distance_threashold"];
+  option.dbow_search_match_num = fsSettings["dbow_search_match_num"];
+  option.min_pnp_need_features_num = fsSettings["min_pnp_need_features_num"];
+  option.min_pnp_inliers_num = fsSettings["min_pnp_inliers_num"];
+  std::string temp = fsSettings["test_match_pic_write_path"];
+  option.test_match_pic_write_path = temp;
+  option.constraint_max_yaw = fsSettings["constraint_max_yaw"];
+  option.constraint_max_distance = fsSettings["constraint_max_distance"];
+  option.pnp_optimize_min_iniler = fsSettings["pnp_optimize_min_iniler"];
+
+  std::string convisi_level_search_num_str =
+      fsSettings["convisi_level_search_num"];
+  if (!convisi_level_search_num_str.empty()) {
+    std::vector<int> convisi_level_search_num;
+    std::string num;
+    for (size_t i = 0; i < convisi_level_search_num_str.size(); i++) {
+      if (convisi_level_search_num_str[i] != '{' &&
+          convisi_level_search_num_str[i] != '}' &&
+          convisi_level_search_num_str[i] != ',') {
+        num.push_back(convisi_level_search_num_str[i]);
+      } else if (convisi_level_search_num_str[i] == ',' ||
+                 convisi_level_search_num_str[i] == '}') {
+        convisi_level_search_num.push_back(std::stol(num));
+        num.clear();
+      }
+    }
+    option.convisi_level_search_num = convisi_level_search_num;
+  }
+  //
+  option.key_frame_data_option.min_core =
+      fsSettings["key_frame_data_option"]["min_core"];
+  option.key_frame_data_option.sharing_words_count_min_is_max_ration =
+      fsSettings["key_frame_data_option"]
+                ["sharing_words_count_min_is_max_ration"];
+  option.key_frame_data_option.min_shared_words_num =
+      fsSettings["key_frame_data_option"]["min_shared_words_num"];
+  option.key_frame_data_option.min_distance_threash_hold =
+      fsSettings["key_frame_data_option"]["min_distance_threash_hold"];
+  //
+  //
+  //
+  option.project_option.viewing_angle_threash_hold =
+      fsSettings["project_option"]["viewing_angle_threash_hold"];
+  option.project_option.area_search_radius =
+      fsSettings["project_option"]["area_search_radius"];
+  option.project_option.project_pix_err =
+      fsSettings["project_option"]["project_pix_err"];
+  option.project_option.project_best_des_dis =
+      fsSettings["project_option"]["project_best_des_dis"];
+  option.project_option.box_boundary_distance =
+      fsSettings["project_option"]["box_boundary_distance"];
+
+  //
+  option.additional_project_option.viewing_angle_threash_hold =
+      fsSettings["additional_project_option"]["viewing_angle_threash_hold"];
+  option.additional_project_option.area_search_radius =
+      fsSettings["additional_project_option"]["area_search_radius"];
+  option.additional_project_option.project_pix_err =
+      fsSettings["additional_project_option"]["project_pix_err"];
+  option.additional_project_option.project_best_des_dis =
+      fsSettings["additional_project_option"]["project_best_des_dis"];
+  option.additional_project_option.box_boundary_distance =
+      fsSettings["additional_project_option"]["box_boundary_distance"];
+
+  //
+  
+  //
+  option.pnp_solver_option.min_inliers =
+      fsSettings["pnp_solver_option"]["min_inliers"];
+  option.pnp_solver_option.probability =
+      fsSettings["pnp_solver_option"]["probability"];
+  option.pnp_solver_option.max_iterations =
+      fsSettings["pnp_solver_option"]["max_iterations"];
+  option.pnp_solver_option.min_set = fsSettings["pnp_solver_option"]["min_set"];
+  option.pnp_solver_option.epsilon = fsSettings["pnp_solver_option"]["epsilon"];
+  option.pnp_solver_option.th2 = fsSettings["pnp_solver_option"]["th2"];
+  return option;
+}
+
+//
+mapping::PoseGraphOptimizeOption ParsePoseGraphOptimizeOption(
+    const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::PoseGraphOptimizeOption option;
+  int temp = fsSettings["fix_extric"];
+  option.fix_extric = bool(temp);
+  option.max_num_iterations = fsSettings["max_num_iterations"];
+  option.ceres_num_threads = fsSettings["ceres_num_threads"];
+  LOG(INFO)<<option.ceres_num_threads;
+  option.relative_t_weitht = fsSettings["relative_t_weitht"];
+  option.relative_r_weitht = fsSettings["relative_r_weitht"];
+  option.huber_scale = fsSettings["huber_scale"];
+  option.constraint_loop_closer_t_weigth =
+      fsSettings["constraint_loop_closer_t_weigth"];
+  option.constraint_loop_closer_r_weigth =
+      fsSettings["constraint_loop_closer_r_weigth"];
+  option.constraint_t_weigth = fsSettings["constraint_t_weigth"];
+  option.constraint_r_weigth = fsSettings["constraint_r_weigth"];
+  return option;
+}
+
+
 //
 mapping::LocalMapOptimizationOption ParseLocalMapoptio(const cv::FileNode &fs) {
   auto &fsSettings = fs;
@@ -1146,6 +1281,40 @@ mapping::LocalMapOptimizationOption ParseLocalMapoptio(const cv::FileNode &fs) {
   return op_option;
 }
 
+mapping::MapManagerOption ParseMapManagerOption(const cv::FileNode &fs) {
+  auto &fsSettings = fs;
+  mapping::MapManagerOption option;
+  int temp = fsSettings["local_map_op_use_6dof"];
+  option.local_map_op_use_6dof = bool(temp);
+  temp = fsSettings["pose_graph_op_use_6dof"];
+  option.pose_graph_op_use_6dof = bool(temp);
+  temp = fsSettings["enable_local_map_full_op"];
+  option.enable_local_map_full_op = bool(temp);
+
+  option.same_trajectory_max_loop_detect_distance =
+      fsSettings["same_trajectory_max_loop_detect_distance"];
+  option.max_loop_detct_distance = fsSettings["max_loop_detct_distance"];
+  option.continuous_candidate_loop_frame =
+      fsSettings["continuous_candidate_loop_frame"];
+  option.pose_graph_optimize_min_kf_min_num =
+      fsSettings["pose_graph_optimize_min_kf_min_num"];
+  option.constraint_compute_sampler = fsSettings["constraint_compute_sampler"];
+  option.global_constraint_search_after_n_seconds =
+      fsSettings["global_constraint_search_after_n_seconds"];
+
+  option.local_map_track_option =
+      ParseLocalMapTrackOptio(fsSettings["local_map_track_option"]);
+  option.loop_detect_option =
+      ParseLoopDetectOption(fsSettings["loop_detect_option"]);
+
+  option.local_map_optimization_option = ParseLocalMapoptio(
+      fsSettings["local_map_optimization_option"]);
+  //
+
+  option.pose_graph_option = ParsePoseGraphOptimizeOption(
+      fsSettings["pose_graph_option"]);
+ return option;
+}
 template <>
 void ParseYAMLOption(const std::string &file,
                      mapping::MapBuilderOption *option) {
@@ -1169,13 +1338,12 @@ void ParseYAMLOption(const std::string &file,
   option->track_map_opti_sampler = (fsSettings["track_map_opti_sampler"]);
   int temp = fsSettings["enable_local_track"];
   option->enable_local_track = bool(temp);
-  temp = fsSettings["enable_local_opimization"];
-  option->enable_local_opimization = bool(temp);
+
   temp = fsSettings["construct_use_des_match"];
   option->construct_use_des_match = bool(temp);
-  
-  temp = fsSettings["enable_local_opimization"];
-  option->enable_local_opimization = bool(temp);
+  temp = fsSettings["enable_loop_closure"];
+  option->enable_loop_closure = bool(temp);
+
   temp = fsSettings["enable_track_map_opti"];
   option->enable_track_map_opti = bool(temp);
   //
@@ -1185,18 +1353,18 @@ void ParseYAMLOption(const std::string &file,
   option->map_point_construct_option = ParseLocalConMapOptio(
       fsSettings["map_point_construct_option"]);
   option->local_map_option = ParseLocalMap(fsSettings["local_map_option"]);
-  option->map_manager_option.local_map_optimization_option =
-      ParseLocalMapoptio(fsSettings["map_manager_option"]["local_map_optimization_option"]);
+
   //
-  temp = fsSettings["map_manager_option"]["use_6_tof_op"];
-  option->map_manager_option.use_6_tof_op =bool(temp);
-  //
-  
+
   option->track_local_map_opt_option =
       ParseLocalMapoptio(fsSettings["track_local_map_opt_option"]);
   option->finish_track_local_map_opt_option =
       ParseLocalMapoptio(fsSettings["finish_track_local_map_opt_option"]);
 
+  option->map_manager_option =
+      ParseMapManagerOption(fsSettings["map_manager_option"]);
+  LOG(INFO)<<option->map_manager_option.max_loop_detct_distance;
+  LOG(INFO)<<"!";
   //
 }
 
@@ -1213,9 +1381,18 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   option->mapping_option.map_manager_option.local_map_optimization_option
       .extric_camera_to_imu =
       option->esti_option.slide_windows_option.extric_camera_to_imu;
+
+  //
+  option->mapping_option.map_manager_option.pose_graph_option
+      .extric_camera_to_imu =
+      option->esti_option.slide_windows_option.extric_camera_to_imu;
+  //
   option->mapping_option.map_manager_option.local_map_optimization_option
       .track_sequence = track_sequence;
   //
+  //
+
+
   for (size_t i = 0; i < option->esti_option.feature_track_options.size(); i++) {
     //
 
@@ -1225,7 +1402,6 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
               calib_option.camera_options[track_sequence[i][0]]);
       option->mapping_option.cameras.emplace(i, camera);
     }
-
     // {
     //   camera_models::CameraPtr camera =
     //       camera_models::CameraFactory::instance()->GenerateCameraFromOption(
@@ -1238,6 +1414,9 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
     // 跟踪的可以跟前端公用一个相机模型
     option->mapping_option.local_map_track_option.cameras.emplace(
         i, option->esti_option.feature_track_options[i].cameras[0]);
+    //
+    option->mapping_option.map_manager_option.local_map_track_option.cameras
+        .emplace(i, option->esti_option.feature_track_options[i].cameras[0]);
     //
 
     option->mapping_option.image_boxs.emplace_back(
@@ -1252,22 +1431,50 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   //
   option->mapping_option.map_point_construct_option.image_boxs =
       option->mapping_option.image_boxs;
+  //
   option->mapping_option.local_map_track_option.image_boxs =
       option->mapping_option.image_boxs;
+  //
+  option->mapping_option.map_manager_option.local_map_track_option.image_boxs =
+      option->mapping_option.image_boxs;
+  //
+  option->mapping_option.local_map_option.image_boxs =
+      option->mapping_option.image_boxs;
+  option->mapping_option.map_manager_option.loop_detect_option.image_boxs =
+      option->mapping_option.image_boxs;
+  LOG(INFO) << option->mapping_option.map_manager_option.loop_detect_option
+                   .image_boxs.size();
+
   //
   option->mapping_option.local_map_track_option.first_outlier_err =
       option->mapping_option.local_map_track_option.first_outlier_err /
       calib_option.camera_options[0].intrinsics[0];
   //
+
+  option->mapping_option.map_manager_option.local_map_track_option
+      .first_outlier_err = option->mapping_option.map_manager_option
+                               .local_map_track_option.first_outlier_err /
+                           calib_option.camera_options[0].intrinsics[0];
+  //
+
+  //
   option->mapping_option.track_sequence = option->esti_option.track_sequence;
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.track_sequence;
-    //
+  option->mapping_option.map_manager_option.local_map_track_option
+      .track_sequence = option->esti_option.track_sequence;
+
+  option->mapping_option.map_manager_option.pose_graph_option.track_sequence =
+      option->esti_option.track_sequence;
+  option->mapping_option.map_manager_option.loop_detect_option.track_sequence =
+      option->esti_option.track_sequence;
+  //
+  //
+
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.slide_windows_option.track_sequence;
-
-
-
+  option->mapping_option.map_manager_option.local_map_track_option
+      .track_sequence = option->esti_option.slide_windows_option.track_sequence;
 }
 //
 //

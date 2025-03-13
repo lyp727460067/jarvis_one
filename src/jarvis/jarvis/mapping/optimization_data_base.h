@@ -16,8 +16,7 @@ struct LocalMapTime {
 };
 //
 //
-struct KfPoseTime {
-  KeyFrameId id;
+struct KeyFramePoseTime {
   common::Time time;
   transform::Rigid3d pose;
 };
@@ -27,6 +26,8 @@ struct PoseConstraint {
   LocalMapId node_i;
   KeyFrameId node_j;
   transform::Rigid3d relative_pose;
+  double yaw =0.0;
+  bool internal =false;
 };
 struct NodePose {
   Eigen::Vector3d t{0, 0, 0};
@@ -37,11 +38,11 @@ struct NodePose {
 //
 class BackOptimize {
  public:
-  virtual void AddImuData(const sensor::ImuData& imu_data) = 0;
-  virtual void AddLocalMapPose(const LocalMapTime& local_map_pose) = 0;
-  virtual void AddKfDataPose(const KfPoseTime& kf_pose) = 0;
-  virtual void Solve(const std::vector<PoseConstraint>& constraints) = 0;
-  virtual void UpdateData() = 0;
+  // virtual void AddImuData(const sensor::ImuData& imu_data) = 0;
+  // virtual void AddLocalMapPose(const LocalMapTime& local_map_pose) = 0;
+  // virtual void AddKfDataPose(const KfPoseTime& kf_pose) = 0;
+  // virtual void Solve(const std::vector<PoseConstraint>& constraints) = 0;
+  // virtual void UpdateData() = 0;
 };
 
 //

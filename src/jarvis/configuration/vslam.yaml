@@ -1,7 +1,7 @@
 %YAML:1.0
 
 data_capture: 0
-image_sample : 0.5
+image_sample : 1
 # image_sample : 1
 record : 0
 GLOG_v :  -1
@@ -13,10 +13,11 @@ slip_detect : 1
 write_mpc_pose_type: 0
 # test_ip : 127.0.0.1
 slip_option: simple_vo.yaml   
-# calibrate_path : /home/lyp/config_back/calibrate_file
-calibrate_path : /data/bin/sys_data/calibrate_file
+# calibrate_path : /home/lyp/data/long_data/2025_3_12_14_45/calibrate_file
+calibrate_path : /home/lyp/data/0103/calibrate_file/
+# calibrate_path : /data/bin/sys_data/calibrate_file
 # calibrate_path : /home/lyp/config_back/mower_0017/calibrate_file
-# calibrate_path : /home/lyp/data/0102/calibrate_file
+# calibrate_path : /home/lyp/Downloads/log/0084/calibrate_file_
 enable_zmq : 0
 estimator : estimator_77.yaml
 mapping: mapping.yaml

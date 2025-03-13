@@ -4,7 +4,7 @@
 #include <map>
 #include <memory>
 #include <set>
-
+#include "jarvis/common/thread_pool.h"
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 //
@@ -28,7 +28,7 @@ using FrontMapPointData = std::map<
 
 // 维护一定规模大小的图，然后重建出当前的一部分的地图点
 struct MapPointConstructOption {
-
+  std::vector<int> extend_key_points_nums;
   float con_struct_map_point_frame_min_distance = 0.4;
   int dbow_trasform_level = 4;
   int area_search_grid_lenth = 10;
@@ -39,6 +39,7 @@ struct MapPointConstructOption {
   DescriptorExtractOption descriptor_option;
   match::ProjectionOption track_project_search_option;
   bool use_local_track_match =false;
+  int mask_radius =  1;
   struct DistEpipolarLineOption {
     float check_dist_epipolar_line_cos_parallax = 0.9998;
     float first_cam_min_z_distance = 0.05;
@@ -54,8 +55,9 @@ struct MapPointConstructOption {
 class MapPointConstruct {
   //
  public:
-  MapPointConstruct(const MapPointConstructOption& option,std::map<int, camera_models::CameraPtr> camera,
-                    dbow::Vocabulary* voc);
+  MapPointConstruct(const MapPointConstructOption& option,
+                    std::map<int, camera_models::CameraPtr> camera,
+                    dbow::Vocabulary* voc,common::ThreadPool* thread_pool);
   //
   //
   KeyFrameData TrackDataToKeyFrameData(
@@ -63,11 +65,17 @@ class MapPointConstruct {
       std::shared_ptr<LocalMapMatchResult> track_data = nullptr);
 
   //
-  bool ConstructExtend(const LocalMap& local_map,
-                       KeyFrameData* data);
+  bool ConstructExtend(
+      const LocalMap& local_map, KeyFrameData::Data* data,
+      std::map<KeyFrameId, std::map<MapPointId, FeatureId>>* connect_data);
+  //
+  bool ExtractExtendData(const LocalMap& local_map, KeyFrameData::Data* data);
   //
   MapPointId AppendMapPointId(const std::pair<int, uint64_t>* tracking_id);
-  void GenerateForExtendKeyPoint(KeyFrameData& data);
+  void GenerateForExtendKeyPoint(KeyFrameData::Data& data);
+  void AddTrackLocalMapData(KeyFrameData* data,
+                            std::shared_ptr<LocalMapMatchResult> track_data);
+  std::set<MapPointId> GetExistTrackMapPointId(const TrackingData& data);
 
  private:
   //
@@ -82,10 +90,11 @@ class MapPointConstruct {
   //
   //
   void UpdateConnectMapPointProjectMatchSearch(
-      const LocalMap& local_map, KeyFrameData& kf_data);
+      const LocalMap& local_map, KeyFrameData::Data& kf_data);
   //
-  void ConStructExtendMapPoints(const LocalMap& local_map,
-                                KeyFrameData& kf_data);
+  void ConStructExtendMapPoints(
+      const LocalMap& local_map, KeyFrameData::Data& kf_data,
+      std::map<KeyFrameId, std::map<MapPointId, FeatureId>>* connect_data);
   //
   MapPointConstructOption options_;
   std::map<int, camera_models::CameraPtr> cameras_;
@@ -100,10 +109,11 @@ class MapPointConstruct {
   std::set<MapPointId> map_points_local_ids_;
   int trajctory =0;
   std::mutex mutex_;
-
   std::unique_ptr<KeyPointExtract> key_points_extractor_;
+  common::ThreadPool* thread_pool_;
   std::unique_ptr<DescriptorExtract> des_extractor_;
   std::set<uint64_t> map_points_local_ids;
+  std::unique_ptr<common::Task> when_done_task_ ;
 };
 
 }  // namespace mapping

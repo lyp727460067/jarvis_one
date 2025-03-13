@@ -82,6 +82,32 @@ void WriteImageWithKeyPoint(const std::string &path,
 
   for (auto& image : catch_iamges) {
     for (auto& image2 : image.second) {
+      for (const auto& p : first_data.features) {
+        if (image.first == p.id.sequence_id) {
+          int lower = 1, upper = 255;
+          int ranged_random = lower + rand() % (upper - lower + 1);
+
+          cv::Scalar color = cv::Scalar(ranged_random, 0, 255 - ranged_random);
+          cv::Point2f point1 = first_data.features.at(p.id).key_point.pt;
+          cv::circle(image2.second.first, point1, 1, color, 1);
+        }
+      }
+      for (const auto& p : sencod_data.features) {
+        if (image2.first == p.id.sequence_id) {
+          int lower = 1, upper = 255;
+          int ranged_random = lower + rand() % (upper - lower + 1);
+
+          cv::Scalar color = cv::Scalar(ranged_random, 0, 255 - ranged_random);
+          cv::Point2f point1 = sencod_data.features.at(p.id).key_point.pt;
+          point1.x += image2.second.second;
+          cv::circle(image2.second.first, point1, 1, color, 1);
+        }
+      }
+    }
+  }
+
+  for (auto& image : catch_iamges) {
+    for (auto& image2 : image.second) {
       const std::string file_name =
           path + std::to_string(common::ToUniversal(first_data.time) * 100) + 
           "_"+std::to_string(common::ToUniversal(sencod_data.time) * 100) +

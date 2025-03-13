@@ -12,11 +12,8 @@
 namespace jarvis_ros {
 class RosViewer {
  public:
-  RosViewer(ros::NodeHandle* nh, const std::string& ground_true_file,
-            bool enable_trud_true = false);
-  jarvis::transform::TransformInterpolationBuffer* GroudTrue() {
-    return groud_true_poses_.get();
-  }
+  RosViewer(ros::NodeHandle* nh);
+ 
   void AddPoses(const std::map<jarvis::KeyFrameId,
                                jarvis::transform::TimestampedTransform>& poses,
                 const std::string& ns);

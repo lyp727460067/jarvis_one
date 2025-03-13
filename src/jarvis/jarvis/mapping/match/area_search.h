@@ -19,12 +19,13 @@ struct AreaSearchOption {
 //
 class AreaSearchGrid {
  public:
-  AreaSearchGrid(
-      const Eigen::AlignedBox2i& image_box,
-      const Eigen::Vector2i& area_grid_num,
-     const  Range<MapById<FeatureId, FeatureData>::ConstIterator>& target_points);
+  AreaSearchGrid(const Eigen::AlignedBox2i& image_box,
+                 const Eigen::Vector2i& area_grid_num,
+                 const Range<MapById<FeatureId, FeatureData>::ConstIterator>&
+                     target_points);
   //
-  std::vector<FeatureId>GetNear(const cv::KeyPoint& point, double r);
+  std::vector<FeatureId> GetNear(const cv::KeyPoint& point, double r);
+
  private:
   bool PosInGrid(const cv::KeyPoint& kp, int& posX, int& posY);
   Eigen::AlignedBox2f GetBound(float x, float y, double r);
@@ -41,32 +42,27 @@ class AreaSearchGrid {
   float frid_element_height_inv_ = 0.0;
 };
 
-
-
 class AreaSearch {
-  public: 
-  explicit AreaSearch(const AreaSearchOption& option,int s,
-                      const KeyFrameData& target_points);
+ public:
+  explicit AreaSearch(const AreaSearchOption& option, int s,
+                      const KeyFrameData::Data& target_points);
   //
   std::vector<FeatureId> GetRadiusIndex(const cv::KeyPoint& points,
-                                        double r = 0.5)const ;
+                                        double r = 0.5) const;
   std::vector<FeatureId> GetRadiusIndex(const Eigen::Vector2d& points,
-                                  double r = 0.5)const ;
+                                        double r = 0.5) const;
   Eigen::Vector2i GetGridNum() { return option_.area_grid_num; }
   ~AreaSearch();
   //
   static std::map<int, std::unique_ptr<match::AreaSearch>>
   CreateAreaSearchFromeKeyFrameData(
-      std::vector<Eigen::AlignedBox2i> image_bboxs, int grid_lenth,
-      const KeyFrameData& data);
+      const std::vector<Eigen::AlignedBox2i>& image_bboxs, int grid_lenth,
+      const KeyFrameData::Data& data);
 
  private:
-  std::unique_ptr<AreaSearchGrid>grid_;
+  std::unique_ptr<AreaSearchGrid> grid_;
   AreaSearchOption option_;
-  const  MapById<FeatureId, FeatureData>& target_points_;
-
-
-
+  const MapById<FeatureId, FeatureData>& target_points_;
 };
 }  // namespace match
 }  // namespace mapping

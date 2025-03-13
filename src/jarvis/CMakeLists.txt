@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.0)
 project(jarvis_main VERSION 1.0.0)
 # define GLOG_EXPORT __attribute__((visibility("default")))
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
-# set(BUILD_TYPE Debug)
 
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,6 +14,8 @@ add_compile_options(#-Werror#-Wpedantic #minor error
                   # -Wshadow # shadow local variable
                    -Werror=maybe-uninitialized
                    -Wmultistatement-macros)
+
+# set(BUILD_TYPE Debug)
 set(BUILD_TYPE Release)
 set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
@@ -110,16 +111,18 @@ else()
   find_package(Eigen3 3.4.0 EXACT)
   # set(OpenCV_DIR "/home/lyp/third_part/opencv/build") 
   ## export PKG_CONFIG_PATH=/home/lyp/third_part/opencv/build/:$PKG_CONFIG_PATH
-  find_package(OpenCV REQUIRED COMPONENTS highgui core imgproc calib3d  imgcodecs ) 
+  find_package(OpenCV REQUIRED COMPONENTS highgui core imgproc calib3d  imgcodecs features2d) 
   message( "Found OpenCV version: ${OpenCV_VERSION}")
 # message( "OpenCV Include Dir: ${OpenCV_INCLUDE_DIRS}")
 # message( "OpenCV Libraries: ${OpenCV_LIBS}")
-  find_package(Ceres REQUIRED)
-  find_package(Glog REQUIRED) 
-  find_package(yaml-cpp  REQUIRED) #version 0.7.0
+  find_package(Ceres REQUIRED) #f68321e7de8929fbcdb95dd42877531e64f72f66
+  find_package(Glog REQUIRED) #31429d85b8ffad6027dcf821242687f3c6c85df9
+  find_package(yaml-cpp  REQUIRED) #1d8ca1f35eb3a9c9142462b28282a848e5d29a91
   find_package(GTest  REQUIRED) #version 1.12.0
-  
-find_package(Protobuf  REQUIRED) 
+
+  #gflags a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd  
+
+  find_package(Protobuf  REQUIRED)   #protobuf v3.21.3  
 endif()
 
 INCLUDE_DIRECTORIES(

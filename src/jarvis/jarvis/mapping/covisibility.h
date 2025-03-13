@@ -36,7 +36,10 @@ class Covisibility {
                                              const KeyFrameId& kf_id) const;
 
   FeatureId GetMapPointFeatureIndex(const KeyFrameId& map_point_id,
-                                    const MapPointId& mp)const;
+                                    const MapPointId& mp) const;
+
+  // MapPointId GetMapPointId(const KeyFrameId& map_point_id,
+  //                          const FeatureId& ft_id) const;
   //
   void UpdateWithFuseMapPoint(const MapPointId& target, const MapPointId& sou);
 
@@ -53,7 +56,9 @@ class Covisibility {
   void RemoveMapPoint(const MapPointId& id);
   std::set<MapPointId> RemoveKeyFrame(const KeyFrameId& id);
   //
-
+  std::vector<KeyFrameId> GetKeyLevelConnectedKeyFrames(
+      const KeyFrameId& frame_id, const std::vector<int>& levels)const;
+  std::set<MapPointId> TrimLessMapPoint(const KeyFrameId& id);
  private:
   //
   std::map<KeyFrameId, std::map<KeyFrameId, int>>

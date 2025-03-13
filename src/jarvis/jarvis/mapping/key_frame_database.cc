@@ -55,11 +55,16 @@ std::unordered_map<KeyFrameId, double> KeyFrameDataBase::FindSimilarCandidate(
     //
 
     for (const auto& id : key_frame_ids) {
-      bool distance_exclude =
-          (key_frame_datas_.at(id).lock()->pose.inverse() * data->pose)
-              .translation()
-              .norm() > options_.min_distance_threash_hold;
-
+      bool distance_exclude = false;
+      if (id.trajectory_id == id.trajectory_id) {
+        distance_exclude =
+            (key_frame_datas_.at(id).lock()->pose.inverse() * data->pose)
+                .translation()
+                .norm() > options_.min_distance_threash_hold;
+      }
+      // LOG(INFO) <<(key_frame_datas_.at(id).lock()->pose.inverse() * data->pose)
+      // .translation()
+      // .norm();
       if (!sharing_words_key_frame_ids.count(id)) {
         if (exclude_ids.count(id) || distance_exclude) continue;
         sharing_words_key_frame_ids.emplace(id, 0);

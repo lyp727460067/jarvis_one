@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "jarvis/mapping/covisibility.h"
-#include "jarvis/mapping/map_manger.h"
 namespace jarvis {
 //
 namespace mapping {
@@ -26,32 +25,35 @@ DataCulling::SearchMatchesKeyFrames(
     auto sequence_feautes = key_frame.data.data->features.trajectory_ids();
     //
   CHECK(!options_.image_bboxs.empty());
-    std::map<int, std::unique_ptr<match::AreaSearch>> area_searchs =
-        match::AreaSearch::CreateAreaSearchFromeKeyFrameData(
-            options_.image_bboxs, options_.grid_lenth, key_frame.data);
+  std::map<int, std::unique_ptr<match::AreaSearch>> area_searchs =
+      match::AreaSearch::CreateAreaSearchFromeKeyFrameData(
+          options_.image_bboxs, options_.grid_lenth, *key_frame.data.data);
+  //
+  match::ProjectionOption project_option{
+      options_.viewing_angle,
+      options_.area_search_radius,
+      options_.project_pix_err,
+      options_.best_map_fuse_des_dis,
+      options_.box_boundary_distance,
+      [=](const transform::Rigid3d& cam_pose, const Eigen::Vector3d& point,
+          int s, Eigen::Vector2d* p) {
+        return data_fuse_->PorjectPoint(cam_pose, point, s, p);
+      }};
+
+  for (const auto& map_point : map_points) {
+    if (key_frame.id == id) continue;
+
+    CHECK(data_fuse_);
+    if (data_fuse_->GetMapObservations(map_point.id).count(key_frame.id))
+      continue;
+    FeatureId index = match::SearchMatchesByProjection(
+        project_option, *key_frame.data.data, area_searchs, map_point.data);
     //
-    match::ProjectionOption project_option{
-        options_.viewing_angle, options_.area_search_radius,
-        options_.project_pix_err, options_.best_map_fuse_des_dis,
-        options_.box_boundary_distance,
-        [=](const transform::Rigid3d& cam_pose, const Eigen::Vector3d& point,
-            int s,
-            Eigen::Vector2d* p) { return data_fuse_->PorjectPoint(cam_pose, point,s,p); }};
-
-    for (const auto& map_point : map_points) {
-      if (key_frame.id == id) continue;
-
-        CHECK(data_fuse_);
-      if (data_fuse_->GetMapObservations(map_point.id).count(key_frame.id))
-        continue;
-      FeatureId index = match::SearchMatchesByProjection(
-          project_option, key_frame.data, area_searchs, map_point.data);
-      //
-      if (index == FeatureId{-1, 0}) {
-        continue;
-      }
-      result[map_point.id].emplace(key_frame.id, index);
+    if (index == FeatureId{-1, 0}) {
+      continue;
     }
+    result[map_point.id].emplace(key_frame.id, index);
+  }
     // if(one_feature.id)
   }
   return result;

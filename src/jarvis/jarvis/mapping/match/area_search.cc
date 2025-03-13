@@ -79,8 +79,8 @@ Eigen::AlignedBox2f AreaSearchGrid::GetBound(float x, float y, double r) {
 
 //
 AreaSearch::AreaSearch(const AreaSearchOption& options, int s,
-                       const KeyFrameData& target_frame)
-    : option_(options), target_points_(target_frame.data->features) {
+                       const KeyFrameData::Data& target_frame)
+    : option_(options), target_points_(target_frame.features) {
   const auto one_sequence_feautes = target_points_.trajectory(s);
   grid_ = std::make_unique<AreaSearchGrid>(
       option_.image_box, option_.area_grid_num, one_sequence_feautes);
@@ -111,27 +111,27 @@ std::vector<FeatureId> AreaSearchGrid::GetNear(const cv::KeyPoint& point,
 //
 //
 std::vector<FeatureId> AreaSearch::GetRadiusIndex(const cv::KeyPoint& point,
-                                                  double r)const {
+                                                  double r) const {
   return grid_->GetNear(point, r);
 }
 //
 
 //
 std::vector<FeatureId> AreaSearch::GetRadiusIndex(const Eigen::Vector2d& point,
-                                                  double r)const {
+                                                  double r) const {
   return grid_->GetNear(cv::KeyPoint(point.x(), point.y(), 2), r);
 }
 
-AreaSearch::~AreaSearch() {
-}
+AreaSearch::~AreaSearch() {}
 
 std::map<int, std::unique_ptr<match::AreaSearch>>
 AreaSearch::CreateAreaSearchFromeKeyFrameData(
-    std::vector<Eigen::AlignedBox2i> image_bboxs, int grid_lenth,
-    const KeyFrameData& data) {
+   const  std::vector<Eigen::AlignedBox2i> &image_bboxs, int grid_lenth,
+    const KeyFrameData::Data& data) {
+  CHECK(!image_bboxs.empty());
   std::map<int, std::unique_ptr<match::AreaSearch>> area_searchs;
 
-  auto sequence_feautes = data.data->features.trajectory_ids();
+  auto sequence_feautes = data.features.trajectory_ids();
   for (const auto& sequence_id : sequence_feautes) {
     area_searchs[sequence_id] = std::make_unique<match::AreaSearch>(
         match::AreaSearchOption{image_bboxs[sequence_id],

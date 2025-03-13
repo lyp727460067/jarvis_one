@@ -44,9 +44,13 @@ class TrajectorBuilder {
 
   transform::Rigid3d GetLocalToGlobalTransform();
   // /
+    std::vector<std::pair<KeyFrameId, KeyFrameId>> GetConstraintsKfIds() {
+    return map_builder_->GetConstraintsKfIds();
+  }
+
   virtual ~TrajectorBuilder();
  private:
-  void ReSet();
+  void ReSet(bool);
   std::unique_ptr<mapping::dbow::Vocabulary> voc_;
   TrajectorBuilderOption options_;
   std::unique_ptr<mapping::MappingBuilder> map_builder_;

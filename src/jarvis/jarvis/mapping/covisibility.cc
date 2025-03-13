@@ -2,7 +2,7 @@
 namespace jarvis {
 namespace mapping {
 //
-constexpr int kMinCoviNumm = 10;
+constexpr int kMinCoviNumm = 4;
 //
 
 //
@@ -137,7 +137,19 @@ void Covisibility::TrimMapPoint(const MapPointId& map_point_id) {
   map_point_observe_frames_.erase(map_point_id);
 }
 //
-
+std::set<MapPointId> Covisibility::TrimLessMapPoint(const KeyFrameId& id) {
+  std::set<MapPointId> result;
+  auto const& map_points_for_frame = key_frame_feature_data_[id];
+  for (auto const& map_point_id : map_points_for_frame) {
+    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), size_t(0))
+        << map_point_id.first << " Not exist";
+    if (map_point_observe_frames_[map_point_id.first].size() <= size_t(2)) {
+      result.insert(map_point_id.first);
+    }
+  }
+  return result;
+}
+//
 std::set<MapPointId> Covisibility::TrimKeyFrame(const KeyFrameId& id) {
   if (covisible_frames_.count(id) == 0 ||
       key_frame_feature_data_.count(id) == 0) {
@@ -179,6 +191,7 @@ std::set<MapPointId> Covisibility::TrimKeyFrame(const KeyFrameId& id) {
 std::vector<KeyFrameId> Covisibility::GetConnectedKeyFrames(
     const KeyFrameId& frame_id, int n) const {
   std::vector<KeyFrameId> result;
+  
   CHECK(covisible_frames_.count(frame_id)) << frame_id;
   for (auto frame : covisible_frames_.at(frame_id)) {
     if (frame.second > kMinCoviNumm) {
@@ -221,7 +234,27 @@ int Covisibility::GetConnectedWeigt(const KeyFrameId& id_i,
   if (covisible_frames_[id_i].count(id_j) == 0) return 0;
   return covisible_frames_[id_i][id_j];
 }
+//
+std::vector<KeyFrameId> Covisibility::GetKeyLevelConnectedKeyFrames(
+    const KeyFrameId& frame_id, const std::vector<int>& levels)const {
+  const auto connect_frames_ids = GetConnectedKeyFrames(frame_id);
+  if (levels.size() == 1) {
+    return connect_frames_ids;
+  }
 
+  std::vector<KeyFrameId> result;
+  result.insert(result.begin(), connect_frames_ids.begin(),
+                connect_frames_ids.end());
+  for (auto connect_frames_id : connect_frames_ids) {
+    auto scond_connet = GetKeyLevelConnectedKeyFrames(
+        connect_frames_id, {levels.begin() + 1, levels.end()});
+    result.insert(result.begin(), scond_connet.begin(), scond_connet.end());
+  }
+  //
+  return result;
+}
+
+//
 std::pair<std::vector<MapPointId>, std::vector<FeatureId>>
 Covisibility::GetKeyFrameMapPointId(const KeyFrameId& frame_id) const {
   CHECK(key_frame_feature_data_.count(frame_id));

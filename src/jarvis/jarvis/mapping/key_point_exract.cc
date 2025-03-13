@@ -75,7 +75,9 @@ static float IC_Angle(const cv::Mat& image, cv::Point2f pt,
 }  // namespace
 
 std::vector<cv::KeyPoint> KeyPointExtract::Extract(const cv::Mat& pyramid,
+                                                   int num,
                                                    const cv::Mat& mask) {
+  extend_key_points_num_ = num; 
   // 多层金字塔提取和其他mask的预留处理
   return StrategyExtract(pyramid, mask);
 }
@@ -88,14 +90,37 @@ std::unique_ptr<KeyPointExtract> KeyPointExtract::Create(
 std::vector<cv::KeyPoint> KeyPointExtract::StrategyExtract(
     const cv::Mat& pyramid, const cv::Mat& mask) {
   std::vector<cv::Point2f> tmp_pts;
-  cv::goodFeaturesToTrack(pyramid, tmp_pts, options_.extend_key_points_num,
+  //
+  cv::Mat mask_temp(mask.size(), CV_8UC1, cv::Scalar::all(0));
+  cv::Rect roi(0, 0, pyramid.cols, pyramid.rows / 2);
+  mask_temp(roi) = cv::Scalar(255);
+  mask_temp &=mask;
+  //
+  // cv::imshow("mask",mask_temp);
+  // cv::waitKey(0);
+  cv::goodFeaturesToTrack(pyramid, tmp_pts, extend_key_points_num_,
                           options_.minimal_accepted_quality_corners,
-                          options_.min_distance,mask);
+                          options_.min_distance, mask_temp);
+  //
+  {
+    std::vector<cv::Point2f> tmp_pts1;
+    cv::Mat mask_temp(mask.size(), CV_8UC1, cv::Scalar::all(0));
+    cv::Rect roi(0, pyramid.rows / 2, pyramid.cols, pyramid.rows / 2);
+    mask_temp(roi) = cv::Scalar(255);
+    mask_temp &=mask;
+    // cv::imshow("mask",mask_temp);
+    // cv::waitKey(0);
+    cv::goodFeaturesToTrack(pyramid, tmp_pts1, extend_key_points_num_/3,
+                            options_.minimal_accepted_quality_corners,
+                            options_.min_distance, mask_temp);
+    //
 
+    tmp_pts.insert(tmp_pts.end(), tmp_pts1.begin(), tmp_pts1.end());
+  }
   if (tmp_pts.empty()) {
     LOG(WARNING)<<"goodFeaturesToTrack empty!!!";
     std::vector<cv::KeyPoint> pts_new;
-    cv::FAST(pyramid, pts_new, 40, false);
+    cv::FAST(pyramid, pts_new, 30, false);
     return pts_new;
   }
   return CvtoStrut(tmp_pts);
@@ -113,7 +138,7 @@ DescriptorExtract::DescriptorExtract(const DescriptorExtractOption& option)
 std::vector<BrifBitset> DescriptorExtract::Extract(
     const cv::Mat& img, const std::vector<cv::KeyPoint>& key_points) {
   std::vector<cv::KeyPoint> muteble_key_points = key_points;
-  // FillKeyPointAngle(img, &muteble_key_points);
+  FillKeyPointAngle(img, &muteble_key_points);
   return brief_->Compute(img, muteble_key_points);
 }
 //

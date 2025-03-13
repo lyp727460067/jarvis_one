@@ -145,6 +145,56 @@ struct FourReProjectionErr {
   const double factor_;
   const Eigen::Quaterniond pith_roll_rotation_;
 };
+//
+struct FourReProjectionErrNormal {
+ public:
+  FourReProjectionErrNormal(const Eigen::Vector2d& nor_poit,
+                            const Eigen::Vector3d& map_point,
+                            const double& roll, const double& pitch,
+                            const double& factor)
+      : nor_point_(nor_poit),map_point_(map_point),
+        factor_(factor),
+        pith_roll_rotation_(transform::RollPitchYaw(roll, pitch, 0.0)) {}
+
+  template <typename T>
+  bool operator()(const T* t1_, const T* q1_, const T* te_, const T* qe_,
+                  T* residul) const {
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> t1(t1_);
+    //
+    //
+    const Eigen::Quaternion<T> q1 =
+        Eigen::AngleAxis<T>(q1_[0], Eigen::Matrix<T, 3, 1>::UnitZ()) *
+        pith_roll_rotation_.cast<T>();
+    //
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> te(te_);
+    Eigen::Map<const Eigen::Quaternion<T>> qe(qe_);
+    Eigen::Matrix<T, 3, 1> pts_pose = q1.inverse() * (map_point_.cast<T>()  - t1);
+    Eigen::Matrix<T, 3, 1> project_p = qe.inverse() * (pts_pose - te);
+
+    T x_normal = project_p[0] / project_p[2];
+    T y_normal = project_p[1] / project_p[2];
+    residul[0] = T(factor_) * (x_normal - T(nor_point_.x()));
+    residul[1] = T(factor_) * (y_normal - T(nor_point_.y()));
+    return true;
+  }
+  static ceres::CostFunction* Creat(const Eigen::Vector3d& nor_poit,
+                                    const Eigen::Vector3d& map_point,
+                                    const double& roll, const double& pitch,
+                                    double factor) {
+    return new ceres::AutoDiffCostFunction<FourReProjectionErrNormal, 2, 3, 1,
+                                           3, 4>(
+        new FourReProjectionErrNormal(nor_poit.head<2>(), map_point, roll,
+                                      pitch, factor));
+  }
+
+ private:
+  const Eigen::Vector2d nor_point_;
+  const Eigen::Vector3d map_point_;
+  const double factor_;
+  const Eigen::Quaterniond pith_roll_rotation_;
+};
+
+
 
 struct FourReProjectionBaErr {
  public:
@@ -158,10 +208,9 @@ struct FourReProjectionBaErr {
   bool operator()(const T* t1_, const T* q1_, const T* te_, const T* qe_,
                   const T* point, T* residul) const {
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> t1(t1_);
-    Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_point_temp(point);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> map_point(point);
     //
     //
-    const Eigen::Matrix<T, 3, 1> map_point = map_point_temp;
     const Eigen::Quaternion<T> q1 =
         Eigen::AngleAxis<T>(q1_[0], Eigen::Matrix<T, 3, 1>::UnitZ()) *
         pith_roll_rotation_.cast<T>();

@@ -23,7 +23,7 @@ class RosCompont {
   RosCompont(ros::NodeHandle *nh_);
   ~RosCompont();
 
-  void CommpressedImagePub(const sensor_msgs::Image &image);
+  void CommpressedImagePub(int id, const cv::Mat &image);
   //
   void OnMapPointsCallback(const std::vector<Eigen::Vector3d> &points,
                            const jarvis::transform::Rigid3d &local_to_globle);
@@ -33,12 +33,15 @@ class RosCompont {
 
   void PubMapPoints(const std::vector<Eigen::Vector3d> &points);
   //
+  void PubLocalMapPoints(const std::vector<Eigen::Vector3d> &points);
   void PubPointPlan(const std::vector<Eigen::Vector3f> &points,
                     const Eigen::Vector4f &vector,
                     const Eigen::Vector3f &centriod
 
   );
   //
+  void PubLocalTrajectorPoseWithMark(
+    const std::map<std::string, std::vector<Eigen::Vector3d>> &poses) ;
   void MarkPub(std::map<int, std::vector<jarvis::object::ObjectImageResult>> &t);
   void OnLocalTrackingResultCallback(
       const jarvis::TrackingData &tracking_data,
@@ -47,13 +50,18 @@ class RosCompont {
   //
 
  private:
+   std::map<std::string, std::vector<Eigen::Vector3d>> poses_;
   ros::Publisher point_cloud_pub_;
   ros::Publisher map_point_cloud_pub_;
+  ros::Publisher pose_local_trajector_mark_publisher_;
+  ros::Publisher local_map_point_cloud_pub_;
   ros::Publisher pub_path_;
   ros::Publisher pub_mark_points_;
   ros::Publisher pub_mark_points_arrow_;
   nav_msgs::Path path_;
-  ros::Publisher compressed_image_pub_;
+  ros::Publisher image_pub0_;
+  ros::Publisher image_pub1_;
+  ros::Publisher image_pub2_;
 
   ros::Publisher markpub_;
   ros::Publisher pub_local_tracking_result_;

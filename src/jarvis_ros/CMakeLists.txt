@@ -145,7 +145,7 @@ ${OpenCV_INCLUDE_DIRS}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_offline  src/jarvis_offline_ros_main.cpp src/ros_component.cc
+add_executable(${PROJECT_NAME}_offline  src/jarvis_slip_detect_main.cc src/pose_extrapolator_brige.cc src/ros_component.cc
 src/ros_viewer.cc
 )
 ## Rename C++ executable without prefix

@@ -11,14 +11,14 @@ namespace jarvis {
 namespace mapping {
 namespace des {
 struct ComputeBriefDescriptrorOption {
-  int patter_type = 1;
-  bool rotated = true;
+  int patter_type = 0;
+  bool rotated =false;
   struct GaussianBlurOption {
     Eigen::Vector2i kernel_size{9, 9};
     Eigen::Vector2f kernel_standard_deviation{2.0, 2.0};
   };
   std::optional<GaussianBlurOption>
-      gaussian_blur_option;  //= GaussianBlurOption{};
+      gaussian_blur_option;//= GaussianBlurOption{};
 };
 class ComputeBriefDescriptror {
  public:

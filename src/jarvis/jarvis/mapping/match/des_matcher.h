@@ -29,7 +29,7 @@ struct ProjectionOption {
 
 //
 FeatureId SearchMatchesByProjection(
-    const ProjectionOption& option, const KeyFrameData& key_frame_data,
+    const ProjectionOption& option, const KeyFrameData::Data& key_frame_data,
     const std::map<int, std::unique_ptr<AreaSearch>> &raius_search,
     const MapPointData& target_map_point);
 //
@@ -38,7 +38,8 @@ FeatureId SearchMatchesByProjection(
 std::vector<std::pair<FeatureId, FeatureId>> DbowFindMathed(
     const MapById<FeatureId, Descriptor>& des1,
     const MapById<FeatureId, Descriptor>& des2, const dbow::DbowData& feat_vec1,
-    const dbow::DbowData& feat_vec2, double describe_distance_threashold);
+    const dbow::DbowData& feat_vec2, double describe_distance_threashold,
+    const std::map<FeatureId, MapPointId>& contain_id1= std::map<FeatureId, MapPointId>{});
 //
 //
 }  // namespace match

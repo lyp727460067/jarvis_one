@@ -7,7 +7,7 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "jarvis/mapping/covisibility.h"
-#include "jarvis/mapping/map_manger.h"
+#include "jarvis/mapping/map_manager.h"
 #include "random"
 namespace jarvis {
 //

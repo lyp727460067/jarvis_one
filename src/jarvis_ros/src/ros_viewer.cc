@@ -105,26 +105,10 @@ void WriteGlobPose(
 
 }  // namespace
 
-RosViewer::RosViewer(ros::NodeHandle* nh, const std::string& dir,
-                     bool enable_trud_true)
+RosViewer::RosViewer(ros::NodeHandle* nh)
     : nh_(nh) {
   markpub_ =
       nh_->advertise<visualization_msgs::MarkerArray>("loop_detection", 10);
-  // if (enable_trud_true) {
-
-  auto poses = ReadGroundTrueFromFile(dir + kGroundTrueFile);
-  if (!poses.empty()) {
-    groud_true_poses_ =
-        std::unique_ptr<transform::TransformInterpolationBuffer>(
-            new transform::TransformInterpolationBuffer());
-    CHECK(!poses.empty());
-    LOG(INFO) << "groud true size:" << poses.size();
-    for (const auto& pose : poses) {
-      groud_true_poses_->Push(pose.first, pose.second);
-    }
-  }
-
-  // }
 }
 void RosViewer::AddPoses(
     const std::map<KeyFrameId, transform::TimestampedTransform>& poses,
@@ -150,13 +134,13 @@ RosViewer::MarkPub::MarkPub(int idex, int a, std::string ns) {
   mark.header.stamp = ::ros::Time::now();
   mark.id = idex;
   mark.action = visualization_msgs::Marker::ADD;
-  mark.type = visualization_msgs::Marker::POINTS;
+  mark.type = visualization_msgs::Marker::LINE_STRIP;
   // mark.type = visualization_msgs::Marker::ARROW;
   std::default_random_engine e(idex);
   std::uniform_real_distribution<float> ran(0, 1);
   mark.lifetime = ros::Duration(0);
   auto color = GetColor(idex + a + 3);
-  mark.scale.x = 0.03;
+  mark.scale.x = 0.04;
   mark.scale.y = 0.03;
   mark.scale.z = 0.03;
   mark.color.a = 1;
@@ -204,15 +188,12 @@ void RosViewer::MarkPub::AddPoint(const Eigen::Vector3d& p, bool li) {
 }
 
 void RosViewer::Viewer() {
-  int index = 0;
+ int index = 0;
   std::vector<MarkPub> mark_pubs;
-  if (groud_true_poses_ != nullptr) {
-    mark_pubs.push_back(MarkPub(index++, 1, "groud_true"));
-  }
   int i = 0;
   for (auto pose : poses_) {
     mark_pubs.push_back(MarkPub(index++,
-                                pose.second.begin()->first.trajectory_id_,
+                                pose.second.begin()->first.trajectory_id,
                                 "pose_" + std::to_string(i)));
     i++;
   }
@@ -225,18 +206,6 @@ void RosViewer::Viewer() {
   if (global_poses.empty()) return;
 
   index = 0;
-  if (groud_true_poses_ != nullptr) {
-    auto first_pose =
-        groud_true_poses_->Lookup(global_poses.begin()->second.time);
-    auto global_first_pose = global_poses.begin()->second.transform;
-    const auto global_to_grue = global_first_pose * first_pose.inverse();
-    for (auto const& pose : poses_["global"]) {
-      auto relative_glole_pose =
-          global_to_grue * groud_true_poses_->Lookup(pose.second.time);
-      mark_pubs[index].AddPoint(relative_glole_pose.translation());
-    }
-    index++;
-  }
   for (auto const& poses : poses_) {
     for (auto const& pose : poses.second) {
       mark_pubs[index].AddPoint(pose.second.transform.translation());
@@ -250,7 +219,7 @@ void RosViewer::Viewer() {
   }
   for (const auto& r : pair_ids_) {
     try {
-      if (r.first.trajectory_id_ != r.second.trajectory_id_) {
+      if (r.first.trajectory_id != r.second.trajectory_id) {
         mark_pubs[index].AddPoint(
             all_global_poses.at(r.first).transform.translation(), true);
         mark_pubs[index].AddPoint(
