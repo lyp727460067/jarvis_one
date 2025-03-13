@@ -356,11 +356,8 @@ PoseOptimization::AlignmentOptimization() {
 //
 PoseOptimization::PoseOptimization(const PoseOptimizationOption& option)
     : options_(option) {
-      LOG(INFO)<<"!";
   pose_motion_filter_ = std::make_unique<jarvis::MotionFilter>(
       jarvis::MotionFilterOptions{1000, 0.2, 0.5}); 
-
-      LOG(INFO)<<"!";
   rtk_motion_filter_ = std::make_unique<jarvis::MotionFilter>(
       jarvis::MotionFilterOptions{1000, 0.2, 0.5});
 }
