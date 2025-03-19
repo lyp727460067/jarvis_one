@@ -20,7 +20,6 @@
 #include "jarvis/transform/transform.h"
 #include "jarvis/common/thread_pool.h"
 #include "jarvis/mapping/loop_detect.h"
-#include "jarvis/mapping/loop_closure.h"
 #include "jarvis/mapping/local_map_optimization.h"
 namespace jarvis {
 namespace mapping {
@@ -29,7 +28,8 @@ namespace mapping {
 struct MapManagerOption {
   bool use_6_tof_op = false;
   double loop_detect__sampler = 0.05;
-  double max_loop_detct_distance =5;
+  double same_trajector_max_loop_detct_distance =15;
+  int continuous_candidate_loop_frame =6;
   double max_loop_detct_time = 5;
   bool enable_loop_closure  =false;
   LoopDetectOption loop_detect_option;
@@ -83,13 +83,15 @@ class MapManager {
                                    std::shared_ptr<LocalMap> &,
                                    const std::vector<KeyFrameId> &candidata_kf);
   //
+  //
+  //
   void UpdateLoopConstraint(
       std::vector<std::unique_ptr<LoopDetctResult>> result);
   //
   std::mutex mutex_;
   std::unique_ptr<LocalMapOptimization> local_opimization_;
 
-  std::unique_ptr<LoopClosure> loop_closure_;
+  std::unique_ptr<LoopDetect> loop_detect_;
   std::set<KeyFrameId> last_new_update_key_frame_ids_;  
   MapManagerOption options_;
   MapById<KeyFrameId,  KeyFrameData> key_frames_datas_;

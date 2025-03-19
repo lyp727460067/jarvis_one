@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  70
+ max_kf_num :  140
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  key_frame_data_option:
@@ -73,7 +73,7 @@ local_map_track_option:
   use_affine_warp : 1
   affine_est_offset: 1 
   affine_est_gain : 1
-  align_max_iter: 5 
+  align_max_iter: 10 
   no_simd: 0
   max_patch_diff_ratio: 0.9
   subpix_refinement: 1

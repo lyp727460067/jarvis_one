@@ -1,7 +1,7 @@
 %YAML:1.0
 
 data_capture: 0
-image_sample : 0.5
+image_sample : 1
 # image_sample : 1
 record : 0
 GLOG_v :  -1

@@ -27,7 +27,7 @@ feattrack0:
   mask : mask.png
 ####
 feattrack1:
-  max_cnt:  20         # max feature number in feature tracking
+  max_cnt:  50         # max feature number in feature tracking
   try_recalc_min_num: 5
   min_dist:  60          # min distance between two features 
   mask_min_dist:  30 
@@ -42,7 +42,7 @@ feattrack1:
   back_flow_min_distance : 0.5
   mask : mask0.png
 feattrack2:
-  max_cnt: 20        # max feature number in feature tracking
+  max_cnt: 50        # max feature number in feature tracking
   try_recalc_min_num: 5
   min_dist:  60           # min distance between two features 
   mask_min_dist:  30 

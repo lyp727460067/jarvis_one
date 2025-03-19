@@ -40,66 +40,44 @@ MapManager::MapManager(const MapManagerOption &option,
 LocalMapId MapManager::AddLocalMap(int trajector,
                                    std::shared_ptr<LocalMap> local_map) {
   //
-  auto local_map_id = local_maps_.Append(
-      trajector, LocalMapData{local_map, local_to_globla_transform_ *
-                                             local_map->LocalPose()});
-  //
-  CHECK(thread_pool_) << "Not enbale local op,loop";
-  auto local_map_process_tast = std::make_unique<common::Task>();
-  local_map_process_tast->SetWorkItem([this, local_map_id]() {
-    std::set<KeyFrameId> new_update_ids;
-    std::shared_ptr<LocalMap> local_map = nullptr;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      local_map = local_maps_.at(local_map_id).local_map;
-    }
-
-    std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
-    op_local_maps[local_map_id] = std::make_shared<LocalMap>(*local_map);
-    LocalMap &new_local_map = *op_local_maps[local_map_id];
-    //
-    bool construct_state  =false;
-    for (const auto &data : local_map->AllKeyFrameDatas()) {
-      // 若是与前一局部地图窗口重复的帧,直接更新当前局部地图信息即可,否则需要做匹配以及新的地图点建立
-      if (last_new_update_key_frame_ids_.count(data.id)) {
-        new_local_map.AddKeyFrameData(data.id, data.data);
-      } else {
-        map_point_construct_->ConstructExtend(new_local_map,
-                                              &key_frames_datas_.at(data.id));
-        new_local_map.AddKeyFrameData(data.id, data.data);
-      }
-      new_update_ids.insert(data.id);
-    }
-    local_opimization_->Optimize(&op_local_maps);
-    if (localmap_update_callback_) {
-      localmap_update_callback_(&op_local_maps);
-      UpdateLocalOpLocalMap(&op_local_maps);
-    }
-    new_local_map.UpdadataExtendFinishData(construct_state);
-    *local_map = std::move(new_local_map);
-    if (options_.enable_loop_closure) {
+  if (!options_.enable_loop_closure) return;
+  const auto local_map_id =
+      local_maps_.Append(trajector, LocalMapData{local_map});
+      ///
       std::vector<KeyFrameId> candidata_kfs;
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (const auto &kf : key_frames_datas_) {
-          if (loop_detect_sampler_->Pulse()) {
-            candidata_kfs.push_back(kf.id);
-          }
-        }
-      }
+  {
+    for (const auto &kf : key_frames_datas_) {
       //
-
-      last_new_update_key_frame_ids_ = std::move(new_update_ids);
-      UpdateNewFinishLocalMapLoop(local_map_id,
-                                  local_maps_.at(local_map_id).local_map,
-                                  std::move(candidata_kfs));
+      const double kf_relative_local_map_distance =
+          (local_map->LocalPose().inverse() * kf.data.data->pose)
+              .translation()
+              .norm();
+      if (loop_detect_sampler_->Pulse() &&
+          kf_relative_local_map_distance <
+              options_.same_trajector_max_loop_detct_distance) {
+        candidata_kfs.push_back(kf.id);
+      }
     }
+  }
+  //
+  for (const auto &kf : candidata_kfs) {
+    std::map<KeyFrameId, KeyFrameData> continuous_ids;
+    for (int i = -options_.continuous_candidate_loop_frame / 2;
+         i < options_.continuous_candidate_loop_frame / 2; i++) {
+      const KeyFrameId id(kf.trajectory_id_, kf.index + i);
+      if (key_frames_datas_.Contains(id)) {
+        continuous_ids.emplace(id, key_frames_datas_.at(id))
+      }
+      loop_detect_->Detect({local_map_id, local_map}, continuous_ids);
+      //
+    }
+  }
+  //
 
-    //
-  });
-  thread_pool_->Schedule(std::move(local_map_process_tast));
-  // needed_opt_local_maps_.insert(local_map_id);如果loopdetect开启的话就放在线程池慢慢优化
-  return local_map_id;
+  last_new_update_key_frame_ids_ = std::move(new_update_ids);
+  UpdateNewFinishLocalMapLoop(local_map_id,
+                              local_maps_.at(local_map_id).local_map,
+                              std::move(candidata_kfs));
 }
 //
 //

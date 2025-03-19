@@ -84,7 +84,10 @@ class MappingBuilder {
     std::lock_guard<std::mutex> lock(mutex_);
     return local_map_front_;
   }
-
+  std::pair<KeyFrameId,KeyFrameData> UpdataKfData(const int t, const TrackingData &data);
+  //
+  void UpdataLocalMapData(const std::pair<KeyFrameId, KeyFrameData>& kf_data);
+  void LocalMapOptimization();
  private:
   void TrackLocalMapOptimize(LocalMapOptimization*,
                              std::map<LocalMapId, std::shared_ptr<LocalMap>>*);
