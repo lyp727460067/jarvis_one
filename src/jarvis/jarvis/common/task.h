@@ -5,7 +5,6 @@
 #include <set>
 
 #include "glog/logging.h"
-#include "jarvis/common/thread_pool.h"
 
 namespace jarvis {
 namespace common {

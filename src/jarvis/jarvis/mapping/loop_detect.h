@@ -1,7 +1,7 @@
 #ifndef JARVIS_MAPPING_LOOP_DETECT_H
 #define JARVIS_MAPPING_LOOP_DETECT_H
 #include "jarvis/mapping/local_map.h"
-
+#include <functional>
 //
 namespace jarvis {
 namespace mapping {
@@ -17,12 +17,20 @@ struct LoopDetctResult {
   };
   std::vector<Data> datas;
 };
-
+//
 class LoopDetect {
  public:
+  LoopDetect(const LoopDetectOption& option, common::ThreadPool* thread_pool);
+  //
   void Detect(const std::pair<LocalMapId, std::shared_ptr<LocalMap>>& local_map,
               const std::map<KeyFrameId, KeyFrameData>& kf_datas);
-              
+  void NotifyNodeAdditionFinished();
+  void WhenDone(
+      std::function<void(std::vector<std::shared_ptr<LoopDetctResult>>)>&&
+          result);
+  //
+ private:
+  LoopDetectOption options_;
 };
 }  // namespace mapping
 }  // namespace jarvis

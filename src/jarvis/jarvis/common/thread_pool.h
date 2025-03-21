@@ -1,5 +1,6 @@
 #ifndef JARVIS_COMMON_THREAD_POOL_H_
 #define JARVIS_COMMON_THREAD_POOL_H_
+
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -7,8 +8,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
-
-#include "jarvis/common/task.h"
+#include <unordered_map>  // 添加这个头文件
 
 namespace jarvis {
 namespace common {

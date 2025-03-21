@@ -13,19 +13,27 @@ namespace mapping {
 struct PoseGraphOption {};
 //
 
-
-
-class PoseGraphOptimize :public BackOptimize {
+struct LocalMapPoseTime
+{
+  common::Time time;
+  LocalMapId local_map_id;
+  transform::Rigid3d local_pose;
+};
+class PoseGraphOptimize {
  public:
-  void AddImuData(const sensor::ImuData& imu_data) ;
-  void AddLocalMapPose(const LocalMapTime& local_map_pose) ;
-  void AddKfDataPose(const KfPoseTime& kf_pose) ;
-  void Solve(const std::vector<PoseConstraint>& constraints) ;
+  void AddImuData(const sensor::ImuData& imu_data);
+  //
+  void AddLocalMapPose(const LocalMapId& local_map_id,
+                       const LocalMapPoseTime& kf_pose);
+  void AddKeyFrameDataPose(const KeyFrameId& id,
+                           const KeyFramePoseTime& kf_pose);
+  //
   //
 
-  // 如果在多次轨迹的情况，维持当前轨迹只有一个localmap跟踪就可以其他的可以删除掉
+  void Solve(const std::vector<PoseConstraint>& constraints);
+  //
   void TrimLocalMapPose(LocalMapId& id);
-  void TrimKfPose(LocalMapId& id);
+  void TrimKeyFramePose(LocalMapId& id);
 
  private:
   std::vector<NodePose> extric_camera_to_imu_;
