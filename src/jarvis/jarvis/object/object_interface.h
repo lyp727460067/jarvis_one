@@ -66,8 +66,8 @@ class ObjectInterface {
   MapBuilderInterface *map_builder_;
   std::unique_ptr<ObjectImpl> object_impl_;
   transform::Rigid3d local_to_globle_transform_;
-  float err_dis_avg_thr_ = 0.20;  // 0.15 0.20
-  float err_dis_max_thr_ = 0.30;  // 0.20 0.25
+  float err_dis_avg_thr_ = 0.28;  // 0.15 0.20
+  float err_dis_max_thr_ = 0.40;  // 0.20 0.25
   float err_angle_avg_thr_ = 8.0; // 5.0  7.0
   float err_angle_max_thr_ = 24.0; // 8.0 10.0
 };
