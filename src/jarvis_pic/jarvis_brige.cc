@@ -59,9 +59,9 @@ JarvisBrige::JarvisBrige(const std::string& config, DataCapture* data_capture,
   }
   //
   trajectorbuilder_option.esti_option =esit_option_;
-  if (is_estrinsic_fixed){
-    trajectorbuilder_option.mapping_option.enable_local_track = false;
-  }
+  // if (is_estrinsic_fixed){
+  //   trajectorbuilder_option.mapping_option.enable_local_track = false;
+  // }
 
   builder_ = std::make_unique<jarvis::TrajectorBuilder>(trajectorbuilder_option,
                                                         std::move(call_back));
