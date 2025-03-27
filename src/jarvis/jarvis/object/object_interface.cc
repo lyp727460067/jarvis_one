@@ -288,8 +288,8 @@ ObjectInterface::ObjectInterface(const camera_models::CameraPtr came_base,
                                  MapBuilderInterface *map_builder)
     : map_builder_(map_builder),
       object_impl_(std::make_unique<ObjectImpl>(came_base, this)) {
-    err_dis_avg_thr_ = 0.28;
-    err_dis_max_thr_ = 0.40;
+    err_dis_avg_thr_ = 0.20;
+    err_dis_max_thr_ = 0.30;
     err_angle_avg_thr_ = 8.0;
     err_angle_max_thr_ = 24.0;
     // cv::FileStorage fsSettings(config_path, cv::FileStorage::READ);
