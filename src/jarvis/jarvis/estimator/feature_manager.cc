@@ -437,7 +437,6 @@ void FeatureManager::CreateFactor(
                                       const std::vector<cv::Point3f> &pts3D,
                                       transform::Rigid3d *p_initial) {
     // // printf("pnp size %d \n",(int)pts2D.size() );
-    // LOG(INFO) << options_.init_pnp_inlier_num;
     if (int(pts2D.size()) < options_.init_pnp_inlier_num) {
       LOG(ERROR)
           << "feature tracking not enough, please slowly move you device! "
@@ -455,12 +454,15 @@ void FeatureManager::CreateFactor(
     cv::Mat inliers;
     pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 4.0 / 377,
                               0.999, inliers);
+
     int n = 0;
     for (int i = 0; i < inliers.rows; i++) {
       if (inliers.at<int>(i)) {
         n++;
       }
     }
+
+    LOG(INFO) << "inlier num :" << n;
     if (!pnp_succ || n <= options_.init_pnp_inlier_num) {
       LOG(ERROR) << "pnp failed ! pnp_status: " << pnp_succ << ", inlier num: " << n;
       return false;

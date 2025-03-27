@@ -31,6 +31,7 @@ struct LocalMapTrackOption {
   int one_frame_pick_candidates_min_num =5;
   int one_frame_match_candidates_min_num =2;
   int one_kf_match_candidates_min_num =5;
+  float same_came_senquece_max_angle  =50;
   std::set<int> sequence_match = {0,1,2};
   bool match_senquence0_alone=true;
   double huber_loss =0.1;

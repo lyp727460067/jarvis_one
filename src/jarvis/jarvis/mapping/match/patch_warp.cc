@@ -25,7 +25,7 @@ void getWarpMatrixAffine(const CameraPtr& cam_ref, const CameraPtr& cam_cur,
   CHECK_NOTNULL(A_cur_ref);
 
   // Compute affine warp matrix A_ref_cur
-  const int kHalfPatchSize = 5;
+  // const int kHalfPatchSize = kHalfPatchSize;
   const Position xyz_ref = f_ref * depth_ref;
   Position xyz_du_ref, xyz_dv_ref;
   // NOTE: project3 has no guarantee that the returned vector is unit length

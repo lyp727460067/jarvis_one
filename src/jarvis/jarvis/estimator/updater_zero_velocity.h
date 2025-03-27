@@ -1,5 +1,5 @@
-#ifndef __METABOUNDS_VIO_UPDATA_ZER0_VELOCITY_H
-#define __METABOUNDS_VIO_UPDATA_ZER0_VELOCITY_H
+#ifndef __VIO_UPDATA_ZER0_VELOCITY_H
+#define __VIO_UPDATA_ZER0_VELOCITY_H
 #include <deque>
 #include <memory>
 #include <optional>

@@ -1,7 +1,7 @@
 #include "jarvis/estimator/failure_detect.h"
 namespace jarvis {
 namespace estimator {
-
+constexpr float kOdoLostDataTimeLenth = 2;
 bool FailureDetect::TimeLost(const common::Time& time) {
   if (!last_frame_data_.has_value()) {
     last_frame_data_ = time;
@@ -18,67 +18,65 @@ bool FailureDetect::TimeLost(const common::Time& time) {
   last_frame_data_ = time;
   return false;
 }
+jarvis::transform::Rigid3d ToPoseInOdom(
+  const jarvis::transform::Rigid3d& pose1,
+  const jarvis::transform::Rigid3d& extric) {
+const transform::Rigid3d transform_odom_to_imu = extric;
+auto transform_cam_to_odom_map_ = transform::Rigid3d::Rotation(
+    transform::RollPitchYaw(0, 0, transform::GetYaw(extric.rotation())));
 
+const transform::Rigid3d pose =
+    transform_cam_to_odom_map_ * pose1 * transform_odom_to_imu.inverse();
+//
+
+return jarvis::transform::Rigid3d(
+    Eigen::Vector3d(pose.translation().x(), pose.translation().y(),
+                    pose.translation().z()),
+    pose.rotation());
+}
+//
+template <typename T>
+double ComputePosesS(std::deque<T>* datas, const jarvis::common::Time& time) {
+  double delta_s = 0;
+  if (datas->size() < 2) return 0;
+  for (size_t i = 1; i < datas->size(); i++) {
+    if (datas->at(i).time > time) break;
+    delta_s += abs((datas->at(i - 1).pose.inverse() * datas->at(i).pose)
+                       .translation()
+                       .norm());
+  }
+  // LOG(INFO)<<delta_s ;
+  return delta_s;
+}
+//
+//
 bool FailureDetect::OdoZeroDetect(const SlideWindowResult& frame_data) {
+  const common::Time time = frame_data.frame_data.data->time;
   //
-  if (options_.use_odom) return false;
-  double odo_distance = 1;
-  auto& distance = frame_data.latest_odo_distance;
-  if (distance.has_value()) {
-    odo_distance = distance.value();
-  }
+  DropData(time - common::FromSeconds(kOdoLostDataTimeLenth), &odometry_data_);
+  DropData(time - common::FromSeconds(kOdoLostDataTimeLenth),
+           &lost_last_poses_);
+  //
 
-  // //
   //
-  failuer_zero_odo_lost_.push_back((odo_distance < 0.01));
-  if (int(failuer_zero_odo_lost_.size()) > options_.zero_odo_win_size) {
-    failuer_zero_odo_lost_.erase(failuer_zero_odo_lost_.begin());
-  }
-  //
-  if (std::count(failuer_zero_odo_lost_.begin(), failuer_zero_odo_lost_.end(),
-                 true) != options_.zero_odo_win_size) {
-    lost_last_poses_.clear();
-    return false;
-  }
   lost_last_poses_.push_back(
-      transform::Rigid3d(frame_data.frame_data.data->imu_state.Pose()));
+      TimePose{frame_data.frame_data.data->time,
+               ToPoseInOdom(frame_data.frame_data.data->imu_state.Pose(),
+                            options_.transform_odom_to_imu)});
   //
-  if (int(lost_last_poses_.size()) > options_.zero_odo_pose_size) {
-    lost_last_poses_.erase(lost_last_poses_.begin());
-  }
+  const double delta_odom_s = ComputePosesS(&odometry_data_, time);
+  const double delta_pose_s = ComputePosesS(&lost_last_poses_, time);
   //
-  double z_distance = 0.0;
-  double translation_distance = 0.0;
-  double yaw_distance = 0.0;
-  // if (options_.fail_detect_option.enable_odo_zero_lost_detect == 1) {
-  for (size_t i = 1; i < lost_last_poses_.size(); i++) {
-    const transform::Rigid3d delta_pose =
-        lost_last_poses_[i - 1].inverse() * lost_last_poses_[i];
-    translation_distance += delta_pose.translation().norm();
-    z_distance += (delta_pose.translation().z());
-    yaw_distance += (common::RadToDeg(transform::GetAngle(delta_pose)));
-  }
-
-  if (translation_distance >= options_.zero_translation_norm_max) {
-    LOG(ERROR) << "Zero velocity translation detect: " << translation_distance
-               << " > " << options_.zero_translation_norm_max;
-    return true;
-  }
-  if (fabs(z_distance) >= options_.translation_z_max) {
-    LOG(ERROR) << "Zero velocity z: " << z_distance << " > "
-               << options_.translation_z_max;
-
-    return true;
-  }
-  if (fabs(yaw_distance) >= options_.zero_ratation_max) {
-    LOG(ERROR) << "Zero velocity yaw: " << yaw_distance << " > "
-               << options_.zero_ratation_max;
-
+  const auto delta_s = delta_pose_s - delta_odom_s;
+      LOG(ERROR) << " Delta pose too big " << delta_s << ",delta_pose_s"
+               << delta_pose_s << ",delta_odom_s" << delta_odom_s;
+  if (delta_s > options_.odo_pose_delta_s) {
+    LOG(ERROR) << " Delta pose too big " << delta_s << ",delta_pose_s"
+               << delta_pose_s << ",delta_odom_s" << delta_odom_s;
     return true;
   }
   return false;
 }
-//
 //
 bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
   double time_diff = 0.0;
@@ -135,9 +133,9 @@ bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
   double delta_angle = abs(common::RadToDeg(transform::GetAngle(delta_pose)));
   //
   // if (time_diff >= 0.001) {
-  //   const double velocity_normal = delta_pose.translation().norm() / time_diff;
-  //   LOG(INFO)<<velocity_normal ;
-  //   if (velocity_normal > options_.max_velocity_normal) {
+  //   const double velocity_normal = delta_pose.translation().norm() /
+  //   time_diff; LOG(INFO)<<velocity_normal ; if (velocity_normal >
+  //   options_.max_velocity_normal) {
   //     LOG(ERROR) << " max_velocity_normal too big" << velocity_normal;
   //     return true;
   //   }
@@ -152,5 +150,22 @@ bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
   }
   return false;
 }
+
+void FailureDetect::AddOdometryData(const sensor::OdometryData& odom) {
+  odometry_data_.push_back(odom);
+  if (odometry_data_.size() > 2000) {
+    LOG_EVERY_N(WARNING, 10) << "Odom data size too big.";
+    odometry_data_.pop_front();
+  }
+}
+//
+template <typename T>
+void FailureDetect::DropData(const common::Time& time, std::deque<T>* deque) {
+  while (!deque->empty() && deque->front().time < time) {
+    deque->pop_front();
+  }
+}
+
+  //
 }  // namespace estimator
 }  // namespace jarvis

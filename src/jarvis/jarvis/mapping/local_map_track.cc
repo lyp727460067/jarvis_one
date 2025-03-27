@@ -421,6 +421,8 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
   std::vector<LocalMapTrack::Candidate> candidates;
   std::set<MapPointId> eixst_map_point_ids;
   if (overlap_kfs.empty()) return {};
+  const auto& all_kf_frames = local_map_->AllKeyFrameDatas();
+
   for (const auto& ref_frame_id : overlap_kfs) {
     std::vector<LocalMapTrack::Candidate> candidates_temp;
     //
@@ -429,10 +431,22 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
                                .translation()
                                .norm();
     //
+    //
+    const transform::Rigid3d ref_pose =
+        local_map_->AllKeyFrameRefPose().at(ref_frame_id);
+    //
     const auto& map_point_feature_ids =
         local_map_->GetCovisibility()->GetKeyFrameMapPointId(ref_frame_id);
     for (size_t i = 0; i < map_point_feature_ids.first.size(); i++) {
       //
+      const transform::Rigid3d cam_pos =
+          all_kf_frames.at(ref_frame_id)
+              .data->CameraPose(ref_pose,
+                                map_point_feature_ids.second[i].sequence_id);
+      //
+      const double angle = common::RadToDeg(
+          transform::GetAngle(cam_pos.inverse() * frame->pose));
+      if(angle >options_.same_came_senquece_max_angle)continue;
       if (eixst_map_point_ids.count(map_point_feature_ids.first[i])) continue;
       //
       const auto& point =
@@ -447,6 +461,7 @@ std::vector<LocalMapTrack::Candidate> LocalMapTrack::PickCandidates(
         continue;
       }
       //
+
       Eigen::Vector3d point_world = point.data->pos;
       Eigen::Vector2d px;
       if (!frame->IsVisible(point_world, &px)) continue;
@@ -596,7 +611,6 @@ match::MatchResult LocalMapTrack::MatchCandidate(
        all_map_points.at(candidate.mp_id).data->pos)
           .z();
   //
-
   return direct_match_->FindMatch(*ref_frame, *frame, feat_wrap, ref_depth,
                                   candidate.cur_px);
   //

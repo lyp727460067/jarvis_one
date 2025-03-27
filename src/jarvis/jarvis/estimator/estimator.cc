@@ -288,6 +288,8 @@ void Estimator::AddImuData(const sensor::ImuData &imu_data) {
 void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {
   data_base_->AddOdometry(
       sensor::OdometryData{odometry_data.time, odometry_data.pose});
+  failure_detect_->AddOdometryData(
+      sensor::OdometryData{odometry_data.time, odometry_data.pose});
 }
 
 //
