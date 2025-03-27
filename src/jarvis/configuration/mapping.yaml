@@ -45,7 +45,7 @@ local_map_option:
   redundant_observations_ration : 0.7
 
 local_map_track_option:
- test_match_pic_write_path : ""  # "/home/lyp/project/vslam/jarvis/test/image/"
+ test_match_pic_write_path :  "" #  "/home/lyp/project/vslam/jarvis/test/image/"
  min_track_frame_num : 30
  remove_unconstrained_points : 1
  min_convi_num : 4
@@ -63,9 +63,9 @@ local_map_track_option:
  match_senquence0_alone: 0
  huber_loss : 0.1
  kf_max_distance : 3
- cell_sizes : "{0, 16}, {1, 16}, {2, 16}"
+ cell_sizes : "{0, 10}, {1, 10}, {2, 10}"
  max_num_pick_num : 100
- max_cell_sizes : "{0, 32}, {1, 32}, {2, 32}"
+ max_cell_sizes : "{0, 20}, {1, 20}, {2, 20}"
  out_time : 10
  max_num_iterations : 3
  op_type  : 2  #0  four dof

@@ -45,6 +45,12 @@ MatchResult DirectMatch::FindMatch(const Frame& ref_frame,
                                    const FeatureWrapper& ref_ftr,
                                    const double& ref_depth,
                                    const Keypoint& pr) {
+  uint8_t patch_[kPatchSize * kPatchSize] __attribute__((aligned(16)));
+  uint8_t patch_with_border_[(kPatchSize + 2) * (kPatchSize + 2)]
+      __attribute__((aligned(16)));
+  memset(patch_with_border_, 0, sizeof(patch_with_border_));
+  memset(patch_, 0, sizeof(patch_));
+
   Eigen::Vector2i pxi = ref_ftr.px.cast<int>() / (1 << ref_ftr.level);
   int boundary = kHalfPatchSize + 2;
   //
@@ -67,12 +73,12 @@ MatchResult DirectMatch::FindMatch(const Frame& ref_frame,
   //
   //
   // LOG(INFO)<<ref_frame.img_pyr.size();
+  A_cur_ref =  Eigen::Matrix2d::Identity();
   int search_level =
       warp::getBestSearchLevel(A_cur_ref, ref_frame.img_pyr.size() - 1);
   // LOG(INFO)<<search_level ;
   //
   //
-
   if (options_.use_affine_warp) {
     if (!warp::warpAffine(A_cur_ref, ref_frame.img_pyr[ref_ftr.level],
                           ref_ftr.px, ref_ftr.level, search_level,
@@ -97,8 +103,12 @@ MatchResult DirectMatch::FindMatch(const Frame& ref_frame,
   Keypoint px_scaled(px_cur / (1 << search_level));
   Keypoint px_scaled_start(px_scaled);
   // cv::imshow("cur_frame.img_pyr",cur_frame.img_pyr[search_level]);
-  // cv::Mat patch_image(kPatchSize, kPatchSize, CV_8UC1, patch_);
+  // cv::Mat patch_image(kPatchSize+2, kPatchSize+2, CV_8UC1, patch_with_border_);
   // cv::imshow("pach_image", patch_image);
+  // cv::Mat temp =  ref_frame.img_pyr[ref_ftr.level].clone();
+  // cv::circle(temp, cv::Point(ref_ftr.px.x(), ref_ftr.px.y()), 1, 0, 2);
+
+  // cv::imshow("ref_image", temp);
   // cv::waitKey(0);
   std::vector<Eigen::Vector2f>* last_fail_steps = nullptr;
 
@@ -112,10 +122,10 @@ MatchResult DirectMatch::FindMatch(const Frame& ref_frame,
   if (res) {
     if ((px_scaled - px_scaled_start).norm() >
         options_.max_patch_diff_ratio * kPatchSize) {
-      VLOG(2) << "Proejct -esitimator distance  "
+      LOG(ERROR) << "Proejct -esitimator distance  "
                 << (px_scaled - px_scaled_start).norm() << " > "
                 << options_.max_patch_diff_ratio * kPatchSize;
-      // return {MatchResultState::kFailTooFar};
+      return {MatchResultState::kFailTooFar};
     }
     // LOG(INFO)<<(px_scaled - px_scaled_start).norm();
      const Keypoint px_cur = px_scaled * (1 << search_level);
@@ -145,6 +155,10 @@ MatchResult DirectMatch::FindEpipolarMatchDirect(
     const transform::Rigid3d& T_cur_ref, const FeatureWrapper& ref_ftr,
     const double d_estimate_inv, const double d_min_inv, const double d_max_inv,
     double& depth) {
+  uint8_t patch_[kPatchSize * kPatchSize] __attribute__((aligned(16)));
+  uint8_t patch_with_border_[(kPatchSize + 2) * (kPatchSize + 2)]
+      __attribute__((aligned(16)));
+
   int zmssd_best = PatchScore::threshold();
 
   // Compute start and end of epipolar line in old_kf for match search, on image
@@ -261,6 +275,10 @@ MatchResultState DirectMatch::FindLocalMatch(
     const int patch_level, Keypoint& px_cur) {
   Keypoint px_scaled(px_cur / (1 << patch_level));
   bool res;
+  uint8_t patch_[kPatchSize * kPatchSize] __attribute__((aligned(16)));
+  uint8_t patch_with_border_[(kPatchSize + 2) * (kPatchSize + 2)]
+      __attribute__((aligned(16)));
+
   if (options_.align_1d) {
     double h_inv_;
     res = feature_alignment::align1D(

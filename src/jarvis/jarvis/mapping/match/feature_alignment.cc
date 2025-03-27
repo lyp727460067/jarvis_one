@@ -274,10 +274,10 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
   update.setZero();
 
   for (int iter = 0; iter < n_iter; ++iter) {
-    size_t count = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       std::chrono::high_resolution_clock::now() - start)
-                       .count();
-    if (count > 1) return false;
+    // size_t count = std::chrono::duration_cast<std::chrono::milliseconds>(
+    //                    std::chrono::high_resolution_clock::now() - start)
+    //                    .count();
+    // if (count > 1) return false;
     int u_r = std::floor(u);
     int v_r = std::floor(v);
     if (u_r < halfpatch_size_ || v_r < halfpatch_size_ ||
@@ -372,7 +372,7 @@ bool align2D(const cv::Mat& cur_img, uint8_t* ref_patch_with_border,
   }
 
   cur_px_estimate << u, v;
-  (void)no_simd;
+  // (void)no_simd;
 
   return converged;
 }

@@ -62,9 +62,9 @@ enum class MatchResultState {
 //
 struct MatchResult {
   MatchResultState state;
-  Eigen::Vector2d pt;
-  Eigen::Vector3d norm;
-  int level;
+  Eigen::Vector2d pt{0,0};
+  Eigen::Vector3d norm{0,0,0};
+  int level=0;
 };
 
 //
@@ -125,9 +125,7 @@ class DirectMatch {
   // static constexpr int kHalfPatchSize = 4;
   static constexpr int kPatchSize =kHalfPatchSize*2;
 
-  uint8_t patch_[kPatchSize * kPatchSize] __attribute__((aligned(16)));
-  uint8_t patch_with_border_[(kPatchSize + 2) * (kPatchSize + 2)]
-      __attribute__((aligned(16)));
+
   const DirectMatchOption options_;
 };
 }  // namespace match
