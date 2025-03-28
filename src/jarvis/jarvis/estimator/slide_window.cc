@@ -548,6 +548,7 @@ void SlideWindow::StateToFrameData() {
     if (feature_managers_->Exist(i)) {
       int feat_manger_depth_lenth =
           feature_managers_->MutableFeatureManager(i)->GetFeatureCount();
+      CHECK_LE(feat_manger_depth_lenth, 1000);
       std::vector<double> dephts(feat_manger_depth_lenth);
       for (int j = 0; j < feat_manger_depth_lenth; j++) {
         dephts[j] = para_Feature[i][j][0];
@@ -618,6 +619,7 @@ void SlideWindow::FrameDataToState() {
     if (feature_managers_->Exist(i)) {
       std::vector<double> dephts =
           feature_managers_->MutableFeatureManager(i)->GetDepthVector();
+      CHECK_LE(dephts.size(), 1000);
       for (size_t j = 0; j < dephts.size(); j++) {
         para_Feature[i][j][0] = dephts[j];
       }
