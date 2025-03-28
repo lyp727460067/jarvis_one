@@ -68,8 +68,7 @@ bool FailureDetect::OdoZeroDetect(const SlideWindowResult& frame_data) {
   const double delta_pose_s = ComputePosesS(&lost_last_poses_, time);
   //
   const auto delta_s = delta_pose_s - delta_odom_s;
-      LOG(ERROR) << " Delta pose too big " << delta_s << ",delta_pose_s"
-               << delta_pose_s << ",delta_odom_s" << delta_odom_s;
+
   if (delta_s > options_.odo_pose_delta_s) {
     LOG(ERROR) << " Delta pose too big " << delta_s << ",delta_pose_s"
                << delta_pose_s << ",delta_odom_s" << delta_odom_s;
