@@ -6,6 +6,7 @@
 #include "parameters.h"
 #include "jarvis/estimator/factor/integration_base.h"
 //
+#include "jarvis/estimator/updater_zero_velocity.h"
 #include "jarvis/key_frame_data.h"
 namespace jarvis {
 namespace estimator {
@@ -48,6 +49,8 @@ struct OptimizationStateData {
 struct OptimizationData {
   std::vector<OdomFactor*> odom_factors;
   std::vector<IntegrationBase*> imu_factors;
+  std::vector<bool> zero_velocity_factor;
+  UpdataZeroVelocity* update_zero_velocity;
   FeatureManagers* feat_manager_factors;
 };
 //

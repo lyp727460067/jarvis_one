@@ -279,10 +279,10 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
 //
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
   double d_time = common::ToSeconds(imu_data.time - common::FromUniversal(0));
-  // if (update_zero_velocity_) {
-  //   update_zero_velocity_->AddImu(imu_data);
-  // }
   data_base_->AddImu(imu_data);
+  if(slide_wondows_ &&(slide_wondows_->GetUpdataZeroVelocity()) ){
+    slide_wondows_->GetUpdataZeroVelocity()->AddImu(imu_data);
+  }
 }
 
 void Estimator::AddOdometryData(const sensor::OdometryData &odometry_data) {

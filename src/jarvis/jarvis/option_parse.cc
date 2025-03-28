@@ -665,23 +665,14 @@ void ParseYAMLOption(const std::string &file,
 
     //
     option->fail_detect_option.ratation_max = fsSettings["ratation_max"];
-    option->fail_detect_option.zero_translation_norm_max =
-        fsSettings["zero_translation_norm_max"];
-    option->fail_detect_option.zero_translation_z_max =
-        fsSettings["zero_translation_z_max"];
-    option->fail_detect_option.zero_ratation_max =
-        fsSettings["zero_ratation_max"];
-    //
-    option->fail_detect_option.enable_odo_zero_lost_detect =
-        fsSettings["enable_odo_zero_lost_detect"];
-    //
-
-    option->fail_detect_option.zero_odo_win_size =
-        fsSettings["zero_odo_win_size"];
-    option->fail_detect_option.zero_odo_pose_size =
-        fsSettings["zero_odo_pose_size"];
-    //
-    //
+    int use_odo_pose_compare =fsSettings["use_odo_pose_compare"];
+    option->fail_detect_option.use_odo_pose_compare = bool(use_odo_pose_compare);
+    option->fail_detect_option.min_odo_valid_distance =
+        fsSettings["min_odo_valid_distance"];
+    option->fail_detect_option.odo_pose_delta_s =
+        fsSettings["odo_pose_delta_s"];
+    option->fail_detect_option.odo_pose_compare_durition =
+        fsSettings["odo_pose_compare_durition"];
     //
     option->fail_detect_option.transform_odom_to_imu =
         calib_option.extric_camera_to_robot *
@@ -765,10 +756,14 @@ void ParseYAMLOption(const std::string &file,
         fsSettings["UpdataZeroVelocityOption"]["zupt_delay_frames"];
     option->slide_windows_option.updata_zerovelocity_option.que_time_duration =
         fsSettings["UpdataZeroVelocityOption"]["que_time_duration"];
-    option->slide_windows_option.updata_zerovelocity_option.imu_velocity_option
-        .integrated_accel_constraint =
+    //
+    int integrated_accel_constraint =
         fsSettings["UpdataZeroVelocityOption"]["imu_velocity_option"]
                   ["integrated_accel_constraint"];
+
+    option->slide_windows_option.updata_zerovelocity_option.imu_velocity_option
+        .integrated_accel_constraint = bool(integrated_accel_constraint);
+   
     option->slide_windows_option.updata_zerovelocity_option.imu_velocity_option
         .zupt_noise_multiplier =
         fsSettings["UpdataZeroVelocityOption"]["imu_velocity_option"]
@@ -785,6 +780,15 @@ void ParseYAMLOption(const std::string &file,
         .imag_disparity_option.max_disparity =
         fsSettings["UpdataZeroVelocityOption"]["imag_disparity_option"]
                   ["max_disparity"];
+
+    option->slide_windows_option.updata_zerovelocity_option.imu_velocity_option
+        .angular_velocity_random_walk = imu_option.imu_noise.nbg;
+    option->slide_windows_option.updata_zerovelocity_option.imu_velocity_option
+        .accelerometer_random_walk = imu_option.imu_noise.nba;
+    option->slide_windows_option.updata_zerovelocity_option.imu_velocity_option
+        .angular_velocity_wnc = imu_option.imu_noise.ng2;
+    option->slide_windows_option.updata_zerovelocity_option.imu_velocity_option
+        .accelerometer_wnc = imu_option.imu_noise.na2;
   }
   //   LOG(INFO) << "\n" << info.str() << "\n";
 }

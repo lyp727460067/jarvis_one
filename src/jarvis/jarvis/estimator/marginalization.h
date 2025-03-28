@@ -26,6 +26,9 @@ struct MarginalizationFactorData {
   std::vector<OdomFactor*> odom_factors;
   std::vector<IntegrationBase*> imu_factors;
   FeatureManagers* feat_manager_factors;
+  std::vector<bool> zero_velocity_factor;
+  UpdataZeroVelocity* update_zero_velocity;
+
   // std::vector<FeatureManager*> feat_manager_factors;
 };
 //

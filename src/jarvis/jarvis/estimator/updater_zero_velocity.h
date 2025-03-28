@@ -22,7 +22,7 @@ class ZeroVelocityDetect {
  public:
   using KeyPointData =
       std::unordered_map<uint64_t, std::map<common::Time, Eigen::Vector2d>>;
-  virtual bool IsZeroVelocity() = 0;
+  virtual bool IsZeroVelocity(const common::Time& time) = 0;
   virtual ~ZeroVelocityDetect() {}
 };
 //
@@ -34,7 +34,7 @@ class ImuZeroVelocityDetect : public ZeroVelocityDetect {
   ImuZeroVelocityDetect(const ImuZeroVelocityDetectOption& option,
                         const std::deque<sensor::ImuData>& data_base)
       : options_(option), data_base_(data_base) {}
-  virtual bool IsZeroVelocity() override;
+  virtual bool IsZeroVelocity(const common::Time& time) override;
 
  protected:
   const ImuZeroVelocityDetectOption options_;
@@ -73,11 +73,11 @@ class OpenVinsZeroVelocityDetect : public ImuZeroVelocityDetect {
       : ImuZeroVelocityDetect(option.base_option, data_base),
         options_(option),
         state_(state) {}
-  bool IsZeroVelocity() override;
+  bool IsZeroVelocity(const common::Time& time) override;
 
  private:
   const OpenVinsZeroVelocityDetectOption options_;
-  const StateType& state_;
+  const StateType state_;
 };
 
 //
@@ -93,7 +93,7 @@ class ImageZeroVelocityDetect : public ZeroVelocityDetect {
                           const KeyPointData& data_base)
       : options_(option), data_base_(data_base) {}
   //
-  bool IsZeroVelocity() override;
+  bool IsZeroVelocity(const common::Time& time) override;
 
  private:
   const ImageZeroVelocityDetectOption options_;
@@ -115,13 +115,13 @@ class UpdataZeroVelocity {
  public:
   UpdataZeroVelocity(const UpdataZeroVelocityOption& option);
   bool IsZeroVelocity(const common::Time& time);
-  bool IsZeroVelocity();
+  // bool IsZeroVelocity();
   //
   UpdataZeroVelocity* AtState(const StateType&);
   ceres::CostFunction* CostFunction() const;
   // order is T0,T1,V0
   void AddToProblem(ceres::Problem* problem, ceres::LossFunction* loss_function,
-                    std::array<double*, 3> pqv) const;
+    const std::array<double*, 3>& pqv) const;
   //
   void AddImu(const sensor::ImuData& imu_data);
   void AddImageKeyPoints(const common::Time& time,

@@ -38,13 +38,13 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   if (options_.enable_zero_velocity) {
     update_zero_velocity_ = std::make_unique<UpdataZeroVelocity>(
         options_.updata_zerovelocity_option);
+    zero_velocity_factor_state_ =
+        std::vector<bool>(options_.win_size + 1, false);
   }
   //
   //
   odo_to_imu_extric_ = transform::Rigid3d::Identity();
   //
-  //
-
   //
   // for init...
   for (size_t i = 0; i < options_.track_sequence.size(); i++) {
@@ -72,6 +72,20 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
   // /
   last_feature_time_ = init_data->time;
   CHECK_EQ(int(imu_states_.size()), options_.win_size + 1);
+
+  {
+    FrameDataToState();
+    MarginalizationFactorData marg_data;
+    for (int i = 0; i < options_.win_size + 1; i++) {
+      marg_data.odom_factors.push_back(odoms_factor_[i].get());
+      marg_data.imu_factors.push_back(integration_base_[i].get());
+      marg_data.zero_velocity_factor.push_back(zero_velocity_factor_state_[i]);
+      marg_data.update_zero_velocity = update_zero_velocity_.get();
+    }
+    marg_data.feat_manager_factors = feature_managers_.get();
+    marginalizer_->Marginalize(opt_data_, &marg_data, true);
+  }
+
   SlideData(true);
   // feature_managers_->RemoveOutliersRejection(
   //       imu_states_, extric_camera_to_imu_);
@@ -171,10 +185,37 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     }
   }
 
-
   //
   bool is_keyframe = feature_managers_->CheckParallax();
-
+  if (update_zero_velocity_) {
+    estimator::ImageFeatureTrackerData multy_features{
+        std::make_shared<ImageFeatureTrackerData::Data>(
+            ImageFeatureTrackerData::Data{
+                frame.data->features_datas[0].features.data->time,
+                frame.data->features_datas[0].features.data->features})};
+    for (size_t i = 1; i < frame.data->features_datas.size(); i++) {
+      for (const auto& feat :
+           frame.data->features_datas[i].features.data->features) {
+        multy_features.data->features.emplace(feat.first << i, feat.second);
+      }
+    }
+    update_zero_velocity_->AddImageKeyPoints(current_time, multy_features);
+  }
+  if (update_zero_velocity_ && update_zero_velocity_
+                                   ->AtState(StateType{
+                                       current_time,
+                                       frame.data->imu_state.Pose(),
+                                       frame.data->imu_state.v,
+                                       frame.data->imu_state.ba,
+                                       frame.data->imu_state.bg,
+                                   })
+                                   ->IsZeroVelocity(current_time)) {
+    zero_velocity_factor_state_.push_back(true);
+    is_keyframe =false;
+    // problem.SetParameterBlockConstant(para_Pose[frame_count - 1]);
+  } else {
+    zero_velocity_factor_state_.push_back(false);
+  }
   //
   // bool is_keyframe = feature_manager_->CheckParallax();
   VLOG(0) << "Add incoming feature "
@@ -215,9 +256,12 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     //           << imu_states_.begin()->time;
     // LOG(INFO) << init_feature_datas_.rbegin()->first << " "
     //           << imu_states_.back().time;
-    if (init_feature_datas_.begin()->first == imu_states_.begin()->time  &&
-    init_feature_datas_.rbegin()->first == imu_states_.back().time
-    ) {
+    const double distance = (imu_states_.back().Pose() * imu_states_[0].Pose())
+                                .translation()
+                                .norm();
+    if (init_feature_datas_.begin()->first == imu_states_.begin()->time &&
+        init_feature_datas_.rbegin()->first == imu_states_.back().time &&
+        distance > 0.2) {
       for (auto& t_f : init_feature_datas_) {
         for (auto& f : t_f.second) {
           init_feature_managers_[f.first]->AddFeatureCheckParallax(
@@ -232,12 +276,10 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
         LOG(INFO) << "Add FeatureManger " << f.first << ",init size "
                   << init_feature_datas_.size();
       }
-      
+
       init_feature_datas_.clear();
     }
   }
-
-
 
   integration_base_.push_back(nullptr);
   if (!imu_datas.empty()) {
@@ -285,8 +327,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   odoms_factor_.back()->ComputeObserve(last_feature_time_, current_time);
   //
 
-  // frame.data->update_zero_velocity_data = update_zero_velocity_.get();
-  // sw_data_.frame_data.emplace_back(mute_frame_data);
+
   //
   std::vector<transform::Rigid3d> triang_pose;
   for (size_t i = 0; i < imu_states_.size(); i++) {
@@ -309,6 +350,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
   for (int i = 0; i < options_.win_size + 1; i++) {
     opt_data.odom_factors.push_back(odoms_factor_[i].get());
     opt_data.imu_factors.push_back(integration_base_[i].get());
+    opt_data.zero_velocity_factor.push_back(zero_velocity_factor_state_[i]);
+    opt_data.update_zero_velocity = update_zero_velocity_.get();
   }
   //
   opt_data.feat_manager_factors = feature_managers_.get();
@@ -326,6 +369,8 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
     for (int i = 0; i < options_.win_size + 1; i++) {
       marg_data.odom_factors.push_back(odoms_factor_[i].get());
       marg_data.imu_factors.push_back(integration_base_[i].get());
+      marg_data.zero_velocity_factor.push_back(zero_velocity_factor_state_[i]);
+      marg_data.update_zero_velocity = update_zero_velocity_.get();
     }
     marg_data.feat_manager_factors = feature_managers_.get();
     marginalizer_->Marginalize(opt_data_, &marg_data, !is_keyframe);
@@ -410,7 +455,9 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
    if (odoms_factor_[odoms_factor_.size() - 2] && odoms_factor_.back()) {
      odoms_factor_[odoms_factor_.size() - 2]->Merge(*odoms_factor_.back());
    }
-
+   zero_velocity_factor_state_[zero_velocity_factor_state_.size() - 2] =
+       zero_velocity_factor_state_.back();
+   zero_velocity_factor_state_.erase(zero_velocity_factor_state_.end());
    imu_states_.erase(imu_states_.end());
    integration_base_.erase(integration_base_.end());
    odoms_factor_.erase(odoms_factor_.end());
@@ -440,7 +487,7 @@ void SlideWindow::SlideData(bool is_keyframe) {
             new_pose * extric_camera_to_imu_[options_.track_sequence[i][0]]);
       }
     }
-
+    zero_velocity_factor_state_.erase(zero_velocity_factor_state_.begin());
     odoms_factor_.erase(odoms_factor_.begin());
     integration_base_.erase(integration_base_.begin());
     // feature_managers_->RemoveBack();
