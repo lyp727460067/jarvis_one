@@ -14,16 +14,12 @@ struct FailureDetectOptoin {
   double translation_norm_max = 0.5;
   double translation_z_max = 0.1;
   double ratation_max = 20;
-  int enable_odo_zero_lost_detect = 0;
-  double zero_translation_norm_max = 0.3;
-  double zero_translation_z_max = 0.3;
-  double zero_ratation_max = 0.1;
-  int zero_odo_win_size = 10;
-  int zero_odo_pose_size = 40;
-  bool use_odom =false;
   double max_velocity_normal = 1.5;
   transform::Rigid3d transform_odom_to_imu ;
+  bool use_odo_pose_compare =true;
+  double min_odo_valid_distance =0.2;
   double odo_pose_delta_s =0.4;
+  double odo_pose_compare_durition=2;
 };
 
 class FailureDetect {

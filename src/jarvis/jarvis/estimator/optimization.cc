@@ -314,23 +314,17 @@ void Optimization::AddFrameFactor(ceres::Problem *problem,
   //
   for (int i = 0; i < win_size_; i++) {
     int j = i + 1;
-    // if (j == win_size_ + 1) {
-    //   auto &update_zero_velocity =
-    //       sw_data->frame_data[j].data->update_zero_velocity_data;
-    //   if (update_zero_velocity) {
-    //     LOG(INFO)<<"add velocity";
-    //     if (update_zero_velocity->IsZeroVelocity()) {
-    //       //
-    //       for (int k = 0; k < 7; k++) {
-    //         para_Pose[j][k] = para_Pose[i][k];
-    //       }
-    //       update_zero_velocity->AddToProblem(
-    //           problem, nullptr,
-    //           std::array<double *, 3>{para_Pose[i], para_Pose[j],
-    //                                   para_SpeedBias[i]});
-    //     }
-    //   }
-    // }
+    //
+    if (sw_data->update_zero_velocity && j==win_size_) {
+      if (sw_data->zero_velocity_factor[j]) {
+        sw_data->update_zero_velocity->AddToProblem(
+            problem, nullptr,
+            std::array<double *, 3>{para_Pose[i], para_Pose[j],
+                                    para_SpeedBias[i]});
+      }
+      
+    }
+
     if (options_.use_odom && sw_data->odom_factors[j]) {
       sw_data->odom_factors[j]->AddToProblem(
           problem, nullptr,
@@ -338,7 +332,7 @@ void Optimization::AddFrameFactor(ceres::Problem *problem,
                                   para_Ex_Pose_Odom[0]});
     }
     auto pre_integration = sw_data->imu_factors[j];
-    //
+    
     if (!pre_integration || !pre_integration->IsValid()) {
       LOG(WARNING)<< j << " Imu avalid..";
       continue;

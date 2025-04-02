@@ -17,7 +17,7 @@ feattrack0:
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 1           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 7
+  lk_win_size : 15
   lk_pre_max_layer : 3
   grid_size_x : 64
   grid_size_y : 68
@@ -34,7 +34,7 @@ feattrack1:
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 0           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 7
+  lk_win_size : 15
   lk_pre_max_layer : 3
   grid_size_x : 68
   grid_size_y : 64
@@ -49,7 +49,7 @@ feattrack2:
   F_threshold: 1.0        # ransac threshold (pixel)
   fast_th:  15
   flow_back: 0           # perform forward and backward optical flow to improve feature tracking accuracy
-  lk_win_size : 7
+  lk_win_size : 15
   lk_pre_max_layer : 3
   grid_size_x : 68
   grid_size_y : 64
@@ -119,19 +119,19 @@ odom_option :
 ##
 UpdataZeroVelocityOption:
   enable: 1
-  optimize_weight: 3e6
+  optimize_weight: 1e3
   optimize_bias_weight: 1e1
   outlier_max_disparity: 1
-  zupt_max_velocity: 1.0
-  zupt_delay_frames: 10
+  zupt_max_velocity: 0.2
+  zupt_delay_frames: 5
   imu_velocity_option :
-    integrated_accel_constraint: false
-    zupt_noise_multiplier: 1.0
-    zupt_chi2_multipler: 0.2
+    integrated_accel_constraint: 0
+    zupt_noise_multiplier: 0.1
+    zupt_chi2_multipler: 0.02
   imag_disparity_option:
-    min_disparity_num: 20
-    max_disparity: 0.5
-  que_time_duration: 0.5
+    min_disparity_num: 40
+    max_disparity: 0.6
+  que_time_duration: 0.4
 
 
 track_feat_lost_min_num: 10
@@ -141,12 +141,11 @@ bgs_norm_max : 0.5
 translation_norm_max : 0.5
 translation_z_max : 0.4
 ratation_max : 50
-enable_odo_zero_lost_detect : 1
-zero_translation_norm_max : 0.15
-zero_translation_z_max : 0.01
-zero_ratation_max : 10.1
-zero_odo_win_size : 30
-zero_odo_pose_size : 40
+use_odo_pose_compare : 1
+min_odo_valid_distance : 0.2
+odo_pose_delta_s : 0.4
+odo_pose_compare_durition: 2
+
 
 init_rotation_th : 20
 init_bas_normal_max : 0.5

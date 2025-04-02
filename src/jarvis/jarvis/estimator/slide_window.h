@@ -60,6 +60,10 @@ class SlideWindow {
   }
   std::map<int, Eigen::Vector3d> PredictNextFrame(
       const transform::Rigid3d& predit_imu_pose, int s);
+  // /
+  UpdataZeroVelocity* GetUpdataZeroVelocity() {
+    return update_zero_velocity_.get();
+  }
 
  private:
   void SlideData(bool);
@@ -70,8 +74,10 @@ class SlideWindow {
   std::map<common::Time, sensor::ImageData> images_;
   //
   std::vector<std::shared_ptr<IntegrationBase>> integration_base_;
+  std::vector<bool> zero_velocity_factor_state_;
   std::vector<std::shared_ptr<OdomFactor>>odoms_factor_;
   //
+
   std::unique_ptr<FeatureManagers> feature_managers_;
   //
   std::map<CameraId, std::shared_ptr<FeatureManager>> init_feature_managers_;
@@ -96,7 +102,7 @@ class SlideWindow {
   //
   PriorFactorFunction prior_factor_;
   //
-  
+  bool first_init_= true; 
   int init_slide_new_num  =0;
   // std::vector<FrameData> frames_datas_;
   common::Time last_feature_time_;

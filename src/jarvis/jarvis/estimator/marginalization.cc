@@ -52,14 +52,13 @@ void Marginalization::MergeFrameData(const OptimizationStateData *opt_data,
     margina_info->addResidualBlockInfo(residual_block_info);
   }
 
-  // if (update_zero_velocity_) {
-  //   if (is_velocity_updates_[1]) {
+  // if (frame_data->update_zero_velocity) {
+  //   if (frame_data->zero_velocity_factor[1]) {
   //     ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-  //         update_zero_velocity_->CostFunction(), NULL,
-  //         std::vector<double *>{para_Pose[0], para_Pose[1],
-  //                               para_SpeedBias[0]},
-  //         std::vector<int>{0,2});
-  //     marginalization_info->addResidualBlockInfo(residual_block_info);
+  //         frame_data->update_zero_velocity->CostFunction(), NULL,
+  //         std::vector<double *>{para_Pose[0], para_Pose[1], para_SpeedBias[0]},
+  //         std::vector<int>{0, 2});
+  //         margina_info->addResidualBlockInfo(residual_block_info);
   //   }
   // }
 }

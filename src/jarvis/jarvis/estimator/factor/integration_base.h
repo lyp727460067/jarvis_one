@@ -74,12 +74,16 @@ class IntegrationBase {
   //
   void Merge(const IntegrationBase &rhs) {
     //
+    dt_buf.clear();
+    acc_buf.clear();
+    gyr_buf.clear();
     for (int i = 0; i < static_cast<int>(rhs.acc_buf.size()); i++) {
       dt_buf.push_back(rhs.dt_buf[i]);
       acc_buf.push_back(rhs.acc_buf[i]);
       gyr_buf.push_back(rhs.gyr_buf[i]);
-      propagate(rhs.dt_buf[i], rhs.acc_buf[i], rhs.gyr_buf[i]);
+    //   propagate(rhs.dt_buf[i], rhs.acc_buf[i], rhs.gyr_buf[i]);
     }
+    repropagate(linearized_ba,linearized_bg);
   }
   //
   void repropagate(const Eigen::Vector3d &_linearized_ba,
@@ -98,9 +102,10 @@ class IntegrationBase {
       propagate(dt_buf[i], acc_buf[i], gyr_buf[i]);
   }
   bool IsValid() {
-    if (sum_dt > 3.0){
+    if (sum_dt > 1.0){
         return false;
     } 
+    
     // LOG(INFO)<<acc_buf.size();
     // LOG(INFO) << common::RadToDeg(transform::GetYaw(delta_q));
     // if (acc_buf.size() <= 15 || acc_buf.size() >= 30) return false;

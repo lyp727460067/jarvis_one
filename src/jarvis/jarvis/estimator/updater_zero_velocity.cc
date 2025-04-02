@@ -11,6 +11,67 @@ namespace estimator {
 //
 namespace {
 //
+double normal_quantile(double p) {
+  if (p <= 0 || p >= 1) return std::numeric_limits<double>::quiet_NaN();
+
+  // 近似正态分布分位数（Beasley-Springer-Moro算法）
+  static const double a[] = {2.50662823884, -18.61500062529, 41.39119773534,
+                             -25.44106049637};
+  static const double b[] = {-8.4735109309, 23.08336743743, -21.06224101826,
+                             3.13082909833};
+  static const double c[] = {
+      0.3374754822726147, 0.9761690190917186, 0.1607979714918209,
+      0.0276438810333863, 0.0038405729373609, 0.0003951896511919,
+      0.0000321767881768, 0.0000002888167364, 0.0000003960315187};
+
+  double q = p - 0.5, r;
+
+  if (std::abs(q) <= 0.42) {  // 中心区间
+    r = q * q;
+    return q * (((a[3] * r + a[2]) * r + a[1]) * r + a[0]) /
+           ((((b[3] * r + b[2]) * r + b[1]) * r + b[0]) * r + 1.0);
+  }
+
+  r = p < 0.5 ? p : 1.0 - p;
+  r = std::sqrt(-std::log(r));
+
+  double val = (((c[8] * r + c[7]) * r + c[6]) * r + c[5]) * r + c[4];
+  val = (((val * r + c[3]) * r + c[2]) * r + c[1]) * r + c[0];
+  return (p < 0.5 ? -val : val);
+}
+
+// Wilson-Hilferty 近似计算卡方分布 0.95 分位数
+double chi_squared_quantile(int df, double p) {
+  if (df <= 0 || p <= 0 || p >= 1)
+    return std::numeric_limits<double>::quiet_NaN();
+
+  if (df > 30) {  // Wilson-Hilferty 近似
+    double z = normal_quantile(p);
+    double a = 2.0 / (9.0 * df);
+    return df * std::pow(1 - a + z * std::sqrt(a), 3);
+  } else {
+    // 小自由度查表法（100 自由度内的数值）
+    static const std::vector<double> chi2_095 = {
+        3.841,   5.991,   7.815,   9.488,   11.070,  12.592,  14.067,  15.507,
+        16.919,  18.307,  19.675,  21.026,  22.362,  23.685,  24.996,  26.296,
+        27.587,  28.869,  30.144,  31.410,  32.671,  33.924,  35.172,  36.415,
+        37.652,  38.885,  40.113,  41.337,  42.557,  43.773,  44.985,  46.194,
+        47.400,  48.602,  49.802,  50.998,  52.192,  53.384,  54.572,  55.758,
+        56.942,  58.124,  59.304,  60.481,  61.656,  62.830,  64.001,  65.171,
+        66.339,  67.505,  68.669,  69.832,  70.993,  72.153,  73.311,  74.468,
+        75.624,  76.778,  77.931,  79.082,  80.232,  81.381,  82.529,  83.675,
+        84.821,  85.965,  87.108,  88.250,  89.391,  90.531,  91.670,  92.808,
+        93.945,  95.081,  96.217,  97.351,  98.484,  99.617,  100.749, 101.879,
+        103.010, 104.139, 105.267, 106.394, 107.521, 108.647, 109.773, 110.897,
+        112.021, 113.145, 114.268, 115.390, 116.511, 117.632, 118.752, 119.872,
+        120.991, 122.110, 123.228, 124.345};
+
+    if (df <= 100) return chi2_095[df - 1];
+
+    return std::numeric_limits<double>::quiet_NaN();  // 超出查表范围
+  }
+}
+
 inline Eigen::Matrix<double, 3, 3> Skew(const Eigen::Matrix<double, 3, 1>& w) {
   Eigen::Matrix<double, 3, 3> w_x;
   w_x << 0, -w(2), w(1), w(2), 0, -w(0), -w(1), w(0), 0;
@@ -122,7 +183,7 @@ class ZeroVelocityCostFuction
                                        residuals_block_size>::Identity();
     Eigen::Map<Eigen::Matrix<double, residuals_block_size, 1>> residual(
         residuals);
-    residual << delta_t, 2 * delta_q.vec(), -v_a;/*,-acc_bias_err,-gry_bias_err*/;
+    residual << delta_t, 2 * delta_q.vec(), v_a;/*,-acc_bias_err,-gry_bias_err*/;
     // LOG(INFO)<<residual;
     // LOG(INFO)<<v_a;
 
@@ -136,7 +197,8 @@ class ZeroVelocityCostFuction
             jacobians_(jacobians[0]);
         jacobians_.setZero();
         jacobians_.block<3, 3>(0, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
-        jacobians_.block<3, 3>(3, 3) = -Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(3, 3) =
+        -Utility::Qright(q_a.conjugate() * q_b).bottomRightCorner<3, 3>();
         //
         // jacobians_.block<3, 3>(9, 3) =
         //     q_a.conjugate().toRotationMatrix() * Skew(gravity);
@@ -158,7 +220,7 @@ class ZeroVelocityCostFuction
             Eigen::Matrix<double, residuals_block_size, 9, Eigen::RowMajor>>
             jacobians_(jacobians[2]);
         jacobians_.setZero();
-        jacobians_.block<3, 3>(6, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
+        jacobians_.block<3, 3>(6, 0) = Eigen::Matrix<double, 3, 3>::Identity();
         // jacobians_.block<3, 3>(9, 3) = -Eigen::Matrix<double, 3, 3>::Identity();
         // jacobians_.block<3, 3>(12, 6) = -Eigen::Matrix<double, 3, 3>::Identity();
         jacobians_ = sqrt_info * jacobians_;
@@ -173,11 +235,10 @@ class ZeroVelocityCostFuction
   const Eigen::Vector3d average_acc_;
   const Eigen::Vector3d average_gry_;
 };
-
 };  // namespace
 //
 //
-bool ImuZeroVelocityDetect::IsZeroVelocity() {
+bool ImuZeroVelocityDetect::IsZeroVelocity(const common::Time& time) {
   CHECK(!data_base_.empty());
   if (data_base_.size() < 2) return false;
   Eigen::Vector3d sum_acc = Eigen::Vector3d::Zero();
@@ -192,6 +253,7 @@ bool ImuZeroVelocityDetect::IsZeroVelocity() {
   Eigen::Vector3d expect_gry = sum_gry / data_base_.size();
   double sum_covi = 0;
   for (const auto& imu_data : data_base_) {
+    if(imu_data.time>=time)break;
     Eigen::Vector3d imu_acc = (imu_data.linear_acceleration - expect_acc);
     Eigen::Vector3d imu_gry = (imu_data.linear_acceleration - expect_gry);
     sum_covi += imu_acc.transpose() * imu_acc;
@@ -203,22 +265,30 @@ bool ImuZeroVelocityDetect::IsZeroVelocity() {
   return false;
 }
 
-bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
+bool OpenVinsZeroVelocityDetect::IsZeroVelocity(const common::Time& time) {
   // Large final matrices used for update
-  if (data_base_.size() < 2) {
-    VLOG(kGlogLevel)
-        << "zupt failed - OpenVINS Inertial-based Detection(data_base_.size() "
-        << data_base_.size() << " < 2 )";
-    return false;
-  }
+  // LOG(INFO)<<state_.linear_velocity.norm();
   if (state_.linear_velocity.norm() > options_.zupt_max_velocity) {
     VLOG(kGlogLevel) << "zupt failed - OpenVINS Inertial-based Detection (vel"
                      << state_.linear_velocity.norm() << " > max zupt vel "
                      << options_.zupt_max_velocity << ")";
     return false;
   }
+  int valid_data_size = 0;
+  for (int i = 0; i < int(data_base_.size()); i++) {
+    if (data_base_[i].time >= time) {
+      valid_data_size = i + 1;
+      break;
+    }
+  }
+  if (valid_data_size < 2) {
+    VLOG(kGlogLevel)
+        << "zupt failed - OpenVINS Inertial-based Detection(data_base_.size() "
+        << valid_data_size << " < 2 )";
+    return false;
+  }
   int h_size = (options_.integrated_accel_constraint) ? 12 : 9;
-  int m_size = 6 * ((int)data_base_.size() - 1);
+  int m_size = 6 * (valid_data_size - 1);
   Eigen::MatrixXd H = Eigen::MatrixXd::Zero(m_size, h_size);
   Eigen::VectorXd res = Eigen::VectorXd::Zero(m_size);
   Eigen::MatrixXd R = Eigen::MatrixXd::Identity(m_size, m_size);
@@ -230,7 +300,7 @@ bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
   // a_true = a_m - ba - R*g - na
   // v_true = v_k - g*dt + R^T*(a_m - ba - na)*dt
   double dt_summed = 0;
-  for (size_t i = 0; i < data_base_.size() - 1; i++) {
+  for (int i = 0; i < valid_data_size - 1; i++) {
     // Precomputed values
     double dt =
         common::ToSeconds(data_base_.at(i + 1).time - data_base_.at(i).time);
@@ -241,7 +311,6 @@ bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
     // Measurement residual (true value is zero)
     res.block(6 * i + 0, 0, 3, 1) =
         -(data_base_.at(i).angular_velocity - state_.angular_velocity_bias);
-
     if (!options_.integrated_accel_constraint) {
       res.block(6 * i + 3, 0, 3, 1) =
           -(a_hat - state_.pose.inverse().rotation() *
@@ -278,7 +347,6 @@ bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
     }
     dt_summed += dt;
   }
-
   // Multiply our noise matrix by a fixed amount
   // We typically need to treat the IMU as being "worst" to detect / not
   // become
@@ -288,9 +356,8 @@ bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
   // Next propagate the biases forward in time
   // NOTE: G*Qd*G^t = dt*Qd*dt = dt*Qc
   Eigen::MatrixXd Q_bias = Eigen::MatrixXd::Identity(6, 6);
-  Q_bias.block(0, 0, 3, 3) *= dt_summed *
-  options_.angular_velocity_random_walk; Q_bias.block(3, 3, 3, 3) *=
-  dt_summed * options_.accelerometer_random_walk;
+  Q_bias.block(0, 0, 3, 3) *= dt_summed * options_.angular_velocity_random_walk;
+  Q_bias.block(3, 3, 3, 3) *= dt_summed * options_.accelerometer_random_walk;
 
   // Chi2 distance check
   // NOTE: we also append the propagation we "would do before the update" if
@@ -304,32 +371,36 @@ bool OpenVinsZeroVelocityDetect::IsZeroVelocity() {
   Eigen::MatrixXd S = H * P_marg * H.transpose() + R;
   double chi2 = res.dot(S.llt().solve(res));
   // std::chi_squared_distribution<float> chi_squared_dist(res.rows());
-  // auto chi2_check = boost::math::quantile(chi_squared_dist, 0.95);
-  // if (chi2 < chi2_check * options_.zupt_chi2_multipler) {
-  //   VLOG(kGlogLevel)
-  //       << "zupt accepted - OpenVINS Inertial-based Detection (chi2 " << chi2
-  //       << " < chi2_check " << chi2_check * options_.zupt_chi2_multipler <<
-  //       ")";
-  //   return true;
-  // }
-  // VLOG(kGlogLevel) << "zupt failed - OpenVINS Inertial-based Detection (chi2
-  // "
-  //                  << chi2 << " >= chi2_check "
-  //                  << chi2_check * options_.zupt_chi2_multipler << ")";
+
+  // CHECK(size_t(res.rows())<chi_squared_0_95_quantiles.size());
+  auto chi2_check = chi_squared_quantile(res.rows(), 0.95);
+  if (chi2 < chi2_check * options_.zupt_chi2_multipler) {
+    LOG(INFO) << "zupt accepted - OpenVINS Inertial-based Detection (chi2 "
+              << chi2 << " < chi2_check "
+              << chi2_check * options_.zupt_chi2_multipler << ")";
+    return true;
+  }
+  VLOG(kGlogLevel) << "zupt failed - OpenVINS Inertial-based Detection (chi2"
+                   << chi2 << " >= chi2_check "
+                   << chi2_check * options_.zupt_chi2_multipler << ")";
   return false;
 }
 
-bool ImageZeroVelocityDetect::IsZeroVelocity() {
+bool ImageZeroVelocityDetect::IsZeroVelocity(const common::Time& time) {
   double disparity = 0;
   std::vector<float> disparitys;
   for (auto const& key_points : data_base_) {
     if (key_points.second.size() >= 2) {
-      disparitys.push_back((key_points.second.begin()->second -
-                            key_points.second.rbegin()->second)
-                               .norm());
+      //
+      const double parity = (key_points.second.begin()->second -
+                             key_points.second.rbegin()->second)
+                                .norm();
+      if (parity < options_.max_disparity * 2) {
+        disparitys.push_back(parity);
+      }
     }
   }
-  if (disparitys.size() <size_t(options_.min_disparity_num)) {
+  if (disparitys.size() < size_t(options_.min_disparity_num)) {
     VLOG(kGlogLevel)
         << "zupt failed - Disparity-based Detection (disparitys.size() "
         << disparitys.size() << " < min_disparity_num "
@@ -346,10 +417,9 @@ bool ImageZeroVelocityDetect::IsZeroVelocity() {
                      << " features)";
     return false;
   }
-  VLOG(kGlogLevel) << "zupt accepted - Disparity-based Detection (disparity "
-                   << disparity << " <= max_disparity "
-                   << options_.max_disparity << ", " << disparitys.size()
-                   << " features)";
+  LOG(INFO) << "Image zupt accepted - Disparity-based Detection (disparity "
+            << disparity << " <= max_disparity " << options_.max_disparity
+            << ", " << disparitys.size() << " features)";
   return true;
 }
 //
@@ -385,9 +455,9 @@ UpdataZeroVelocity* UpdataZeroVelocity::AtState(const StateType& state) {
   //
   detect.emplace_back(std::make_unique<ImageZeroVelocityDetect>(
       options_.imag_disparity_option, key_point_datas_));
-  // detect.emplace_back(std::make_unique<OpenVinsZeroVelocityDetect>(
-  //     options_.imu_velocity_option, imu_datas_, state));
-  //
+  detect.emplace_back(std::make_unique<OpenVinsZeroVelocityDetect>(
+      options_.imu_velocity_option, imu_datas_, state));
+  
   zero_velocity_detects_ = std::move(detect);
   return this;
 }
@@ -440,9 +510,9 @@ std::vector<uint64_t> UpdataZeroVelocity::GetOutlierPointClassId() {
 }
 //
 
-bool UpdataZeroVelocity::IsZeroVelocity() {
-  return IsZeroVelocity(lates_time_);
-}
+// bool UpdataZeroVelocity::IsZeroVelocity() {
+//   return IsZeroVelocity(lates_time_);
+// }
 bool UpdataZeroVelocity::IsZeroVelocity(const common::Time& time) {
   DropData(time - common::FromSeconds(options_.que_time_duration), &imu_datas_);
   DropData(time - common::FromSeconds(options_.que_time_duration),
@@ -450,7 +520,7 @@ bool UpdataZeroVelocity::IsZeroVelocity(const common::Time& time) {
   bool is_zero_velocity = false;
   outlier_key_points_temp_.reset();
   for (auto& detect : zero_velocity_detects_) {
-    if (detect->IsZeroVelocity()) {
+    if (detect->IsZeroVelocity(time)) {
       is_zero_velocity = true;
       break;
     }
@@ -475,7 +545,7 @@ bool UpdataZeroVelocity::IsZeroVelocity(const common::Time& time) {
   last_zupt_ = is_zero_velocity;
 
   if (last_state_ == 0 && state_count_ < options_.zupt_delay_frames) {
-    VLOG(kGlogLevel) << "return last_state_ " << last_state_
+    LOG(INFO) << "return last_state_ " << last_state_
                      << ", current state " << is_zero_velocity
                      << ", state_count_ " << state_count_
                      << " < zupt_delay_frames " << options_.zupt_delay_frames;
@@ -499,8 +569,8 @@ ceres::CostFunction* UpdataZeroVelocity::CostFunction() const {
 
 void UpdataZeroVelocity::AddToProblem(ceres::Problem* problem,
                                       ceres::LossFunction* loss_function,
-                                      std::array<double*, 3> pqv) const {
-  LOG(INFO) << "Add ZeroVelocity factor.";
+                                      const std::array<double*, 3>&  pqv) const {
+  // LOG(INFO) << "Add ZeroVelocity factor.";
   gravity_ = options_.imu_velocity_option.const_gravity;
   problem->AddResidualBlock(CostFunction(), loss_function, pqv[0], pqv[1],
                             pqv[2]);

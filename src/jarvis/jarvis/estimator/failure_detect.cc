@@ -1,7 +1,6 @@
 #include "jarvis/estimator/failure_detect.h"
 namespace jarvis {
 namespace estimator {
-constexpr float kOdoLostDataTimeLenth = 2;
 bool FailureDetect::TimeLost(const common::Time& time) {
   if (!last_frame_data_.has_value()) {
     last_frame_data_ = time;
@@ -53,8 +52,9 @@ double ComputePosesS(std::deque<T>* datas, const jarvis::common::Time& time) {
 bool FailureDetect::OdoZeroDetect(const SlideWindowResult& frame_data) {
   const common::Time time = frame_data.frame_data.data->time;
   //
-  DropData(time - common::FromSeconds(kOdoLostDataTimeLenth), &odometry_data_);
-  DropData(time - common::FromSeconds(kOdoLostDataTimeLenth),
+  if (!options_.use_odo_pose_compare) return false;
+  DropData(time - common::FromSeconds(options_.odo_pose_compare_durition), &odometry_data_);
+  DropData(time - common::FromSeconds(options_.odo_pose_compare_durition),
            &lost_last_poses_);
   //
 
@@ -69,8 +69,9 @@ bool FailureDetect::OdoZeroDetect(const SlideWindowResult& frame_data) {
   //
   const auto delta_s = delta_pose_s - delta_odom_s;
 
-  if (delta_s > options_.odo_pose_delta_s) {
-    LOG(ERROR) << " Delta pose too big " << delta_s << ",delta_pose_s"
+  if (abs(delta_odom_s) < options_.min_odo_valid_distance &&
+      delta_s > options_.odo_pose_delta_s) {
+    LOG(ERROR) << "ODO_POSE Delta pose too big " << delta_s << ",delta_pose_s"
                << delta_pose_s << ",delta_odom_s" << delta_odom_s;
     return true;
   }
@@ -88,6 +89,8 @@ bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
   if (TimeLost(frame_data.frame_data.data->time)) {
     return true;
   }
+  if (OdoZeroDetect(frame_data)) return true;
+
   const FeatTrackInfo track_info = frame_data.feat_track_info;
   if (track_info.last_track_num < options_.track_feat_lost_min_num) {
     failuer_track_lost_.push_back(true);
@@ -113,7 +116,6 @@ bool FailureDetect::Detect(const SlideWindowResult& frame_data) {
     LOG(ERROR) << " big IMU gyr bias estimation " << state.bg.transpose();
     return true;
   }
-  if (OdoZeroDetect(frame_data)) return true;
   if (!last_frame_poses_.has_value()) {
     last_frame_poses_ = frame_data.frame_data.data->imu_state.Pose();
     return false;
