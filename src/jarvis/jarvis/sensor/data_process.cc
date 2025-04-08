@@ -135,8 +135,21 @@ void OrderedMultiQueue::Dispathch() {
       {
         std::lock_guard<std::mutex> lock(mutex_);
         bool is_image_continue =false;
+        
         #ifdef __ARM_PLATFORM__
+       
         if (next_queue_key == "/usb_cam_1/image_raw/compressed") {
+          // if (next_queue->queue.size() >= 4) {
+          //   std::queue<std::unique_ptr<Data>> tmp_queue;
+          //   for (size_t i = 0; i < next_queue->queue.size(); i++) {
+          //     if (i % 2) {
+          //       tmp_queue.push(std::move(next_queue->queue.front()));
+          //     }
+          //     next_queue->queue.pop();
+          //   }
+          //   next_queue->queue.swap(tmp_queue);
+          //   continue;
+          // }
           while (next_queue->queue.size() >= 3) {
             LOG(ERROR) << next_queue_key << " size > 3,Drop it."
                        << next_queue->queue.front()->GetTime();

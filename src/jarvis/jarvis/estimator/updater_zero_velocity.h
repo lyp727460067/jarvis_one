@@ -35,6 +35,7 @@ class ImuZeroVelocityDetect : public ZeroVelocityDetect {
                         const std::deque<sensor::ImuData>& data_base)
       : options_(option), data_base_(data_base) {}
   virtual bool IsZeroVelocity(const common::Time& time) override;
+  ~ImuZeroVelocityDetect() {};
 
  protected:
   const ImuZeroVelocityDetectOption options_;
@@ -68,16 +69,15 @@ struct OpenVinsZeroVelocityDetectOption {
 class OpenVinsZeroVelocityDetect : public ImuZeroVelocityDetect {
  public:
   OpenVinsZeroVelocityDetect(const OpenVinsZeroVelocityDetectOption& option,
-                             const std::deque<sensor::ImuData>& data_base,
-                             const StateType& state)
+                             const std::deque<sensor::ImuData>& data_base)
       : ImuZeroVelocityDetect(option.base_option, data_base),
-        options_(option),
-        state_(state) {}
+        options_(option) {}
   bool IsZeroVelocity(const common::Time& time) override;
-
+  void UpdateState(StateType state) { state_ = state; }
+  ~OpenVinsZeroVelocityDetect(){}
  private:
   const OpenVinsZeroVelocityDetectOption options_;
-  const StateType state_;
+  StateType state_;
 };
 
 //
@@ -97,7 +97,7 @@ class ImageZeroVelocityDetect : public ZeroVelocityDetect {
 
  private:
   const ImageZeroVelocityDetectOption options_;
-  const KeyPointData& data_base_;
+  const KeyPointData &data_base_;
 };
 //
 struct UpdataZeroVelocityOption {

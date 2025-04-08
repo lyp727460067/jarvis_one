@@ -280,7 +280,7 @@ std::unique_ptr<EstimatorResult> Estimator::AddImageData(
 void Estimator::AddImuData(const sensor::ImuData &imu_data) {
   double d_time = common::ToSeconds(imu_data.time - common::FromUniversal(0));
   data_base_->AddImu(imu_data);
-  if(slide_wondows_ &&(slide_wondows_->GetUpdataZeroVelocity()) ){
+  if(slide_wondows_ &&slide_wondows_->GetUpdataZeroVelocity() ){
     slide_wondows_->GetUpdataZeroVelocity()->AddImu(imu_data);
   }
 }

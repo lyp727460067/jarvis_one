@@ -1,5 +1,6 @@
 #include "estimator/updater_zero_velocity.h"
 
+#include <unistd.h>
 #include <random>
 
 #include "glog/logging.h"
@@ -11,6 +12,31 @@ namespace estimator {
 //
 namespace {
 //
+Eigen::MatrixXd Matrixmult(const Eigen::MatrixXd& a, const Eigen::MatrixXd& b) {
+  CHECK_EQ(a.cols(), b.rows());
+  Eigen::MatrixXd resutl = Eigen::MatrixXd::Zero(a.rows(), b.cols());
+  for (int i = 0; i < a.rows(); i++) {
+    for (int j = 0; j < b.cols(); j++) {
+      resutl(i, j) = a.row(i) * b.col(j);
+    }
+  }
+  return resutl;
+};
+const std::vector<double> kChi2095 = {
+    3.841,   5.991,   7.815,   9.488,   11.070,  12.592,  14.067,  15.507,
+    16.919,  18.307,  19.675,  21.026,  22.362,  23.685,  24.996,  26.296,
+    27.587,  28.869,  30.144,  31.410,  32.671,  33.924,  35.172,  36.415,
+    37.652,  38.885,  40.113,  41.337,  42.557,  43.773,  44.985,  46.194,
+    47.400,  48.602,  49.802,  50.998,  52.192,  53.384,  54.572,  55.758,
+    56.942,  58.124,  59.304,  60.481,  61.656,  62.830,  64.001,  65.171,
+    66.339,  67.505,  68.669,  69.832,  70.993,  72.153,  73.311,  74.468,
+    75.624,  76.778,  77.931,  79.082,  80.232,  81.381,  82.529,  83.675,
+    84.821,  85.965,  87.108,  88.250,  89.391,  90.531,  91.670,  92.808,
+    93.945,  95.081,  96.217,  97.351,  98.484,  99.617,  100.749, 101.879,
+    103.010, 104.139, 105.267, 106.394, 107.521, 108.647, 109.773, 110.897,
+    112.021, 113.145, 114.268, 115.390, 116.511, 117.632, 118.752, 119.872,
+    120.991, 122.110, 123.228, 124.345};
+
 double normal_quantile(double p) {
   if (p <= 0 || p >= 1) return std::numeric_limits<double>::quiet_NaN();
 
@@ -50,23 +76,7 @@ double chi_squared_quantile(int df, double p) {
     double a = 2.0 / (9.0 * df);
     return df * std::pow(1 - a + z * std::sqrt(a), 3);
   } else {
-    // 小自由度查表法（100 自由度内的数值）
-    static const std::vector<double> chi2_095 = {
-        3.841,   5.991,   7.815,   9.488,   11.070,  12.592,  14.067,  15.507,
-        16.919,  18.307,  19.675,  21.026,  22.362,  23.685,  24.996,  26.296,
-        27.587,  28.869,  30.144,  31.410,  32.671,  33.924,  35.172,  36.415,
-        37.652,  38.885,  40.113,  41.337,  42.557,  43.773,  44.985,  46.194,
-        47.400,  48.602,  49.802,  50.998,  52.192,  53.384,  54.572,  55.758,
-        56.942,  58.124,  59.304,  60.481,  61.656,  62.830,  64.001,  65.171,
-        66.339,  67.505,  68.669,  69.832,  70.993,  72.153,  73.311,  74.468,
-        75.624,  76.778,  77.931,  79.082,  80.232,  81.381,  82.529,  83.675,
-        84.821,  85.965,  87.108,  88.250,  89.391,  90.531,  91.670,  92.808,
-        93.945,  95.081,  96.217,  97.351,  98.484,  99.617,  100.749, 101.879,
-        103.010, 104.139, 105.267, 106.394, 107.521, 108.647, 109.773, 110.897,
-        112.021, 113.145, 114.268, 115.390, 116.511, 117.632, 118.752, 119.872,
-        120.991, 122.110, 123.228, 124.345};
-
-    if (df <= 100) return chi2_095[df - 1];
+    if (df <= 100) return kChi2095[df - 1];
 
     return std::numeric_limits<double>::quiet_NaN();  // 超出查表范围
   }
@@ -368,10 +378,12 @@ bool OpenVinsZeroVelocityDetect::IsZeroVelocity(const common::Time& time) {
   //
 
   P_marg.block(3, 3, 6, 6) += Q_bias;
-  Eigen::MatrixXd S = H * P_marg * H.transpose() + R;
-  double chi2 = res.dot(S.llt().solve(res));
+  // Eigen::MatrixXd S = H * P_marg * H.transpose() + R;
+  Eigen::MatrixXd S = Matrixmult(Matrixmult(H, P_marg), H.transpose()) + R;
+  // usleep(50000);
+  Eigen::VectorXd lltdot = S.llt().solve(res);
+  double chi2 = res.dot(lltdot);
   // std::chi_squared_distribution<float> chi_squared_dist(res.rows());
-
   // CHECK(size_t(res.rows())<chi_squared_0_95_quantiles.size());
   auto chi2_check = chi_squared_quantile(res.rows(), 0.95);
   if (chi2 < chi2_check * options_.zupt_chi2_multipler) {
@@ -436,12 +448,18 @@ void UpdataZeroVelocity::AddImageKeyPoints(
 //
 void UpdataZeroVelocity::AddImu(const sensor::ImuData& imu_data) {
   imu_datas_.push_back(imu_data);
+  if (imu_datas_.size() >= 6000) {
+    imu_datas_.pop_front();
+  }
 }
 //
 UpdataZeroVelocity::UpdataZeroVelocity(const UpdataZeroVelocityOption& option)
     : options_(option) {
-
-
+  zero_velocity_detects_.emplace_back(std::make_unique<ImageZeroVelocityDetect>(
+      options_.imag_disparity_option, key_point_datas_));
+  zero_velocity_detects_.emplace_back(
+      std::make_unique<OpenVinsZeroVelocityDetect>(options_.imu_velocity_option,
+                                                   imu_datas_));
   //   for (int i = 1; i < 100; ++i) {
   //     boost::math::chi_squared chi_squared_dist(i);
   //     chi_squared_test_table[i] = boost::math::quantile(chi_squared_dist,
@@ -451,14 +469,8 @@ UpdataZeroVelocity::UpdataZeroVelocity(const UpdataZeroVelocityOption& option)
 //
 
 UpdataZeroVelocity* UpdataZeroVelocity::AtState(const StateType& state) {
-  std::vector<std::unique_ptr<ZeroVelocityDetect>> detect;
-  //
-  detect.emplace_back(std::make_unique<ImageZeroVelocityDetect>(
-      options_.imag_disparity_option, key_point_datas_));
-  detect.emplace_back(std::make_unique<OpenVinsZeroVelocityDetect>(
-      options_.imu_velocity_option, imu_datas_, state));
-  
-  zero_velocity_detects_ = std::move(detect);
+  static_cast<OpenVinsZeroVelocityDetect*>(zero_velocity_detects_[1].get())
+      ->UpdateState(state);
   return this;
 }
 //
@@ -474,6 +486,7 @@ void UpdataZeroVelocity::DropData(const common::Time& time,
 
 void UpdataZeroVelocity::DropData(const common::Time& time,
                                   ZeroVelocityDetect::KeyPointData* deque) {
+  std::stringstream info;
   for (auto it = deque->begin(); it != deque->end();) {
     if (it->second.empty()) {
       it = deque->erase(it);
@@ -498,8 +511,6 @@ std::vector<uint64_t> UpdataZeroVelocity::GetOutlierPointClassId() {
       auto norm = (key_points.second.begin()->second -
                    key_points.second.rbegin()->second)
                       .norm();
-      // LOG(INFO)<<norm;
-
       if (norm >= options_.outlier_max_disparity) {
         result.push_back(key_points.first);
       }
