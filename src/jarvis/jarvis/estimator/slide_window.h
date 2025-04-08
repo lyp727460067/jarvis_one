@@ -85,7 +85,7 @@ class SlideWindow {
       init_feature_datas_;
   //
   std::unique_ptr<Optimization> optimization_;
-  std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_;
+  std::unique_ptr<UpdataZeroVelocity> update_zero_velocity_=nullptr;
   std::unique_ptr<Marginalization> marginalizer_;
 
   void SlideNew(); 

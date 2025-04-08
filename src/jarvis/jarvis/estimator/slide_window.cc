@@ -35,11 +35,10 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
     odoms_factor_.push_back(nullptr);
   }
   //
+  zero_velocity_factor_state_ = std::vector<bool>(options_.win_size + 1, false);
   if (options_.enable_zero_velocity) {
     update_zero_velocity_ = std::make_unique<UpdataZeroVelocity>(
         options_.updata_zerovelocity_option);
-    zero_velocity_factor_state_ =
-        std::vector<bool>(options_.win_size + 1, false);
   }
   //
   //
@@ -83,7 +82,7 @@ SlideWindow::SlideWindow(const SlideWindowOption& option, DataBase* data_base,
       marg_data.update_zero_velocity = update_zero_velocity_.get();
     }
     marg_data.feat_manager_factors = feature_managers_.get();
-    marginalizer_->Marginalize(opt_data_, &marg_data, true);
+    marginalizer_->Marginalize(opt_data_, &marg_data, false);
   }
 
   SlideData(true);
@@ -261,7 +260,7 @@ std::unique_ptr<SlideWindowResult> SlideWindow::AddFeatureData(
                                 .norm();
     if (init_feature_datas_.begin()->first == imu_states_.begin()->time &&
         init_feature_datas_.rbegin()->first == imu_states_.back().time &&
-        distance > 0.2) {
+        distance > 0.1) {
       for (auto& t_f : init_feature_datas_) {
         for (auto& f : t_f.second) {
           init_feature_managers_[f.first]->AddFeatureCheckParallax(

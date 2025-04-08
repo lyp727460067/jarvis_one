@@ -483,8 +483,8 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
 
     if(lr_image.empty()||vr_image.empty() )continue;
     // cv::imshow("l_image",lr_image(cv::Rect(640, 0, 640, 544)));
-    cv::imshow("vr_image",vr_image);
-    cv::waitKey(0);
+    // cv::imshow("vr_image",vr_image);
+    // cv::waitKey(0);
     // LOG(INFO)<<imu_cam_time_offset;
 
     order_queue_->AddData(
