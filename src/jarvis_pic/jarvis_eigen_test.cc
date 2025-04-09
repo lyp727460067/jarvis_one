@@ -48,35 +48,40 @@ int main(int argc, char *argv[]) {
   int n  = std::stoi(argv[1]);
   int m  = std::stoi(argv[2]);
   Eigen::MatrixXd test = Eigen::MatrixXd::Random(n, m);
-  for (int i = 0; i < 1000; i++) {
+  Eigen::MatrixXd test1 = Eigen::MatrixXd::Identity(m, m);
+  while(1){
+  // for (int i = 0; i < 1000; i++) {
     auto start = std::chrono::high_resolution_clock::now();
-    Eigen::MatrixXd test1 = test * test.transpose();
+    Eigen::MatrixXd test1 = test*test1 * test.transpose();
+    Eigen::VectorXd res =  Eigen::VectorXd::Ones(n);
+    Eigen::VectorXd lltdot = test1.llt().solve(res);
+    double chi2 = res.dot(lltdot);
     std::cout << "eigen cost: "
               << std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::high_resolution_clock::now() - start)
-                     .count()
+                     .count()<< " "<<chi2
               << std::endl;
 
     start = std::chrono::high_resolution_clock::now();
-    Eigen::MatrixXd test2 = Matrixmult(test, test.transpose());
-    // for (int i = 0; i < test1.rows(); i++) {
-    //   for (int j = 0; j < test1.cols(); j++) {
-    //     assert(test1(i, j) == test2(i, j));
-    //   }
-    // }
-    std::cout << "my eigen cost: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(
-                     std::chrono::high_resolution_clock::now() - start)
-                     .count()
-              << std::endl;
+    // Eigen::MatrixXd test2 = Matrixmult(test, test.transpose());
+    // // for (int i = 0; i < test1.rows(); i++) {
+    // //   for (int j = 0; j < test1.cols(); j++) {
+    // //     assert(test1(i, j) == test2(i, j));
+    // //   }
+    // // }
+    // std::cout << "my eigen cost: "
+    //           << std::chrono::duration_cast<std::chrono::milliseconds>(
+    //                  std::chrono::high_resolution_clock::now() - start)
+    //                  .count()
+    //           << std::endl;
 
-    start = std::chrono::high_resolution_clock::now();
-    Eigen::MatrixXd test3 = MatrixmultTemp(test, test.transpose());
-    std::cout << "my a cost: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(
-                     std::chrono::high_resolution_clock::now() - start)
-                     .count()
-              << std::endl;
+    // start = std::chrono::high_resolution_clock::now();
+    // Eigen::MatrixXd test3 = MatrixmultTemp(test, test.transpose());
+    // std::cout << "my a cost: "
+    //           << std::chrono::duration_cast<std::chrono::milliseconds>(
+    //                  std::chrono::high_resolution_clock::now() - start)
+    //                  .count()
+    //           << std::endl;
 
     // Eigen::MatrixXd test1 = test * test.transpose();
 //     Eigen::MatrixXd test2 = test * test.transpose();

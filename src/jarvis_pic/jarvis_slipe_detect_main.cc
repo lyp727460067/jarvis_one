@@ -48,7 +48,7 @@ bool kSlipeState = 0;
 uint8_t kRecordFlag = 0;
 uint8_t kEnableSlipDetect = 0;
 uint8_t kDataCaputureType = 0;
-
+int enable_zmq = 0;
 std::string test_ip;
 
 void ParseOption(const std::string& config) {
@@ -57,6 +57,7 @@ void ParseOption(const std::string& config) {
   fsSettings["slip_detect"] >> kEnableSlipDetect;
   fsSettings["GLOG_v"] >> kGLOG_v;
   fsSettings["test_ip"] >>test_ip;
+  fsSettings["enable_zmq"] >>enable_zmq;
   fsSettings["write_mpc_pose_type"] >>kWriteMpcPoseType;
 }
 }  // namespace
@@ -565,8 +566,10 @@ int main(int argc, char* argv[]) {
               con_variable.notify_all();
             }
           });
-
-  jarvis_pic::ZmqComponent zmq;
+  std::shared_ptr<jarvis_pic::ZmqComponent> zmq = nullptr;
+  if (enable_zmq) {
+    zmq = std::make_unique<jarvis_pic::ZmqComponent>();
+  }
   jarvis_pic::MpcComponent mpc;
   while (!kill_thread_) {
     uint8_t flag = 0;
@@ -588,13 +591,13 @@ int main(int argc, char* argv[]) {
     //         jarvis::common::ToUniversal(tracking_data.data->time) / 10)));
     
 #ifdef __ZMQ_ENABLAE__
-    if (tracking_data.status == 2) {
+    if (zmq &&  tracking_data.status == 2) {
     //获取sliep的时候小心GetSlipDect可能在另外的线程被释放
     //  auto pose =   jarvis_slam->GetSlipDect()->ToPoseInOdom(
     //           tracking_data.data->imu_state.Pose());
       // tracking_data.data->imu_state.p =  pose.translation();
       // tracking_data.data->imu_state.q =  pose.rotation();
-      zmq.PubLocalData(tracking_data, flag);
+      zmq->PubLocalData(tracking_data, flag);
     }
 #endif
     std::this_thread::sleep_for(std::chrono::microseconds(100));
