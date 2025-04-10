@@ -3,7 +3,7 @@
 
 #include <mutex>
 #include <set>
-
+#include <functional>
 #include "glog/logging.h"
 
 namespace jarvis {
