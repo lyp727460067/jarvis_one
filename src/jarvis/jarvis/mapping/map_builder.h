@@ -18,7 +18,7 @@
 #include "jarvis/sensor/odometry_data.h"
 #include "jarvis/mapping/loop_detect.h"
 #include "jarvis/mapping/map_point_construct.h"
-
+#include "jarvis/mapping/work_item_queue.h"
 #include "jarvis/common/thread_pool.h"
 namespace jarvis {
 namespace mapping {
@@ -51,11 +51,7 @@ struct MapBuilderOption {
   int thread_num =1; 
   double track_map_opti_sampler = 0.05;
 };
-struct WorkItem {
-  enum class Result { Normal, kRunLocalOptimization };
-  std::chrono::steady_clock::time_point time;
-  std::function<Result()> task;
-};
+
 class MappingBuilder {
  public:
   MappingBuilder(const MapBuilderOption& option,dbow::Vocabulary *voc);
@@ -89,6 +85,10 @@ class MappingBuilder {
   void UpdataLocalMapData(const std::pair<KeyFrameId, KeyFrameData>& kf_data);
   void LocalMapOptimization();
  private:
+  //
+  //
+
+  // /
   void TrackLocalMapOptimize(LocalMapOptimization*,
                              std::map<LocalMapId, std::shared_ptr<LocalMap>>*);
   void UpdataActiveWithOpLocal(
@@ -111,15 +111,12 @@ class MappingBuilder {
   //
   std::unique_ptr<common::FixedRatioSampler> track_local_map_op_sampler_;
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
-  std::unique_ptr<common::ThreadPool> thread_pool_;
+  std::unique_ptr<WorkItemQueue> work_item_queue_;
+  // std::unique_ptr<common::ThreadPool> thread_pool_;
 
-  std::mutex work_queue_mutex_;
   std::map<common::Time, std::shared_ptr<LocalMapMatchResult>>
       local_map_match_result_catch_;
-  using WorkQueue = std::deque<WorkItem>;
-  std::unique_ptr<WorkQueue> work_queue_;
-  void AddWorkItem(const std::function<WorkItem::Result()>& work_item);
-  void DrainWorkQueue();
+
   mutable std::mutex mutex_;
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;

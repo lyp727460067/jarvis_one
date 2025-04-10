@@ -29,7 +29,9 @@ class PoseGraphOptimize {
                            const KeyFramePoseTime& kf_pose);
   //
   //
-
+  //
+  std::map<KeyFrameId, NodePose>& GetPoseGraphNode() { return &ceres_poses_; }
+  //
   void Solve(const std::vector<PoseConstraint>& constraints);
   //
   void TrimLocalMapPose(LocalMapId& id);

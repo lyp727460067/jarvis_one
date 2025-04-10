@@ -267,12 +267,17 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
       voc_->Transform(data.data->descriptors, options_.dbow_trasform_level);
 }
 //
-//
-bool MapPointConstruct::ConstructExtend(
-    const LocalMap& local_map, KeyFrameData *data) {
+
+bool MapPointConstruct::ExtractExtendData(const LocalMap &local_map,
+                                          KeyFrameData *data) {
   if (voc_ == nullptr) return false;
   if (!data->data->dbow_data.bow_vector.empty()) return false;
   GenerateForExtendKeyPoint(*data);
+}
+//
+bool MapPointConstruct::ConstructExtend(
+    const LocalMap& local_map, KeyFrameData *data) {
+
   // 优先把以前地图的点和当前做匹配
   if (local_map.AllKeyFrameDatas().size() <= 1) return false;
   UpdateConnectMapPointProjectMatchSearch(local_map, *data);
@@ -280,6 +285,9 @@ bool MapPointConstruct::ConstructExtend(
   //
   return true;
 }
+
+
+
 //
 void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
     const LocalMap &local_map, KeyFrameData &data) {

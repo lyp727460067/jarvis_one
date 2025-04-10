@@ -144,8 +144,6 @@ class LocalMap {
   LocalMapOption options_;
 
   //
-  std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
-
   std::unique_ptr<common::FixedRatioSampler> culling_sampler_;
   std::unique_ptr<DataCulling> data_culling_;
   bool finish_ = false;

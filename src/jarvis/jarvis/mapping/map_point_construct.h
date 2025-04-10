@@ -66,6 +66,8 @@ class MapPointConstruct {
   bool ConstructExtend(const LocalMap& local_map,
                        KeyFrameData* data);
   //
+  bool ExtractExtendData(const LocalMap& local_map, KeyFrameData* data);
+  //
   MapPointId AppendMapPointId(const std::pair<int, uint64_t>* tracking_id);
   void GenerateForExtendKeyPoint(KeyFrameData& data);
 

@@ -6,7 +6,9 @@
 namespace jarvis {
 namespace mapping {
 
-struct LoopDetectOption {};
+struct LoopDetectOption {
+  KeyFrameDataBaseOption key_frame_data_option;
+};
 
 struct LoopDetctResult {
   struct Data {
@@ -30,6 +32,8 @@ class LoopDetect {
           result);
   //
  private:
+  std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
+
   LoopDetectOption options_;
 };
 }  // namespace mapping
