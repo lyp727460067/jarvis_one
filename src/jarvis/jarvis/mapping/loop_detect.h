@@ -2,6 +2,7 @@
 #define JARVIS_MAPPING_LOOP_DETECT_H
 #include "jarvis/mapping/local_map.h"
 #include <functional>
+#include "jarvis/mapping/constraint_consistent_filter.h"
 //
 namespace jarvis {
 namespace mapping {
@@ -32,8 +33,8 @@ class LoopDetect {
           result);
   //
  private:
-  std::unique_ptr<KeyFrameDataBase> key_frame_data_base_;
-
+  std::map<LocalMapId,std::unique_ptr<KeyFrameDataBase>>key_frame_data_base_;
+  common::ThreadPool* thread_pool_;
   LoopDetectOption options_;
 };
 }  // namespace mapping

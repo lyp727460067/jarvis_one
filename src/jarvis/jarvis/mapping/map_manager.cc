@@ -158,7 +158,6 @@ std::shared_ptr<LocalMap> MapManager::ReconstructLocalMap(
     }
     new_update_ids.insert(data.id);
   }
-
   //
   last_new_update_key_frame_ids_ = std::move(new_update_ids);
   return new_local_map_ptr;
