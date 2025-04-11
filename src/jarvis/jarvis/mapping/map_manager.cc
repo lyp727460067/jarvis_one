@@ -42,7 +42,7 @@ MapManager::MapManager(const MapManagerOption &option,
       });
 }
 
-void MapManager::ComputeConstaints(const KeyFrameId &id) {
+void MapManager::ComputeConstaints(const KeyFrameId &id, double min_score) {
   //
   for (const auto &local_map_id : local_maps_) {
     ComputeLoopConstaint(local_map_id, id);
@@ -61,7 +61,8 @@ void MapManager::ComputeConstaints(const KeyFrameId &id) {
 }
 //
 void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
-                                      const KeyFrameId &key_frame_id) {
+                                      const KeyFrameId &key_frame_id,
+                                      double min_score) {
   auto last_connection_time =
       last_trajectory_connect_time_[key_frame_id.trajectory_id]
                                    [local_map_id.trajectory_id];
@@ -95,7 +96,7 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
   //
   loop_detect_->Detect(std::pair<LocalMapId, LocalMap>(
                            local_map_id, local_maps_.at(local_map_id)),
-                       continuous_ids);
+                       continuous_ids, min_score);
 }
 //
 void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
@@ -118,6 +119,35 @@ void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
     return WorkItem::Result::Normal;
   });
 }
+//
+
+double MapManager::ComputeCovisibleMinScore(const LocalMap &local_map,
+                                            const KeyFrameId &id) {
+  //
+  const std::vector<KeyFrameId> connected_key_frame_ids =
+      const_map_manager_->GetConnectedKeyFrames(id);
+  //
+  const auto& key_frames_datas = const_map_manager_->KeyAllFrameDatas();
+  const auto& key_frame_data_base = const_map_manager_->GetKeyFrameDataBase();
+  //
+  float min_score = 1;
+  auto const& curr_frame_bow_vev =
+      key_frames_datas.at(id).constant_data->dbow_data;
+
+  for (const auto& connected_id : connected_key_frame_ids) {
+    CHECK(key_frames_datas.Contains(connected_id)) << connected_id;
+    auto const& bow_vec_connected =
+        key_frames_datas.at(connected_id).constant_data->dbow_data;
+    float score = bow_vec_connected.Score(curr_frame_bow_vev);
+    // float score =
+    // key_frame_data_base->Vocabulary()->score(curr_frame_bow_vev,
+    //                                                        bow_vec_connected);
+    if (score < min_score) min_score = score;
+  }
+
+  return min_score;
+}
+
 //
 void MapManager::RunOptimization(
     std::vector<std::shared_ptr<LoopDetctResult>> &) {

@@ -75,13 +75,15 @@ class MapManager {
    //
 
    void ComputeLoopConstaint(const LocalMapId& local_map_id,
-                             const KeyFrameId& key_frame_id);
+                             const KeyFrameId& key_frame_id, double min_score);
    //
-   void ComputeConstaints(const KeyFrameId& id);
+   void ComputeConstaints(const KeyFrameId& id,double min_score);
    void ExtendedKeyFrameData(const LocalMap& local_map, const KeyFrameId& id,
                              KeyFrameData* data);
    //
    //
+   double ComputeCovisibleMinScore(const LocalMap& local_map,
+                                   const KeyFrameId& id);
    void ReconstructLocalMapOptimization(
        const std::map<LocalMapId, std::shared_ptr<LocalMap>>&);
    //
