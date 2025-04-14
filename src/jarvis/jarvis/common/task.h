@@ -3,8 +3,9 @@
 
 #include <mutex>
 #include <set>
-#include <functional>
+
 #include "glog/logging.h"
+#include "jarvis/common/thread_pool.h"
 
 namespace jarvis {
 namespace common {

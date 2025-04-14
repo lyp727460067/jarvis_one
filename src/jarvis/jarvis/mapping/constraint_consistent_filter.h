@@ -3,7 +3,7 @@
 #include <set>
 #include <vector>
 
-#include "common/id.h"
+#include "jarvis/common/id.h"
 //
 namespace jarvis {
 namespace mapping {

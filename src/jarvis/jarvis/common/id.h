@@ -19,21 +19,40 @@
 namespace jarvis {
 
 
-namespace internal {
+// namespace internal {
 
-template <class T>
-auto GetTimeImpl(const T& t, int) -> decltype(t.time()) {
-  return t.time();
-}
-template <class T>
-auto GetTimeImpl(const T& t, unsigned) -> decltype(t.time) {
-  return t.time;
-}
-template <class T>
-common::Time GetTime(const T& t) {
-  return GetTimeImpl(t, 0);
-}
-}  // namespace internal
+// template <class T>
+// auto GetTimeImpl(const T& t, int) -> decltype(t.time()) {
+//   return t.time();
+// }
+// template <class T>
+// auto GetTimeImpl(const T& t, unsigned) -> decltype(t.time) {
+//   return t.time;
+// }
+// template <class T>
+// common::Time GetTime(const T& t) {
+//   return GetTimeImpl(t, 0);
+// }
+// }  // namespace internal
+struct MapPointId {
+  MapPointId(int trajectory_id_, uint64_t index_)
+      : trajectory_id(trajectory_id_),
+        index(index_) {}
+  bool operator==(const MapPointId &other) const {
+    return std::forward_as_tuple(trajectory_id, index) ==
+           std::forward_as_tuple(other.trajectory_id,
+                                 other.index);
+  }
+
+  bool operator!=(const MapPointId &other) const { return !operator==(other); }
+
+  bool operator<(const MapPointId &other) const {
+    return std::forward_as_tuple(trajectory_id,index) <
+           std::forward_as_tuple(other.trajectory_id,other.index);
+  }
+  int trajectory_id;
+  uint64_t index;
+};
 
 struct KeyFrameId {
   KeyFrameId(int trajectory_id_, uint64_t keyframe_index_)
@@ -55,33 +74,10 @@ struct KeyFrameId {
   }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const KeyFrameId& v) {
-  return os << "(" << v.trajectory_id << ", " << v.keyframe_index << ")";
-}
 
-struct MapPointId {
-  MapPointId(int trajectory_id_, uint64_t index_)
-      : trajectory_id(trajectory_id_),
-        index(index_) {}
-  bool operator==(const MapPointId &other) const {
-    return std::forward_as_tuple(trajectory_id, index) ==
-           std::forward_as_tuple(other.trajectory_id,
-                                 other.index);
-  }
 
-  bool operator!=(const MapPointId &other) const { return !operator==(other); }
 
-  bool operator<(const MapPointId &other) const {
-    return std::forward_as_tuple(trajectory_id,index) <
-           std::forward_as_tuple(other.trajectory_id,other.index);
-  }
-  int trajectory_id;
-  uint64_t index;
-};
 
-inline std::ostream& operator<<(std::ostream& os, const MapPointId& v) {
-  return os << "(" << v.trajectory_id << ", " << v.index << ")";
-}
 
 struct LocalMapId {
   LocalMapId(int trajectory_id_, uint64_t index_)
@@ -104,6 +100,12 @@ struct LocalMapId {
 };
 
 inline std::ostream& operator<<(std::ostream& os, const LocalMapId& v) {
+  return os << "(" << v.trajectory_id << ", " << v.index << ")";
+}
+inline std::ostream& operator<<(std::ostream& os, const KeyFrameId& v) {
+  return os << "(" << v.trajectory_id << ", " << v.keyframe_index << ")";
+}
+inline std::ostream& operator<<(std::ostream& os, const MapPointId& v) {
   return os << "(" << v.trajectory_id << ", " << v.index << ")";
 }
 

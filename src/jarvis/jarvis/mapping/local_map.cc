@@ -184,9 +184,7 @@ bool LocalMap::operator=(LocalMap &&rhs) {
 //
 void LocalMap::UpdadataExtendFinishData(bool f) {
   if (f) {
-    for (const auto &data : data_.key_frames_datas) {
-      key_frame_data_base_->AddData(data.id, data.data.data);
-    }
+
     TrimRedundancy();
   }
 
