@@ -27,6 +27,7 @@ struct PoseConstraint {
   LocalMapId node_i;
   KeyFrameId node_j;
   transform::Rigid3d relative_pose;
+  double yaw =0.0;
   bool internal =false;
 };
 struct NodePose {

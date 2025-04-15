@@ -84,10 +84,9 @@ struct KeyFrameData {
       return pos * extric_camera_to_imu[track_sequence[s][0]];
     }
     bool extend_data_compute = false;
-
-    transform::Rigid3d global_pos;
   };
   std::shared_ptr<Data> data;
+  transform::Rigid3d global_pose;
 };
 
 }  // namespace mapping

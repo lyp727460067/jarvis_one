@@ -56,6 +56,8 @@ class Covisibility {
   void RemoveMapPoint(const MapPointId& id);
   std::set<MapPointId> RemoveKeyFrame(const KeyFrameId& id);
   //
+  std::vector<KeyFrameId> GetKeyLevelConnectedKeyFrames(
+      const KeyFrameId& frame_id, const std::vector<int>& levels)const;
 
  private:
   //

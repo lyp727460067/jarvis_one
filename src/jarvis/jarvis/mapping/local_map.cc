@@ -6,8 +6,6 @@ namespace mapping {
 LocalMap::LocalMap(const LocalMapOption &option,
                    const transform::Rigid3d &local_pose)
     : options_(option),
-      key_frame_data_base_(
-          std::make_unique<KeyFrameDataBase>(option.key_frame_data_option)),
       culling_sampler_(new common::FixedRatioSampler(option.culling_sampler)) {
   //
   CHECK(!options_.cameras.empty());
@@ -57,7 +55,7 @@ void LocalMap::AddKeyFrameData(const KeyFrameId &kf_id,
   data_.key_frames_ref_pose.emplace(
       kf_id,
       local_to_ref_ * data_.local_pose.inverse() * key_frame_data.data->pose);
-  data_.trim_befor_key_frame_id.insert(kf_id);
+  data_.removed_keyframes_ids_before_trim.insert(kf_id);
 }
 //
 //
@@ -129,7 +127,6 @@ bool LocalMap::operator=(const LocalMap &rhs) {
   culling_sampler_ =
       std::make_unique<common::FixedRatioSampler>(options_.culling_sampler);
 
-  *key_frame_data_base_ = *rhs.key_frame_data_base_;
   data_fuse_ = std::make_unique<LocalDataFuse>(this);
   DataCullingOption data_culling_option = options_.data_culling_option;
   data_culling_option.image_bboxs = options_.image_boxs;
@@ -166,7 +163,6 @@ bool LocalMap::operator=(LocalMap &&rhs) {
   //
   finish_ = rhs.finish_;
   is_optimization = rhs.is_optimization;
-  key_frame_data_base_ =  std::move(key_frame_data_base_);
   local_to_ref_ = rhs.local_to_ref_;
   out_outliers_map_points_catch_.clear();
   //
@@ -184,12 +180,9 @@ bool LocalMap::operator=(LocalMap &&rhs) {
 //
 void LocalMap::UpdadataExtendFinishData(bool f) {
   if (f) {
-
     TrimRedundancy();
   }
-
-  is_optimization  =true;
-  // Opimization();
+  is_optimization = true;
 }
 //
 
@@ -263,7 +256,6 @@ void LocalMap::TrimKeyFrame(const KeyFrameId &id) {
 
   std::stringstream info;
   data_.key_frames_datas.Trim(id);
-  key_frame_data_base_->Erase(id);
   data_.key_frames_ref_pose.erase(id);
   auto trim_map_points = data_.covisibility.TrimKeyFrame(id);
 

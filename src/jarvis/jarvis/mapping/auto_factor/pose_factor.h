@@ -10,6 +10,32 @@ inline T NormalizeAngle(const T& angle_radians) {
   return angle_radians -
          two_pi * ceres::floor((angle_radians + T(M_PI)) / two_pi);
 }
+
+//
+
+class PoseGraphCostFunctor {
+ public:
+  static ceres::CostFunction* Create(const transform::Rigid3d& relative_pose,
+                                     const std::array<double, 2>& factor) {
+    return new ceres::AutoDiffCostFunction<PoseGraphCostFunctor, 6, 3, 4, 3, 4>(
+        new PoseGraphCostFunctor(relative_pose, factor));
+  }
+
+  template <typename T>
+  bool operator()(const T* const translation, T* residual) const {
+    return true;
+  }
+
+ private:
+  explicit PoseGraphCostFunctor(const transform::Rigid3d& relative_pose,
+                                const std::array<double, 2>& factor)
+      : factor_(factor) {}
+
+  std::array<double, 2> factor_;
+  const transform::Rigid3d relative_pose_;
+};
+
+//
 class TranslationCostFunctor {
  public:
   static ceres::CostFunction* Create(const Eigen::Vector3d& translation,

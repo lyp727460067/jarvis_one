@@ -1,6 +1,9 @@
 #include "jarvis/mapping/loop_detect.h"
 
+#include "jarvis/mapping/auto_factor/pose_factor.h"
+#include "jarvis/mapping/auto_factor/re_projection_err.h"
 #include "jarvis/mapping/match/des_matcher.h"
+//
 namespace jarvis {
 namespace mapping {
 //
@@ -26,10 +29,12 @@ LoopDetect::LoopDetect(const LoopDetectOption& option,
         *p = b;
         return true;
       };
+      
 }
 void LoopDetect::Detect(
     const std::pair<LocalMapId, std::shared_ptr<LocalMap>>& local_map,
-    const std::map<KeyFrameId, KeyFrameData>& kf_datas, double min_score) {
+    const std::map<KeyFrameId, KeyFrameData>& kf_datas,
+    const double min_score) {
   //
   CHECK_GT(kf_datas.size(), 3);
   const KeyFrameData first_kf_data = kf_datas.begin()->second;
@@ -210,9 +215,39 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
 //
 
 std::vector<std::pair<FeatureId, MapPointId>>
-LoopDetect::SearchForAdditionalMapPoints(std::shared_ptr<LocalMap> local_map,
+LoopDetect::SearchForAdditionalMapPoints(std::shared_ptr<LocalMap> map,
+                                         const KeyFrameId& candidate_id,
                                          const transform::Rigid3d& pose,
-                                         const KeyFrameData& target_kf_data) {}
+                                         const KeyFrameData& target_kf_data) {
+  auto connect_frames_ids =
+      map->ConstData().covisibility.GetKeyLevelConnectedKeyFrames(
+          candidate_id, options_.convisi_level_search_num);
+
+  std::map<int, std::unique_ptr<match::AreaSearch>> area_searchs =
+      match::AreaSearch::CreateAreaSearchFromeKeyFrameData(
+          options_.image_boxs, options_.area_search_grid_lenth, target_kf_data);
+
+  std::set<MapPointId> connect_mp_points;
+  for (const auto& kf_id : connect_frames_ids) {
+    auto map_points = map->GetKeyFrameMapPoints(kf_id);
+    for (const auto& mp_id : map_points) {
+      connect_mp_points.insert(mp_id.first);
+    }
+  }
+
+  std::vector<std::pair<FeatureId, MapPointId>> result;
+  for (const auto& mp_id : connect_mp_points) {
+    if (map->ConstData().map_points.Contains(mp_id)) {
+      auto index = SearchMatchesByProjection(
+          options_.project_option, target_kf_data, area_searchs,
+          map->ConstData().map_points.at(mp_id));
+      if (index != FeatureId{-1, 0}) {
+        result.emplace_back(index, mp_id);
+      }
+    }
+  }
+  return result;
+}
 
 std::vector<std::pair<FeatureId, MapPointId>>
 LoopDetect::CheckValidityByProjections(
@@ -298,29 +333,42 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
           options_.candidata_reproject_min_num) {
     return nullptr;
   }
+  //
+  auto candidate_additional_map_points_ids = SearchForAdditionalMapPoints(
+      local_map, candidate_id, pnp_pose.first, target_kf_data);
+  //
+  std::map<MapPointId, Eigen::Vector3d> candidate_additional_map_points_datas;
 
-  auto candidate_additional_map_points_ids =
-      SearchForAdditionalMapPoints(local_map, pnp_pose.first, target_kf_data);
+  for (const auto& map_point_data : local_map->AllMapPoints()) {
+    candidate_additional_map_points_datas.emplace(
+        map_point_data.id, map_point_data.data.data->pos);
+  }
 
   transform::Rigid3d init_pose = pnp_pose.first;
   for (int i = 0; i < options_.max_num_iterations; i++) {
+    //
     init_pose = FourOptimize(
-        pose, track_data.data->extric_camera_to_imu, matchs,
-        std::array<float, 2>{options_.op_weight, options_.op_weight});
-
-    int inliner =
-        RemoveOutliersRejection(matchs, track_data.data->extric_camera_to_imu,
-                                pose, options_.outlier_err);
+        pnp_pose.first, target_kf_data.data->extric_camera_to_imu,
+        candidate_additional_map_points_datas,
+        candidate_additional_map_points_ids, target_kf_data,
+        std::array<double, 2>{options_.op_weight, options_.op_weight});
+    int inliner = RemoveOutliersRejection(
+        target_kf_data.data->extric_camera_to_imu,
+        candidate_additional_map_points_datas, target_kf_data.data->features,
+        init_pose, options_.outlier_min_err,
+        candidate_additional_map_points_ids);
     //
   }
 
   //
-  const auto delta_pose = pose * candidata_data.pose;
-  //
+
+  const auto& target_pose = target_kf_data.data->pose;
+  const auto& candidata_pose = candidate_kf_data.data->pose;
+  const auto delta_pose = init_pose * target_pose;
+
   const double delta_yaw = common::NormalizeAngleDifference(
-      transform::GetYaw(candidata_data.pose.rotation()) -
-      transform::GetYaw(pose.inverse().rotation()));
-  //
+      transform::GetYaw(candidate_kf_data.data->pose) -
+      transform::GetYaw(init_pose.inverse().rotation()));
   //
   if (abs(delta_yaw) > common::DegToRad(options_.constraint_max_yaw) ||
       delta_pose.translation().norm() > options_.constraint_max_distance) {
@@ -331,10 +379,9 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   }
   std::stringstream info;
   info << "\ntarget " << target_id << "candidate: " << candidate_id
-       << " pnp pose " << pnp_pose.first << "optimization " << pose;
+       << " pnp pose " << pnp_pose.first << "optimization " << init_pose;
   info << "\nlocal pose ... "
-       << " target: " << target_data.data->pose
-       << " candidate: " << candidata_data.data->pose;
+       << " target: " << target_pose << " candidate: " << candidata_pose;
   info << "delta pose :" << delta_pose << " yaw :" << delta_yaw;
   LOG(INFO) << info.str();
 
@@ -409,20 +456,45 @@ LoopDetect::FilterBestDbowResultWithCovisibility(
 //
 
 //
-void LoopDetect::CalculatedSingleResultFinish(LoopDetctResult* data) {}
+void LoopDetect::CalculatedSingleResultFinish(LoopDetctResult* data) {
+  // 多个回环轨迹的话 校验pose
+}
 //
 void LoopDetect::ContinueAndDistanceCheck(std::shared_ptr<LocalMap> local_map,
                                           LoopDetctResult* data) {}
-void LoopDetect::WhenDone(
-    std::function<void(std::vector<std::shared_ptr<LoopDetctResult>>)>&&
-        result) {}
 //
+void LoopDetect::WhenDone(
+    std::function<void(std::vector<std::unique_ptr<LoopDetctResult>>)>
+        call_back) {
+  when_done_task_->SetWorkItem([this, call_back] {
+    std::vector<std::unique_ptr<LoopDetctResult>> result;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      for (auto& r : loop_result_catchs_) {
+        if (r == nullptr) continue;
+        result.push_back(std::move(r));
+      }
+      loop_result_catchs_.clear();
+    }
+    if (call_back) {
+      call_back(result);
+    }
+  });
+  thread_pool_->Schedule(std::move(when_done_task_));
+  when_done_task_ = std::make_unique<common::Task>();
+}
+//
+//
+
+
 int LoopDetect::RemoveOutliersRejection(
     const std::vector<transform::Rigid3d>& extric_camera_to_imu,
     const std::map<MapPointId, Eigen::Vector3d> map_points,
     const MapById<FeatureId, FeatureData> target_features,
-    std::vector<std::pair<FeatureId, MapPointId>>& matched_ids,
-    const transform::Rigid3d& pose, float outlier) {
+    const transform::Rigid3d& pose, const float outlier,
+    std::vector<std::pair<FeatureId, MapPointId>>& matched_ids
+
+) {
   auto ReprojectionError = [](const Eigen::Vector3d world_point_i,
                               const transform::Rigid3d& pose_j,
                               const Eigen::Vector2d& uvj) {
@@ -434,7 +506,6 @@ int LoopDetect::RemoveOutliersRejection(
     return sqrt(rx * rx + ry * ry);
   };
   int inliner = 0;
-
   for (auto it = matched_ids.begin(); it != matched_ids.end();) {
     auto& constraist_matchs = *it;
     //
@@ -459,7 +530,8 @@ transform::Rigid3d LoopDetect::FourOptimize(
     const std::vector<transform::Rigid3d>& extric_camera_to_imu,
     const std::map<MapPointId, Eigen::Vector3d> map_points,
     const std::vector<std::pair<FeatureId, MapPointId>> matched_ids,
-    const KeyFrameData& candidate_kf_data, const std::array<float, 2>& weight) {
+    const KeyFrameData& candidate_kf_data,
+    const std::array<double, 2>& weight) {
   ceres::Problem problem;
   ceres::LocalParameterization* quaternion_local =
       new ceres::EigenQuaternionParameterization;
@@ -492,17 +564,16 @@ transform::Rigid3d LoopDetect::FourOptimize(
                                 quaternion_local);
   }
 
-  for (const auto& constraist_seq : constraints) {
-    for (size_t j = 0; j < constraist_seq.second.size(); j++) {
-      //
-      problem.AddResidualBlock(
-          FourReProjectionErr::Creat(constraist_seq.second[j].cur_normal_px,
-                                     constraist_seq.second[j].map_point, roll,
-                                     pitch, weight[0]),
-          new ceres::HuberLoss(options_.huber_loss), traslation.data(), &yaw,
-          ex_traslation[constraist_seq.first].data(),
-          ex_rotation[constraist_seq.first].coeffs().data());
-    }
+  for (const auto& match_id : matched_ids) {
+    const Eigen::Vector3d& mp_pos = map_points.at(match_id.second);
+    auto const& nomal_point =
+        candidate_kf_data.data->features.at(match_id.first);
+    problem.AddResidualBlock(
+        FourReProjectionErr::Creat(nomal_point.f.head<2>(), mp_pos, roll, pitch,
+                                   weight[0]),
+        new ceres::HuberLoss(options_.huber_loss), traslation.data(), &yaw,
+        ex_traslation[match_id.first.sequence_id].data(),
+        ex_rotation[match_id.first.sequence_id].coeffs().data());
     //
   }
 

@@ -36,16 +36,17 @@ MapManager::MapManager(const MapManagerOption &option,
   work_item_queue_ =
       std::make_unique<WorkItemQueue>("map_manager", thread_pool, [this]() {
         loop_detect_->WhenDone(
-            [this](std::vector<std::shared_ptr<LoopDetctResult>> &&result) {
-              RunOptimization(result);
+            [this](std::vector<std::unique_ptr<LoopDetctResult>> &&result) {
+              Optimization(std::move(result));
             });
       });
 }
 
-void MapManager::ComputeConstaints(const KeyFrameId &id, double min_score) {
+void MapManager::ComputeConstaints(const KeyFrameId &id,
+                                   const double min_score) {
   //
   for (const auto &local_map_id : local_maps_) {
-    ComputeLoopConstaint(local_map_id, id);
+    ComputeLoopConstaint(local_map_id.id, id, min_score);
   }
   //
   if (new_local_map_id_.has_value()) {
@@ -55,14 +56,14 @@ void MapManager::ComputeConstaints(const KeyFrameId &id, double min_score) {
     new_local_map_id_.reset();
     auto new_local_map = local_maps_.at(local_map_id).local_map;
     for (const auto &id : extend_key_frames_ids_) {
-      ComputeLoopConstaint(local_map_id, id);
+      ComputeLoopConstaint(local_map_id, id, min_score);
     }
   }
 }
 //
 void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
                                       const KeyFrameId &key_frame_id,
-                                      double min_score) {
+                                      const double min_score) {
   auto last_connection_time =
       last_trajectory_connect_time_[key_frame_id.trajectory_id]
                                    [local_map_id.trajectory_id];
@@ -88,15 +89,18 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
   std::map<KeyFrameId, KeyFrameData> continuous_ids;
   for (int i = -options_.continuous_candidate_loop_frame / 2;
        i < options_.continuous_candidate_loop_frame / 2; i++) {
-    const KeyFrameId id(key_frame_id.trajectory_id_, key_frame_id.index + i);
+    //
+    const KeyFrameId id(key_frame_id.trajectory_id,
+                        key_frame_id.keyframe_index + i);
     if (extend_key_frames_ids_.count(id)) {
       continuous_ids.emplace(id, key_frames_datas_.at(id));
     }
   }
   //
-  loop_detect_->Detect(std::pair<LocalMapId, LocalMap>(
-                           local_map_id, local_maps_.at(local_map_id)),
-                       continuous_ids, min_score);
+  loop_detect_->Detect(
+      std::pair<LocalMapId, std::shared_ptr<LocalMap>>(
+          local_map_id, local_maps_.at(local_map_id).local_map),
+      continuous_ids, min_score);
 }
 //
 void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
@@ -106,11 +110,12 @@ void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
   work_item_queue_->AddWorkItem([=]() {
     map_point_construct_->ExtractExtendData(local_map, data);
     extend_key_frames_ids_.insert(id);
-    ComputeConstaints(id);
-    loop_detect_->NotifyNodeAdditionFinished();
+    //
+    double covi_min_score = ComputeCovisibleMinScore(local_map, id);
+    ComputeConstaints(id, covi_min_score);
     //
     ++num_kf_num_since_last_loop_closure_;
-    if (options_.optimize_min_kf_min_num > 0 &&
+    if (options_.pose_graph_optimize_min_kf_min_num > 0 &&
         num_kf_num_since_last_loop_closure_ >
             num_kf_num_since_last_loop_closure_) {
       num_kf_num_since_last_loop_closure_ = 0;
@@ -120,53 +125,46 @@ void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
   });
 }
 //
-
+//
 double MapManager::ComputeCovisibleMinScore(const LocalMap &local_map,
                                             const KeyFrameId &id) {
   //
   const std::vector<KeyFrameId> connected_key_frame_ids =
-      const_map_manager_->GetConnectedKeyFrames(id);
+      local_map.ConstData().covisibility.GetConnectedKeyFrames(id);
   //
-  const auto& key_frames_datas = const_map_manager_->KeyAllFrameDatas();
-  const auto& key_frame_data_base = const_map_manager_->GetKeyFrameDataBase();
-  //
+  const auto &key_frames_datas = local_map.ConstData().key_frames_datas;
   float min_score = 1;
-  auto const& curr_frame_bow_vev =
-      key_frames_datas.at(id).constant_data->dbow_data;
-
-  for (const auto& connected_id : connected_key_frame_ids) {
+  auto const &curr_frame_bow_vev = key_frames_datas.at(id).data->dbow_data;
+  for (const auto &connected_id : connected_key_frame_ids) {
     CHECK(key_frames_datas.Contains(connected_id)) << connected_id;
-    auto const& bow_vec_connected =
-        key_frames_datas.at(connected_id).constant_data->dbow_data;
+    auto const &bow_vec_connected =
+        key_frames_datas.at(connected_id).data->dbow_data;
     float score = bow_vec_connected.Score(curr_frame_bow_vev);
-    // float score =
-    // key_frame_data_base->Vocabulary()->score(curr_frame_bow_vev,
-    //                                                        bow_vec_connected);
     if (score < min_score) min_score = score;
   }
 
   return min_score;
 }
-
 //
-void MapManager::RunOptimization(
-    std::vector<std::shared_ptr<LoopDetctResult>> &) {
-  {
+//
+//
+void MapManager::UpdataLocalMapConstraint(const LocalMapId &id,
+                                          std::shared_ptr<LocalMap> local_map) {
+  for (const auto &re_local_kf_pose :
+       local_map->ConstData().key_frames_ref_pose) {
     std::lock_guard<std::mutex> lock(mutex_);
-    op_constraints_.insert(op_constraints_.end(), result.begin(), result.end());
+    pose_constraints_.push_back(PoseConstraint{
+        id, re_local_kf_pose.first, re_local_kf_pose.second,
+        transform::GetYaw(re_local_kf_pose.second.rotation()), true});
   }
 }
 //
-
 void MapManager::ReconstructLocalMapOptimization(
-    const std::map<LocalMapId, std::shared_ptr<LocalMap>> &local_maps) {
-  local_opimization_->Optimize(&local_maps);
-  //
+    std::map<LocalMapId, std::shared_ptr<LocalMap>> &local_maps) {
+  local_optimization_->Optimize(&local_maps);
   if (localmap_update_callback_) {
-    localmap_update_callback_(&local_maps);
-    UpdateLocalOpLocalMap(&op_local_maps);
+    localmap_update_callback_(local_maps.begin()->second);
   }
-  //
 }
 
 //
@@ -179,17 +177,13 @@ std::shared_ptr<LocalMap> MapManager::ReconstructLocalMap(
   LocalMap &new_local_map = *new_local_map_ptr;
   //
   for (const auto &data : local_map->AllKeyFrameDatas()) {
-    if (last_new_update_key_frame_ids_.count(data.id)) {
-      new_local_map.AddKeyFrameData(data.id, data.data);
-    } else {
-      map_point_construct_->ConstructExtend(new_local_map,
-                                            &key_frames_datas_.at(data.id));
-      new_local_map.AddKeyFrameData(data.id, data.data);
-    }
-    new_update_ids.insert(data.id);
+    if (previous_local_map_trimed_key_frames_id_.count(data.id)) continue;
+    map_point_construct_->ConstructExtend(new_local_map,
+                                          &key_frames_datas_.at(data.id));
+    new_local_map.AddKeyFrameData(data.id, data.data);
+
   }
   //
-  last_new_update_key_frame_ids_ = std::move(new_update_ids);
   return new_local_map_ptr;
 }
 
@@ -205,10 +199,24 @@ LocalMapId MapManager::AddLocalMap(int trajectory,
     std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
     op_local_maps.emplace(local_map_id, new_local_map);
     ReconstructLocalMapOptimization(op_local_maps);
+
+    //
     if (options_.need_update_track_local_map) {
       UpdataActiveTrackLocalMap(local_map);
     }
     new_local_map->UpdadataExtendFinishData(true);
+    UpdateKeyframeDataUsingPrunedLocalMap(local_map);
+    PruneRedundantLocalMap(local_map_id);
+    //
+    //
+    pose_graph_optimizer_->AddLocalMapPose(
+        local_map_id,
+        LocalMapPoseTime{
+            local_map->ConstData().key_frames_datas.begin()->data.data->time,
+            local_map->LocalPose()});
+   //在删减之后在更新约束
+    UpdataLocalMapConstraint(local_map_id,local_map);
+    //
     new_local_map_id_ = local_map_id;
     return WorkItem::Result::Normal;
   });
@@ -222,27 +230,34 @@ KeyFrameId MapManager::AddKeyFrameData(int trajectory,
   return kf_id;
 }
 //
-
-//
-void MapManager::ComputeLoopConstaints(
-    const LocalMapId &local_map_id,
-    const std::vector<KeyFrameId> &key_frame_id) {}
-
-void MapManager::UpdateLocalOpLocalMap(
-    std::map<LocalMapId, std::shared_ptr<LocalMap>> *op_local_maps) {
-  // auto const &all_ref_data =
-  //     op_local_maps->cbegin()->second->AllKeyFrameRefPose();
-  // const auto end_kf_data_id = all_ref_data.crbegin()->first;
-  // transform::Rigid3d global_kf_pose =
-  //     local_maps_.at(op_local_maps->cbegin()->first).global_pose *
-  //     all_ref_data.at(end_kf_data_id);
-  // local_to_global_transform_ =
-  //     global_kf_pose.inverse() * op_local_maps->cbegin()
-  //                                   ->second->AllKeyFrameDatas()
-  //                                   .at(end_kf_data_id)
-  //                                   .data->pose;
+void MapManager::PruneRedundantLocalMap(const LocalMapId &new_local_map_id) {
+  // 不能删除当前最新的图
 }
 
+//
+void MapManager::UpdateLocalOpLocalMap(
+    std::map<LocalMapId, std::shared_ptr<LocalMap>> *op_local_maps) {}
+
+//
+void MapManager::UpdateKeyframeDataUsingPrunedLocalMap(
+    std::shared_ptr<LocalMap> new_local_map) {
+  std::set<KeyFrameId> previous_local_map_trimed_key_frames_id_temp;
+  const auto &full_local_map_ids =
+      new_local_map->ConstData().removed_keyframes_ids_before_trim;
+  const auto &local_map_kf_ids = new_local_map->ConstData().key_frames_ref_pose;
+  for (const auto &id : full_local_map_ids) {
+    if (!local_map_kf_ids.count(id)) {
+      previous_local_map_trimed_key_frames_id_temp.insert(id);
+    }
+  }
+  previous_local_map_trimed_key_frames_id_ =
+      std::move(previous_local_map_trimed_key_frames_id_temp);
+  for (const auto &id : previous_local_map_trimed_key_frames_id_) {
+    key_frames_datas_.Trim(id);
+  }
+};
+//
+//
 void MapManager::TrimOptimizedLocalMap() {
   std::set<KeyFrameId> finish_key_frame_ids;
   std::set<KeyFrameId> unfinished_key_frame_ids;
@@ -273,37 +288,41 @@ void MapManager::TrimOptimizedLocalMap() {
 
 //
 //
-void MapManager::Optimization() {
+void MapManager::Optimization(
+    std::vector<std::unique_ptr<LoopDetctResult>> &&loop_constraint) {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto &&l_constraint : loop_constraint) {
+      pose_constraints_.push_back(PoseConstraint{
+          l_constraint->local_map_id,
+          l_constraint->kf_id,
+          l_constraint->relative_pose,
+          l_constraint->relative_yaw,
+      });
+    }
+  }
   //
-  std::vector<PoseConstraint>
-
-      pose_graph_optimize_->Solve();
+  pose_graph_optimize_->Solve(pose_constraints_);
+  auto global_local_map_pose = pose_graph_optimize_->GetPoseGraphLocalMapPose();
+  auto global_kf_pose = pose_graph_optimize_->GetPoseGraphNodePose();
+  for (const auto &g_pose : global_local_map_pose) {
+    local_maps_.at(g_pose.first).globla_pose =
+        transform::Rigid3d(g_pose.second.t, g_pose.second.q);
+  }
+  //
+  KeyFrameId last_key_frame_id(0, 0);
+  for (const auto &g_pose : global_kf_pose) {
+    key_frames_datas_.at(g_pose.first).global_pose =
+        transform::Rigid3d(g_pose.second.t, g_pose.second.q);
+    last_key_frame_id = g_pose.first;
+  }
+  local_to_global_transform_ =
+      key_frames_datas_.at(last_key_frame_id).global_pose.inverse() *
+      key_frames_datas_.at(last_key_frame_id).data->pose;
+  //
+  //跟新没有优化的pose
 }
 
-//
-bool MapManager::IsRunOptimization() {}
-
-void MapManager::UpdateNewFinishLocalMapLoop(
-    const LocalMapId &local_map_id, std::shared_ptr<LocalMap> &,
-    const std::vector<KeyFrameId> &candidate_kf) {
-  // std::map<LocalMapId, std::shared_ptr<LocalMap>> local_maps;
-  // for (const auto &kf_id : candidate_kf) {
-  //   std::lock_guard<std::mutex> lock(mutex_);
-  //   loop_closure_->Detect(
-  //       local_maps, kf_id, key_frames_datas_.at(kf_id),
-  //       [this](std::vector<std::unique_ptr<LoopDetectResult>> result) {
-  //         LOG(INFO) << "Loop detect.";
-  //         UpdateLoopConstraint(std::move(result));
-  //       });
-  // }
-}
-
-void MapManager::UpdateLoopConstraint(
-    std::vector<std::unique_ptr<LoopDetectResult>> result) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  // loop_constraints_.insert(loop_constraints_.end(), result.begin(),
-  //                          result.end());
-}
 
 std::map<KeyFrameId, transform::TimestampedTransform>
 MapManager::GetAllKeyFramePose() {
