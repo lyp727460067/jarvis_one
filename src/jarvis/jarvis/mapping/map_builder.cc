@@ -30,9 +30,12 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option,
     thread_pool_ = std::make_unique<common::ThreadPool>(options_.thread_num);
     map_manager_ = std::make_unique<MapManager>(
         options_.map_manager_option, map_point_construct_.get(),
-        thread_pool_.get(),
-        [this](std::map<LocalMapId, std::shared_ptr<LocalMap>> *op_local_maps) {
-          UpdataActiveWithOpLocal(op_local_maps);
+        thread_pool_.get(), [this](const std::shared_ptr<LocalMap> local_map) {
+          if (!options_.updated_active_track_localmap_data_from_mapmanger)
+            return;
+          std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
+          op_local_maps.emplace(LocalMapId(0, 0), local_map);
+          UpdataActiveWithOpLocal(&op_local_maps);
         });
     LOG(INFO) << "Enable mapp manger..";
   } else {
@@ -165,188 +168,109 @@ void MappingBuilder::TrackLocalMapOptimize(
 }
 //
 //
-//
-std::pair<KeyFrameId, KeyFrameData> MappingBuilder::UpdataKfData(
-    const int t, const TrackingData &data) {
-  //
-  std::shared_ptr<LocalMapMatchResult> local_map_track_result = nullptr;
-  if (local_map_match_result_catch_.count(data.data->time)) {
-    local_map_track_result = local_map_match_result_catch_.at(data.data->time);
-    CHECK(local_map_track_result);
-    auto current_time_it =
-        local_map_match_result_catch_.lower_bound(data.data->time);
-    //
-    local_map_match_result_catch_.erase(local_map_match_result_catch_.begin(),
-                                        current_time_it);
-  }
-  auto key_frame_data = map_point_construct_->TrackDataToKeyFrameData(
-      data, local_map_track_result);
-  //
-  //
-  auto local_to_globla_transfom = map_manager_->GetLocalToGlobla();
-  key_frame_data.data->global_pos =
-      local_to_globla_transfom * key_frame_data.data->pose;
-  LOG(INFO) << local_to_globla_transfom;
-  //
-  auto key_frame_id = map_manager_->AddKeyFrameData(t, key_frame_data);
-  return {key_frame_id, key_frame_data };
-}
-//
-//
-
-void MappingBuilder::LocalMapOptimization() {
-  auto local_map_id = local_maps_.Append(
-      trajector, LocalMapData{local_map, local_to_globla_transform_ *
-                                             local_map->LocalPose()});
-  //
-  CHECK(thread_pool_) << "Not enbale local op,loop";
-  auto local_map_process_tast = std::make_unique<common::Task>();
-  local_map_process_tast->SetWorkItem([this, local_map_id]() {
-    std::set<KeyFrameId> new_update_ids;
-    std::shared_ptr<LocalMap> local_map = nullptr;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      local_map = local_maps_.at(local_map_id).local_map;
-    }
-
-    std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
-    op_local_maps[local_map_id] = std::make_shared<LocalMap>(*local_map);
-    LocalMap &new_local_map = *op_local_maps[local_map_id];
-    //
-    bool construct_state = false;
-    for (const auto &data : local_map->AllKeyFrameDatas()) {
-      // 若是与前一局部地图窗口重复的帧,直接更新当前局部地图信息即可,否则需要做匹配以及新的地图点建立
-      if (last_new_update_key_frame_ids_.count(data.id)) {
-        new_local_map.AddKeyFrameData(data.id, data.data);
-      } else {
-        map_point_construct_->ConstructExtend(new_local_map,
-                                              &key_frames_datas_.at(data.id));
-        new_local_map.AddKeyFrameData(data.id, data.data);
-      }
-      new_update_ids.insert(data.id);
-    }
-    local_opimization_->Optimize(&op_local_maps);
-    if (localmap_update_callback_) {
-      localmap_update_callback_(&op_local_maps);
-      UpdateLocalOpLocalMap(&op_local_maps);
-    }
-    new_local_map.UpdadataExtendFinishData(construct_state);
-    *local_map = std::move(new_local_map);
-    if (options_.enable_loop_closure) {
-      std::vector<KeyFrameId> candidata_kfs;
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (const auto &kf : key_frames_datas_) {
-          if (loop_detect_sampler_->Pulse()) {
-            candidata_kfs.push_back(kf.id);
-          }
-        }
-      }
-      //
-
-      last_new_update_key_frame_ids_ = std::move(new_update_ids);
-      UpdateNewFinishLocalMapLoop(local_map_id,
-                                  local_maps_.at(local_map_id).local_map,
-                                  std::move(candidata_kfs));
-    }
-
-    //
-  });
-  thread_pool_->Schedule(std::move(local_map_process_tast));
-  // needed_opt_local_maps_.insert(local_map_id);如果loopdetect开启的话就放在线程池慢慢优化
-}
-//
-void MappingBuilder::UpdataLocalMapData(
-    const std::pair<KeyFrameId, KeyFrameData> &kf_data) {
-  if (!options_.enable_local_track) return;
-  //
-  //
-  active_local_maps_->AddKeyFrameData(kf_data.first, kf_data.second);
-  // /
-  if (local_map_front_ == nullptr) {
-    local_map_front_ = active_local_maps_->GetLocalMap().front();
-  }
-  std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
-  if (active_local_maps_->GetLocalMap().front() != local_map_front_) {
-
-   
-
-    if (options_.enable_local_opimization || options_.enable_loop_closure) {
-      map_manager_->AddLocalMap(kf_data.first.trajectory_id, local_map_front_);
-    }
-    std::shared_ptr<LocalMap> last_local_map_front = nullptr;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      last_local_map_front = local_map_front_;
-      local_map_front_ = active_local_maps_->GetLocalMap().front();
-    }
-
-    if (options_.enable_track_map_opti) {
-      op_local_maps[{0, op_local_maps.size()}] =
-          std::make_shared<LocalMap>(*last_local_map_front);
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        *op_local_maps[{0, op_local_maps.size() - 1}] = *last_local_map_front;
-      }
-
-      if (options_.enable_track_map_opti) {
-        UpdataActiveWithOpLocal(&op_local_maps);
-      }
-    }
-
-    // AddWorkItem([this, last_local_map_front]() {
-    TrimKeyFrameData(last_local_map_front);
-    // return WorkItem::Result::Normal;
-    // });
-  }
-  //
-  op_local_maps[{0, op_local_maps.size()}] =
-      std::make_shared<LocalMap>(*local_map_front_);
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    *op_local_maps[{0, op_local_maps.size() - 1}] = *local_map_front_;
-  }
-  //
-  if (options_.enable_track_map_opti && track_local_map_op_sampler_->Pulse()) {
-    AddWorkItem([this, op_local_maps]() {
-      //
-      std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_temp =
-          op_local_maps;
-      if (op_local_maps_temp.size() == 2) {
-        if (op_local_maps_temp.size() == 2) {
-          op_local_maps_temp.erase(op_local_maps_temp.begin());
-
-          // TrackLocalMapOptimize(finish_track_local_map_opimization_.get(),
-          //                       &op_local_maps_temp);
-        }
-
-        return WorkItem::Result::Normal;
-      }
-      if (op_local_maps_temp.rbegin()->second->Size() >
-          options_.local_map_option.max_kf_num) {
-        if (op_local_maps_temp.size() == 2) {
-          op_local_maps_temp.erase(op_local_maps_temp.begin());
-        }
-        TrackLocalMapOptimize(track_local_map_opimization_.get(),
-                              &op_local_maps_temp);
-      }
-      return WorkItem::Result::Normal;
-    });
-  }
-}
-
-//
 void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
   if (!key_frame_filter_->IsKeyFrame(data)) {
     return;
   }
   //
+  if (options_.enable_local_track || options_.enable_local_opimization) {
+    std::shared_ptr<LocalMapMatchResult> local_map_track_result = nullptr;
+    if (local_map_match_result_catch_.count(data.data->time)) {
+      local_map_track_result =
+          local_map_match_result_catch_.at(data.data->time);
+      CHECK(local_map_track_result);
+      auto current_time_it =
+          local_map_match_result_catch_.lower_bound(data.data->time);
+      //
+      local_map_match_result_catch_.erase(local_map_match_result_catch_.begin(),
+                                          current_time_it);
+    }
+    auto key_frame_data = map_point_construct_->TrackDataToKeyFrameData(
+        data, local_map_track_result);
+    //
 
+    // /
+    //
+    auto local_to_globla_transfom = map_manager_->GetLocalToGlobalTransform();
+    key_frame_data.global_pose =
+        local_to_globla_transfom * key_frame_data.data->pose;
+    LOG(INFO) << local_to_globla_transfom;
+    //
+    auto key_frame_id = map_manager_->AddKeyFrameData(t, key_frame_data);
+    active_local_maps_->AddKeyFrameData(key_frame_id, key_frame_data);
+    if (local_map_front_ == nullptr) {
+      local_map_front_ = active_local_maps_->GetLocalMap().front();
+    }
+
+    std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
+
+    
+    if (active_local_maps_->GetLocalMap().front() != local_map_front_) {
+      if (options_.enable_local_opimization || options_.enable_loop_closure) {
+        map_manager_->AddLocalMap(t, local_map_front_);
+      }
+      std::shared_ptr<LocalMap> last_local_map_front=nullptr;
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        last_local_map_front = local_map_front_;
+        local_map_front_ = active_local_maps_->GetLocalMap().front();
+      }
+      
+      if (options_.enable_track_map_opti) {
+        op_local_maps[{0, op_local_maps.size()}] =
+            std::make_shared<LocalMap>(*last_local_map_front);
+        {
+          std::lock_guard<std::mutex> lock(mutex_);
+          *op_local_maps[{0, op_local_maps.size() - 1}] = *last_local_map_front;
+        }
+
+        if (options_.enable_track_map_opti) {
+          UpdataActiveWithOpLocal(&op_local_maps);
+        }
+      }
+
+      // AddWorkItem([this, last_local_map_front]() {
+      TrimKeyFrameData(last_local_map_front);
+      // return WorkItem::Result::Normal;
+      // });
+    }
+    //
+    op_local_maps[{0, op_local_maps.size()}] =
+        std::make_shared<LocalMap>(*local_map_front_);
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      *op_local_maps[{0, op_local_maps.size() - 1}] = *local_map_front_;
+    }
+    //
+    if (options_.enable_track_map_opti &&
+        track_local_map_op_sampler_->Pulse()) {
+      work_item_queue_->AddWorkItem([this, op_local_maps]() {
+        //
+        std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_temp =
+            op_local_maps;
+        if (op_local_maps_temp.size() == 2) {
+          if (op_local_maps_temp.size() == 2) {
+            op_local_maps_temp.erase(op_local_maps_temp.begin());
+
+            // TrackLocalMapOptimize(finish_track_local_map_opimization_.get(),
+            //                       &op_local_maps_temp);
+          }
+
+          return WorkItem::Result::Normal;
+        }
+        if (op_local_maps_temp.rbegin()->second->Size() >
+            options_.local_map_option.max_kf_num) {
+          if (op_local_maps_temp.size() == 2) {
+            op_local_maps_temp.erase(op_local_maps_temp.begin());
+          }
+          TrackLocalMapOptimize(track_local_map_opimization_.get(),
+                                &op_local_maps_temp);
+        }
+        return WorkItem::Result::Normal;
+      });
+    }
+  }
 }
-//
-//
-
-
 //
 std::map<KeyFrameId, transform::TimestampedTransform>
 MappingBuilder::GetAllKeyFramePose() {
@@ -374,22 +298,7 @@ transform::Rigid3d MappingBuilder::Relocaiton(const TrackingData &frame_data) {
 
 //
 MappingBuilder::~MappingBuilder() {
-  if (work_queue_ == nullptr) return;
 
-  size_t work_queue_size = 0;
-  {
-    std::function<WorkItem::Result()> work_item;
-    work_queue_size = work_queue_->size();
-  }
-
-  while (work_queue_size) {
-    {
-      std::lock_guard<std::mutex> locker(work_queue_mutex_);
-      work_queue_size = work_queue_->size();
-      usleep(1000);
-    }
-    LOG(INFO) << "wait work_queue_size " << work_queue_size;
-  }
 }
 
 }  // namespace mapping

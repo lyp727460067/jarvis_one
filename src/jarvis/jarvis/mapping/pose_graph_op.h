@@ -2,8 +2,8 @@
 #define JARVIS_MAPPING_POSE_GRAPH_OP_H
 #include <deque>
 
-#include "sensor/fixed_frame_pose_data.h"
-#include "sensor/odometry_data.h"
+#include "jarvis/sensor/fixed_frame_pose_data.h"
+#include "jarvis/sensor/odometry_data.h"
 //
 #include "jarvis/common/id.h"
 #include "jarvis/mapping/optimization_data_base.h"
@@ -50,10 +50,10 @@ class PoseGraphOptimize {
   }
 
   const std::map<KeyFrameId, NodePose>& GetPoseGraphNodePose() {
-    return ceres_local_map_poses_;
+    return ceres_poses_;
   }
   const std::map<LocalMapId, NodePose>& GetPoseGraphLocalMapPose() {
-    return ceres_poses_;
+    return ceres_local_map_poses_;
   }
   //
   void Solve(const std::vector<PoseConstraint>& constraints);
@@ -71,7 +71,7 @@ class PoseGraphOptimize {
   //
   PoseGraphOptimizeOption options_;
   //
-  std::map<int,TrajectorStates> froze_trajector_;
+  std::set<int> froze_trajector_;
   std::vector<NodePose> extric_camera_to_imu_;
   NodePose extric_odo_to_imu_;
   NodePose extric_fix_frame_to_imu_;
@@ -87,7 +87,7 @@ class PoseGraphOptimize {
   std::deque<sensor::ImuData> imu_data_;
 };
 
-class FourPoseGraphOptimize : public PoseGraphOptimize {}
+class FourPoseGraphOptimize : public PoseGraphOptimize {};
 //
 }  // namespace mapping
 }  // namespace jarvis

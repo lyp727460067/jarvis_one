@@ -93,8 +93,8 @@ class LocalMap {
     return data_.key_frames_ref_pose;
   }
   //
-  std::set<KeyFrameId> GetTrimBeforKeyFrameId() {
-    return data_.trim_befor_key_frame_id;
+  std::set<KeyFrameId> GetBeforTrimKeyFrameId() {
+    return data_.removed_keyframes_ids_before_trim;
   };
   //
   int Size() { return data_.key_frames_datas.size(); }

@@ -127,7 +127,6 @@ class LoopDetect {
   std::set<KeyFrameId> NotNeedToDetectKf(
       const std::shared_ptr<LocalMap>& local_map);
   //
-  std::set<KeyFrameId> last_new_update_local_map_key_frame_ids_
   std::vector<std::pair<KeyFrameId, double>>
   FilterBestDbowResultWithCovisibility(
       std::shared_ptr<LocalMap> local_map,

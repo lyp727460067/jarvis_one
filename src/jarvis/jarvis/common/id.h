@@ -19,21 +19,21 @@
 namespace jarvis {
 
 
-// namespace internal {
+namespace internal {
 
-// template <class T>
-// auto GetTimeImpl(const T& t, int) -> decltype(t.time()) {
-//   return t.time();
-// }
-// template <class T>
-// auto GetTimeImpl(const T& t, unsigned) -> decltype(t.time) {
-//   return t.time;
-// }
-// template <class T>
-// common::Time GetTime(const T& t) {
-//   return GetTimeImpl(t, 0);
-// }
-// }  // namespace internal
+template <class T>
+auto GetTimeImpl(const T& t, int) -> decltype(t.time()) {
+  return t.time();
+}
+template <class T>
+auto GetTimeImpl(const T& t, unsigned) -> decltype(t.time) {
+  return t.time;
+}
+template <class T>
+common::Time GetTime(const T& t) {
+  return GetTimeImpl(t, 0);
+}
+}  // namespace internal
 struct MapPointId {
   MapPointId(int trajectory_id_, uint64_t index_)
       : trajectory_id(trajectory_id_),

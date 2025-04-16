@@ -10,7 +10,7 @@
 #include "jarvis/key_frame_data.h"
 #include "jarvis/mapping/key_frame_filter.h"
 #include "jarvis/mapping/local_map_track.h"
-#include "jarvis/mapping/map_manger.h"
+#include "jarvis/mapping/map_manager.h"
 #include "jarvis/sensor/fixed_frame_pose_data.h"
 //
 #include "jarvis/mapping/data_culling.h"
@@ -18,7 +18,7 @@
 #include "jarvis/sensor/odometry_data.h"
 #include "jarvis/mapping/loop_detect.h"
 #include "jarvis/mapping/map_point_construct.h"
-#include "jarvis/mapping/work_item_queue.h"
+
 #include "jarvis/common/thread_pool.h"
 namespace jarvis {
 namespace mapping {
@@ -41,7 +41,7 @@ struct MapBuilderOption {
   MapPointConstructOption map_point_construct_option; 
   //
   //
-
+  bool updated_active_track_localmap_data_from_mapmanger = false;
   //
   std::string vocabulary_filebrif = "/home/lyp/project/vslam/jarvis/jarvis.dbow";
   std::vector<std::vector<int>> track_sequence;
@@ -71,7 +71,6 @@ class MappingBuilder {
     return {};
   }
   transform::Rigid3d GetLocalToGlobalTransform(){
-    CHECK(false);
     return {};
   }
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
@@ -80,24 +79,17 @@ class MappingBuilder {
     std::lock_guard<std::mutex> lock(mutex_);
     return local_map_front_;
   }
-  std::pair<KeyFrameId,KeyFrameData> UpdataKfData(const int t, const TrackingData &data);
   //
-  void UpdataLocalMapData(const std::pair<KeyFrameId, KeyFrameData>& kf_data);
-  void LocalMapOptimization();
+  void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
+  //
+  //
  private:
-  //
-  //
-
-  // /
   void TrackLocalMapOptimize(LocalMapOptimization*,
                              std::map<LocalMapId, std::shared_ptr<LocalMap>>*);
   void UpdataActiveWithOpLocal(
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* op_local_maps);
   //
-  //
-  void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
-  //
-  //
+
   std::unique_ptr<common::Task> when_done_task_ ;
   std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;
@@ -111,12 +103,11 @@ class MappingBuilder {
   //
   std::unique_ptr<common::FixedRatioSampler> track_local_map_op_sampler_;
   std::unique_ptr<KeyFrameFilter> key_frame_filter_;
-  std::unique_ptr<WorkItemQueue> work_item_queue_;
-  // std::unique_ptr<common::ThreadPool> thread_pool_;
+  std::unique_ptr<common::ThreadPool> thread_pool_;
 
   std::map<common::Time, std::shared_ptr<LocalMapMatchResult>>
       local_map_match_result_catch_;
-
+  std::unique_ptr<WorkItemQueue> work_item_queue_;
   mutable std::mutex mutex_;
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;

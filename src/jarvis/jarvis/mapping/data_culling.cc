@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "jarvis/mapping/covisibility.h"
-#include "jarvis/mapping/map_manger.h"
 namespace jarvis {
 //
 namespace mapping {

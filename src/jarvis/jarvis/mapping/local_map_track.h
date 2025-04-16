@@ -1,6 +1,6 @@
 #ifndef _JARVIS_LAOCAL_MAP_TRACK_H
 #define _JARVIS_LAOCAL_MAP_TRACK_H
-#include "jarvis/mapping/map_manger.h"
+#include "jarvis/key_frame_data.h"
 #include "jarvis/mapping/match/direct_match.h"
 #include "jarvis/transform/rigid_transform.h"
 #include "jarvis/transform/transform.h"

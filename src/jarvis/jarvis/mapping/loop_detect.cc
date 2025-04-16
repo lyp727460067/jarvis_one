@@ -41,9 +41,9 @@ void LoopDetect::Detect(
   //
   //
   loop_result_catchs_.emplace_back();
-  loop_result_catchs_.back().local_map_id = local_map.first;
+  loop_result_catchs_.back()->local_map_id = local_map.first;
   std::map<KeyFrameId, KeyFrameData> kf_datas_temp = kf_datas;
-  LoopDetctResult* this_kf_result_catch_ptr = &loop_result_catchs_.back();
+  LoopDetctResult* this_kf_result_catch_ptr = loop_result_catchs_.back().get();
   //
   //
   if (!data_base_insert_task_hanlde.count(local_map.first)) {
@@ -107,7 +107,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::DetectForOne(
   if (best_candidata_kfs.empty()) {
     (*consistent_filter) = std::make_unique<ConstraintConsistentFilter>(
         options_.constraint_consistent_filter_num);
-    return;
+    return nullptr;
   }
   //
 
@@ -171,8 +171,10 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
   std::map<FeatureId, FeatureData> features_temp;
 
   for (int i = 0; i < paired_id.size(); i++) {
+    //
     const auto map_point_id =
-        candidata_data.data->map_point_ids[paired_id[i].first];
+        candidata_data.data->map_point_ids.at(paired_id[i].first);
+    //
     if (all_map_points.Contains(map_point_id) == 0) {
       continue;
     }
@@ -277,7 +279,7 @@ LoopDetect::CheckValidityByProjections(
     //
     if (index != FeatureId{-1, 0}) continue;
 
-    paired_id_target_map_to_candidate.emplace_back(index, map_point_id);
+    paired_id_target_map_to_candidate.emplace_back(index, map_point_id.second);
   }
   return paired_id_target_map_to_candidate;
 }
@@ -321,9 +323,10 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
       target_map_points, pnp_pose.first, candidate_kf_data, {});
   //
 
+  //
   for (const auto& pair_id : target_projection_to_candidate_kf_id) {
-    if (target_feat_ids_map_points_ids
-            [target_feat_ids_map_points_ids[pair_id.second]] == pair_id.first) {
+    if (target_candidate_match_feat_ids.at(target_feat_ids_map_points_ids.at(
+            pair_id.second)) == pair_id.first) {
     }
   }
 
@@ -392,7 +395,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
 std::set<KeyFrameId> LoopDetect::NotNeedToDetectKf(
     const std::shared_ptr<LocalMap>& local_map) {
   // 取最末端不要找回环了
-  return {}
+  return {};
 }
 
 //
@@ -477,7 +480,7 @@ void LoopDetect::WhenDone(
       loop_result_catchs_.clear();
     }
     if (call_back) {
-      call_back(result);
+      call_back(std::move(result));
     }
   });
   thread_pool_->Schedule(std::move(when_done_task_));

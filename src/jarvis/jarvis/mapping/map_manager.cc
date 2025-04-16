@@ -65,8 +65,8 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
                                       const KeyFrameId &key_frame_id,
                                       const double min_score) {
   auto last_connection_time =
-      last_trajectory_connect_time_[key_frame_id.trajectory_id]
-                                   [local_map_id.trajectory_id];
+      last_trajectory_connect_time_.at(key_frame_id.trajectory_id)
+          .at(local_map_id.trajectory_id);
   //
 
   const auto &kf_data = key_frames_datas_.at(key_frame_id);
@@ -162,9 +162,7 @@ void MapManager::UpdataLocalMapConstraint(const LocalMapId &id,
 void MapManager::ReconstructLocalMapOptimization(
     std::map<LocalMapId, std::shared_ptr<LocalMap>> &local_maps) {
   local_optimization_->Optimize(&local_maps);
-  if (localmap_update_callback_) {
-    localmap_update_callback_(local_maps.begin()->second);
-  }
+
 }
 
 //
@@ -187,8 +185,15 @@ std::shared_ptr<LocalMap> MapManager::ReconstructLocalMap(
   return new_local_map_ptr;
 }
 
+void MapManager::UpdataActiveTrackLocalMap(
+    std::shared_ptr<LocalMap> local_map) {
+  if (localmap_update_callback_) {
+    localmap_update_callback_(local_map);
+  }
+}
+
 //
-LocalMapId MapManager::AddLocalMap(int trajectory,
+void  MapManager::AddLocalMap(int trajectory,
                                    std::shared_ptr<LocalMap> local_map) {
   if (!options_.enable_loop_closure) return;
   work_item_queue_->AddWorkItem([&]() {
@@ -201,9 +206,9 @@ LocalMapId MapManager::AddLocalMap(int trajectory,
     ReconstructLocalMapOptimization(op_local_maps);
 
     //
-    if (options_.need_update_track_local_map) {
-      UpdataActiveTrackLocalMap(local_map);
-    }
+    //
+    UpdataActiveTrackLocalMap(local_map);
+    //
     new_local_map->UpdadataExtendFinishData(true);
     UpdateKeyframeDataUsingPrunedLocalMap(local_map);
     PruneRedundantLocalMap(local_map_id);
@@ -262,30 +267,33 @@ void MapManager::TrimOptimizedLocalMap() {
   std::set<KeyFrameId> finish_key_frame_ids;
   std::set<KeyFrameId> unfinished_key_frame_ids;
   std::set<LocalMapId> finish_local_map_ids;
-  for (const auto &local_map : local_maps_) {
-    auto all_local_map_key_frame_ids =
-        local_map.data.local_map->GetTrimBeforKeyFrameId();
-    if (local_map.data.local_map->IsOptimization()) {
-      finish_key_frame_ids.merge(all_local_map_key_frame_ids);
-      finish_local_map_ids.insert(local_map.id);
-    } else {
-      unfinished_key_frame_ids.merge(all_local_map_key_frame_ids);
-    }
-  }
-  std::vector<KeyFrameId> trim_ids;
-  std::set_difference(finish_key_frame_ids.begin(), finish_key_frame_ids.end(),
-                      unfinished_key_frame_ids.begin(),
-                      unfinished_key_frame_ids.end(),
-                      std::back_inserter(trim_ids));
-  for (const auto &id : trim_ids) {
-    TrimKeyFrameData(id);
-  }
-  for (auto const local_map_id : finish_local_map_ids) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    local_maps_.Trim(local_map_id);
-  }
+  // for (const auto &local_map : local_maps_) {
+  //   auto all_local_map_key_frame_ids =
+  //       local_map.data.local_map->GetTrimBeforKeyFrameId();
+  //   if (local_map.data.local_map->IsOptimization()) {
+  //     finish_key_frame_ids.merge(all_local_map_key_frame_ids);
+  //     finish_local_map_ids.insert(local_map.id);
+  //   } else {
+  //     unfinished_key_frame_ids.merge(all_local_map_key_frame_ids);
+  //   }
+  // }
+  // std::vector<KeyFrameId> trim_ids;
+  // std::set_difference(finish_key_frame_ids.begin(), finish_key_frame_ids.end(),
+  //                     unfinished_key_frame_ids.begin(),
+  //                     unfinished_key_frame_ids.end(),
+  //                     std::back_inserter(trim_ids));
+  // for (const auto &id : trim_ids) {
+  //   TrimKeyFrameData(id);
+  // }
+  // for (auto const local_map_id : finish_local_map_ids) {
+  //   std::lock_guard<std::mutex> lock(mutex_);
+  //   local_maps_.Trim(local_map_id);
+  // }
 }
 
+void MapManager::TrimKeyFrameData(const KeyFrameId &id) {
+  key_frames_datas_.Trim(id);
+}
 //
 //
 void MapManager::Optimization(

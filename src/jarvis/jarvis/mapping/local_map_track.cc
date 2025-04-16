@@ -1,7 +1,6 @@
 #include "jarvis/mapping/local_map_track.h"
 
 #include "jarvis/mapping/covisibility.h"
-#include "jarvis/mapping/map_manger.h"
 #include "jarvis/mapping/match/pic_writer.h"
 //
 #include "jarvis/mapping/auto_factor/pose_factor.h"

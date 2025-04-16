@@ -1,5 +1,5 @@
 #include "jarvis/mapping/pose_graph_op.h"
-
+#include "jarvis/mapping/auto_factor/pose_factor.h"
 namespace jarvis {
 namespace mapping {
 
@@ -24,7 +24,7 @@ void PoseGraphOptimize::AddKeyFramePose(const KeyFrameId& id,
 void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
   for (const auto& node_pose : node_poses_) {
     const Eigen::Vector3d rpy =
-        common::ToRollPitchYaw(node_pose.second.pose.rotation());
+        transform::ToRollPitchYaw(node_pose.second.pose.rotation());
     ceres_poses_.emplace(node_pose.first,
                          NodePose{node_pose.second.pose.translation(),
                                   node_pose.second.pose.rotation(),
@@ -33,9 +33,9 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
   }
   for (const auto& l_pose : local_map_poses_) {
     const Eigen::Vector3d rpy =
-        common::ToRollPitchYaw(node_pose.second.pose.rotation());
+        transform::ToRollPitchYaw(l_pose.second.pose.rotation());
     //
-    ceres_local_map_poses_.emplace(node_pose.first,
+    ceres_local_map_poses_.emplace(l_pose.first,
                                    NodePose{l_pose.second.pose.translation(),
                                             l_pose.second.pose.rotation(),
                                             {rpy[0], rpy[1], rpy[2]},
@@ -44,8 +44,10 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
   extric_camera_to_imu_.clear();
   for (size_t i = 0; i < options_.track_sequence.size(); i++) {
     extric_camera_to_imu_.push_back(
-        NodePose{extirc[options_.track_sequence[i][0]].translation(),
-                 extirc[options_.track_sequence[i][0]].rotation()});
+        NodePose{options_.extric_camera_to_imu[options_.track_sequence[i][0]]
+                     .translation(),
+                 options_.extric_camera_to_imu[options_.track_sequence[i][0]]
+                     .rotation()});
   }
 
   for (auto& pose : ceres_poses_) {
@@ -115,7 +117,7 @@ void PoseGraphOptimize::AddRelativeFactor(ceres::Problem* problem) {
       const auto relative_pose =
           ceres_poses_.at(first_id).local_pose.inverse() *
           ceres_poses_.at(second_id).local_pose;
-      
+
       ceres::CostFunction* cost_function = PoseGraphCostFunctor::Create(
           relative_pose, std::array<double, 2>{options_.relative_t_weitht,
                                                options_.relative_r_weitht});
@@ -128,6 +130,10 @@ void PoseGraphOptimize::AddRelativeFactor(ceres::Problem* problem) {
     }
   }
 }
+void PoseGraphOptimize::AddImuFactor(ceres::Problem* problem){
+
+}
+
 //
 void PoseGraphOptimize::Solve(const std::vector<PoseConstraint>& constraints) {
   ceres::Problem problem;
@@ -147,7 +153,7 @@ void PoseGraphOptimize::Solve(const std::vector<PoseConstraint>& constraints) {
 }
 //
 void PoseGraphOptimize::TrimLocalMapPose(LocalMapId& id) {}
-void PoseGraphOptimize::TrimKeyFramePose(LocalMapId& id) {}
+void PoseGraphOptimize::TrimKeyFramePose(KeyFrameId& id) {}
 
 }  // namespace mapping
 }  // namespace jarvis

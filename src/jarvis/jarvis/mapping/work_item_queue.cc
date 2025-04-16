@@ -1,10 +1,13 @@
 #include "jarvis/mapping/work_item_queue.h"
-#include "jarvis/common/thread_pool.h"
+
+#include "jarvis/common/task.h"
+
 #include <chrono>
 #include <thread>
 
 #include "glog/logging.h"
 #include "jarvis/common/task.h"
+#include "jarvis/common/thread_pool.h"
 namespace jarvis {
 namespace mapping {
 

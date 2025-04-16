@@ -2,12 +2,17 @@
 #define _WORK_ITEM_QUEUE_H
 #include <memory>
 #include <string>
+#include <chrono>
 //
+#include <mutex>
+#include <deque>
+#include <functional>
 namespace jarvis {
-namespace mapping {
 namespace common {
 class ThreadPool;
 }
+namespace mapping {
+
 struct WorkItem {
   enum class Result { Normal, kInterruptForImmediateRun };
   std::chrono::steady_clock::time_point time;

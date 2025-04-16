@@ -22,7 +22,8 @@ class PoseGraphCostFunctor {
   }
 
   template <typename T>
-  bool operator()(const T* const translation, T* residual) const {
+  bool operator()(const T* const t0, const T* const q0, const T* const t1,
+                  const T* const q1, T* residual) const {
     return true;
   }
 
