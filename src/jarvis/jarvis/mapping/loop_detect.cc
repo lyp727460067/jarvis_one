@@ -4,17 +4,11 @@
 #include "jarvis/mapping/auto_factor/re_projection_err.h"
 #include "jarvis/mapping/match/des_matcher.h"
 //
+#include "jarvis/alg/pnp_wrapper.h"
 namespace jarvis {
 namespace mapping {
 //
 
-namespace {
-
-std::pair<transform::Rigid3d, std::set<FeatureId>> CalculatePoseUsingPnP(
-    const std::map<FeatureId, Eigen::Vector3d>& map_points,
-    const std::map<FeatureId, FeatureData>& features) {}
-
-}  // namespace
 //
 LoopDetect::LoopDetect(const LoopDetectOption& option,
                        common::ThreadPool* thread_pool)
@@ -195,9 +189,10 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
     return {};
   }
 
+  auto pnp_pose = CalculatePoseUsingPnP(
+      alg::SolveType(options_.pnp_solve_typ), options_.pnp_solver_option,
+      map_points_temp, features_temp, transform::Rigid3d::Identity());
   //
-  // {
-  auto pnp_pose = CalculatePoseUsingPnP(map_points_temp, features_temp);
   std::vector<std::pair<FeatureId, FeatureId>> inlier_pairs;
   for (int i = 0; i < paired_id.size(); i++) {
     if (pnp_pose.second.count(paired_id[i].second)) {

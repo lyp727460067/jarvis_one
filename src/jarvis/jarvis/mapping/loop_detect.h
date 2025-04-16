@@ -2,7 +2,7 @@
 #define JARVIS_MAPPING_LOOP_DETECT_H
 #include <functional>
 #include <mutex>
-
+#include "jarvis/alg/pnp_solver.h"
 #include "jarvis/common/id.h"
 #include "jarvis/mapping/constraint_consistent_filter.h"
 #include "jarvis/mapping/local_map.h"
@@ -17,7 +17,9 @@ struct LoopDetectOption {
   match::ProjectionOption project_option;
   std::vector<Eigen::AlignedBox2i> image_boxs;
   std::vector<std::vector<int>> track_sequence;
+  alg::PnpSolverOption pnp_solver_option;
   std::vector<int> convisi_level_search_num{5, 3};
+  int pnp_solve_typ =0;
   double huber_loss = 1.0;
   double outlier_min_err = 8.0;
   int max_num_iterations = 4;

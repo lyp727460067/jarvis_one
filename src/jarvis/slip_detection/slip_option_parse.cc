@@ -66,6 +66,9 @@ void ParseYAMLOptionSlipDetectOption(const std::string &file,
   slip_detection_opiont->transform_cam_to_odom =
       calibrate_options.extric_camera_to_robot *
       calibrate_options.extric_camera_to_imu[0].inverse();
+    LOG(INFO)<<slip_detection_opiont->transform_cam_to_odom;
+    LOG(INFO)<<transform::Rot2ypr(slip_detection_opiont->transform_cam_to_odom.rotation().toRotationMatrix());
+    CHECK(false);
 }
 
 }  // namespace slip_detect
