@@ -118,12 +118,23 @@ double SlipDetect::ComputePosesTheta(std::deque<T>* datas,
 
 template <typename T>
 int SlipDetect::ComputePosesCount(std::deque<T>* datas,
-                                  const jarvis::common::Time& time) {
+                                  const jarvis::common::Time& time,
+                                  bool is_print_value) {
+  //
+  std::stringstream info;
   int count = 0;
   for (size_t i = 1; i < datas->size(); i++) {
-    // LOG(INFO)<< datas->at(i).pose;
     if (datas->at(i).time > time) break;
     ++count;
+    if (is_print_value) {
+      info << common::RadToDeg(abs(transform::GetAngle(
+                  (datas->at(i - 1).pose.inverse() * datas->at(i).pose))))
+           << " ";
+    }
+  }
+
+  if (is_print_value) {
+    LOG(WARNING) <<typeid(T).name()<< info.str();
   }
   return count;
 }
@@ -136,23 +147,42 @@ bool SlipDetect::SimpleDetect(const jarvis::common::Time& time) {
   DropData(time - common::FromSeconds(options_.que_time_duration),
            &pose_datas_);
   //
+  static int log_cont  =0;
   const double delta_odom_s = ComputePosesS(&odometry_datas_, time);
   const double delta_pose_s = ComputePosesS(&pose_datas_, time);
   const auto delta_s = delta_odom_s - delta_pose_s;
   // LOG(INFO) << ComputePosesTheta(&odometry_datas_,time);
   // LOG(INFO) << ComputePosesTheta(&pose_datas_,time);
-  const auto delta_theta = std::abs(ComputePosesTheta(&odometry_datas_, time) -
-                                    ComputePosesTheta(&pose_datas_, time));
-
+  const double delta_odom_r = ComputePosesTheta(&odometry_datas_, time);
+  const double delta_pose_r = ComputePosesTheta(&pose_datas_, time);
+  const auto delta_theta = std::abs(delta_odom_r - delta_pose_r);
   if (delta_s > options_.pose_odom_err_s_threash_hold ||
       delta_theta > options_.pose_odom_err_theta_threash_hold) {
-    LOG(WARNING) << "Detect Slip at time " << time << " With ds: " << delta_s
-                 << " dtheta: " << delta_theta << "delta_odom_s "
-                 << delta_odom_s << " delta_pose_s " << delta_pose_s
-                 << " odom count : "
-                 << ComputePosesCount(&odometry_datas_, time)
-                 << "pose count: " << ComputePosesCount(&pose_datas_, time);
-    return true;
+    std::stringstream odo_data_info;
+    std::stringstream pose_data_info;
+    log_cont++;
+    size_t odom_count = ComputePosesCount(
+        &odometry_datas_, time,
+        delta_theta > options_.pose_odom_err_theta_threash_hold &&
+            log_cont >= 10);
+    size_t pose_count = ComputePosesCount(
+        &pose_datas_, time,
+        delta_theta > options_.pose_odom_err_theta_threash_hold &&
+            log_cont >= 10);
+    if (log_cont >= 10) {
+      log_cont = 0;
+    }
+    if (delta_s > options_.pose_odom_err_s_threash_hold) {
+      LOG(WARNING) << "Detect Slip at time " << time << " With ds: " << delta_s
+                   << " dtheta: " << delta_theta << "delta_odom_s "
+                   << delta_odom_s << " delta_pose_s " << delta_pose_s
+                   << "delta_odom_r: " << delta_odom_r
+                   << "delta_pose_r: " << delta_pose_r
+                   << " odom count : " << odom_count
+                   << "pose count: " << pose_count;
+      return true;
+    }
+   
   }
   return false;
 }

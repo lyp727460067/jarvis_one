@@ -64,8 +64,8 @@ class SlipDetect {
   double ComputePosesS(std::deque<T>* deque,const jarvis::common::Time& time);
   //
   template <typename T>
-  int ComputePosesCount(std::deque<T>* deque,
-                           const jarvis::common::Time& time);
+  int ComputePosesCount(std::deque<T>* deque, const jarvis::common::Time& time,
+                        bool is_print_value);
   //
   //
   template <typename T>
