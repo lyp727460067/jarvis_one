@@ -4,7 +4,7 @@ enable_local_track: 1
 enable_track_map_opti: 0
 enable_local_opimization: 0
 enable_loop_closure : 1
-thread_pool_num : 4
+thread_pool_num : 8
 track_map_opti_sampler : 0.1
 construct_use_des_match : 0
 ##
@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  140
+ max_kf_num :  20
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  key_frame_data_option:

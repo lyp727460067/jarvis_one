@@ -39,11 +39,19 @@ void LoopDetect::Detect(
   //
   loop_result_catchs_.emplace_back();
   loop_result_catchs_.back()->local_map_id = local_map.first;
+  LOG(INFO)<<"!";
   std::map<KeyFrameId, KeyFrameData> kf_datas_temp = kf_datas;
   LoopDetctResult* this_kf_result_catch_ptr = loop_result_catchs_.back().get();
   //
+
+  LOG(INFO)<<"!";
   //
+  
   if (!data_base_insert_task_hanlde.count(local_map.first)) {
+    CHECK(key_frame_data_base_
+              .emplace(local_map.first,
+                       new KeyFrameDataBase(options_.key_frame_data_option))
+              .second);
     auto data_base_task = std::make_unique<common::Task>();
     data_base_task->SetWorkItem([first_kf_data, local_map, this,
                                  this_kf_result_catch_ptr]() {
@@ -72,6 +80,8 @@ void LoopDetect::Detect(
       }
     };
   });
+
+  LOG(INFO)<<"!";
   detect_node_task->AddDependency(
       data_base_insert_task_hanlde[local_map.first]);
   auto detect_node_task_handle =
@@ -82,6 +92,9 @@ void LoopDetect::Detect(
   finish_task_->SetWorkItem([this, this_kf_result_catch_ptr]() {
     CalculatedSingleResultFinish(this_kf_result_catch_ptr);
   });
+
+
+  LOG(INFO)<<"!";
   //
   thread_pool_->Schedule(std::move(finish_task_));
   finish_task_ = std::make_unique<common::Task>();
@@ -149,6 +162,7 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
                            const KeyFrameId& target_id,
                            const KeyFrameData& target_data) {
   //
+  
   auto const& candidata_data =
       local_map->ConstData().key_frames_datas.at(canditate_id);
   auto const& target_descriptor = target_data.data->descriptors;
