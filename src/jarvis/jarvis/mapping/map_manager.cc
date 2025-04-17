@@ -121,14 +121,21 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
 void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
                                       const KeyFrameId &id,
                                       KeyFrameData::Data* data) {
-   if(enable_loop_closure_)return ;                               
+   if(!enable_loop_closure_)return ;                               
   work_item_queue_->AddWorkItem([=]() {
+    LOG(INFO)<<"!";
     map_point_construct_->ExtractExtendData(local_map, data);
+
+    LOG(INFO)<<"!";
     extend_key_frames_ids_.insert(id);
     //
+
+    LOG(INFO)<<"!";
     double covi_min_score = ComputeCovisibleMinScore(local_map, id);
     ComputeConstaints(id, covi_min_score);
     //
+
+    LOG(INFO)<<"!";
     ++num_kf_num_since_last_loop_closure_;
     if (options_.pose_graph_optimize_min_kf_min_num > 0 &&
         num_kf_num_since_last_loop_closure_ >
@@ -144,6 +151,7 @@ void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
 double MapManager::ComputeCovisibleMinScore(const LocalMap &local_map,
                                             const KeyFrameId &id) {
   //
+  if()
   const std::vector<KeyFrameId> connected_key_frame_ids =
       local_map.ConstData().covisibility.GetConnectedKeyFrames(id);
   //
@@ -218,7 +226,9 @@ void  MapManager::AddLocalMap(int trajectory,
     //
     std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
     op_local_maps.emplace(local_map_id, new_local_map);
-    ReconstructLocalMapOptimization(op_local_maps);
+    if (options_.enable_local_map_full_op) {
+      ReconstructLocalMapOptimization(op_local_maps);
+    }
 
     //
     //

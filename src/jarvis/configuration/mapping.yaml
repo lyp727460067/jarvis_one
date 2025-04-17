@@ -109,6 +109,7 @@ finish_track_local_map_opt_option:
 map_manager_option: 
   local_map_op_use_6dof : 0
   pose_graph_op_use_6dof: 0
+  enable_local_map_full_op : 0
   same_trajectory_max_loop_detect_distance : 50.0
   max_loop_detct_distance : 50.0
   continuous_candidate_loop_frame : 10

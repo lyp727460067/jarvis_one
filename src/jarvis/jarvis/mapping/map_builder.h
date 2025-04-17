@@ -90,7 +90,7 @@ class MappingBuilder {
   void UpdataActiveWithOpLocal(
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* op_local_maps);
   //
-
+  void LocalTrackOptimize(std::shared_ptr<LocalMap> last_finish_local_map);
   std::unique_ptr<common::Task> when_done_task_;
   std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;

@@ -1260,6 +1260,9 @@ mapping::MapManagerOption ParseMapManagerOption(const cv::FileNode &fs) {
   option.local_map_op_use_6dof = bool(temp);
   temp = fsSettings["pose_graph_op_use_6dof"];
   option.pose_graph_op_use_6dof = bool(temp);
+  temp = fsSettings["enable_local_map_full_op"];
+  option.enable_local_map_full_op = bool(temp);
+
   option.same_trajectory_max_loop_detect_distance =
       fsSettings["same_trajectory_max_loop_detect_distance"];
   option.max_loop_detct_distance = fsSettings["max_loop_detct_distance"];
@@ -1304,13 +1307,12 @@ void ParseYAMLOption(const std::string &file,
   option->track_map_opti_sampler = (fsSettings["track_map_opti_sampler"]);
   int temp = fsSettings["enable_local_track"];
   option->enable_local_track = bool(temp);
-  temp = fsSettings["enable_local_opimization"];
-  option->enable_local_opimization = bool(temp);
+
   temp = fsSettings["construct_use_des_match"];
   option->construct_use_des_match = bool(temp);
-  
-  temp = fsSettings["enable_local_opimization"];
-  option->enable_local_opimization = bool(temp);
+  temp = fsSettings["enable_loop_closure"];
+  option->enable_loop_closure = bool(temp);
+
   temp = fsSettings["enable_track_map_opti"];
   option->enable_track_map_opti = bool(temp);
   //

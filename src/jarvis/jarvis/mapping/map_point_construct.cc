@@ -262,6 +262,7 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData::Data &data) {
       data.descriptors.Insert(feat_id, descriptors[i]);
     }
   }
+
   //
   data.dbow_data =
       voc_->Transform(data.descriptors, options_.dbow_trasform_level);
@@ -273,6 +274,7 @@ bool MapPointConstruct::ExtractExtendData(const LocalMap &local_map,
   if (voc_ == nullptr) return false;
   if (!data->dbow_data.bow_vector.empty()) return false;
   GenerateForExtendKeyPoint(*data);
+  return true;
 }
 //
 bool MapPointConstruct::ConstructExtend(const LocalMap &local_map,

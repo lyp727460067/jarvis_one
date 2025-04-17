@@ -35,6 +35,7 @@ struct MapManagerOption {
   LoopDetectOption loop_detect_option;
   LocalMapOptimizationOption local_map_optimization_option;
   //
+  bool enable_local_map_full_op =false;
   bool local_map_op_use_6dof =false;
   bool pose_graph_op_use_6dof =false;
   double same_trajectory_max_loop_detect_distance = 50.0;
