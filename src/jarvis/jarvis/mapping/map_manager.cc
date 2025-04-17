@@ -17,16 +17,20 @@
 #include "jarvis/mapping/match/pic_writer.h"
 namespace jarvis {
 namespace mapping {
-
+#define Tag log_info::YELLOW
 MapManager::MapManager(const MapManagerOption &option,
                        MapPointConstruct *map_point_construct,
+                       std::map<int, camera_models::CameraPtr> camera,
                        common::ThreadPool *thread_pool,
                        LocalMapUpdateCallBack call_back)
     : options_(option),
       map_point_construct_(map_point_construct),
       thread_pool_(thread_pool),
       localmap_update_callback_(std::move(call_back)) {
-  if (option.use_6_tof_op) {
+  //
+  enable_loop_closure_ = thread_pool_ ? true : false;
+  if(!enable_loop_closure_ )true;
+  if (option.local_map_op_use_6dof) {
     local_optimization_ = std::make_unique<GraphLocalMapOptimization6TOF>(
         option.local_map_optimization_option);
   } else {
@@ -40,6 +44,14 @@ MapManager::MapManager(const MapManagerOption &option,
               Optimization(std::move(result));
             });
       });
+  pose_graph_optimizer_ =
+      std::make_unique<PoseGraphOptimize>(options_.pose_graph_option);
+  loop_detect_ = std::make_unique<LoopDetect>(option.loop_detect_option,
+                                              thread_pool, camera);
+  //
+  loop_detect_kf_sampler_ = std::make_unique<common::FixedRatioSampler>(
+      options_.constraint_compute_sampler);
+  //
 }
 
 void MapManager::ComputeConstaints(const KeyFrameId &id,
@@ -71,10 +83,10 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
 
   const auto &kf_data = key_frames_datas_.at(key_frame_id);
   auto kf_time = key_frames_datas_.at(key_frame_id).data->time;
-  if (key_frame_id.trajectory_id == local_map_id.trajectory_id ||
+  if (key_frame_id.trajectory_id == local_map_id.trajectory_id /*||
       kf_time < last_connection_time +
                     common::FromSeconds(
-                        options_.global_constraint_search_after_n_seconds)) {
+                        options_.global_constraint_search_after_n_seconds)*/) {
     const transform::Rigid3d delta_pose =
         local_maps_.at(local_map_id).local_map->LocalPose().inverse() *
         kf_data.data->pose;
@@ -97,6 +109,9 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
     }
   }
   //
+  LOG(INFO) << Tag << "LoopDetect  -> local_map" << local_map_id
+            << ",keyframeid " << key_frame_id << log_info::RESET;
+
   loop_detect_->Detect(
       std::pair<LocalMapId, std::shared_ptr<LocalMap>>(
           local_map_id, local_maps_.at(local_map_id).local_map),
@@ -105,8 +120,8 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
 //
 void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
                                       const KeyFrameId &id,
-                                      KeyFrameData *data) {
-  if (!options_.enable_loop_closure) return;
+                                      KeyFrameData::Data* data) {
+   if(enable_loop_closure_)return ;                               
   work_item_queue_->AddWorkItem([=]() {
     map_point_construct_->ExtractExtendData(local_map, data);
     extend_key_frames_ids_.insert(id);
@@ -195,7 +210,7 @@ void MapManager::UpdataActiveTrackLocalMap(
 //
 void  MapManager::AddLocalMap(int trajectory,
                                    std::shared_ptr<LocalMap> local_map) {
-  if (!options_.enable_loop_closure) return;
+ if(enable_loop_closure_)return ;  
   work_item_queue_->AddWorkItem([&]() {
     auto new_local_map = ReconstructLocalMap(local_map);
     const auto local_map_id =
@@ -300,6 +315,10 @@ void MapManager::Optimization(
     std::vector<std::unique_ptr<LoopDetctResult>> &&loop_constraint) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
+    LOG(INFO) << Tag
+              << "Start opimize ,constraint size :" << loop_constraint.size()
+              << log_info::RESET;
+
     for (auto &&l_constraint : loop_constraint) {
       pose_constraints_.push_back(PoseConstraint{
           l_constraint->local_map_id,
@@ -310,9 +329,9 @@ void MapManager::Optimization(
     }
   }
   //
-  pose_graph_optimize_->Solve(pose_constraints_);
-  auto global_local_map_pose = pose_graph_optimize_->GetPoseGraphLocalMapPose();
-  auto global_kf_pose = pose_graph_optimize_->GetPoseGraphNodePose();
+  pose_graph_optimizer_->Solve(pose_constraints_);
+  auto global_local_map_pose = pose_graph_optimizer_->GetPoseGraphLocalMapPose();
+  auto global_kf_pose = pose_graph_optimizer_->GetPoseGraphNodePose();
   for (const auto &g_pose : global_local_map_pose) {
     local_maps_.at(g_pose.first).globla_pose =
         transform::Rigid3d(g_pose.second.t, g_pose.second.q);

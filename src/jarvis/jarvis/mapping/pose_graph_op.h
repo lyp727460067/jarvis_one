@@ -37,9 +37,11 @@ struct LocalMapPoseTime {
 
 class PoseGraphOptimize {
  public:
- void AddFixData(const sensor::FixedFramePoseData& fix_data);
- void AddImuData(const sensor::ImuData& imu_data);
- void AddOdometryData(const sensor::OdometryData& odo_data);
+  PoseGraphOptimize(const PoseGraphOptimizeOption option) : options_(option) {}
+  //
+  void AddFixData(const sensor::FixedFramePoseData& fix_data);
+  void AddImuData(const sensor::ImuData& imu_data);
+  void AddOdometryData(const sensor::OdometryData& odo_data);
   void AddLocalMapPose(const LocalMapId& local_map_id,
                        const LocalMapPoseTime& kf_pose);
   void AddKeyFramePose(const KeyFrameId& id, const KeyFramePoseTime& kf_pose);

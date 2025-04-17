@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <set>
+
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 #include "jarvis/common/fixed_ratio_sampler.h"
@@ -13,21 +14,20 @@
 #include "jarvis/mapping/map_manager.h"
 #include "jarvis/sensor/fixed_frame_pose_data.h"
 //
+#include "jarvis/common/thread_pool.h"
 #include "jarvis/mapping/data_culling.h"
 #include "jarvis/mapping/local_map_optimization.h"
-#include "jarvis/sensor/odometry_data.h"
 #include "jarvis/mapping/loop_detect.h"
 #include "jarvis/mapping/map_point_construct.h"
-
-#include "jarvis/common/thread_pool.h"
+#include "jarvis/sensor/odometry_data.h"
 namespace jarvis {
 namespace mapping {
 //
 struct MapBuilderOption {
-  bool enable_local_track =true;
-  bool enable_local_opimization =false;
-  bool enable_loop_closure =false;
-  bool enable_track_map_opti =true;
+  bool enable_local_track = true;
+  bool enable_local_opimization = false;
+  bool enable_loop_closure = false;
+  bool enable_track_map_opti = true;
   //
   bool construct_use_des_match = false;
   //
@@ -38,23 +38,24 @@ struct MapBuilderOption {
   LocalMapOptimizationOption track_local_map_opt_option;
   LocalMapOptimizationOption finish_track_local_map_opt_option;
   LoopDetectOption loop_detect_option;
-  MapPointConstructOption map_point_construct_option; 
+  MapPointConstructOption map_point_construct_option;
   //
   //
   bool updated_active_track_localmap_data_from_mapmanger = false;
   //
-  std::string vocabulary_filebrif = "/home/lyp/project/vslam/jarvis/jarvis.dbow";
+  std::string vocabulary_filebrif =
+      "/home/lyp/project/vslam/jarvis/jarvis.dbow";
   std::vector<std::vector<int>> track_sequence;
   std::vector<transform::Rigid3d> extric_camera_to_imu;
   std::map<int, camera_models::CameraPtr> cameras;
   std::vector<Eigen::AlignedBox2i> image_boxs;
-  int thread_num =1; 
+  int thread_num = 1;
   double track_map_opti_sampler = 0.05;
 };
 
 class MappingBuilder {
  public:
-  MappingBuilder(const MapBuilderOption& option,dbow::Vocabulary *voc);
+  MappingBuilder(const MapBuilderOption& option, dbow::Vocabulary* voc);
   ~MappingBuilder();
   void AddTrackingData(const int t, const TrackingData& track_data);
   //
@@ -62,17 +63,17 @@ class MappingBuilder {
   void AddImuData(const sensor::ImuData& imu_data);
   void AddOdometryData(const sensor::OdometryData& odo_data);
   //
-  std::shared_ptr<LocalMapMatchResult> TrackLocalMap(const TrackingData& frame_data);
+  std::shared_ptr<LocalMapMatchResult> TrackLocalMap(
+      const TrackingData& frame_data);
   transform::Rigid3d Relocaiton(const TrackingData& frame_data);
   //
   std::vector<Eigen::Vector3d> GetAllMapPoints();
-  std::map<KeyFrameId, transform::TimestampedTransform> GetKeyFrameGlobalPose(){
+  std::map<KeyFrameId, transform::TimestampedTransform>
+  GetKeyFrameGlobalPose() {
     CHECK(false);
     return {};
   }
-  transform::Rigid3d GetLocalToGlobalTransform(){
-    return {};
-  }
+  transform::Rigid3d GetLocalToGlobalTransform() { return {}; }
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
   //
   std::shared_ptr<LocalMap> GetLocalMap() const {
@@ -90,7 +91,7 @@ class MappingBuilder {
       std::map<LocalMapId, std::shared_ptr<LocalMap>>* op_local_maps);
   //
 
-  std::unique_ptr<common::Task> when_done_task_ ;
+  std::unique_ptr<common::Task> when_done_task_;
   std::unique_ptr<MapPointConstruct> map_point_construct_;
   std::unique_ptr<MapManager> map_manager_;
   std::unique_ptr<LocalMapTrack> local_map_track_;
@@ -111,7 +112,7 @@ class MappingBuilder {
   mutable std::mutex mutex_;
   int local_mapping_process_num_ = 0;
   MapBuilderOption options_;
-  bool kill_thread_=false;
+  bool kill_thread_ = false;
   transform::Rigid3d local_to_globla_;
   // std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_;
 };

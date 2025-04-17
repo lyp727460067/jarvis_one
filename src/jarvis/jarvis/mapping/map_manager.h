@@ -33,16 +33,15 @@ namespace mapping {
 struct MapManagerOption {
   PoseGraphOptimizeOption pose_graph_option;
   LoopDetectOption loop_detect_option;
+  LocalMapOptimizationOption local_map_optimization_option;
   //
-
-  bool enable_loop_closure = true;
-  bool use_6_tof_op = false;
+  bool local_map_op_use_6dof =false;
+  bool pose_graph_op_use_6dof =false;
   double same_trajectory_max_loop_detect_distance = 50.0;
   double max_loop_detct_distance = 50.0;
   int continuous_candidate_loop_frame = 10;
   int pose_graph_optimize_min_kf_min_num = 100;
-  LocalMapOptimizationOption local_map_optimization_option;
-
+  double constraint_compute_sampler = 0.1;
   double global_constraint_search_after_n_seconds = 10;
 };
 //
@@ -54,6 +53,7 @@ class MapManager {
 
   MapManager(const MapManagerOption& option,
              MapPointConstruct* map_point_construct,
+             std::map<int, camera_models::CameraPtr> camera,
              common::ThreadPool* thread_pool = nullptr,
              LocalMapUpdateCallBack call_back = nullptr);
 
@@ -74,6 +74,9 @@ class MapManager {
   transform::Rigid3d GetLocalToGlobalTransform(){
     return local_to_global_transform_ ;
   }
+  void ExtendedKeyFrameData(const LocalMap& local_map, const KeyFrameId& id,
+                            KeyFrameData::Data* data);
+
  private:
   void Optimization(std::vector<std::unique_ptr<LoopDetctResult>>&&);
   void UpdateOptimizeData();
@@ -89,8 +92,7 @@ class MapManager {
                             const double min_score);
   //
   void ComputeConstaints(const KeyFrameId& id, const double min_score);
-  void ExtendedKeyFrameData(const LocalMap& local_map, const KeyFrameId& id,
-                            KeyFrameData* data);
+ 
   //
   //
   double ComputeCovisibleMinScore(const LocalMap& local_map,
@@ -109,13 +111,11 @@ class MapManager {
   MapManagerOption options_;
   MapPointConstruct* map_point_construct_;
   common::ThreadPool* thread_pool_;
-  std::unique_ptr<PoseGraphOptimize> pose_graph_optimize_;
   LocalMapUpdateCallBack localmap_update_callback_;
   std::unique_ptr<LocalMapOptimization> local_optimization_;
   std::unique_ptr<PoseGraphOptimize> pose_graph_optimizer_;
   std::unique_ptr<LoopDetect> loop_detect_;
   //
-  std::unique_ptr<common::FixedRatioSampler> loop_detect_sampler_;
   std::unique_ptr<common::FixedRatioSampler> loop_detect_kf_sampler_;
   //
   MapById<LocalMapId, LocalMapData> local_maps_;
@@ -135,6 +135,7 @@ class MapManager {
   std::set<KeyFrameId> previous_local_map_trimed_key_frames_id_;
   std::map<int, std::map<int, common::Time>> last_trajectory_connect_time_;
   //
+  bool enable_loop_closure_ = true;
 };
 
 }  // namespace mapping

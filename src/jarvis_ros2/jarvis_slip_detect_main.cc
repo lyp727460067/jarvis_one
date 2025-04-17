@@ -30,7 +30,7 @@
 std::mutex pose_mutex_;
  std::unique_ptr<jarvis_pic::PoseExtrapolatorBrige> kPoseExtrapolator_;
 // #include "jarvis/estimator/imu_extrapolator.h"
-#define CHECK_DATA
+// #define CHECK_DATA
 constexpr char kImagTopic0[] = "/usb_cam_1/image_raw/compressed";
 constexpr char kImagTopic1[] = "/usb_cam_2/image_raw/compressed";
 constexpr char kImuTopic[] = "/imu";

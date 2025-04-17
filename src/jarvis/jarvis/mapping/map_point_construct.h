@@ -54,7 +54,8 @@ struct MapPointConstructOption {
 class MapPointConstruct {
   //
  public:
-  MapPointConstruct(const MapPointConstructOption& option,std::map<int, camera_models::CameraPtr> camera,
+  MapPointConstruct(const MapPointConstructOption& option,
+                    std::map<int, camera_models::CameraPtr> camera,
                     dbow::Vocabulary* voc);
   //
   //
@@ -66,10 +67,10 @@ class MapPointConstruct {
   bool ConstructExtend(const LocalMap& local_map,
                        KeyFrameData* data);
   //
-  bool ExtractExtendData(const LocalMap& local_map, KeyFrameData* data);
+  bool ExtractExtendData(const LocalMap& local_map, KeyFrameData::Data* data);
   //
   MapPointId AppendMapPointId(const std::pair<int, uint64_t>* tracking_id);
-  void GenerateForExtendKeyPoint(KeyFrameData& data);
+  void GenerateForExtendKeyPoint(KeyFrameData::Data& data);
 
  private:
   //

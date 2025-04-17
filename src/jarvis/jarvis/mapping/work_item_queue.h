@@ -24,7 +24,7 @@ class WorkItemQueue {
   using WorkQueue = std::deque<WorkItem>;
   //
   WorkItemQueue(const std::string& work_name, common::ThreadPool* thread_pool,
-                std::function<void()> interrupt_execution_call_back)
+                std::function<void()> interrupt_execution_call_back  =nullptr)
       : work_item_name_(work_name),
         thread_pool_(thread_pool),
         interrupt_execution_call_back_(interrupt_execution_call_back) {}

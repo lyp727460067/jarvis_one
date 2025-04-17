@@ -13,10 +13,11 @@ namespace jarvis {
 namespace mapping {
 
 struct LoopDetectOption {
+  std::vector<Eigen::AlignedBox2i> image_boxs;
+  std::vector<std::vector<int>> track_sequence; 
+  //
   KeyFrameDataBaseOption key_frame_data_option;
   match::ProjectionOption project_option;
-  std::vector<Eigen::AlignedBox2i> image_boxs;
-  std::vector<std::vector<int>> track_sequence;
   alg::PnpSolverOption pnp_solver_option;
   std::vector<int> convisi_level_search_num{5, 3};
   int pnp_solve_typ =0;
@@ -52,7 +53,9 @@ struct LoopDetctResult {
 //
 class LoopDetect {
  public:
-  LoopDetect(const LoopDetectOption& option, common::ThreadPool* thread_pool);
+  LoopDetect(const LoopDetectOption& option, common::ThreadPool* thread_pool,
+            const std::map<int, camera_models::CameraPtr> &cameras);
+  //
   //
   void Detect(const std::pair<LocalMapId, std::shared_ptr<LocalMap>>& local_map,
               const std::map<KeyFrameId, KeyFrameData>& kf_datas,

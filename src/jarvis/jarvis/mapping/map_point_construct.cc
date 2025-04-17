@@ -217,19 +217,19 @@ cv::Mat MapPointConstruct::GenerateMask(
 }
 //
 //
-void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
+void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData::Data &data) {
   // 新提取的特征点和描述子都会保存在data中
 
-  auto sequence_feautes = data.data->features.trajectory_ids();
+  auto sequence_feautes = data.features.trajectory_ids();
   for (const auto &sequence_id : sequence_feautes) {
-    auto one_sequence_feautes = data.data->features.trajectory(sequence_id);
+    auto one_sequence_feautes = data.features.trajectory(sequence_id);
 
     std::vector<cv::KeyPoint> exist_key_points;
     for (const auto &feat : one_sequence_feautes) {
       exist_key_points.push_back(feat.data.key_point);
     }
-    CHECK(!data.data->pyramid.empty());
-    const cv::Mat image = data.data->Pyramid(sequence_id)[0];
+    CHECK(!data.pyramid.empty());
+    const cv::Mat image = data.Pyramid(sequence_id)[0];
     // cv::imshow("image", image);
     // cv::waitKey(0);
     // 在已跟踪特征点的基础上再提取新的特征点
@@ -251,27 +251,27 @@ void MapPointConstruct::GenerateForExtendKeyPoint(KeyFrameData &data) {
     for (size_t i = 0; i < exist_key_points.size(); i++) {
       const FeatureId feat_id(sequence_id, i);
 
-      if (!data.data->features.Contains(feat_id)) {
+      if (!data.features.Contains(feat_id)) {
         Eigen::Vector2d a(exist_key_points[i].pt.x, exist_key_points[i].pt.y);
         Eigen::Vector3d b;
         cameras_.at(sequence_id)->liftProjective(a, b);  // 注意这里找对应的相机
-        data.data->features.Insert(feat_id,
+        data.features.Insert(feat_id,
                                    FeatureData{exist_key_points[i], b / b.z()});
       }
       //
-      data.data->descriptors.Insert(feat_id, descriptors[i]);
+      data.descriptors.Insert(feat_id, descriptors[i]);
     }
   }
   //
-  data.data->dbow_data =
-      voc_->Transform(data.data->descriptors, options_.dbow_trasform_level);
+  data.dbow_data =
+      voc_->Transform(data.descriptors, options_.dbow_trasform_level);
 }
 //
 
 bool MapPointConstruct::ExtractExtendData(const LocalMap &local_map,
-                                          KeyFrameData *data) {
+                                          KeyFrameData::Data* data) {
   if (voc_ == nullptr) return false;
-  if (!data->data->dbow_data.bow_vector.empty()) return false;
+  if (!data->dbow_data.bow_vector.empty()) return false;
   GenerateForExtendKeyPoint(*data);
 }
 //

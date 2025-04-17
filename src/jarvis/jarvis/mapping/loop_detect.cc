@@ -11,8 +11,9 @@ namespace mapping {
 
 //
 LoopDetect::LoopDetect(const LoopDetectOption& option,
-                       common::ThreadPool* thread_pool)
-    : options_(option), thread_pool_(thread_pool) {
+                       common::ThreadPool* thread_pool,
+                       const std::map<int, camera_models::CameraPtr>& cameras)
+    : options_(option), thread_pool_(thread_pool), cameras_(cameras) {
   options_.project_option.PorjectPoint =
       [this](const transform::Rigid3d& cam_pose, const Eigen::Vector3d& point,
              int s, Eigen::Vector2d* p) {
@@ -23,7 +24,9 @@ LoopDetect::LoopDetect(const LoopDetectOption& option,
         *p = b;
         return true;
       };
-      
+  finish_task_ = std::make_unique<common::Task>();
+  when_done_task_ = std::make_unique<common::Task>();
+  //
 }
 void LoopDetect::Detect(
     const std::pair<LocalMapId, std::shared_ptr<LocalMap>>& local_map,
