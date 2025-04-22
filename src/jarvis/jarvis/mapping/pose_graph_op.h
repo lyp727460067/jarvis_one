@@ -37,7 +37,10 @@ struct LocalMapPoseTime {
 
 class PoseGraphOptimize {
  public:
-  PoseGraphOptimize(const PoseGraphOptimizeOption option) : options_(option) {}
+  PoseGraphOptimize(const PoseGraphOptimizeOption option) : options_(option) {
+    CHECK(options_.ceres_num_threads != 0);
+    CHECK(options_.max_num_iterations != 0);
+  }
   //
   void AddFixData(const sensor::FixedFramePoseData& fix_data);
   void AddImuData(const sensor::ImuData& imu_data);
@@ -74,10 +77,10 @@ class PoseGraphOptimize {
   PoseGraphOptimizeOption options_;
   //
   std::set<int> froze_trajector_;
+  // op data
   std::vector<NodePose> extric_camera_to_imu_;
   NodePose extric_odo_to_imu_;
   NodePose extric_fix_frame_to_imu_;
-  //
   std::map<LocalMapId, NodePose> ceres_local_map_poses_;
   std::map<KeyFrameId, NodePose> ceres_poses_;
 
@@ -87,6 +90,7 @@ class PoseGraphOptimize {
   std::queue<sensor::ImuData> imu_datas_;
   std::deque<sensor::OdometryData> odometry_data_;
   std::deque<sensor::ImuData> imu_data_;
+  std::mutex mutex_;
 };
 
 class FourPoseGraphOptimize : public PoseGraphOptimize {};

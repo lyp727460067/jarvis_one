@@ -275,13 +275,9 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
       });
     }
     //
-    std::shared_ptr<KeyFrameData::Data>  data = key_frame_data.data;
-    work_item_queue_->AddWorkItem([this, key_frame_id, data]() {
-      CHECK(local_map_front_);
-      map_manager_->ExtendedKeyFrameData(*local_map_front_, key_frame_id,
-                                         data.get());
-      return WorkItem::Result::Normal;
-    });
+    std::shared_ptr<KeyFrameData::Data> data = key_frame_data.data;
+    map_manager_->ExtendedKeyFrameData(*local_map_front_, key_frame_id,
+                                       data.get());
   }
 }
 //

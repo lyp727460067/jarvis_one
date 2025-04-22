@@ -54,7 +54,7 @@ struct FeatureData {
   Eigen::Vector3d r_normal{0,0,0};
 };
 //
-
+enum TrajectorStates { Normal, Frozen, Finish };
 extern const std::vector<std::vector<int>> track_sequence ;//= {{0, 1}, {2}, {3}};
 struct KeyFrameData {
   struct Data {
@@ -76,7 +76,7 @@ struct KeyFrameData {
     const std::vector<cv::Mat> &Pyramid(int s) const {
       return pyramid.at(track_sequence[s][0]);
     }
-    transform::Rigid3d CameraPose(int s) {
+    transform::Rigid3d CameraPose(int s)const {
       return pose * extric_camera_to_imu[track_sequence[s][0]];
     }
     //

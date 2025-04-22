@@ -21,8 +21,10 @@ struct KeyPointExtractOption {
 class KeyPointExtract {
  public:
   //
-  KeyPointExtract(const KeyPointExtractOption& option) : options_(option) {}
-  std::vector<cv::KeyPoint> Extract(const cv::Mat &pyramid,
+  KeyPointExtract(const KeyPointExtractOption& option)
+      : options_(option),
+        extend_key_points_num_(options_.extend_key_points_num) {}
+  std::vector<cv::KeyPoint> Extract(const cv::Mat& pyramid, int num,
                                     const cv::Mat& mask = cv::Mat());
   //
   ~KeyPointExtract() {}
@@ -36,6 +38,7 @@ class KeyPointExtract {
 
  private:
   KeyPointExtractOption options_;
+  int  extend_key_points_num_ =0;
 };
 //
 struct DescriptorExtractOption {

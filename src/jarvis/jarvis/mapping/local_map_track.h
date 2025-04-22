@@ -83,10 +83,9 @@ class LocalMapTrack {
       const std::array<float, 2>& weight);
 
  private:
-
-
-  void WriteCheckMatchResult(const KeyFrameData& key_frame_data,
-      const std::map<int, std::vector<LocalMapTrack::MatchData>>& matchs);
+  void WriteCheckMatchResult(
+      const KeyFrameData& key_frame_data,
+      const std::map<int, std::vector<LocalMapTrack::MatchData>>& match_ids);
   //
   MapById<KeyFrameId, match::Frame> frame_warps_;
   //

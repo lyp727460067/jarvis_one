@@ -37,7 +37,7 @@ struct MapBuilderOption {
   KeyFrameFilterOption key_frame_filter_option;
   LocalMapOptimizationOption track_local_map_opt_option;
   LocalMapOptimizationOption finish_track_local_map_opt_option;
-  LoopDetectOption loop_detect_option;
+ 
   MapPointConstructOption map_point_construct_option;
   //
   //

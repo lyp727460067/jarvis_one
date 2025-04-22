@@ -179,6 +179,7 @@ std::set<MapPointId> Covisibility::TrimKeyFrame(const KeyFrameId& id) {
 std::vector<KeyFrameId> Covisibility::GetConnectedKeyFrames(
     const KeyFrameId& frame_id, int n) const {
   std::vector<KeyFrameId> result;
+  
   CHECK(covisible_frames_.count(frame_id)) << frame_id;
   for (auto frame : covisible_frames_.at(frame_id)) {
     if (frame.second > kMinCoviNumm) {

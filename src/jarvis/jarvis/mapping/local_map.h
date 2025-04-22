@@ -22,7 +22,6 @@ namespace mapping {
 //
 struct LocalMapOption {
   int max_kf_num = 100;
-  KeyFrameDataBaseOption key_frame_data_option;
   match::ProjectionOption local_track_project_search_option;
   DataCullingOption data_culling_option;
 
@@ -118,7 +117,7 @@ class LocalMap {
   };
   //
   Data *MutableData() { return &data_; }
-  const Data ConstData() const { return data_; }
+  const Data& ConstData() const { return data_; }
   //
   void InsertOutOutliers(
       const std::set<MapPointId> &new_out_outliers_map_points);

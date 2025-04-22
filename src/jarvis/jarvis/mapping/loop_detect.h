@@ -19,6 +19,7 @@ struct LoopDetectOption {
   KeyFrameDataBaseOption key_frame_data_option;
   match::ProjectionOption project_option;
   alg::PnpSolverOption pnp_solver_option;
+  
   std::vector<int> convisi_level_search_num{5, 3};
   int pnp_solve_typ =0;
   double huber_loss = 1.0;
@@ -41,7 +42,7 @@ struct LoopDetectOption {
   double constraint_max_distance = 10;
 };
 //
-enum TrajectorStates { Normal, frozen, Finish };
+
 //
 struct LoopDetctResult {
   KeyFrameId kf_id;
@@ -85,12 +86,14 @@ class LoopDetect {
       const KeyFrameMapPointsDataWithFeatIds& target_map_points,
       const transform::Rigid3d& correct_candidate_pose,
       const KeyFrameData& candidate_kf_data,
-      const std::set<MapPointId>& already_matched);
+      const std::set<MapPointId>& already_matched,
+      const match::ProjectionOption& project_option);
   //
   //
   std::vector<std::pair<FeatureId, MapPointId>> SearchForAdditionalMapPoints(
       std::shared_ptr<LocalMap> local_map, const KeyFrameId& candidate_id,
-      const transform::Rigid3d& pose, const KeyFrameData& target_kf_data);
+      const transform::Rigid3d& pose, const KeyFrameData& target_kf_data,
+      const std::set<MapPointId>& already_matched);
   //
   //
   transform::Rigid3d FourOptimize(
@@ -126,9 +129,10 @@ class LoopDetect {
       data_base_insert_task_hanlde;
   //
   bool IsMapPointsValid(const std::map<FeatureId, Eigen::Vector3d>& map_points);
-  void WriteCheckMatchResult(const KeyFrameData& first_data,
-                             const KeyFrameData& sencond_data,
-                             std::vector<std::pair<FeatureId, FeatureId>>);
+  void WriteCheckMatchResult(
+      const KeyFrameData& first_data, const KeyFrameData& second_data,
+      const std::vector<std::pair<FeatureId, FeatureId>>& match_ids);
+  //
   std::set<KeyFrameId> NotNeedToDetectKf(
       const std::shared_ptr<LocalMap>& local_map);
   //

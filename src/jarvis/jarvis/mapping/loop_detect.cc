@@ -3,12 +3,13 @@
 #include "jarvis/mapping/auto_factor/pose_factor.h"
 #include "jarvis/mapping/auto_factor/re_projection_err.h"
 #include "jarvis/mapping/match/des_matcher.h"
+#include "jarvis/mapping/match/pic_writer.h"
 //
 #include "jarvis/alg/pnp_wrapper.h"
 namespace jarvis {
 namespace mapping {
 //
-
+#define Tag log_info::YELLOW
 //
 LoopDetect::LoopDetect(const LoopDetectOption& option,
                        common::ThreadPool* thread_pool,
@@ -26,6 +27,10 @@ LoopDetect::LoopDetect(const LoopDetectOption& option,
       };
   finish_task_ = std::make_unique<common::Task>();
   when_done_task_ = std::make_unique<common::Task>();
+  LOG(INFO)<<options_.image_boxs.size();
+  LOG(INFO)<<options_.track_sequence.size();
+  CHECK(!options_.image_boxs.empty());
+  CHECK(!options_.track_sequence.empty());
   //
 }
 void LoopDetect::Detect(
@@ -33,20 +38,16 @@ void LoopDetect::Detect(
     const std::map<KeyFrameId, KeyFrameData>& kf_datas,
     const double min_score) {
   //
+  CHECK(local_map.second->AllKeyFrameDatas().size() != 0);
   CHECK_GT(kf_datas.size(), 3);
   const KeyFrameData first_kf_data = kf_datas.begin()->second;
   //
-  //
-  loop_result_catchs_.emplace_back();
-  loop_result_catchs_.back()->local_map_id = local_map.first;
-  LOG(INFO)<<"!";
+  loop_result_catchs_.emplace_back(
+      new LoopDetctResult{{0, 0}, local_map.first});
+
   std::map<KeyFrameId, KeyFrameData> kf_datas_temp = kf_datas;
   LoopDetctResult* this_kf_result_catch_ptr = loop_result_catchs_.back().get();
   //
-
-  LOG(INFO)<<"!";
-  //
-  
   if (!data_base_insert_task_hanlde.count(local_map.first)) {
     CHECK(key_frame_data_base_
               .emplace(local_map.first,
@@ -80,8 +81,6 @@ void LoopDetect::Detect(
       }
     };
   });
-
-  LOG(INFO)<<"!";
   detect_node_task->AddDependency(
       data_base_insert_task_hanlde[local_map.first]);
   auto detect_node_task_handle =
@@ -92,10 +91,6 @@ void LoopDetect::Detect(
   finish_task_->SetWorkItem([this, this_kf_result_catch_ptr]() {
     CalculatedSingleResultFinish(this_kf_result_catch_ptr);
   });
-
-
-  LOG(INFO)<<"!";
-  //
   thread_pool_->Schedule(std::move(finish_task_));
   finish_task_ = std::make_unique<common::Task>();
 }
@@ -110,8 +105,8 @@ std::unique_ptr<LoopDetctResult> LoopDetect::DetectForOne(
   //
   const auto candidate_kfs = data_base->FindSimilarCandidate(
       kf_data.data, NotNeedToDetectKf(local_map), min_score);
+  // //
   //
-
   auto const best_candidata_kfs =
       FilterBestDbowResultWithCovisibility(local_map, candidate_kfs);
   if (best_candidata_kfs.empty()) {
@@ -120,7 +115,6 @@ std::unique_ptr<LoopDetctResult> LoopDetect::DetectForOne(
     return nullptr;
   }
   //
-
   for (auto const& id : best_candidata_kfs) {
     (*consistent_filter)
         ->Update(id.first,
@@ -133,6 +127,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::DetectForOne(
   }
 
   for (const auto& candidata_kf : filter_candidate_ids) {
+    // LOG(INFO)<<candidata_kf <<" "<<kf_id;
     auto constraint =
         ComputeConstraint(local_map, candidata_kf, kf_id, kf_data);
     if (constraint != nullptr) {
@@ -147,13 +142,17 @@ std::unique_ptr<LoopDetctResult> LoopDetect::DetectForOne(
 //
 
 void LoopDetect::WriteCheckMatchResult(
-    const KeyFrameData& first_data, const KeyFrameData& sencond_data,
-    std::vector<std::pair<FeatureId, FeatureId>>) {}
+    const KeyFrameData& first_data, const KeyFrameData& second_data,
+    const std::vector<std::pair<FeatureId, FeatureId>>& match_ids) {
+  if (options_.test_match_pic_write_path.empty()) return;
+  match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
+                                *first_data.data, *second_data.data, match_ids);
+}
 //
 
 bool LoopDetect::IsMapPointsValid(
     const std::map<FeatureId, Eigen::Vector3d>& map_points) {
-  return false;
+  return true;
 }
 
 std::pair<transform::Rigid3d, std::vector<std::pair<FeatureId, FeatureId>>>
@@ -162,39 +161,54 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
                            const KeyFrameId& target_id,
                            const KeyFrameData& target_data) {
   //
-  
+  CHECK(canditate_id!=target_id);
+  CHECK(local_map->ConstData().key_frames_datas.Contains(canditate_id));
   auto const& candidata_data =
       local_map->ConstData().key_frames_datas.at(canditate_id);
   auto const& target_descriptor = target_data.data->descriptors;
   auto const& target_key_points = target_data.data->features;
   auto const& target_dbow_vec = target_data.data->dbow_data;
-
+  //
   auto paired_id = match::DbowFindMathed(
-      candidata_data.data->descriptors, target_descriptor,
-      candidata_data.data->dbow_data, target_data.data->dbow_data,
-      options_.dbow_match_describe_distance_threashold);
-  WriteCheckMatchResult(candidata_data, target_data, paired_id);
+      target_descriptor, candidata_data.data->descriptors,
+      target_data.data->dbow_data, candidata_data.data->dbow_data,
+      options_.dbow_match_describe_distance_threashold,
+      candidata_data.data->map_point_ids);
+  WriteCheckMatchResult(target_data, candidata_data, paired_id);
+
   if (paired_id.size() < options_.dbow_search_match_num) {
+    LOG(WARNING) << " DbowFindMathed.   size: " << paired_id.size() << " LE "
+                 << options_.dbow_search_match_num;
     return {};
   }
+
   const auto& all_map_points = local_map->ConstData().map_points;
   std::map<FeatureId, Eigen::Vector3d> map_points_temp;
   std::map<FeatureId, FeatureData> features_temp;
 
+  CHECK(candidata_data.data);
+  CHECK(!candidata_data.data->map_point_ids.empty()) << canditate_id;
   for (int i = 0; i < paired_id.size(); i++) {
     //
-    const auto map_point_id =
-        candidata_data.data->map_point_ids.at(paired_id[i].first);
     //
-    if (all_map_points.Contains(map_point_id) == 0) {
+    auto target_index = paired_id[i].first;
+    auto candidat_index = paired_id[i].second;
+    if (options_.pnp_solve_typ != int(alg::SolveType::use_muty_cam) &&
+        target_index.sequence_id != 0) {
       continue;
     }
+    if (candidata_data.data->map_point_ids.count(candidat_index) == 0) continue;
 
-    map_points_temp.emplace(paired_id[i].second,
+    const auto map_point_id =
+        candidata_data.data->map_point_ids.at(candidat_index);
+    //
+    if (all_map_points.Contains(map_point_id) == 0) continue;
+    //
+    map_points_temp.emplace(target_index,
                             all_map_points.at(map_point_id).data->pos);
-    features_temp.emplace(paired_id[i].second,
-                          target_key_points.at(paired_id[i].second));
+    features_temp.emplace(target_index, target_key_points.at(target_index));
   }
+  // LOG(INFO)<<map_points_temp.size();
   if (map_points_temp.size() < options_.min_pnp_need_features_num) {
     LOG(WARNING) << " map_points less for pnp.   size: "
                  << map_points_temp.size() << " LE "
@@ -212,34 +226,53 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
   //
   std::vector<std::pair<FeatureId, FeatureId>> inlier_pairs;
   for (int i = 0; i < paired_id.size(); i++) {
-    if (pnp_pose.second.count(paired_id[i].second)) {
-      inlier_pairs.push_back(paired_id[i]);
+    if (pnp_pose.second.count(paired_id[i].first)) {
+      inlier_pairs.emplace_back(paired_id[i].second, paired_id[i].first);
     }
   }
 
   if (inlier_pairs.size() < options_.min_pnp_inliers_num) {
-    LOG(WARNING) << "pnp inli size: " << inlier_pairs.size() << " LE "
-                 << options_.min_pnp_inliers_num;
+    // LOG(WARNING) << "pnp inli size: " << inlier_pairs.size() << " LE "
+                //  << options_.min_pnp_inliers_num;
     return {};
   }
 
-  LOG(INFO) << "Pnp inlisize: " << inlier_pairs.size();
+  LOG(INFO) << Tag << "Pnp inli: " << inlier_pairs.size()
+            << " pose:" << pnp_pose.first << log_info::RESET;
+  //
   return {pnp_pose.first, std::move(inlier_pairs)};
 }
 //
 
 std::vector<std::pair<FeatureId, MapPointId>>
-LoopDetect::SearchForAdditionalMapPoints(std::shared_ptr<LocalMap> map,
-                                         const KeyFrameId& candidate_id,
-                                         const transform::Rigid3d& pose,
-                                         const KeyFrameData& target_kf_data) {
+LoopDetect::SearchForAdditionalMapPoints(
+    std::shared_ptr<LocalMap> map, const KeyFrameId& candidate_id,
+    const transform::Rigid3d& pose, const KeyFrameData& target_kf_data,
+    const std::set<MapPointId>& already_matched) {
   auto connect_frames_ids =
       map->ConstData().covisibility.GetKeyLevelConnectedKeyFrames(
           candidate_id, options_.convisi_level_search_num);
-
+  //
+  connect_frames_ids.push_back(candidate_id);
+  //
   std::map<int, std::unique_ptr<match::AreaSearch>> area_searchs =
       match::AreaSearch::CreateAreaSearchFromeKeyFrameData(
-          options_.image_boxs, options_.area_search_grid_lenth, target_kf_data);
+          options_.image_boxs, options_.area_search_grid_lenth,
+          *target_kf_data.data);
+
+  match::ProjectionOption project_option = options_.project_option;
+  project_option.PorjectPoint = [this, pose, &target_kf_data](
+                                    const transform::Rigid3d& cam_pose,
+                                    const Eigen::Vector3d& point, int s,
+                                    Eigen::Vector2d* p) {
+    const transform::Rigid3d c_pose = target_kf_data.data->CameraPose(pose, s);
+    const Eigen::Vector3d p_point = c_pose.inverse() * point;
+    if (point.z() < 0.1) return false;
+    Eigen::Vector2d b;
+    cameras_.at(s)->spaceToPlane(p_point, b);
+    *p = b;
+    return true;
+  };
 
   std::set<MapPointId> connect_mp_points;
   for (const auto& kf_id : connect_frames_ids) {
@@ -248,12 +281,12 @@ LoopDetect::SearchForAdditionalMapPoints(std::shared_ptr<LocalMap> map,
       connect_mp_points.insert(mp_id.first);
     }
   }
-
   std::vector<std::pair<FeatureId, MapPointId>> result;
   for (const auto& mp_id : connect_mp_points) {
+    if(already_matched.count(mp_id))continue;
     if (map->ConstData().map_points.Contains(mp_id)) {
       auto index = SearchMatchesByProjection(
-          options_.project_option, target_kf_data, area_searchs,
+          project_option, *target_kf_data.data, area_searchs,
           map->ConstData().map_points.at(mp_id));
       if (index != FeatureId{-1, 0}) {
         result.emplace_back(index, mp_id);
@@ -268,16 +301,20 @@ LoopDetect::CheckValidityByProjections(
     const KeyFrameMapPointsDataWithFeatIds& target_map_points,
     const transform::Rigid3d& correct_candidate_pose,
     const KeyFrameData& candidate_kf_data,
-    const std::set<MapPointId>& already_matched) {
+    const std::set<MapPointId>& already_matched,
+    const match::ProjectionOption &project_option 
+  ) {
   auto const key_frame_map_point_ids = target_map_points.first;
   std::vector<std::pair<FeatureId, MapPointId>>
       paired_id_target_map_to_candidate;
   //
   //
+
+
   std::map<int, std::unique_ptr<match::AreaSearch>> area_searchs =
       match::AreaSearch::CreateAreaSearchFromeKeyFrameData(
           options_.image_boxs, options_.area_search_grid_lenth,
-          candidate_kf_data);
+          *candidate_kf_data.data);
 
   //
   for (const auto map_point_id : key_frame_map_point_ids) {
@@ -286,11 +323,10 @@ LoopDetect::CheckValidityByProjections(
       continue;
     }
     auto index = SearchMatchesByProjection(
-        options_.project_option, candidate_kf_data, area_searchs,
+      project_option, *candidate_kf_data.data, area_searchs,
         target_map_points.second.at(map_point_id.second));
     //
-    if (index != FeatureId{-1, 0}) continue;
-
+    if (index == FeatureId{-1, 0}) continue;
     paired_id_target_map_to_candidate.emplace_back(index, map_point_id.second);
   }
   return paired_id_target_map_to_candidate;
@@ -306,13 +342,38 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   if (pnp_pose.second.empty()) {
     return nullptr;
   }
-  KeyFrameMapPointsDataWithFeatIds canditate_map_points;
+  KeyFrameMapPointsDataWithFeatIds canditate_map_points ;
+  //
+  auto frame_feat_map_points_ids =
+      local_map->ConstData().covisibility.GetKeyFrameMapPointId(candidate_id);
+  //
+  for (int i = 0; i < frame_feat_map_points_ids.first.size(); i++) {
+    canditate_map_points.first.emplace(frame_feat_map_points_ids.second[i],
+                                       frame_feat_map_points_ids.first[i]);
+    canditate_map_points.second.Insert(frame_feat_map_points_ids.first[i],
+                                       local_map->ConstData().map_points.at(
+                                           frame_feat_map_points_ids.first[i]));
+  }
+  //
   std::set<MapPointId> already_matched_ids;
   //
+  match::ProjectionOption project_option = options_.project_option;
+  project_option.PorjectPoint = [this, &pnp_pose, &target_kf_data](
+                                    const transform::Rigid3d& cam_pose,
+                                    const Eigen::Vector3d& point, int s,
+                                    Eigen::Vector2d* p) {
+    const transform::Rigid3d c_pose =
+        target_kf_data.data->CameraPose(pnp_pose.first, s);
+    const Eigen::Vector3d p_point = c_pose.inverse() * point;
+    if (point.z() < 0.1) return false;
+    Eigen::Vector2d b;
+    cameras_.at(s)->spaceToPlane(p_point, b);
+    *p = b;
+    return true;
+  };
 
-  auto candidate_projection_to_target_kf_id =
-      CheckValidityByProjections(canditate_map_points, pnp_pose.first,
-                                 target_kf_data, already_matched_ids);
+  auto candidate_projection_to_target_kf_id = CheckValidityByProjections(
+      canditate_map_points, pnp_pose.first, target_kf_data, {}, project_option);
 
   //
   auto canditate_pose =
@@ -329,29 +390,54 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   //
   KeyFrameMapPointsDataWithFeatIds target_map_points;
   //
+
+  //
+  // project_option.PorjectPoint = [this, &pnp_pose, &target_kf_data](
+  //                                   const transform::Rigid3d& cam_pose,
+  //                                   const Eigen::Vector3d& point, int s,
+  //                                   Eigen::Vector2d* p) {
+  //   target_kf_data.data->CameraPose(pnp_pose.first, s);
+  //   const Eigen::Vector3d p_point = cam_pose.inverse() * point;
+  //   if (point.z() < 0.1) return false;
+  //   Eigen::Vector2d b;
+  //   cameras_.at(s)->spaceToPlane(p_point, b);
+  //   *p = b;
+  //   return true;
+  // };
+
   const KeyFrameData& candidate_kf_data =
       local_map->ConstData().key_frames_datas.at(candidate_id);
-  auto target_projection_to_candidate_kf_id = CheckValidityByProjections(
-      target_map_points, pnp_pose.first, candidate_kf_data, {});
-  //
+  // auto target_projection_to_candidate_kf_id = CheckValidityByProjections(
+  //     target_map_points, pnp_pose.first, candidate_kf_data, {}, project_option);
+  // //
 
   //
-  for (const auto& pair_id : target_projection_to_candidate_kf_id) {
-    if (target_candidate_match_feat_ids.at(target_feat_ids_map_points_ids.at(
-            pair_id.second)) == pair_id.first) {
-    }
-  }
+  // for (const auto& pair_id : target_projection_to_candidate_kf_id) {
+  //   if (target_candidate_match_feat_ids.at(target_feat_ids_map_points_ids.at(
+  //           pair_id.second)) == pair_id.first) {
+  //   }
+  // }
 
   if (candidate_projection_to_target_kf_id.size() <
-          options_.candidata_reproject_min_num ||
+          options_.candidata_reproject_min_num/* ||
       target_projection_to_candidate_kf_id.size() <
-          options_.candidata_reproject_min_num) {
+          options_.candidata_reproject_min_num*/) {
+    LOG(WARNING) << "CheckValidityByProjections<"
+                 << options_.candidata_reproject_min_num << " "
+                 << " candidate_projection_to_target_kf_id size: "
+                 << candidate_projection_to_target_kf_id.size();
+                //  << " target_projection_to_candidate_kf_id size: "
+                //  << target_projection_to_candidate_kf_id.size();
+
     return nullptr;
   }
   //
   auto candidate_additional_map_points_ids = SearchForAdditionalMapPoints(
-      local_map, candidate_id, pnp_pose.first, target_kf_data);
+      local_map, candidate_id, pnp_pose.first, target_kf_data, {});
   //
+  LOG(INFO) << Tag << "SearchForAdditionalMapPoints at " << candidate_id
+            << "size :" << candidate_additional_map_points_ids.size()
+            << log_info::RESET;
   std::map<MapPointId, Eigen::Vector3d> candidate_additional_map_points_datas;
 
   for (const auto& map_point_data : local_map->AllMapPoints()) {
@@ -360,6 +446,8 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   }
 
   transform::Rigid3d init_pose = pnp_pose.first;
+  std::stringstream inter_info;
+  inter_info << "opitmize max inter: " << options_.max_num_iterations;
   for (int i = 0; i < options_.max_num_iterations; i++) {
     //
     init_pose = FourOptimize(
@@ -370,11 +458,14 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
     int inliner = RemoveOutliersRejection(
         target_kf_data.data->extric_camera_to_imu,
         candidate_additional_map_points_datas, target_kf_data.data->features,
-        init_pose, options_.outlier_min_err,
+        init_pose, options_.outlier_min_err/460,
         candidate_additional_map_points_ids);
+
+    inter_info << " inter:" << i << "psoe: " << init_pose
+               << ",inliner num: " << inliner;
     //
   }
-
+  LOG(INFO) <<Tag<< inter_info.str()<<log_info::RESET;
   //
 
   const auto& target_pose = target_kf_data.data->pose;
@@ -389,7 +480,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
       delta_pose.translation().norm() > options_.constraint_max_distance) {
     LOG(WARNING) << "Detel yaw : " << delta_yaw
                  << "Delta Pose : " << delta_pose.translation().norm()
-                 << "Is More Than option..";
+                 << " Is More Than option..";
     return nullptr;
   }
   std::stringstream info;
@@ -398,7 +489,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   info << "\nlocal pose ... "
        << " target: " << target_pose << " candidate: " << candidata_pose;
   info << "delta pose :" << delta_pose << " yaw :" << delta_yaw;
-  LOG(INFO) << info.str();
+  LOG(INFO) << Tag<<info.str()<<log_info::RESET;
 
   return std::make_unique<LoopDetctResult>(LoopDetctResult{target_id, {-1, 0}});
   //
@@ -547,6 +638,7 @@ transform::Rigid3d LoopDetect::FourOptimize(
     const std::vector<std::pair<FeatureId, MapPointId>> matched_ids,
     const KeyFrameData& candidate_kf_data,
     const std::array<double, 2>& weight) {
+  CHECK_GE(map_points.size(),8);
   ceres::Problem problem;
   ceres::LocalParameterization* quaternion_local =
       new ceres::EigenQuaternionParameterization;
@@ -608,7 +700,7 @@ transform::Rigid3d LoopDetect::FourOptimize(
   options.linear_solver_type = ceres::DENSE_SCHUR;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  LOG(INFO) << log_info::RED << summary.BriefReport() << log_info::RESET;
+  // LOG(INFO) << Tag<< summary.BriefReport() << log_info::RESET;
   // LOG(INFO) << summary.FullReport();
   const auto pose =
       transform::Rigid3d(traslation,

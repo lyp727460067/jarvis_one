@@ -68,6 +68,7 @@ class MapManager {
                                    const std::vector<KeyFrameId>& candidata_kf);
 
   std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFramePose();
+  std::map<KeyFrameId, transform::TimestampedTransform> GetAllKeyFrameInLocamMapPose();
   std::vector<Eigen::Vector3d> GetAllMapPoints();
 
   void TrimKeyFrameData(const KeyFrameId& id);
@@ -79,6 +80,7 @@ class MapManager {
                             KeyFrameData::Data* data);
 
  private:
+  void ExtractValidData(KeyFrameData*data);
   void Optimization(std::vector<std::unique_ptr<LoopDetctResult>>&&);
   void UpdateOptimizeData();
   void UpdataLocalMapConstraint(const LocalMapId& id,

@@ -29,7 +29,7 @@ MapManager::MapManager(const MapManagerOption &option,
       localmap_update_callback_(std::move(call_back)) {
   //
   enable_loop_closure_ = thread_pool_ ? true : false;
-  if(!enable_loop_closure_ )true;
+  if(!enable_loop_closure_ )return;
   if (option.local_map_op_use_6dof) {
     local_optimization_ = std::make_unique<GraphLocalMapOptimization6TOF>(
         option.local_map_optimization_option);
@@ -46,6 +46,7 @@ MapManager::MapManager(const MapManagerOption &option,
       });
   pose_graph_optimizer_ =
       std::make_unique<PoseGraphOptimize>(options_.pose_graph_option);
+      LOG(INFO)<<option.loop_detect_option.image_boxs.size();
   loop_detect_ = std::make_unique<LoopDetect>(option.loop_detect_option,
                                               thread_pool, camera);
   //
@@ -54,22 +55,22 @@ MapManager::MapManager(const MapManagerOption &option,
   //
 }
 
-void MapManager::ComputeConstaints(const KeyFrameId &id,
+void MapManager::ComputeConstaints(const KeyFrameId &nid,
                                    const double min_score) {
   //
   for (const auto &local_map_id : local_maps_) {
-    ComputeLoopConstaint(local_map_id.id, id, min_score);
+    ComputeLoopConstaint(local_map_id.id, nid, min_score);
   }
   //
   if (new_local_map_id_.has_value()) {
-    new_local_map_id_.reset();
     std::vector<KeyFrameId> candidate_kfs;
     auto local_map_id = new_local_map_id_.value();
-    new_local_map_id_.reset();
     auto new_local_map = local_maps_.at(local_map_id).local_map;
     for (const auto &id : extend_key_frames_ids_) {
-      ComputeLoopConstaint(local_map_id, id, min_score);
+      if (new_local_map->AllKeyFrameDatas().Contains(id)) continue;
+      // ComputeLoopConstaint(local_map_id, id, min_score);
     }
+    new_local_map_id_.reset();
   }
 }
 //
@@ -94,7 +95,7 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
       return;
     }
 
-  } else if (!loop_detect_kf_sampler_->Pulse()) {
+  } else if (0) {
     return;
   }
   std::map<KeyFrameId, KeyFrameData> continuous_ids;
@@ -103,14 +104,17 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
     //
     const KeyFrameId id(key_frame_id.trajectory_id,
                         key_frame_id.keyframe_index + i);
-    if (extend_key_frames_ids_.count(id)) {
+    if (extend_key_frames_ids_.count(id) &&
+        !local_maps_.at(local_map_id)
+             .local_map->ConstData()
+             .key_frames_datas.Contains(id)) {
       continuous_ids.emplace(id, key_frames_datas_.at(id));
     }
   }
   //
   LOG(INFO) << Tag << "LoopDetect  -> local_map" << local_map_id
             << ",keyframeid " << key_frame_id << log_info::RESET;
-
+  if(continuous_ids.size()< options_.continuous_candidate_loop_frame/2 )return ;
   loop_detect_->Detect(
       std::pair<LocalMapId, std::shared_ptr<LocalMap>>(
           local_map_id, local_maps_.at(local_map_id).local_map),
@@ -120,29 +124,41 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
 void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
                                       const KeyFrameId &id,
                                       KeyFrameData::Data* data) {
-   if(!enable_loop_closure_)return ;                               
-  work_item_queue_->AddWorkItem([=]() {
-    map_point_construct_->ExtractExtendData(local_map, data);
-    extend_key_frames_ids_.insert(id);
-    //
-    double covi_min_score = ComputeCovisibleMinScore(local_map, id);
-    ComputeConstaints(id, covi_min_score);
-    //
-    ++num_kf_num_since_last_loop_closure_;
-    if (options_.pose_graph_optimize_min_kf_min_num > 0 &&
-        num_kf_num_since_last_loop_closure_ >
-            num_kf_num_since_last_loop_closure_) {
-      num_kf_num_since_last_loop_closure_ = 0;
-      return WorkItem::Result::kInterruptForImmediateRun;
-    }
-    return WorkItem::Result::Normal;
-  });
+   if(!enable_loop_closure_)return ;
+   //
+   std::shared_ptr<LocalMap> local_map_temp =
+       std::make_shared<LocalMap>(local_map);
+   //
+   *local_map_temp = local_map;
+   work_item_queue_->AddWorkItem([=]() {
+     map_point_construct_->ExtractExtendData(*local_map_temp, data);
+
+     extend_key_frames_ids_.insert(id);
+     //
+     //
+     //
+     double covi_min_score = ComputeCovisibleMinScore(*local_map_temp, id);
+     ComputeConstaints(id, covi_min_score);
+     //
+     pose_graph_optimizer_->AddKeyFramePose(
+         id, KeyFramePoseTime{data->time, data->pose});
+     //
+     ++num_kf_num_since_last_loop_closure_;
+     if (options_.pose_graph_optimize_min_kf_min_num > 0 &&
+         num_kf_num_since_last_loop_closure_ >
+             options_.pose_graph_optimize_min_kf_min_num) {
+       num_kf_num_since_last_loop_closure_ = 0;
+       return WorkItem::Result::kInterruptForImmediateRun;
+     }
+     return WorkItem::Result::Normal;
+   });
 }
 //
 //
 double MapManager::ComputeCovisibleMinScore(const LocalMap &local_map,
                                             const KeyFrameId &id) {
   //
+  return 0;
   if (local_map.AllKeyFrameDatas().size() < 2) return 0;
   const std::vector<KeyFrameId> connected_key_frame_ids =
       local_map.ConstData().covisibility.GetConnectedKeyFrames(id);
@@ -189,17 +205,16 @@ std::shared_ptr<LocalMap> MapManager::ReconstructLocalMap(
       std::make_shared<LocalMap>(*local_map);
   LocalMap &new_local_map = *new_local_map_ptr;
   //
-  LOG(INFO)<<"!";
-  for (const auto &data : local_map->AllKeyFrameDatas()) {
-    if (previous_local_map_trimed_key_frames_id_.count(data.id)) continue;
-    map_point_construct_->ConstructExtend(new_local_map,
-                                          &key_frames_datas_.at(data.id));
-    new_local_map.AddKeyFrameData(data.id, data.data);
-
+  for (const auto &kf_data : local_map->AllKeyFrameDatas()) {
+    // if (previous_local_map_trimed_key_frames_id_.count(kf_data.id)) continue;
+    KeyFrameData data = kf_data.data;
+    map_point_construct_->ConstructExtend(*new_local_map_ptr, data.data.get());
+    //
+    new_local_map.AddKeyFrameData(kf_data.id, data);
   }
-  
-  LOG(INFO)<<"!";
+
   //
+  
   return new_local_map_ptr;
 }
 
@@ -216,9 +231,12 @@ void  MapManager::AddLocalMap(int trajectory,
  if(!enable_loop_closure_)return ;  
   work_item_queue_->AddWorkItem([&,local_map,trajectory]() {
     auto new_local_map = ReconstructLocalMap(local_map);
-    const auto local_map_id =
-        local_maps_.Append(trajectory, LocalMapData{new_local_map});
+    const auto local_map_id = local_maps_.Append(
+        trajectory,
+        LocalMapData{new_local_map,
+                     local_to_global_transform_ * new_local_map->LocalPose()});
     //
+
     std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
     op_local_maps.emplace(local_map_id, new_local_map);
     if (options_.enable_local_map_full_op) {
@@ -252,6 +270,10 @@ KeyFrameId MapManager::AddKeyFrameData(int trajectory,
                                        const KeyFrameData &data) {
   std::lock_guard<std::mutex> lock(mutex_);
   auto kf_id = key_frames_datas_.Append(trajectory, data);
+  //
+  key_frames_datas_.at(kf_id).global_pose =
+      local_to_global_transform_ * data.data->pose;
+  // 
   return kf_id;
 }
 //
@@ -324,14 +346,14 @@ void MapManager::Optimization(
               << "Start opimize ,constraint size :" << loop_constraint.size()
               << log_info::RESET;
 
-    for (auto &&l_constraint : loop_constraint) {
-      pose_constraints_.push_back(PoseConstraint{
-          l_constraint->local_map_id,
-          l_constraint->kf_id,
-          l_constraint->relative_pose,
-          l_constraint->relative_yaw,
-      });
-    }
+    // for (auto &&l_constraint : loop_constraint) {
+    //   pose_constraints_.push_back(PoseConstraint{
+    //       l_constraint->local_map_id,
+    //       l_constraint->kf_id,
+    //       l_constraint->relative_pose,
+    //       l_constraint->relative_yaw,
+    //   });
+    // }
   }
   //
   pose_graph_optimizer_->Solve(pose_constraints_);
@@ -354,10 +376,20 @@ void MapManager::Optimization(
   //
   //跟新没有优化的pose
 }
-
-
+//
 std::map<KeyFrameId, transform::TimestampedTransform>
 MapManager::GetAllKeyFramePose() {
+  std::map<KeyFrameId, transform::TimestampedTransform> result;
+  for (const auto &key_frame_data : key_frames_datas_) {
+    result.emplace(key_frame_data.id, transform::TimestampedTransform{
+                                          key_frame_data.data.data->time,
+                                          key_frame_data.data.global_pose});
+  }
+  return result;
+}
+//
+std::map<KeyFrameId, transform::TimestampedTransform>
+MapManager::GetAllKeyFrameInLocamMapPose() {
   std::vector<std::shared_ptr<LocalMap>> finish_local_maps;
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -387,24 +419,25 @@ MapManager::GetAllKeyFramePose() {
   // }
   return result;
 }
-
 std::vector<Eigen::Vector3d> MapManager::GetAllMapPoints() {
-  std::vector<std::shared_ptr<LocalMap>> finish_local_maps;
+  //
+  std::vector<LocalMapData> finish_local_maps;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     for (const auto &local_map_data : local_maps_) {
       if (local_map_data.data.local_map->IsOptimization()) {
-        finish_local_maps.push_back(local_map_data.data.local_map);
+        finish_local_maps.push_back(local_map_data.data);
       }
     }
   }
   std::vector<Eigen::Vector3d> result;
   std::set<MapPointId> existing_map_points;
+
   for (const auto &local_map : finish_local_maps) {
-    const auto all_local_map_points = local_map->AllMapPoints();
+    const auto all_local_map_points = local_map.local_map->AllMapPoints();
     for (const auto &map_point : all_local_map_points) {
       if (existing_map_points.count(map_point.id)) continue;
-      result.push_back(local_map->LocalPose() * map_point.data.data->pos);
+      result.push_back(local_map.globla_pose * map_point.data.data->pos);
       existing_map_points.insert(map_point.id);
     }
   }

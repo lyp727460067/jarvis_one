@@ -17,7 +17,6 @@ struct LocalMapTime {
 //
 //
 struct KeyFramePoseTime {
-  KeyFrameId id;
   common::Time time;
   transform::Rigid3d pose;
 };

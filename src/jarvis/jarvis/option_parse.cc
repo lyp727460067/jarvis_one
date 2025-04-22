@@ -1006,15 +1006,6 @@ mapping::LocalMapOption ParseLocalMap(const cv::FileNode &fs) {
   op_option.compute_map_point_min_des_num =
       fsSettings["compute_map_point_min_des_num"];
 
-  op_option.key_frame_data_option.min_core =
-      fsSettings["key_frame_data_option"]["min_core"];
-  op_option.key_frame_data_option.sharing_words_count_min_is_max_ration =
-      fsSettings["key_frame_data_option"]
-                ["sharing_words_count_min_is_max_ration"];
-  op_option.key_frame_data_option.min_shared_words_num =
-      fsSettings["key_frame_data_option"]["min_shared_words_num"];
-  op_option.key_frame_data_option.min_distance_threash_hold =
-      fsSettings["key_frame_data_option"]["min_distance_threash_hold"];
   op_option.local_track_project_search_option.viewing_angle_threash_hold =
       fsSettings["local_track_project_search_option"]
                 ["viewing_angle_threash_hold"];
@@ -1064,8 +1055,30 @@ mapping::MapPointConstructOption ParseLocalConMapOptio(const cv::FileNode &fs) {
 
   op_option.key_points_extract_option.type =
       fsSettings["key_points_extract_option"]["type"];
-  op_option.key_points_extract_option.extend_key_points_num =
+
+  std::string convisi_level_search_num_str =
       fsSettings["key_points_extract_option"]["extend_key_points_num"];
+  if (!convisi_level_search_num_str.empty()) {
+    std::vector<int> convisi_level_search_num;
+    std::string num;
+    for (size_t i = 0; i < convisi_level_search_num_str.size(); i++) {
+      if (convisi_level_search_num_str[i] != '{' &&
+          convisi_level_search_num_str[i] != '}' &&
+          convisi_level_search_num_str[i] != ',') {
+        num.push_back(convisi_level_search_num_str[i]);
+      } else if (convisi_level_search_num_str[i] == ',' ||
+                 convisi_level_search_num_str[i] == '}') {
+        convisi_level_search_num.push_back(std::stol(num));
+        num.clear();
+      }
+    }
+    op_option.extend_key_points_nums =
+        convisi_level_search_num;
+  }
+
+//   op_option.key_points_extract_option.extend_key_points_num =
+//       fsSettings["key_points_extract_option"]["extend_key_points_num"];
+  //
   op_option.key_points_extract_option.minimal_accepted_quality_corners =
       fsSettings["key_points_extract_option"]
                 ["minimal_accepted_quality_corners"];
@@ -1194,6 +1207,7 @@ mapping::PoseGraphOptimizeOption ParsePoseGraphOptimizeOption(
   option.fix_extric = bool(temp);
   option.max_num_iterations = fsSettings["max_num_iterations"];
   option.ceres_num_threads = fsSettings["ceres_num_threads"];
+  LOG(INFO)<<option.ceres_num_threads;
   option.relative_t_weitht = fsSettings["relative_t_weitht"];
   option.relative_r_weitht = fsSettings["relative_r_weitht"];
   option.huber_scale = fsSettings["huber_scale"];
@@ -1276,12 +1290,13 @@ mapping::MapManagerOption ParseMapManagerOption(const cv::FileNode &fs) {
 
   option.loop_detect_option =
       ParseLoopDetectOption(fsSettings["loop_detect_option"]);
+
   option.local_map_optimization_option = ParseLocalMapoptio(
-      fsSettings["map_manager_option"]["local_map_optimization_option"]);
+      fsSettings["local_map_optimization_option"]);
   //
 
   option.pose_graph_option = ParsePoseGraphOptimizeOption(
-      fsSettings["map_manager_option"]["pose_graph_option"]);
+      fsSettings["pose_graph_option"]);
  return option;
 }
 template <>
@@ -1330,10 +1345,9 @@ void ParseYAMLOption(const std::string &file,
   option->finish_track_local_map_opt_option =
       ParseLocalMapoptio(fsSettings["finish_track_local_map_opt_option"]);
 
-  LOG(INFO)<<"!";
   option->map_manager_option =
       ParseMapManagerOption(fsSettings["map_manager_option"]);
-
+  LOG(INFO)<<option->map_manager_option.max_loop_detct_distance;
   LOG(INFO)<<"!";
   //
 }
@@ -1402,6 +1416,10 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
       option->mapping_option.image_boxs;
   option->mapping_option.local_map_option.image_boxs =
       option->mapping_option.image_boxs;
+  option->mapping_option.map_manager_option.loop_detect_option.image_boxs =
+      option->mapping_option.image_boxs;
+  LOG(INFO) << option->mapping_option.map_manager_option.loop_detect_option
+                   .image_boxs.size();
 
   //
   option->mapping_option.local_map_track_option.first_outlier_err =

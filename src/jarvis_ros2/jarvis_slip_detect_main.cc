@@ -192,6 +192,33 @@ struct OdomData {
   
   static std::map<uint64_t, OdomData> Parse(const std::string& dir_file);
 };
+void IntergrationData(const std::map<uint64_t, OdomData>& data, uint64_t start,
+                      uint64_t end) {
+  LOG(INFO)<<"start "<< start;
+  auto it = data.upper_bound(start);
+  double delta = 0;
+  double delta_t = 0;
+  for (; it != data.end(); ++it) {
+    if(it->first>end)break;
+    if(std::prev(it)==data.end())continue;
+    const transform::Rigid3d start_pose(std::prev(it)->second.translation,
+                                        std::prev(it)->second.rotation);
+    const transform::Rigid3d end_pose(it->second.translation,
+                                      it->second.rotation);
+
+    double r =
+        common::RadToDeg(transform::GetYaw(start_pose.inverse() * end_pose));
+    delta_t  +=(start_pose.inverse() * end_pose).translation().norm();
+    LOG(INFO) << r;
+    // LOG(INFO)<<it->first;
+    // LOG(INFO) <<  " rpy:"
+    //           << transform::Rot2ypr(it->second.rotation.toRotationMatrix())
+    //                  .transpose();
+    delta += (r);
+  }
+  LOG(INFO)<<delta_t  ;
+  LOG(INFO) << delta;
+}
 constexpr double kGryUnit = 0.001;
 constexpr double kAccUnit = (1.0 / 2048 * 9.81);  // 加速度单位
 //
@@ -571,6 +598,12 @@ if (kRecordFlag) {
   LOG(INFO) << "input dir : " << data_dir;
   LOG(INFO) << "config file : " << argv[1];
   //
+  const std::string image_file = data_dir + "image/";
+  const std::string odom_file = data_dir + "imu.txt";
+  auto odom_datas = SesorDataParse<OdomData>(odom_file);
+  // IntergrationData(odom_datas, uint64_t(650999348714) * 1e2,
+  //                  uint64_t(650999348714) * 1e2 + 2 * 1e9);
+  // CHECK(false);
   ParseOption(argv[1]);
   jarvis::slip_detect::SlipDetectOption slip_option;
   jarvis::ParseYAMLOption(argv[1], &slip_option);
@@ -593,8 +626,7 @@ if (kRecordFlag) {
   std::mutex mutex;
   std::condition_variable cond;
 
-  const std::string image_file = data_dir + "image/";
-  const std::string odom_file = data_dir + "imu.txt";
+
   //
   const std::string vslam_yaml_file(argv[1]);
 
@@ -656,7 +688,7 @@ builder_ = std::make_unique<TrajectorBuilder>(
       // if(tracking_data.status==2){
       //   KImuExtrapolator->AddState(data.data->time, data.data->imu_state);
       // }
-
+      LOG(INFO)<<data.data->time;
       auto start = std::chrono::high_resolution_clock::now();
       auto slipe_alignment_pose = tracking_data.data->imu_state.Pose();
       if (slip_detect) {
@@ -843,7 +875,7 @@ LOG(INFO) << "Parse image dir: " << image_file;
 LOG(INFO) << "Parse imu dir: " << odom_file;
 auto imu_datas = SesorDataParse<ImuData>(odom_file);
 //
-auto odom_datas = SesorDataParse<OdomData>(odom_file);
+
 auto image_datas = ImageData::Parse(image_file);
 //
 LOG(INFO) << "Start run...";

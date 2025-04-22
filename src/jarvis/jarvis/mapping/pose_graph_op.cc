@@ -4,17 +4,23 @@ namespace jarvis {
 namespace mapping {
 
 void PoseGraphOptimize::AddImuData(const sensor::ImuData& imu_data) {
+  std::lock_guard<std::mutex> lock(mutex_);
   imu_datas_.push(imu_data);
+  
 }
 //
 void PoseGraphOptimize::AddLocalMapPose(const LocalMapId& local_map_id,
                                         const LocalMapPoseTime& kf_pose) {
   //
+
+  std::lock_guard<std::mutex> lock(mutex_);
   local_map_poses_.emplace(local_map_id, kf_pose);
   //
 }
 void PoseGraphOptimize::AddKeyFramePose(const KeyFrameId& id,
                                         const KeyFramePoseTime& kf_pose) {
+
+  std::lock_guard<std::mutex> lock(mutex_);
   node_poses_.emplace(id, kf_pose);
 }
 //
@@ -22,34 +28,41 @@ void PoseGraphOptimize::AddKeyFramePose(const KeyFrameId& id,
 //
 
 void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
-  for (const auto& node_pose : node_poses_) {
-    const Eigen::Vector3d rpy =
-        transform::ToRollPitchYaw(node_pose.second.pose.rotation());
-    ceres_poses_.emplace(node_pose.first,
-                         NodePose{node_pose.second.pose.translation(),
-                                  node_pose.second.pose.rotation(),
-                                  {rpy[0], rpy[1], rpy[2]},
-                                  node_pose.second.pose});
-  }
-  for (const auto& l_pose : local_map_poses_) {
-    const Eigen::Vector3d rpy =
-        transform::ToRollPitchYaw(l_pose.second.pose.rotation());
+  //
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ceres_poses_.clear();
+    ceres_local_map_poses_.clear();
     //
-    ceres_local_map_poses_.emplace(l_pose.first,
-                                   NodePose{l_pose.second.pose.translation(),
-                                            l_pose.second.pose.rotation(),
-                                            {rpy[0], rpy[1], rpy[2]},
-                                            l_pose.second.pose});
+    extric_camera_to_imu_.clear();
+    for (const auto& node_pose : node_poses_) {
+      const Eigen::Vector3d rpy =
+          transform::ToRollPitchYaw(node_pose.second.pose.rotation());
+      ceres_poses_.emplace(node_pose.first,
+                           NodePose{node_pose.second.pose.translation(),
+                                    node_pose.second.pose.rotation(),
+                                    {rpy[0], rpy[1], rpy[2]},
+                                    node_pose.second.pose});
+    }
+    for (const auto& l_pose : local_map_poses_) {
+      const Eigen::Vector3d rpy =
+          transform::ToRollPitchYaw(l_pose.second.pose.rotation());
+      //
+      ceres_local_map_poses_.emplace(l_pose.first,
+                                     NodePose{l_pose.second.pose.translation(),
+                                              l_pose.second.pose.rotation(),
+                                              {rpy[0], rpy[1], rpy[2]},
+                                              l_pose.second.pose});
+    }
+    extric_camera_to_imu_.clear();
+    for (size_t i = 0; i < options_.track_sequence.size(); i++) {
+      extric_camera_to_imu_.push_back(
+          NodePose{options_.extric_camera_to_imu[options_.track_sequence[i][0]]
+                       .translation(),
+                   options_.extric_camera_to_imu[options_.track_sequence[i][0]]
+                       .rotation()});
+    }
   }
-  extric_camera_to_imu_.clear();
-  for (size_t i = 0; i < options_.track_sequence.size(); i++) {
-    extric_camera_to_imu_.push_back(
-        NodePose{options_.extric_camera_to_imu[options_.track_sequence[i][0]]
-                     .translation(),
-                 options_.extric_camera_to_imu[options_.track_sequence[i][0]]
-                     .rotation()});
-  }
-
   for (auto& pose : ceres_poses_) {
     problem->AddParameterBlock(pose.second.t.data(), 3);
     problem->AddParameterBlock(pose.second.q.coeffs().data(), 4);
@@ -78,12 +91,13 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
   }
 
   problem->SetParameterBlockConstant(ceres_poses_.begin()->second.t.data());
-  problem->SetParameterBlockConstant(&ceres_poses_.begin()->second.ypr[0]);
+  problem->SetParameterBlockConstant(
+      ceres_poses_.begin()->second.q.coeffs().data());
   //
   problem->SetParameterBlockConstant(
       ceres_local_map_poses_.begin()->second.t.data());
   problem->SetParameterBlockConstant(
-      &ceres_local_map_poses_.begin()->second.ypr[0]);
+      ceres_local_map_poses_.begin()->second.q.coeffs().data());
 }
 //
 void PoseGraphOptimize::AddConstraintFactor(
@@ -142,6 +156,9 @@ void PoseGraphOptimize::Solve(const std::vector<PoseConstraint>& constraints) {
   DataToState(&problem);
   AddImuFactor(&problem);
   AddRelativeFactor(&problem);
+  //
+  AddConstraintFactor(&problem, constraints);
+  // /
   ceres::Solver::Options options;
   options.minimizer_progress_to_stdout = false;
   options.max_num_iterations = options_.max_num_iterations;
