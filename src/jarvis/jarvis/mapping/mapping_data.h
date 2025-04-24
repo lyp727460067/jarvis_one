@@ -79,6 +79,9 @@ struct KeyFrameData {
     transform::Rigid3d CameraPose(int s)const {
       return pose * extric_camera_to_imu[track_sequence[s][0]];
     }
+    transform::Rigid3d ImuPose(const transform::Rigid3d &pos, int s) const {
+      return pos * extric_camera_to_imu[track_sequence[s][0]].inverse();
+    }
     //
     transform::Rigid3d CameraPose(const transform::Rigid3d &pos, int s) {
       return pos * extric_camera_to_imu[track_sequence[s][0]];

@@ -44,6 +44,10 @@ class TrajectorBuilder {
 
   transform::Rigid3d GetLocalToGlobalTransform();
   // /
+    std::vector<std::pair<KeyFrameId, KeyFrameId>> GetConstraintsKfIds() {
+    return map_builder_->GetConstraintsKfIds();
+  }
+
   virtual ~TrajectorBuilder();
  private:
   void ReSet();

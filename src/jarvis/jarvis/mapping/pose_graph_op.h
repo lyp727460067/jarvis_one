@@ -40,6 +40,7 @@ class PoseGraphOptimize {
   PoseGraphOptimize(const PoseGraphOptimizeOption option) : options_(option) {
     CHECK(options_.ceres_num_threads != 0);
     CHECK(options_.max_num_iterations != 0);
+
   }
   //
   void AddFixData(const sensor::FixedFramePoseData& fix_data);

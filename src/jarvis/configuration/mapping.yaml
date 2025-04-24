@@ -4,7 +4,7 @@ enable_local_track: 1
 enable_track_map_opti: 0
 enable_local_opimization: 0
 enable_loop_closure : 1
-thread_pool_num : 1
+thread_pool_num : 10
 track_map_opti_sampler : 0.1
 construct_use_des_match : 0
 ##
@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  20
+ max_kf_num :  30
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  local_track_project_search_option:
@@ -108,8 +108,8 @@ map_manager_option:
   same_trajectory_max_loop_detect_distance : 50.0
   max_loop_detct_distance : 60.0
   continuous_candidate_loop_frame : 10
-  pose_graph_optimize_min_kf_min_num : 100
-  constraint_compute_sampler : 1
+  pose_graph_optimize_min_kf_min_num : 50
+  constraint_compute_sampler : 0.1
   global_constraint_search_after_n_seconds : 10
   ##
   local_map_optimization_option:
@@ -127,33 +127,33 @@ map_manager_option:
     fix_extric :1
     max_num_iterations : 20
     ceres_num_threads : 4
-    relative_t_weitht : 1e3
-    relative_r_weitht : 1e3
+    relative_t_weitht : 1e4
+    relative_r_weitht : 1e4
     huber_scale : 2.0
     constraint_loop_closer_t_weigth : 1e3
     constraint_loop_closer_r_weigth : 1e3
-    constraint_t_weigth : 1e3
-    constraint_r_weigth : 1e3
+    constraint_t_weigth : 1e4
+    constraint_r_weigth : 1e4
 
   loop_detect_option:
     convisi_level_search_num  : "{5,3}"
     pnp_solve_typ :0
     huber_loss : 1.0
     outlier_min_err : 8.0
-    max_num_iterations : 4
-    op_weight : 500
+    max_num_iterations : 2
+    op_weight : 1e3
     op_init_t_weight : 10
     op_init_r_weight : 10
     min_filter_dbow_covisi_score : 0.75
-    candidata_reproject_min_num : 20
+    candidata_reproject_min_num : 15
     area_search_grid_lenth : 10
     end_non_adjacent_id_count : 5
     constraint_consistent_filter_num : 5
-    dbow_match_describe_distance_threashold : 100
+    dbow_match_describe_distance_threashold : 80
     dbow_search_match_num : 20
-    min_pnp_need_features_num : 10
-    min_pnp_inliers_num : 8
-    test_match_pic_write_path :   "" #  "/home/lyp/project/vslam/jarvis/test/image/"
+    min_pnp_need_features_num : 20
+    min_pnp_inliers_num : 15
+    test_match_pic_write_path :  "" #"/home/lyp/project/vslam/jarvis/test/image/"
     constraint_max_yaw : 50
     constraint_max_distance : 30
     pnp_solver_option:
@@ -166,10 +166,16 @@ map_manager_option:
       th2 : 0.017570423
     project_option: 
       viewing_angle_threash_hold : 0.5
-      area_search_radius : 8 
+      area_search_radius : 10
       project_pix_err : 0.0
-      project_best_des_dis : 120
-      box_boundary_distance : 20
+      project_best_des_dis : 90
+      box_boundary_distance : 10
+    additional_project_option: 
+      viewing_angle_threash_hold : 0.5
+      area_search_radius : 20
+      project_pix_err : 0.0
+      project_best_des_dis : 100
+      box_boundary_distance : 10
     key_frame_data_option:
       # min_core :0.03
       min_core :0.015
@@ -183,7 +189,7 @@ map_manager_option:
 
 
 map_point_construct_option:
- test_match_pic_write_path :  "" # "/home/lyp/project/vslam/jarvis/test/image/"
+ test_match_pic_write_path :  "/home/lyp/project/vslam/jarvis/test/image/"
  use_local_track_match : 1
  con_struct_map_point_frame_min_distance : 0.5
  dbow_trasform_level : 4
@@ -205,7 +211,7 @@ map_point_construct_option:
   min_distance : 1
  # descriptor_option:  
  point_check_dist_epipolar_option:
-  check_dist_epipolar_line_cos_parallax : 0.99
+  check_dist_epipolar_line_cos_parallax : 0.99999
   first_cam_min_z_distance : 0.05
   first_cam_chi_squared : 5.991
   second_cam_min_z_distance : 0.05

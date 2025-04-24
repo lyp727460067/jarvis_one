@@ -18,6 +18,7 @@ struct LoopDetectOption {
   //
   KeyFrameDataBaseOption key_frame_data_option;
   match::ProjectionOption project_option;
+  match::ProjectionOption additional_project_option;
   alg::PnpSolverOption pnp_solver_option;
   
   std::vector<int> convisi_level_search_num{5, 3};
@@ -48,7 +49,10 @@ struct LoopDetctResult {
   KeyFrameId kf_id;
   LocalMapId local_map_id;
   transform::Rigid3d relative_pose;  // in local_pose;
+  KeyFrameId in_map_kf_id;
+
   double relative_yaw;
+
   std::map<FeatureId, MapPointId> match_ids;
 };
 //
@@ -71,9 +75,9 @@ class LoopDetect {
       std::unique_ptr<ConstraintConsistentFilter>* consistent_filte,
       const double min_score);
   //
-
+  void NotifyFinish();
   void ContinueAndDistanceCheck(std::shared_ptr<LocalMap> local_map,
-                                LoopDetctResult* data);
+                                std::unique_ptr<LoopDetctResult>* data);
 
  private:
   //
@@ -93,14 +97,15 @@ class LoopDetect {
   std::vector<std::pair<FeatureId, MapPointId>> SearchForAdditionalMapPoints(
       std::shared_ptr<LocalMap> local_map, const KeyFrameId& candidate_id,
       const transform::Rigid3d& pose, const KeyFrameData& target_kf_data,
-      const std::set<MapPointId>& already_matched);
+      const std::set<MapPointId>& already_matched_mp_ids,
+      const std::set<FeatureId>& already_matched_feats);
   //
   //
   transform::Rigid3d FourOptimize(
       const transform::Rigid3d& init_pose,
       const std::vector<transform::Rigid3d>& extric_camera_to_imu,
-      const std::map<MapPointId, Eigen::Vector3d> map_points,
-      const std::vector<std::pair<FeatureId, MapPointId>> matched_ids,
+      const std::map<MapPointId, Eigen::Vector3d> &map_points,
+      const std::vector<std::pair<FeatureId, MapPointId>>& matched_ids,
       const KeyFrameData& target_kf_data, const std::array<double, 2>& weight);
   //
   int RemoveOutliersRejection(
@@ -116,7 +121,7 @@ class LoopDetect {
   //
   bool CheckValidityByBidirectionalReprojection();
 
-  void CalculatedSingleResultFinish(LoopDetctResult* data);
+  void CalculatedSingleResultFinish();
   double ComputeCovisibleMinScore(const KeyFrameId& id);
   //
   //
@@ -145,7 +150,7 @@ class LoopDetect {
   std::unique_ptr<common::Task> finish_task_;
   std::unique_ptr<common::Task> when_done_task_;
   //
-  std::vector<std::unique_ptr<LoopDetctResult>> loop_result_catchs_;
+  std::deque<std::unique_ptr<LoopDetctResult>> loop_result_catchs_;
   //
   std::map<LocalMapId, std::unique_ptr<KeyFrameDataBase>> key_frame_data_base_;
   std::mutex mutex_;

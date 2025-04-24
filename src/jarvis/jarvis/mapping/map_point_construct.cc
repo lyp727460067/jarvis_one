@@ -164,6 +164,7 @@ bool MapPointConstruct::CheckDistEpipolarLine(
   const float cos_parallax =
       kp2_in_pose1.dot(kp1.f) / (kp1.f.norm() * kp2_in_pose1.norm());
   //
+  // LOG(INFO)<<cos_parallax ;
   if (cos_parallax > option.check_dist_epipolar_line_cos_parallax) return false;
   std::vector<Eigen::Vector3d> normal_kp{kp1.f, kp2.f};
   auto map_point_pos = TriangulatePoint(
@@ -171,7 +172,6 @@ bool MapPointConstruct::CheckDistEpipolarLine(
                                       relative_pose.inverse()},
       normal_kp);
   //
-
   if (map_point_pos.z() <= option.first_cam_min_z_distance) return false;
   //
   Eigen::Vector2d project_p1;
@@ -183,10 +183,12 @@ bool MapPointConstruct::CheckDistEpipolarLine(
   //
   auto pose_in_2 = relative_pose.inverse() * map_point_pos;
   if (pose_in_2.z() <= option.second_cam_min_z_distance) return false;
+
   Eigen::Vector2d project_p2;
   camera[1]->spaceToPlane(pose_in_2, project_p2);
   auto err1 = Eigen::Vector2d(project_p2 - kp2.Point());
   //
+
   if (err1.squaredNorm() > option.second_cam_chi_squared) return false;
   *triang_map_point = map_point_pos;
   return true;
@@ -357,8 +359,8 @@ void MapPointConstruct::UpdateConnectMapPointProjectMatchSearch(
         //
         std::vector<std::pair<FeatureId, FeatureId>> pair_index{
             std::make_pair(index, feture_id)};
-        match::WriteImageWithKeyPoint(options_.test_match_pic_write_path, data,
-                                      *connect_id_data, pair_index);
+        // match::WriteImageWithKeyPoint(options_.test_match_pic_write_path, data,
+        //                               *connect_id_data, pair_index);
       }
     }
   }
@@ -400,6 +402,7 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
   std::vector<std::pair<KeyFrameId, int>> connect_frames_temp;
   const auto &current_id_data = &data;
   //
+  connect_frames_temp.emplace_back(pre_id, 0);  
   //
   for (int i = -options_.construct_map_point_near_keframd_num; i < -1; i++) {
     const KeyFrameId near_id(pre_id.trajectory_id, pre_id.keyframe_index + i);
@@ -410,38 +413,42 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
                        current_id_data->pose)
                           .translation()
                           .norm();
-    if (delta_pose < options_.con_struct_map_point_frame_min_distance) continue;
+    // if (delta_pose < options_.con_struct_map_point_frame_min_distance) continue;
     connect_frames_temp.emplace_back(near_id, 0);
+
     // connected_key_frame_ids.insert(near_id);
   }
-  if (connect_frames_temp.empty()) return;
-  double min_angle = -10;
-  double sencode_min_angle = -10;
-  std::vector<std::pair<KeyFrameId, int>> connect_frames;
-  // //
-  KeyFrameId min_key_frame_id(-1, 0);
-  KeyFrameId senco_min_key_frame_id(-1, 0);
-  for (const auto &id : connect_frames_temp) {
-    auto delta_pose = (key_frames_datas.at(id.first).data->pose.inverse() *
-                       current_id_data->pose)
-                          .translation()
-                          .norm();
-    auto const delta_angle = delta_pose;
-    if (min_angle < delta_angle) {
-      min_angle = delta_angle;
-      min_key_frame_id = id.first;
 
-    } else if (sencode_min_angle < delta_angle) {
-      sencode_min_angle = delta_angle;
-      senco_min_key_frame_id = id.first;
-    }
-  }
-  if (min_key_frame_id != KeyFrameId(-1, 0)) {
-    connect_frames.push_back({min_key_frame_id, 0});
-  }
-  if (senco_min_key_frame_id != KeyFrameId(-1, 0)) {
-    connect_frames.push_back({senco_min_key_frame_id, 0});
-  }
+  
+  // if (connect_frames_temp.empty()) return;
+  // double min_angle = -10;
+  // double sencode_min_angle = -10;
+  //
+  std::vector<std::pair<KeyFrameId, int>> connect_frames = connect_frames_temp;
+  // // //
+  // KeyFrameId min_key_frame_id(-1, 0);
+  // KeyFrameId senco_min_key_frame_id(-1, 0);
+  // for (const auto &id : connect_frames_temp) {
+  //   auto delta_pose = (key_frames_datas.at(id.first).data->pose.inverse() *
+  //                      current_id_data->pose)
+  //                         .translation()
+  //                         .norm();
+  //   auto const delta_angle = delta_pose;
+  //   if (min_angle < delta_angle) {
+  //     min_angle = delta_angle;
+  //     min_key_frame_id = id.first;
+
+  //   } else if (sencode_min_angle < delta_angle) {
+  //     sencode_min_angle = delta_angle;
+  //     senco_min_key_frame_id = id.first;
+  //   }
+  // }
+  // if (min_key_frame_id != KeyFrameId(-1, 0)) {
+  //   connect_frames.push_back({min_key_frame_id, 0});
+  // }
+  // if (senco_min_key_frame_id != KeyFrameId(-1, 0)) {
+  //   connect_frames.push_back({senco_min_key_frame_id, 0});
+  // }
 
   std::map<MapPointId, FeatureId> index_map_point_ids;
   //
@@ -467,10 +474,14 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
     std::stringstream info;
     int new_construct_map_point_size = 0;
     int tracking_construct_map_point_size = 0;
-    // LOG(INFO)<<paired_idex.size();
+    LOG(INFO)<<paired_idex.size();
+
+
     std::vector<std::pair<FeatureId, FeatureId>> check_paired_idex;
+    std::set<FeatureId>match_ids;
     for (const auto &index : paired_idex) {
       //
+      if(match_ids.count(index.first))continue;
       const auto &cur_feat_id = index.first;
       const auto &connect_feat_id = index.second;
       if (current_id_map_data.count(cur_feat_id)) continue;
@@ -517,6 +528,7 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
         data.map_point_ids.emplace(cur_feat_id, map_point_local_id);
         data.map_points.Insert(cur_feat_id, map_point_pos);
         //
+        match_ids.insert(cur_feat_id);
         // index_map_point_ids.emplace(map_point_id, cur_feat_id);
         new_construct_map_point_size++;
         point_id_info << map_point_local_id;
@@ -538,6 +550,9 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
          << " [" << point_id_info.str() << "]" << "-->[t "
          << track_point_id_info.str() << "]";
     LOG(INFO) << log_info::YELLOW << info.str() << log_info::RESET;
+    // match::WriteImageWithKeyPoint(options_.test_match_pic_write_path,
+    //                               *current_id_data, *connect_id_data,
+    //                               paired_idex);
   }
   auto const &map_points = local_map.AllMapPoints();
   if (!index_map_point_ids.empty()) {

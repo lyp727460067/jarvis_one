@@ -1185,6 +1185,19 @@ mapping::LoopDetectOption ParseLoopDetectOption(const cv::FileNode &fs) {
       fsSettings["project_option"]["box_boundary_distance"];
 
   //
+  option.additional_project_option.viewing_angle_threash_hold =
+      fsSettings["additional_project_option"]["viewing_angle_threash_hold"];
+  option.additional_project_option.area_search_radius =
+      fsSettings["additional_project_option"]["area_search_radius"];
+  option.additional_project_option.project_pix_err =
+      fsSettings["additional_project_option"]["project_pix_err"];
+  option.additional_project_option.project_best_des_dis =
+      fsSettings["additional_project_option"]["project_best_des_dis"];
+  option.additional_project_option.box_boundary_distance =
+      fsSettings["additional_project_option"]["box_boundary_distance"];
+
+  //
+  
   //
   option.pnp_solver_option.min_inliers =
       fsSettings["pnp_solver_option"]["min_inliers"];

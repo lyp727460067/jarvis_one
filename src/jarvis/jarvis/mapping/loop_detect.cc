@@ -38,15 +38,16 @@ void LoopDetect::Detect(
     const std::map<KeyFrameId, KeyFrameData>& kf_datas,
     const double min_score) {
   //
+
+  std::lock_guard<std::mutex> lock(mutex_);
   CHECK(local_map.second->AllKeyFrameDatas().size() != 0);
   CHECK_GT(kf_datas.size(), 3);
   const KeyFrameData first_kf_data = kf_datas.begin()->second;
   //
-  loop_result_catchs_.emplace_back(
-      new LoopDetctResult{{0, 0}, local_map.first});
-
+  loop_result_catchs_.push_back(nullptr);
+  std::unique_ptr<LoopDetctResult>* this_kf_result_catch_ptr =
+      &loop_result_catchs_.back();
   std::map<KeyFrameId, KeyFrameData> kf_datas_temp = kf_datas;
-  LoopDetctResult* this_kf_result_catch_ptr = loop_result_catchs_.back().get();
   //
   if (!data_base_insert_task_hanlde.count(local_map.first)) {
     CHECK(key_frame_data_base_
@@ -54,8 +55,7 @@ void LoopDetect::Detect(
                        new KeyFrameDataBase(options_.key_frame_data_option))
               .second);
     auto data_base_task = std::make_unique<common::Task>();
-    data_base_task->SetWorkItem([first_kf_data, local_map, this,
-                                 this_kf_result_catch_ptr]() {
+    data_base_task->SetWorkItem([first_kf_data, local_map, this]() {
       for (const auto& data : local_map.second->ConstData().key_frames_datas) {
         key_frame_data_base_[local_map.first]->AddData(data.id, data.data.data);
       }
@@ -66,18 +66,22 @@ void LoopDetect::Detect(
   auto detect_node_task = std::make_unique<common::Task>();
   detect_node_task->SetWorkItem([=]() {
     //
+    CHECK((*this_kf_result_catch_ptr) == nullptr)<<this_kf_result_catch_ptr;
     std::unique_ptr<ConstraintConsistentFilter> consistent_filter =
         std::make_unique<ConstraintConsistentFilter>(
             options_.constraint_consistent_filter_num);
     //
     for (auto kf_data : kf_datas) {
+      CHECK((*this_kf_result_catch_ptr) == nullptr)<<this_kf_result_catch_ptr;
       auto loop_result =
           DetectForOne(local_map.second, kf_data.first, kf_data.second,
                        key_frame_data_base_[local_map.first].get(),
                        &consistent_filter, min_score);
       if (loop_result) {
-        loop_result->local_map_id = local_map.first;
-        *this_kf_result_catch_ptr = *loop_result;
+        CHECK((*this_kf_result_catch_ptr) == nullptr)<<this_kf_result_catch_ptr;
+        (*this_kf_result_catch_ptr) = std::move(loop_result);
+        (*this_kf_result_catch_ptr)->local_map_id = local_map.first;
+        return ;
       }
     };
   });
@@ -88,11 +92,7 @@ void LoopDetect::Detect(
   //
   finish_task_->AddDependency(detect_node_task_handle);
   //
-  finish_task_->SetWorkItem([this, this_kf_result_catch_ptr]() {
-    CalculatedSingleResultFinish(this_kf_result_catch_ptr);
-  });
-  thread_pool_->Schedule(std::move(finish_task_));
-  finish_task_ = std::make_unique<common::Task>();
+
 }
 //
 
@@ -123,7 +123,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::DetectForOne(
   }
   auto const filter_candidate_ids = (*consistent_filter)->Result();
   if (filter_candidate_ids.empty()) {
-    return {};
+    return nullptr;
   }
 
   for (const auto& candidata_kf : filter_candidate_ids) {
@@ -232,8 +232,8 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
   }
 
   if (inlier_pairs.size() < options_.min_pnp_inliers_num) {
-    // LOG(WARNING) << "pnp inli size: " << inlier_pairs.size() << " LE "
-                //  << options_.min_pnp_inliers_num;
+    LOG(WARNING) << "pnp inli size: " << inlier_pairs.size() << " LE "
+                 << options_.min_pnp_inliers_num;
     return {};
   }
 
@@ -248,7 +248,9 @@ std::vector<std::pair<FeatureId, MapPointId>>
 LoopDetect::SearchForAdditionalMapPoints(
     std::shared_ptr<LocalMap> map, const KeyFrameId& candidate_id,
     const transform::Rigid3d& pose, const KeyFrameData& target_kf_data,
-    const std::set<MapPointId>& already_matched) {
+    const std::set<MapPointId>& already_matched_mp_ids,
+      const std::set<FeatureId>& already_matched_feats) {
+  // return {};
   auto connect_frames_ids =
       map->ConstData().covisibility.GetKeyLevelConnectedKeyFrames(
           candidate_id, options_.convisi_level_search_num);
@@ -260,7 +262,7 @@ LoopDetect::SearchForAdditionalMapPoints(
           options_.image_boxs, options_.area_search_grid_lenth,
           *target_kf_data.data);
 
-  match::ProjectionOption project_option = options_.project_option;
+  match::ProjectionOption project_option = options_.additional_project_option;
   project_option.PorjectPoint = [this, pose, &target_kf_data](
                                     const transform::Rigid3d& cam_pose,
                                     const Eigen::Vector3d& point, int s,
@@ -281,14 +283,18 @@ LoopDetect::SearchForAdditionalMapPoints(
       connect_mp_points.insert(mp_id.first);
     }
   }
+  std::set<FeatureId> match_features_id;
   std::vector<std::pair<FeatureId, MapPointId>> result;
   for (const auto& mp_id : connect_mp_points) {
-    if(already_matched.count(mp_id))continue;
+    if(already_matched_mp_ids.count(mp_id))continue;
     if (map->ConstData().map_points.Contains(mp_id)) {
       auto index = SearchMatchesByProjection(
           project_option, *target_kf_data.data, area_searchs,
           map->ConstData().map_points.at(mp_id));
+      if (match_features_id.count(index) || already_matched_feats.count(index))
+        continue;
       if (index != FeatureId{-1, 0}) {
+        match_features_id.insert(index);
         result.emplace_back(index, mp_id);
       }
     }
@@ -317,6 +323,7 @@ LoopDetect::CheckValidityByProjections(
           *candidate_kf_data.data);
 
   //
+    std::set<FeatureId> match_features_id;
   for (const auto map_point_id : key_frame_map_point_ids) {
     // 只有合并了点后有可能出现这种情况
     if (already_matched.count(map_point_id.second)) {
@@ -326,8 +333,10 @@ LoopDetect::CheckValidityByProjections(
       project_option, *candidate_kf_data.data, area_searchs,
         target_map_points.second.at(map_point_id.second));
     //
+    if (match_features_id.count(index)) continue;
     if (index == FeatureId{-1, 0}) continue;
     paired_id_target_map_to_candidate.emplace_back(index, map_point_id.second);
+    match_features_id.insert(index);
   }
   return paired_id_target_map_to_candidate;
 }
@@ -342,6 +351,9 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   if (pnp_pose.second.empty()) {
     return nullptr;
   }
+  const transform::Rigid3d imu_pose =
+      target_kf_data.data->ImuPose(pnp_pose.first, 0);
+
   KeyFrameMapPointsDataWithFeatIds canditate_map_points ;
   //
   auto frame_feat_map_points_ids =
@@ -358,22 +370,27 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   std::set<MapPointId> already_matched_ids;
   //
   match::ProjectionOption project_option = options_.project_option;
-  project_option.PorjectPoint = [this, &pnp_pose, &target_kf_data](
+  project_option.PorjectPoint = [this, imu_pose, &target_kf_data](
                                     const transform::Rigid3d& cam_pose,
                                     const Eigen::Vector3d& point, int s,
                                     Eigen::Vector2d* p) {
     const transform::Rigid3d c_pose =
-        target_kf_data.data->CameraPose(pnp_pose.first, s);
+        target_kf_data.data->CameraPose(imu_pose, s);
     const Eigen::Vector3d p_point = c_pose.inverse() * point;
     if (point.z() < 0.1) return false;
-    Eigen::Vector2d b;
-    cameras_.at(s)->spaceToPlane(p_point, b);
-    *p = b;
+    if (p) {
+      Eigen::Vector2d b;
+      cameras_.at(s)->spaceToPlane(p_point, b);
+      *p = b;
+    }
+
     return true;
   };
+  //
 
+  //
   auto candidate_projection_to_target_kf_id = CheckValidityByProjections(
-      canditate_map_points, pnp_pose.first, target_kf_data, {}, project_option);
+      canditate_map_points, imu_pose, target_kf_data, {}, project_option);
 
   //
   auto canditate_pose =
@@ -422,76 +439,103 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
           options_.candidata_reproject_min_num/* ||
       target_projection_to_candidate_kf_id.size() <
           options_.candidata_reproject_min_num*/) {
-    LOG(WARNING) << "CheckValidityByProjections<"
-                 << options_.candidata_reproject_min_num << " "
-                 << " candidate_projection_to_target_kf_id size: "
-                 << candidate_projection_to_target_kf_id.size();
-                //  << " target_projection_to_candidate_kf_id size: "
-                //  << target_projection_to_candidate_kf_id.size();
+    LOG(WARNING) << "CheckValidityByProjections  "
+                 << candidate_projection_to_target_kf_id.size() << " "
+                 << options_.candidata_reproject_min_num;
+
+    //  << " target_projection_to_candidate_kf_id size: "
+    //  << target_projection_to_candidate_kf_id.size();
 
     return nullptr;
   }
   //
-  auto candidate_additional_map_points_ids = SearchForAdditionalMapPoints(
-      local_map, candidate_id, pnp_pose.first, target_kf_data, {});
+  std::set<MapPointId> already_matched_mp_ids;
+  std::set<FeatureId> already_matched_feats;
+  for (const auto& match_id : pnp_pose.second) {
+    already_matched_mp_ids.insert(
+        candidate_kf_data.data->map_point_ids.at(match_id.first));
+    already_matched_feats.insert(match_id.second);
+  }
   //
-  LOG(INFO) << Tag << "SearchForAdditionalMapPoints at " << candidate_id
+  auto candidate_additional_map_points_ids = SearchForAdditionalMapPoints(
+      local_map, candidate_id, imu_pose, target_kf_data, already_matched_mp_ids,
+      already_matched_feats);
+  //
+
+  for (const auto& match_id : pnp_pose.second) {
+    candidate_additional_map_points_ids.emplace_back(
+        match_id.second,
+        candidate_kf_data.data->map_point_ids.at(match_id.first));
+  }
+
+  LOG(INFO) << Tag << "Imu pose " << imu_pose
+            << "SearchForAdditionalMapPoints at " << candidate_id
             << "size :" << candidate_additional_map_points_ids.size()
             << log_info::RESET;
   std::map<MapPointId, Eigen::Vector3d> candidate_additional_map_points_datas;
+  //
 
+  //
   for (const auto& map_point_data : local_map->AllMapPoints()) {
     candidate_additional_map_points_datas.emplace(
         map_point_data.id, map_point_data.data.data->pos);
   }
-
-  transform::Rigid3d init_pose = pnp_pose.first;
+  if (candidate_additional_map_points_ids.size() < 20) return nullptr;
+  
+  //
+  transform::Rigid3d init_pose =  imu_pose;
   std::stringstream inter_info;
   inter_info << "opitmize max inter: " << options_.max_num_iterations;
+  int inliner = 0;
+  inliner = RemoveOutliersRejection(target_kf_data.data->extric_camera_to_imu,
+                                    candidate_additional_map_points_datas,
+                                    target_kf_data.data->features, init_pose,
+                                    options_.outlier_min_err / 460,
+                                    candidate_additional_map_points_ids);
   for (int i = 0; i < options_.max_num_iterations; i++) {
     //
+    if (candidate_additional_map_points_ids.size() < 20) return nullptr;
     init_pose = FourOptimize(
-        pnp_pose.first, target_kf_data.data->extric_camera_to_imu,
+        init_pose, target_kf_data.data->extric_camera_to_imu,
         candidate_additional_map_points_datas,
         candidate_additional_map_points_ids, target_kf_data,
         std::array<double, 2>{options_.op_weight, options_.op_weight});
-    int inliner = RemoveOutliersRejection(
-        target_kf_data.data->extric_camera_to_imu,
-        candidate_additional_map_points_datas, target_kf_data.data->features,
-        init_pose, options_.outlier_min_err/460,
-        candidate_additional_map_points_ids);
-
-    inter_info << " inter:" << i << "psoe: " << init_pose
+    inliner = RemoveOutliersRejection(target_kf_data.data->extric_camera_to_imu,
+                                      candidate_additional_map_points_datas,
+                                      target_kf_data.data->features, init_pose,
+                                      options_.outlier_min_err / 460,
+                                      candidate_additional_map_points_ids);
+    inter_info << " inter:" << 0 << "psoe: " << init_pose
                << ",inliner num: " << inliner;
     //
   }
-  LOG(INFO) <<Tag<< inter_info.str()<<log_info::RESET;
+  LOG(INFO) << Tag << inter_info.str() << log_info::RESET;
   //
-
+  if (inliner < 20) return nullptr;
   const auto& target_pose = target_kf_data.data->pose;
   const auto& candidata_pose = candidate_kf_data.data->pose;
-  const auto delta_pose = init_pose * target_pose;
+  const auto delta_pose = init_pose ;
 
-  const double delta_yaw = common::NormalizeAngleDifference(
-      transform::GetYaw(candidate_kf_data.data->pose) -
-      transform::GetYaw(init_pose.inverse().rotation()));
+  const double delta_yaw = transform::GetYaw(init_pose.inverse().rotation());
   //
-  if (abs(delta_yaw) > common::DegToRad(options_.constraint_max_yaw) ||
+  if (
       delta_pose.translation().norm() > options_.constraint_max_distance) {
-    LOG(WARNING) << "Detel yaw : " << delta_yaw
+    LOG(WARNING) << "Detel yaw : " << common::RadToDeg(delta_yaw)
                  << "Delta Pose : " << delta_pose.translation().norm()
-                 << " Is More Than option..";
+                 << " Is greater option.." << options_.constraint_max_distance
+                 << " " << options_.constraint_max_yaw;
     return nullptr;
   }
   std::stringstream info;
-  info << "\ntarget " << target_id << "candidate: " << candidate_id
+  info << " target " << target_id << "candidate: " << candidate_id
        << " pnp pose " << pnp_pose.first << "optimization " << init_pose;
-  info << "\nlocal pose ... "
+  info << " local pose ... "
        << " target: " << target_pose << " candidate: " << candidata_pose;
   info << "delta pose :" << delta_pose << " yaw :" << delta_yaw;
   LOG(INFO) << Tag<<info.str()<<log_info::RESET;
 
-  return std::make_unique<LoopDetctResult>(LoopDetctResult{target_id, {-1, 0}});
+  return std::make_unique<LoopDetctResult>(
+      LoopDetctResult{target_id, {-1, 0}, init_pose, candidate_id});
   //
 }
 //
@@ -562,16 +606,32 @@ LoopDetect::FilterBestDbowResultWithCovisibility(
 //
 
 //
-void LoopDetect::CalculatedSingleResultFinish(LoopDetctResult* data) {
+void LoopDetect::CalculatedSingleResultFinish() {
   // 多个回环轨迹的话 校验pose
 }
 //
-void LoopDetect::ContinueAndDistanceCheck(std::shared_ptr<LocalMap> local_map,
-                                          LoopDetctResult* data) {}
+void LoopDetect::ContinueAndDistanceCheck(
+    std::shared_ptr<LocalMap> local_map,
+    std::unique_ptr<LoopDetctResult>* data) {}
 //
+
+void LoopDetect::NotifyFinish(){
+  std::lock_guard<std::mutex> lock(mutex_); 
+  finish_task_->SetWorkItem([this]() {
+    // 可以检查一下连续性
+    CalculatedSingleResultFinish();
+  });
+  auto finish_node_task_handle =
+      thread_pool_->Schedule(std::move(finish_task_));
+  finish_task_ = std::make_unique<common::Task>();
+  when_done_task_->AddDependency(finish_node_task_handle);
+}
+
+
 void LoopDetect::WhenDone(
     std::function<void(std::vector<std::unique_ptr<LoopDetctResult>>)>
         call_back) {
+  std::lock_guard<std::mutex> lock(mutex_);
   when_done_task_->SetWorkItem([this, call_back] {
     std::vector<std::unique_ptr<LoopDetctResult>> result;
     {
@@ -634,17 +694,16 @@ int LoopDetect::RemoveOutliersRejection(
 transform::Rigid3d LoopDetect::FourOptimize(
     const transform::Rigid3d& init_pose,
     const std::vector<transform::Rigid3d>& extric_camera_to_imu,
-    const std::map<MapPointId, Eigen::Vector3d> map_points,
-    const std::vector<std::pair<FeatureId, MapPointId>> matched_ids,
+    const std::map<MapPointId, Eigen::Vector3d>& map_points,
+    const std::vector<std::pair<FeatureId, MapPointId>>& matched_ids,
     const KeyFrameData& candidate_kf_data,
     const std::array<double, 2>& weight) {
-  CHECK_GE(map_points.size(),8);
+  CHECK_GE(matched_ids.size(),8);
   ceres::Problem problem;
   ceres::LocalParameterization* quaternion_local =
       new ceres::EigenQuaternionParameterization;
   //
   //
-
   Eigen::Quaterniond rotation = init_pose.inverse().rotation();
   Eigen::Vector3d traslation = init_pose.inverse().translation();
 
@@ -678,35 +737,36 @@ transform::Rigid3d LoopDetect::FourOptimize(
     problem.AddResidualBlock(
         FourReProjectionErr::Creat(nomal_point.f.head<2>(), mp_pos, roll, pitch,
                                    weight[0]),
-        new ceres::HuberLoss(options_.huber_loss), traslation.data(), &yaw,
+         nullptr, traslation.data(), &yaw,
         ex_traslation[match_id.first.sequence_id].data(),
         ex_rotation[match_id.first.sequence_id].coeffs().data());
     //
   }
 
-  problem.AddResidualBlock(
-      TranslationCostFunctor::Create(init_pose.inverse().translation(),
-                                     options_.op_init_t_weight),
-      nullptr, traslation.data());
+  // problem.AddResidualBlock(
+  //     TranslationCostFunctor::Create(init_pose.inverse().translation(),
+  //                                    options_.op_init_t_weight),
+  //     nullptr, traslation.data());
 
-  problem.AddResidualBlock(
-      YawRotationDeltaCostFunctor::Create(common::DegToRad(ypr[0]),
-                                          options_.op_init_r_weight),
-      nullptr, &yaw);
+  // problem.AddResidualBlock(
+  //     YawRotationDeltaCostFunctor::Create(common::DegToRad(ypr[0]),
+  //                                         options_.op_init_r_weight),
+  //     nullptr, &yaw);
 
   ceres::Solver::Options options;
   options.minimizer_progress_to_stdout = false;
-  options.max_num_iterations = 1;  // options_.max_num_iterations;
+  options.max_num_iterations = 4;  // options_.max_num_iterations;
   options.linear_solver_type = ceres::DENSE_SCHUR;
   ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
+  // ceres::Solve(options, &problem, &summary);
   // LOG(INFO) << Tag<< summary.BriefReport() << log_info::RESET;
   // LOG(INFO) << summary.FullReport();
+    
   const auto pose =
       transform::Rigid3d(traslation,
                          transform::RollPitchYaw(roll, pitch, yaw).normalized())
           .inverse();
-
+    LOG(INFO)<<pose;
   return pose;
 }
 

@@ -25,25 +25,23 @@ class PoseGraphCostFunctor {
   bool operator()(const T* const t0, const T* const q0, const T* const t1,
                   const T* const q1, T* residual) const {
     //
-    const Eigen::Quaternion<T> R_0_inverse(q0[0], -q0[1], -q0[2], -q0[3]);
+    
+    Eigen::Map<const Eigen::Quaternion<T>> q0_(q0);
+    Eigen::Map<const Eigen::Quaternion<T>> q1_(q1);
+    const Eigen::Quaternion<T> h_rotation_inverse = q1_.conjugate() * q0_;
     //
-    const Eigen::Quaternion<T> h_rotation_inverse =
-        Eigen::Quaternion<T>(q1[0], -q1[1], -q1[2], -q1[3]) *
-        Eigen::Quaternion<T>(q0[0], q0[1], q0[2], q0[3]);
-
     const Eigen::Matrix<T, 3, 1> delta(t1[0] - t0[0], t1[1] - t0[1],
                                        t1[2] - t0[2]);
-    const Eigen::Matrix<T, 3, 1> h_translation =
-        R_0_inverse * delta;
+    const Eigen::Matrix<T, 3, 1> h_translation = q0_.conjugate() * delta;
 
     const Eigen::Matrix<T, 3, 1> angle_axis_difference =
         transform::RotationQuaternionToAngleAxisVector(
             h_rotation_inverse * relative_pose_.rotation().cast<T>());
     const Eigen::Matrix<T, 3, 1> relative_translation =
         relative_pose_.translation().cast<T>();
-    residual[0] = (relative_translation[0] - delta[0]) * factor_[0];
-    residual[1] = (relative_translation[1] - delta[1]) * factor_[0];
-    residual[2] = (relative_translation[2] - delta[2]) * factor_[0];
+    residual[0] = (h_translation[0] - relative_translation[0]) * factor_[0];
+    residual[1] = (h_translation[1] - relative_translation[1]) * factor_[0];
+    residual[2] = (h_translation[2] - relative_translation[2]) * factor_[0];
     residual[3] = factor_[1] * angle_axis_difference[0];
     residual[4] = factor_[1] * angle_axis_difference[1];
     residual[5] = factor_[1] * angle_axis_difference[2];
@@ -53,7 +51,7 @@ class PoseGraphCostFunctor {
  private:
   explicit PoseGraphCostFunctor(const transform::Rigid3d& relative_pose,
                                 const std::array<double, 2>& factor)
-      : factor_(factor) {}
+      :relative_pose_(relative_pose), factor_(factor) {}
 
   std::array<double, 2> factor_;
   const transform::Rigid3d relative_pose_;

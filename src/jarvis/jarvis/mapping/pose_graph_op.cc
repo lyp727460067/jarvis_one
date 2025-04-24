@@ -30,10 +30,13 @@ void PoseGraphOptimize::AddKeyFramePose(const KeyFrameId& id,
 void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
   //
   {
+
     std::lock_guard<std::mutex> lock(mutex_);
     ceres_poses_.clear();
     ceres_local_map_poses_.clear();
     //
+
+
     extric_camera_to_imu_.clear();
     for (const auto& node_pose : node_poses_) {
       const Eigen::Vector3d rpy =
@@ -43,6 +46,7 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
                                     node_pose.second.pose.rotation(),
                                     {rpy[0], rpy[1], rpy[2]},
                                     node_pose.second.pose});
+                                    
     }
     for (const auto& l_pose : local_map_poses_) {
       const Eigen::Vector3d rpy =
@@ -63,6 +67,10 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
                        .rotation()});
     }
   }
+
+  
+  ceres::LocalParameterization* quaternion_local =
+        new ceres::EigenQuaternionParameterization;
   for (auto& pose : ceres_poses_) {
     problem->AddParameterBlock(pose.second.t.data(), 3);
     problem->AddParameterBlock(pose.second.q.coeffs().data(), 4);
@@ -70,6 +78,8 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
       problem->SetParameterBlockConstant(pose.second.t.data());
       problem->SetParameterBlockConstant(pose.second.q.coeffs().data());
     }
+    problem->SetParameterization(pose.second.q.coeffs().data(),
+                                 quaternion_local);
   }
 
   for (auto& l_pose : ceres_local_map_poses_) {
@@ -79,6 +89,8 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
       problem->SetParameterBlockConstant(l_pose.second.t.data());
       problem->SetParameterBlockConstant(l_pose.second.q.coeffs().data());
     }
+    problem->SetParameterization(l_pose.second.q.coeffs().data(),
+                                 quaternion_local);
   }
   //
   for (auto& ex_pose : extric_camera_to_imu_) {
@@ -88,6 +100,7 @@ void PoseGraphOptimize::DataToState(ceres::Problem* problem) {
       problem->SetParameterBlockConstant(ex_pose.t.data());
       problem->SetParameterBlockConstant(ex_pose.q.coeffs().data());
     }
+    problem->SetParameterization(ex_pose.q.coeffs().data(), quaternion_local);
   }
 
   problem->SetParameterBlockConstant(ceres_poses_.begin()->second.t.data());
@@ -131,11 +144,11 @@ void PoseGraphOptimize::AddRelativeFactor(ceres::Problem* problem) {
       const auto relative_pose =
           ceres_poses_.at(first_id).local_pose.inverse() *
           ceres_poses_.at(second_id).local_pose;
-
       ceres::CostFunction* cost_function = PoseGraphCostFunctor::Create(
           relative_pose, std::array<double, 2>{options_.relative_t_weitht,
                                                options_.relative_r_weitht});
-      problem->AddResidualBlock(cost_function, nullptr,
+      // LOG(INFO)<<first_id<<" "<<second_id;
+      problem->AddResidualBlock(cost_function,nullptr,
                                 ceres_poses_.at(first_id).t.data(),
                                 ceres_poses_.at(first_id).q.coeffs().data(),
                                 ceres_poses_.at(second_id).t.data(),
@@ -152,7 +165,8 @@ void PoseGraphOptimize::AddImuFactor(ceres::Problem* problem){
 void PoseGraphOptimize::Solve(const std::vector<PoseConstraint>& constraints) {
   ceres::Problem problem;
   //
-
+  CHECK(!node_poses_.empty());
+  CHECK(!local_map_poses_.empty());
   DataToState(&problem);
   AddImuFactor(&problem);
   AddRelativeFactor(&problem);
@@ -166,6 +180,21 @@ void PoseGraphOptimize::Solve(const std::vector<PoseConstraint>& constraints) {
   ceres::Solver::Summary summary;
   options.num_threads = options_.ceres_num_threads;
   ceres::Solve(options, &problem, &summary);
+
+  // for (const auto& node_pose : ceres_poses_) {
+  //   LOG(INFO) << node_pose.first << " " << node_pose.second.t.transpose()
+  //             << node_pose.second.q;
+  //   LOG(INFO) << node_pose.first << " " << node_pose.second.local_pose;
+  // }
+
+  // for (const auto& node_pose :ceres_local_map_poses_) {
+  //   LOG(INFO) << node_pose.first << " " << node_pose.second.t.transpose()
+  //             << node_pose.second.q;
+  //   LOG(INFO) << node_pose.first << " " << node_pose.second.local_pose;
+  // }
+
+
+  // CHECK(false);
   LOG(INFO) << log_info::RED << summary.FullReport() << log_info::RESET;
 }
 //

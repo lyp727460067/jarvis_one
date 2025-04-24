@@ -81,6 +81,10 @@ class MappingBuilder {
     return local_map_front_;
   }
   //
+  std::vector<std::pair<KeyFrameId, KeyFrameId>> GetConstraintsKfIds() {
+    return map_manager_->GetConstraintsKfIds();
+  }
+  //
   void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
   //
   //

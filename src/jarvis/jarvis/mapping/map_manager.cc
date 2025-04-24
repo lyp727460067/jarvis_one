@@ -112,9 +112,10 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
     }
   }
   //
+
+  if(continuous_ids.size()< options_.continuous_candidate_loop_frame/2 )return ;
   LOG(INFO) << Tag << "LoopDetect  -> local_map" << local_map_id
             << ",keyframeid " << key_frame_id << log_info::RESET;
-  if(continuous_ids.size()< options_.continuous_candidate_loop_frame/2 )return ;
   loop_detect_->Detect(
       std::pair<LocalMapId, std::shared_ptr<LocalMap>>(
           local_map_id, local_maps_.at(local_map_id).local_map),
@@ -139,6 +140,7 @@ void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
      //
      double covi_min_score = ComputeCovisibleMinScore(*local_map_temp, id);
      ComputeConstaints(id, covi_min_score);
+     loop_detect_->NotifyFinish();
      //
      pose_graph_optimizer_->AddKeyFramePose(
          id, KeyFramePoseTime{data->time, data->pose});
@@ -148,6 +150,7 @@ void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
          num_kf_num_since_last_loop_closure_ >
              options_.pose_graph_optimize_min_kf_min_num) {
        num_kf_num_since_last_loop_closure_ = 0;
+       LOG(INFO)<<"WorkItem::Result::kInterruptForImmediateRun";
        return WorkItem::Result::kInterruptForImmediateRun;
      }
      return WorkItem::Result::Normal;
@@ -237,11 +240,7 @@ void  MapManager::AddLocalMap(int trajectory,
                      local_to_global_transform_ * new_local_map->LocalPose()});
     //
 
-    std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
-    op_local_maps.emplace(local_map_id, new_local_map);
-    if (options_.enable_local_map_full_op) {
-      ReconstructLocalMapOptimization(op_local_maps);
-    }
+
     //
     //
     UpdataActiveTrackLocalMap(local_map);
@@ -251,6 +250,12 @@ void  MapManager::AddLocalMap(int trajectory,
     UpdateKeyframeDataUsingPrunedLocalMap(local_map);
     PruneRedundantLocalMap(local_map_id);
     //
+    std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps;
+    op_local_maps.emplace(local_map_id, new_local_map);
+    if (options_.enable_local_map_full_op) {
+      ReconstructLocalMapOptimization(op_local_maps);
+    }
+
     //
     pose_graph_optimizer_->AddLocalMapPose(
         local_map_id,
@@ -337,6 +342,7 @@ void MapManager::TrimKeyFrameData(const KeyFrameId &id) {
   key_frames_datas_.Trim(id);
 }
 //
+
 //
 void MapManager::Optimization(
     std::vector<std::unique_ptr<LoopDetctResult>> &&loop_constraint) {
@@ -346,16 +352,26 @@ void MapManager::Optimization(
               << "Start opimize ,constraint size :" << loop_constraint.size()
               << log_info::RESET;
 
-    // for (auto &&l_constraint : loop_constraint) {
-    //   pose_constraints_.push_back(PoseConstraint{
-    //       l_constraint->local_map_id,
-    //       l_constraint->kf_id,
-    //       l_constraint->relative_pose,
-    //       l_constraint->relative_yaw,
-    //   });
-    // }
+    for (auto &&l_constraint : loop_constraint) {
+      LOG(INFO) << "Find constraints: " << "local_map "
+                << l_constraint->local_map_id << "-"
+                << l_constraint->in_map_kf_id
+                << "-->,kf_id: " << l_constraint->kf_id << " "
+                << l_constraint->relative_pose;
+      //
+      constraints_kf_ids_.emplace_back(l_constraint->in_map_kf_id,
+                                       l_constraint->kf_id);
+      // /
+      pose_constraints_.push_back(PoseConstraint{
+          l_constraint->local_map_id,
+          l_constraint->kf_id,
+          l_constraint->relative_pose,
+          l_constraint->relative_yaw,
+      });
+    }
   }
   //
+  if (local_maps_.empty()) return;
   pose_graph_optimizer_->Solve(pose_constraints_);
   auto global_local_map_pose = pose_graph_optimizer_->GetPoseGraphLocalMapPose();
   auto global_kf_pose = pose_graph_optimizer_->GetPoseGraphNodePose();

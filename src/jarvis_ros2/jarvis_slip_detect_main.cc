@@ -1,7 +1,7 @@
 
 #include <dirent.h>
 #include <sys/types.h>
-
+#include "ros_viewer.h"
 #include <iostream>
 #include <map>
 #include <memory>
@@ -621,43 +621,43 @@ if (kRecordFlag) {
 
    pub_path_ = node->create_publisher<nav_msgs::msg::Path>("odom_path", 10);
   //
-  // /
-  TrackingData tracking_data_temp;
-  std::mutex mutex;
-  std::condition_variable cond;
 
+   jarvis_ros::RosViewer ros_viwer(node.get(), data_dir);
+   // /
+   TrackingData tracking_data_temp;
+   std::mutex mutex;
+   std::condition_variable cond;
 
-  //
-  const std::string vslam_yaml_file(argv[1]);
+   //
+   const std::string vslam_yaml_file(argv[1]);
 
-  auto slip_detect = slip_detect::FactorSlipDetect(vslam_yaml_file);
-  //
-  std::vector<bool> slip_states;
+   auto slip_detect = slip_detect::FactorSlipDetect(vslam_yaml_file);
+   //
+   std::vector<bool> slip_states;
 
+   TrajectorBuilderOption trajectorbuilder_option;
 
-  TrajectorBuilderOption trajectorbuilder_option ;
-  
-  ParseYAMLOption(std::string(argv[1]),&trajectorbuilder_option );
-  //
-  estimator::EstimatorOption& option = trajectorbuilder_option.esti_option;
+   ParseYAMLOption(std::string(argv[1]), &trajectorbuilder_option);
+   //
+   estimator::EstimatorOption& option = trajectorbuilder_option.esti_option;
 
-  //
-  std::vector<std::shared_ptr<jarvis::estimator::PyramidImage>> pry_impls;
-  auto& esit_option_ = option;
-  imu_cam_time_offset = jarvis::GetTimeShiftCamImu();
-  LOG(INFO)<<imu_cam_time_offset ;
-  if (kuse_gpu) {
-    for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
-      for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
-        esit_option_.feature_track_options[i].pyramid_image.push_back(
-            std::make_shared<jarvis::estimator::ExtendPyramidImage>(
-                esit_option_.feature_track_options[i].pyrmid_option));
-        pry_impls.push_back(std::make_shared<jarvis::estimator::PyramidImage>(
-            option.feature_track_options[i].pyrmid_option));
-      }
-    }
-    //
-  }
+   //
+   std::vector<std::shared_ptr<jarvis::estimator::PyramidImage>> pry_impls;
+   auto& esit_option_ = option;
+   imu_cam_time_offset = jarvis::GetTimeShiftCamImu();
+   LOG(INFO) << imu_cam_time_offset;
+   if (kuse_gpu) {
+     for (size_t i = 0; i < esit_option_.track_sequence.size(); i++) {
+       for (size_t j = 0; j < esit_option_.track_sequence[i].size(); j++) {
+         esit_option_.feature_track_options[i].pyramid_image.push_back(
+             std::make_shared<jarvis::estimator::ExtendPyramidImage>(
+                 esit_option_.feature_track_options[i].pyrmid_option));
+         pry_impls.push_back(std::make_shared<jarvis::estimator::PyramidImage>(
+             option.feature_track_options[i].pyrmid_option));
+       }
+     }
+     //
+   }
   // for (int i = 0; i < option.track_sequence.size(); i++) {
   //   option.feature_track_options[i].pyramid_image.push_back(
   //       std::make_shared<ExtendPyramidImage>
@@ -701,8 +701,8 @@ builder_ = std::make_unique<TrajectorBuilder>(
                   << " " << int(flag) << std::endl;
 
         ros_compont->PubBoolMsg(flag);
-        slipe_alignment_pose =
-            slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
+        // slipe_alignment_pose =
+        //     slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
       }
       // LOG(INFO) << tracking_data.data->imu_state;
       if (kRecordFlag) {
@@ -727,12 +727,13 @@ builder_ = std::make_unique<TrajectorBuilder>(
       std::vector<jarvis::object::ObjectImageResult> object_result;
       {
         auto& data = tracking_data;
-        transform::Rigid3d slipe_alignment_pose =
-            ToPoseInOdom(data.data->imu_state.Pose(), transform_cam_to_odom_);
+        // transform::Rigid3d slipe_alignment_pose =
+            // ToPoseInOdom(data.data->imu_state.Pose(), transform_cam_to_odom_);
+        transform::Rigid3d slipe_alignment_pose = data.data->imu_state.Pose();
         // std::lock_guard<std::mutex> lock(pose_mutex_);
-        InitializeExtrapolator(data.data->time);
-        kPoseExtrapolator_->AddPose(data.data->time, slipe_alignment_pose,
-                                    data.status ==2);
+        // InitializeExtrapolator(data.data->time);
+        // kPoseExtrapolator_->AddPose(data.data->time, slipe_alignment_pose,
+        //                             data.status ==2);
       }
 
       if (tracking_data.status == 2) {
@@ -875,7 +876,6 @@ LOG(INFO) << "Parse image dir: " << image_file;
 LOG(INFO) << "Parse imu dir: " << odom_file;
 auto imu_datas = SesorDataParse<ImuData>(odom_file);
 //
-
 auto image_datas = ImageData::Parse(image_file);
 //
 LOG(INFO) << "Start run...";
@@ -885,24 +885,38 @@ std::thread pub_map_points([&]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     //
     {
-      ros_compont->PubMapPoints(builder_->GetMapPoints());
-      auto global_pose = builder_->GetKeyFrameGlobalPose();
-      std::map<std::string, std::vector<Eigen::Vector3d>> pub_poses;
-      for (const auto& pose : global_pose) {
-        pub_poses["trajctor_" + std::to_string(pose.first.trajectory_id)]
-            .push_back(pose.second.transform.translation());
-      }
-      ros_compont->PubTrajectorPoseWithMark(pub_poses);
+      // ros_compont->PubMapPoints(builder_->GetMapPoints());
+      // auto global_pose = builder_->GetKeyFrameGlobalPose();
+      // std::map<std::string, std::vector<Eigen::Vector3d>> pub_poses;
+      // for (const auto& pose : global_pose) {
+      //   pub_poses["trajctor_" + std::to_string(pose.first.trajectory_id)]
+      //       .push_back(pose.second.transform.translation());
+      // }
+      // ros_compont->PubTrajectorPoseWithMark(pub_poses);
     }
     {
       ros_compont->PubLocalMapPoints(builder_->GetLocalMapPoints());
       auto local_track_pose = builder_->GetLocalKeyFramePose();
-
       std::map<std::string, std::vector<Eigen::Vector3d>> pub_poses;
       for (const auto& pose : local_track_pose) {
         pub_poses["trajctor_0"].push_back(pose.translation());
       }
       ros_compont->PubLocalTrajectorPoseWithMark(pub_poses);
+    }
+    {
+      ros_compont->PubMapPoints(builder_->GetMapPoints());
+      std::map<int, std::map<KeyFrameId, transform::TimestampedTransform>>
+          poses;
+      ros_viwer.AddPairIds(builder_->GetConstraintsKfIds());
+      auto pose_temp = builder_->GetKeyFrameGlobalPose();
+      for (const auto pose_id : pose_temp) {
+        poses[pose_id.first.trajectory_id].insert(pose_id);
+      }
+      ros_viwer.AddPoses(poses[0], "global");
+      for (size_t i = 1; i < poses.size(); i++) {
+        ros_viwer.AddPoses(poses[i], "global" + std::to_string(i));
+      }
+      ros_viwer.Viewer();
     }
 
     // ros_compont->PushMark(

@@ -37,7 +37,7 @@ std::pair<transform::Rigid3d, std::set<FeatureId>> CalculatePoseUsingOpencvPnP(
   cv::eigen2cv(init_pose.translation(), t);
   cv::Mat inliers;
 
-  solvePnPRansac(map_points_temp, key_points_temp, K, D, rvec, t, true, 200,
+  solvePnPRansac(map_points_temp, key_points_temp, K, D, rvec, t, false, 200,
                  10.0 / 460.0, 0.99, inliers);
   std::pair<transform::Rigid3d, std::set<FeatureId>> return_result;
   for (int i = 0; i < inliers.rows; i++) {

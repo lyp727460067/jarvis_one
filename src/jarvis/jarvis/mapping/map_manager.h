@@ -78,6 +78,11 @@ class MapManager {
   }
   void ExtendedKeyFrameData(const LocalMap& local_map, const KeyFrameId& id,
                             KeyFrameData::Data* data);
+  //
+  std::vector<std::pair<KeyFrameId, KeyFrameId>> GetConstraintsKfIds() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return constraints_kf_ids_;
+  }
 
  private:
   void ExtractValidData(KeyFrameData*data);
@@ -135,6 +140,7 @@ class MapManager {
   std::unique_ptr<common::Task> when_op_done_task_;
   transform::Rigid3d local_to_global_transform_;
   //
+  std::vector<std::pair<KeyFrameId, KeyFrameId>> constraints_kf_ids_;
   std::set<KeyFrameId> previous_local_map_trimed_key_frames_id_;
   std::map<int, std::map<int, common::Time>> last_trajectory_connect_time_;
   //
