@@ -12,7 +12,7 @@
 namespace jarvis_ros {
 class RosViewer {
  public:
-  RosViewer(rclcpp::Node* nh, const std::string& ground_true_file );
+  RosViewer(rclcpp::Node* nh );
   jarvis::transform::TransformInterpolationBuffer* GroudTrue() {
     return groud_true_poses_.get();
   }

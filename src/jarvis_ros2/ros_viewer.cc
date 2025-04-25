@@ -70,7 +70,7 @@ void WriteGlobPose(
 
 }  // namespace
 
-RosViewer::RosViewer(rclcpp::Node* nh, const std::string& ground_true_file)
+RosViewer::RosViewer(rclcpp::Node* nh)
     : nh_(nh) {
   markpub_ = nh_->create_publisher<visualization_msgs::msg::MarkerArray>(
       "loop_detection", 10);
@@ -100,13 +100,13 @@ RosViewer::MarkPub::MarkPub(int idex, int a, std::string ns) {
   mark.header.stamp = rclcpp::Time();
   mark.id = idex;
   mark.action = visualization_msgs::msg::Marker::ADD;
-  mark.type = visualization_msgs::msg::Marker::CUBE;
+  mark.type = visualization_msgs::msg::Marker::POINTS;
   std::default_random_engine e(idex);
   std::uniform_real_distribution<float> ran(0, 1);
   auto color = GetColor(idex + a + 3);
-  mark.scale.x = 0.03;
-  mark.scale.y = 0.03;
-  mark.scale.z = 0.03;
+  mark.scale.x = 0.1;
+  mark.scale.y = 0.1;
+  mark.scale.z = 0.1;
   mark.color.a = 1;
   mark.color.r = color[1];
   mark.color.b = color[0];
@@ -121,9 +121,9 @@ RosViewer::MarkPub::MarkPub(int index, std::string ns, int line_type) {
   mark.action = visualization_msgs::msg::Marker::ADD;
   mark.type = visualization_msgs::msg::Marker::LINE_LIST;
   auto color = GetColor(index);
-  mark.scale.x = 0.03;
-  mark.scale.y = 0.03;
-  mark.scale.z = 0.03;
+  mark.scale.x = 0.02;
+  mark.scale.y = 0.02;
+  mark.scale.z = 0.02;
   mark.color.a = 1;
   mark.color.r = 1;
   mark.color.b = 0;
@@ -150,9 +150,6 @@ void RosViewer::MarkPub::AddPoint(const Eigen::Vector3d& p, bool li) {
 void RosViewer::Viewer() {
   int index = 0;
   std::vector<MarkPub> mark_pubs;
-  if (groud_true_poses_ != nullptr) {
-    mark_pubs.push_back(MarkPub(index++, 1, "groud_true"));
-  }
   int i = 0;
   for (auto pose : poses_) {
     mark_pubs.push_back(MarkPub(index++,
@@ -169,18 +166,6 @@ void RosViewer::Viewer() {
   if (global_poses.empty()) return;
 
   index = 0;
-  if (groud_true_poses_ != nullptr) {
-    auto first_pose =
-        groud_true_poses_->Lookup(global_poses.begin()->second.time);
-    auto global_first_pose = global_poses.begin()->second.transform;
-    const auto global_to_grue = global_first_pose * first_pose.inverse();
-    for (auto const& pose : poses_["global"]) {
-      auto relative_glole_pose =
-          global_to_grue * groud_true_poses_->Lookup(pose.second.time);
-      mark_pubs[index].AddPoint(relative_glole_pose.translation());
-    }
-    index++;
-  }
   for (auto const& poses : poses_) {
     for (auto const& pose : poses.second) {
       mark_pubs[index].AddPoint(pose.second.transform.translation());

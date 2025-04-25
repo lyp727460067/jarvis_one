@@ -361,6 +361,7 @@ std::map<MapPointId, MapPointData> LocalMap::GetKeyFrameMapPoints(
   std::map<MapPointId, MapPointData> result;
 
   for (const auto &id : map_poin_ids) {
+    CHECK(data_.map_points.Contains(id));
     result.emplace(id, data_.map_points.at(id));
   }
   return result;

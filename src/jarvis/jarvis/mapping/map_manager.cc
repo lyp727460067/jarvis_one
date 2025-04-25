@@ -68,7 +68,7 @@ void MapManager::ComputeConstaints(const KeyFrameId &nid,
     auto new_local_map = local_maps_.at(local_map_id).local_map;
     for (const auto &id : extend_key_frames_ids_) {
       if (new_local_map->AllKeyFrameDatas().Contains(id)) continue;
-      // ComputeLoopConstaint(local_map_id, id, min_score);
+      ComputeLoopConstaint(local_map_id, id, min_score);
     }
     new_local_map_id_.reset();
   }
@@ -95,7 +95,7 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
       return;
     }
 
-  } else if (0) {
+  } else if (1) {
     return;
   }
   std::map<KeyFrameId, KeyFrameData> continuous_ids;
@@ -208,6 +208,7 @@ std::shared_ptr<LocalMap> MapManager::ReconstructLocalMap(
       std::make_shared<LocalMap>(*local_map);
   LocalMap &new_local_map = *new_local_map_ptr;
   //
+  LOG(INFO)<<local_map->LocalPose();
   for (const auto &kf_data : local_map->AllKeyFrameDatas()) {
     // if (previous_local_map_trimed_key_frames_id_.count(kf_data.id)) continue;
     KeyFrameData data = kf_data.data;

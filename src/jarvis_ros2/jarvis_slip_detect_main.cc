@@ -622,7 +622,7 @@ if (kRecordFlag) {
    pub_path_ = node->create_publisher<nav_msgs::msg::Path>("odom_path", 10);
   //
 
-   jarvis_ros::RosViewer ros_viwer(node.get(), data_dir);
+   jarvis_ros::RosViewer ros_viwer(node.get());
    // /
    TrackingData tracking_data_temp;
    std::mutex mutex;
@@ -882,7 +882,7 @@ LOG(INFO) << "Start run...";
 std::thread pub_map_points([&]() {
   while (!kill_thread) {
     TrackingData tracking_data;
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     //
     {
       // ros_compont->PubMapPoints(builder_->GetMapPoints());
@@ -913,9 +913,9 @@ std::thread pub_map_points([&]() {
         poses[pose_id.first.trajectory_id].insert(pose_id);
       }
       ros_viwer.AddPoses(poses[0], "global");
-      for (size_t i = 1; i < poses.size(); i++) {
-        ros_viwer.AddPoses(poses[i], "global" + std::to_string(i));
-      }
+      // for (size_t i = 1; i < poses.size(); i++) {
+      //   ros_viwer.AddPoses(poses[i], "global" + std::to_string(i));
+      // }
       ros_viwer.Viewer();
     }
 

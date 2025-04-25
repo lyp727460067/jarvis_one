@@ -1141,6 +1141,7 @@ mapping::LoopDetectOption ParseLoopDetectOption(const cv::FileNode &fs) {
   option.test_match_pic_write_path = temp;
   option.constraint_max_yaw = fsSettings["constraint_max_yaw"];
   option.constraint_max_distance = fsSettings["constraint_max_distance"];
+  option.pnp_optimize_min_iniler = fsSettings["pnp_optimize_min_iniler"];
 
   std::string convisi_level_search_num_str =
       fsSettings["convisi_level_search_num"];

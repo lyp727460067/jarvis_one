@@ -76,8 +76,14 @@ FeatureId SearchMatchesByProjection(
     const MapPointData& target_map_point) {
   //
   FeatureId r(-1, 0);
+  //
+  std::vector<std::pair<int, FeatureId>> best_result;
+  // /
   auto sequence_feautes = key_frame_data.features.trajectory_ids();
   for (auto const& i : sequence_feautes) {
+    //
+    best_result.emplace_back(1000, FeatureId(-1, 0));
+    //
     const transform::Rigid3d cam_pose = key_frame_data.CameraPose(i);
     //
     Eigen::Vector2d project_map_point;
@@ -123,12 +129,26 @@ FeatureId SearchMatchesByProjection(
       if (dist < best_dist) {
         best_dist = dist;
         best_idx = index;
+
       }
     }
     if (best_dist < option.project_best_des_dis) {
-      return best_idx;
+      // return best_idx;
+      best_result.back().second = best_idx;
+      best_result.back().first = best_dist;
+    }
+
+  }
+  int best_disante = 1000;
+
+  for (int i = 0; i < best_result.size(); i++) {
+    if (best_result[i].first < best_disante &&
+        best_result[i].second != FeatureId(-1, 0)) {
+      r = best_result[i].second;
+      best_disante = best_result[i].first;
     }
   }
+
   return r;
 }
 

@@ -9,7 +9,7 @@ track_map_opti_sampler : 0.1
 construct_use_des_match : 0
 ##
 key_frame_filter_option:
- max_distance : 0.5
+ max_distance : 0.3
  max_angle : 20
  max_time : 10000.0
  min_intersection_ration : 0.55
@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  30
+ max_kf_num :  70
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  local_track_project_search_option:
@@ -130,10 +130,10 @@ map_manager_option:
     relative_t_weitht : 1e4
     relative_r_weitht : 1e4
     huber_scale : 2.0
-    constraint_loop_closer_t_weigth : 1e3
-    constraint_loop_closer_r_weigth : 1e3
-    constraint_t_weigth : 1e4
-    constraint_r_weigth : 1e4
+    constraint_loop_closer_t_weigth : 1e5
+    constraint_loop_closer_r_weigth : 1e5
+    constraint_t_weigth : 1e5
+    constraint_r_weigth : 1e5
 
   loop_detect_option:
     convisi_level_search_num  : "{5,3}"
@@ -156,6 +156,7 @@ map_manager_option:
     test_match_pic_write_path :  "" #"/home/lyp/project/vslam/jarvis/test/image/"
     constraint_max_yaw : 50
     constraint_max_distance : 30
+    pnp_optimize_min_iniler : 20
     pnp_solver_option:
       min_inliers : 10
       probability : 0.99
@@ -172,15 +173,14 @@ map_manager_option:
       box_boundary_distance : 10
     additional_project_option: 
       viewing_angle_threash_hold : 0.5
-      area_search_radius : 20
+      area_search_radius : 30
       project_pix_err : 0.0
-      project_best_des_dis : 100
+      project_best_des_dis : 80
       box_boundary_distance : 10
     key_frame_data_option:
-      # min_core :0.03
-      min_core :0.015
+      min_core :0.02
       sharing_words_count_min_is_max_ration: 0.95
-      min_shared_words_num  : 50
+      min_shared_words_num  : 70
       min_distance_threash_hold : 5
 
 
@@ -211,7 +211,7 @@ map_point_construct_option:
   min_distance : 1
  # descriptor_option:  
  point_check_dist_epipolar_option:
-  check_dist_epipolar_line_cos_parallax : 0.99999
+  check_dist_epipolar_line_cos_parallax : 0.9999
   first_cam_min_z_distance : 0.05
   first_cam_chi_squared : 5.991
   second_cam_min_z_distance : 0.05

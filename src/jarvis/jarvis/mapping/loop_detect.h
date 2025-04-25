@@ -38,6 +38,7 @@ struct LoopDetectOption {
   int dbow_search_match_num = 20;
   int min_pnp_need_features_num = 10;
   int min_pnp_inliers_num = 8;
+  int pnp_optimize_min_iniler =30;
   std::string test_match_pic_write_path = "";
   double constraint_max_yaw = 50;
   double constraint_max_distance = 10;
@@ -101,7 +102,7 @@ class LoopDetect {
       const std::set<FeatureId>& already_matched_feats);
   //
   //
-  transform::Rigid3d FourOptimize(
+  transform::Rigid3d Optimize(
       const transform::Rigid3d& init_pose,
       const std::vector<transform::Rigid3d>& extric_camera_to_imu,
       const std::map<MapPointId, Eigen::Vector3d> &map_points,
