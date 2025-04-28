@@ -47,6 +47,7 @@ std::vector<std::pair<FeatureId, FeatureId>> DbowFindMathed(
         if (bestDist1 < describe_distance_threashold) {
           if (static_cast<float>(bestDist1) <
               0.8 * static_cast<float>(bestDist2)) {
+            if(idx1.sequence_id != bestIdx2.sequence_id)continue;
             matched_index.insert(bestIdx2);
             result.push_back({idx1, bestIdx2});
           }

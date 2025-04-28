@@ -4,7 +4,7 @@ enable_local_track: 1
 enable_track_map_opti: 0
 enable_local_opimization: 0
 enable_loop_closure : 1
-thread_pool_num : 10
+thread_pool_num : 15
 track_map_opti_sampler : 0.1
 construct_use_des_match : 0
 ##
@@ -19,7 +19,7 @@ key_frame_filter_option:
 
 
 local_map_option: 
- max_kf_num :  70
+ max_kf_num :  50
  culling_sampler : 0.2
  compute_map_point_min_des_num : 5
  local_track_project_search_option:
@@ -136,10 +136,10 @@ map_manager_option:
     constraint_r_weigth : 1e5
 
   loop_detect_option:
-    convisi_level_search_num  : "{5,3}"
+    convisi_level_search_num  : "{20,10}"
     pnp_solve_typ :0
     huber_loss : 1.0
-    outlier_min_err : 8.0
+    outlier_min_err : 4.0
     max_num_iterations : 2
     op_weight : 1e3
     op_init_t_weight : 10
@@ -150,13 +150,13 @@ map_manager_option:
     end_non_adjacent_id_count : 5
     constraint_consistent_filter_num : 5
     dbow_match_describe_distance_threashold : 80
-    dbow_search_match_num : 20
-    min_pnp_need_features_num : 20
-    min_pnp_inliers_num : 15
-    test_match_pic_write_path :  "" #"/home/lyp/project/vslam/jarvis/test/image/"
+    dbow_search_match_num : 40
+    min_pnp_need_features_num : 30
+    min_pnp_inliers_num : 10
+    test_match_pic_write_path :  ""  #  "/home/lyp/project/vslam/jarvis/test/image/"
     constraint_max_yaw : 50
     constraint_max_distance : 30
-    pnp_optimize_min_iniler : 20
+    pnp_optimize_min_iniler : 30
     pnp_solver_option:
       min_inliers : 10
       probability : 0.99
@@ -175,13 +175,13 @@ map_manager_option:
       viewing_angle_threash_hold : 0.5
       area_search_radius : 30
       project_pix_err : 0.0
-      project_best_des_dis : 80
+      project_best_des_dis : 70
       box_boundary_distance : 10
     key_frame_data_option:
-      min_core :0.02
+      min_core :0.015
       sharing_words_count_min_is_max_ration: 0.95
-      min_shared_words_num  : 70
-      min_distance_threash_hold : 5
+      min_shared_words_num  : 50
+      min_distance_threash_hold : 3
 
 
 
@@ -189,12 +189,12 @@ map_manager_option:
 
 
 map_point_construct_option:
- test_match_pic_write_path :  "/home/lyp/project/vslam/jarvis/test/image/"
+ test_match_pic_write_path :  "" # "/home/lyp/project/vslam/jarvis/test/image/"
  use_local_track_match : 1
  con_struct_map_point_frame_min_distance : 0.5
  dbow_trasform_level : 4
  area_search_grid_lenth : 10
- construct_map_point_near_keframd_num : 10
+ construct_map_point_near_keframd_num : 20
  dbow_match_min_distance : 100
  ##
  track_project_search_option:
@@ -211,7 +211,7 @@ map_point_construct_option:
   min_distance : 1
  # descriptor_option:  
  point_check_dist_epipolar_option:
-  check_dist_epipolar_line_cos_parallax : 0.9999
+  check_dist_epipolar_line_cos_parallax : 0.999
   first_cam_min_z_distance : 0.05
   first_cam_chi_squared : 5.991
   second_cam_min_z_distance : 0.05

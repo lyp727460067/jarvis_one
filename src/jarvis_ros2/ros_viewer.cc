@@ -104,9 +104,9 @@ RosViewer::MarkPub::MarkPub(int idex, int a, std::string ns) {
   std::default_random_engine e(idex);
   std::uniform_real_distribution<float> ran(0, 1);
   auto color = GetColor(idex + a + 3);
-  mark.scale.x = 0.1;
-  mark.scale.y = 0.1;
-  mark.scale.z = 0.1;
+  mark.scale.x = 0.05;
+  mark.scale.y = 0.05;
+  mark.scale.z = 0.05;
   mark.color.a = 1;
   mark.color.r = color[1];
   mark.color.b = color[0];

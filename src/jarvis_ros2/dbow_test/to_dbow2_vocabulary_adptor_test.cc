@@ -83,28 +83,28 @@ TEST(ToDbow, Dbow2ToProtoDbow2FromProto1) {
 TEST(ToDbow, Dbow2ToProtoDbow2FromProto2) {
   dbow::proto::VocabularyDatas protos;
 
-  {
-    std::string vocabulary =
-        "/home/lyp/project/catkin_ws/src/VINS-Fusion/support_files/"
-        "brief_k10L6.bin";
-    auto voc = std::make_unique<BriefVocabulary>();
-    voc->loadFromTextBin(vocabulary);
-    auto proto = Dbow2ToProto(
-        dbow::VocabularyData::Info{"kG1Brief", false, voc->m_k, voc->m_L},
-        *voc);
-    *protos.add_vocabulary_datas() = proto;
-  }
   // {
   //   std::string vocabulary =
-  //       "/home/lyp/project/vslam/ORB_SLAM3/Vocabulary/ORBvoc.txt";
-
+  //       "/home/lyp/project/catkin_ws/src/VINS-Fusion/support_files/"
+  //       "brief_k10L6.bin";
   //   auto voc = std::make_unique<BriefVocabulary>();
-  //   voc->loadFromTextFile(vocabulary);
+  //   voc->loadFromTextBin(vocabulary);
   //   auto proto = Dbow2ToProto(
-  //       dbow::VocabularyData::Info{"kG2Brief", true, voc->m_k, voc->m_L}, *voc);
-
+  //       dbow::VocabularyData::Info{"kG1Brief", false, voc->m_k, voc->m_L},
+  //       *voc);
   //   *protos.add_vocabulary_datas() = proto;
   // }
+  {
+    std::string vocabulary =
+        "/home/lyp/project/vslam/ORB_SLAM3/Vocabulary/ORBvoc.txt";
+
+    auto voc = std::make_unique<BriefVocabulary>();
+    voc->loadFromTextFile(vocabulary);
+    auto proto = Dbow2ToProto(
+        dbow::VocabularyData::Info{"kG2Brief", true, voc->m_k, voc->m_L}, *voc);
+
+    *protos.add_vocabulary_datas() = proto;
+  }
 
   std::string pb_file = "/home/lyp/project/vslam/jarvis/jarvis.dbow";
   std::ofstream os(pb_file, std::ios::out | std::ios::binary);

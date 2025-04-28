@@ -132,7 +132,7 @@ DescriptorExtract::DescriptorExtract(const DescriptorExtractOption& option)
 std::vector<BrifBitset> DescriptorExtract::Extract(
     const cv::Mat& img, const std::vector<cv::KeyPoint>& key_points) {
   std::vector<cv::KeyPoint> muteble_key_points = key_points;
-  // FillKeyPointAngle(img, &muteble_key_points);
+  FillKeyPointAngle(img, &muteble_key_points);
   return brief_->Compute(img, muteble_key_points);
 }
 //
@@ -140,6 +140,7 @@ void DescriptorExtract::FillKeyPointAngle(
     const cv::Mat& image, std::vector<cv::KeyPoint>* key_points) {
   for (auto& point : *key_points) {
     point.angle = (IC_Angle(image, point.pt, umax_));
+    // LOG(INFO)<<point.angle;
     point.octave = 0;
   }
 }

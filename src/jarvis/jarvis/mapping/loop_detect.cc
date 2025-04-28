@@ -178,14 +178,27 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
       target_data.data->dbow_data, candidata_data.data->dbow_data,
       options_.dbow_match_describe_distance_threashold,
       candidata_data.data->map_point_ids);
-  WriteCheckMatchResult(target_data, candidata_data, paired_id);
 
+  std::map<int, int> s_num;
+  for (int i = 0; i < paired_id.size(); i++) {
+    s_num[paired_id[i].first.sequence_id]++;
+  }
+  //
+  for (int i = 0; i < options_.track_sequence.size(); i++) {
+    if (s_num.count(i)) {
+      if (s_num[i] > options_.dbow_search_match_num / 3) continue;
+    }
+    LOG(WARNING) << " DbowFindMathed. "  << i <<" size: "<< s_num[i]
+                 << " LE " << options_.dbow_search_match_num / 3;
+    return {};
+  }
+  //
   if (paired_id.size() < options_.dbow_search_match_num) {
     LOG(WARNING) << " DbowFindMathed.   size: " << paired_id.size() << " LE "
                  << options_.dbow_search_match_num;
     return {};
   }
-
+  WriteCheckMatchResult(target_data, candidata_data, paired_id);
   const auto& all_map_points = local_map->ConstData().map_points;
   std::map<FeatureId, Eigen::Vector3d> map_points_temp;
   std::map<FeatureId, FeatureData> features_temp;
@@ -230,7 +243,8 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
   //
   std::vector<std::pair<FeatureId, FeatureId>> inlier_pairs;
   for (int i = 0; i < paired_id.size(); i++) {
-    if (pnp_pose.second.count(paired_id[i].first)) {
+    if (pnp_pose.second.count(paired_id[i].first) &&
+        candidata_data.data->map_point_ids.count(paired_id[i].second)) {
       inlier_pairs.emplace_back(paired_id[i].second, paired_id[i].first);
     }
   }
@@ -244,6 +258,13 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
   LOG(INFO) << Tag << "Pnp inli: " << inlier_pairs.size()
             << " pose:" << pnp_pose.first << log_info::RESET;
   //
+  for (int i = 0; i < paired_id.size(); i++) {
+    if (paired_id[i].first.sequence_id != 0 &&
+        options_.pnp_solve_typ != int(alg::SolveType::use_muty_cam)) {
+      inlier_pairs.emplace_back(paired_id[i].second, paired_id[i].first);
+    }
+  }
+
   return {pnp_pose.first, std::move(inlier_pairs)};
 }
 //
@@ -465,7 +486,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   auto candidate_additional_map_points_ids = SearchForAdditionalMapPoints(
       local_map, candidate_id, imu_pose, target_kf_data, already_matched_mp_ids,
       already_matched_feats);
-  //
+  candidate_additional_map_points_ids.clear();
   LOG(INFO) << Tag << "Imu pose " << imu_pose
             << "SearchForAdditionalMapPoints at " << candidate_id
             << "size :" << candidate_additional_map_points_ids.size()
@@ -485,18 +506,18 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
     candidate_additional_map_points_datas.emplace(
         map_point_data.id, map_point_data.data.data->pos);
   }
-  if (candidate_additional_map_points_ids.size() < 20) return nullptr;
+  if (candidate_additional_map_points_ids.size() < 10) return nullptr;
   
   //
   transform::Rigid3d init_pose =  imu_pose;
   std::stringstream inter_info;
   inter_info << "opitmize max inter: " << options_.max_num_iterations;
   int inliner = 100;
-  // inliner = RemoveOutliersRejection(target_kf_data.data->extric_camera_to_imu,
-  //                                   candidate_additional_map_points_datas,
-  //                                   target_kf_data.data->features, init_pose,
-  //                                   options_.outlier_min_err / 460,
-  //                                   candidate_additional_map_points_ids);
+  inliner = RemoveOutliersRejection(target_kf_data.data->extric_camera_to_imu,
+                                    candidate_additional_map_points_datas,
+                                    target_kf_data.data->features, init_pose,
+                                   0.2,
+                                    candidate_additional_map_points_ids);
   for (int i = 0; i < options_.max_num_iterations; i++) {
     //
     if (inliner < options_.pnp_optimize_min_iniler) {
@@ -694,7 +715,6 @@ int LoopDetect::RemoveOutliersRejection(
     float err = ReprojectionError(
         map_points.at(constraist_matchs.second), pose * exti,
         target_features.at(constraist_matchs.first).f.head<2>());
-    LOG(INFO)<<err;
     if (err > outlier) {
       it = matched_ids.erase(it);
       continue;
@@ -749,7 +769,7 @@ transform::Rigid3d LoopDetect::Optimize(
         candidate_kf_data.data->features.at(match_id.first);
     problem.AddResidualBlock(
         ReProjectionErr::Creat(nomal_point.f.head<2>(), mp_pos, weight[0]),
-      new ceres::HuberLoss(1.0) , traslation.data(), rotation.coeffs().data(),
+      new ceres::HuberLoss(5.0) , traslation.data(), rotation.coeffs().data(),
         ex_traslation[match_id.first.sequence_id].data(),
         ex_rotation[match_id.first.sequence_id].coeffs().data());
     //
@@ -767,7 +787,7 @@ transform::Rigid3d LoopDetect::Optimize(
 
   ceres::Solver::Options options;
   options.minimizer_progress_to_stdout = false;
-  options.max_num_iterations = 4;  // options_.max_num_iterations;
+  options.max_num_iterations = 3;  // options_.max_num_iterations;
   options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);

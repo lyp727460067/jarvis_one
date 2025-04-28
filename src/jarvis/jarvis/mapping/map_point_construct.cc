@@ -394,7 +394,7 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
   //
   const KeyFrameId pre_id = std::prev(key_frames_datas.end())->id;
   const auto connect_frames_temp_1 =
-      local_map.GetCovisibility()->GetOrderConnectedKeyFrames(pre_id, 20);
+      local_map.GetCovisibility()->GetOrderConnectedKeyFrames(pre_id, 40);
   std::set<KeyFrameId> connect_key_frames_ids;
   for (const auto &id : connect_frames_temp_1) {
     connect_key_frames_ids.insert(id.first);
@@ -413,17 +413,17 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
                        current_id_data->pose)
                           .translation()
                           .norm();
-    // if (delta_pose < options_.con_struct_map_point_frame_min_distance) continue;
+    if (delta_pose < options_.con_struct_map_point_frame_min_distance) continue;
     connect_frames_temp.emplace_back(near_id, 0);
 
     // connected_key_frame_ids.insert(near_id);
   }
 
   
-  // if (connect_frames_temp.empty()) return;
-  // double min_angle = -10;
-  // double sencode_min_angle = -10;
-  //
+  if (connect_frames_temp.empty()) return;
+  double min_angle = -10;
+  double sencode_min_angle = -10;
+  
   std::vector<std::pair<KeyFrameId, int>> connect_frames = connect_frames_temp;
   // // //
   // KeyFrameId min_key_frame_id(-1, 0);
