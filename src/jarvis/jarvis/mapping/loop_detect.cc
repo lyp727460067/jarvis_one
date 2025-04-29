@@ -49,6 +49,7 @@ void LoopDetect::Detect(
   //     &loop_result_catchs_.back();
 
   // LOG(INFO)<<loop_result_catchs_.size();
+  LOG(INFO)<<local_map.first;
   std::map<KeyFrameId, KeyFrameData> kf_datas_temp = kf_datas;
   //
   if (!data_base_insert_task_hanlde.count(local_map.first)) {
@@ -84,6 +85,7 @@ void LoopDetect::Detect(
         std::lock_guard<std::mutex> lock(mutex_);
         loop_result->local_map_id =   local_map.first;
         loop_result_catchs_.push_back(std::move(loop_result));
+        LOG(INFO) << "local map id:" << local_map.first;
         // CHECK((*this_kf_result_catch_ptr) == nullptr)<<this_kf_result_catch_ptr;
         // (*this_kf_result_catch_ptr) = std::move(loop_result);
         return ;
@@ -516,8 +518,7 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   inliner = RemoveOutliersRejection(target_kf_data.data->extric_camera_to_imu,
                                     candidate_additional_map_points_datas,
                                     target_kf_data.data->features, init_pose,
-                                   0.2,
-                                    candidate_additional_map_points_ids);
+                                    0.1, candidate_additional_map_points_ids);
   for (int i = 0; i < options_.max_num_iterations; i++) {
     //
     if (inliner < options_.pnp_optimize_min_iniler) {
@@ -711,7 +712,8 @@ int LoopDetect::RemoveOutliersRejection(
     //
     transform::Rigid3d exti = extric_camera_to_imu
         [options_.track_sequence[constraist_matchs.first.sequence_id][0]];
-
+    CHECK(map_points.count(constraist_matchs.second));
+    CHECK(target_features.Contains(constraist_matchs.first));
     float err = ReprojectionError(
         map_points.at(constraist_matchs.second), pose * exti,
         target_features.at(constraist_matchs.first).f.head<2>());
@@ -769,7 +771,7 @@ transform::Rigid3d LoopDetect::Optimize(
         candidate_kf_data.data->features.at(match_id.first);
     problem.AddResidualBlock(
         ReProjectionErr::Creat(nomal_point.f.head<2>(), mp_pos, weight[0]),
-      new ceres::HuberLoss(5.0) , traslation.data(), rotation.coeffs().data(),
+        new ceres::HuberLoss(1.0), traslation.data(), rotation.coeffs().data(),
         ex_traslation[match_id.first.sequence_id].data(),
         ex_rotation[match_id.first.sequence_id].coeffs().data());
     //

@@ -688,7 +688,6 @@ builder_ = std::make_unique<TrajectorBuilder>(
       // if(tracking_data.status==2){
       //   KImuExtrapolator->AddState(data.data->time, data.data->imu_state);
       // }
-      LOG(INFO)<<data.data->time;
       auto start = std::chrono::high_resolution_clock::now();
       auto slipe_alignment_pose = tracking_data.data->imu_state.Pose();
       if (slip_detect) {
@@ -701,13 +700,14 @@ builder_ = std::make_unique<TrajectorBuilder>(
                   << " " << int(flag) << std::endl;
 
         ros_compont->PubBoolMsg(flag);
-        // slipe_alignment_pose =
-        //     slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
+  
       }
       // LOG(INFO) << tracking_data.data->imu_state;
       if (kRecordFlag) {
+        auto slipe_alignment_pose_temp =
+            slip_detect->ToPoseInOdom((tracking_data.data->imu_state.Pose()));
         const auto pose =
-            slipe_alignment_pose;  // tracking_data.data->imu_state.Pose();
+            slipe_alignment_pose_temp;  // tracking_data.data->imu_state.Pose();
         std::stringstream info;
         info << std::to_string(uint64_t(
                     jarvis::common::ToUniversal(tracking_data.data->time) *
@@ -717,8 +717,8 @@ builder_ = std::make_unique<TrajectorBuilder>(
              << " " << pose.rotation().x() << " " << pose.rotation().y() << " "
              << pose.rotation().z();
         kOPoseFile << info.str() << std::endl;
+        LOG(INFO)<<info.str();
       }
-
       ros_compont->PushMark({{"vo", slipe_alignment_pose}}, true);
 
       // ros_compont->PushMark({{"vo", tracking_data.data->imu_state.Pose()}},

@@ -75,7 +75,7 @@ local_map_track_option:
   align_1d : 0
   scan_on_unit_sphere: 0
   max_epi_search_steps : 1
-  min_update_squared : 0.005   #0.03*0.03
+  min_update_squared : 0.003   #0.03*0.03
 
 track_local_map_opt_option:
   re_preject_weight: 1e2
@@ -105,7 +105,7 @@ map_manager_option:
   local_map_op_use_6dof : 0
   pose_graph_op_use_6dof: 0
   enable_local_map_full_op : 0
-  same_trajectory_max_loop_detect_distance : 50.0
+  same_trajectory_max_loop_detect_distance : 5.0
   max_loop_detct_distance : 60.0
   continuous_candidate_loop_frame : 10
   pose_graph_optimize_min_kf_min_num : 50
@@ -139,7 +139,7 @@ map_manager_option:
     convisi_level_search_num  : "{20,10}"
     pnp_solve_typ :0
     huber_loss : 1.0
-    outlier_min_err : 4.0
+    outlier_min_err : 1.0
     max_num_iterations : 2
     op_weight : 1e3
     op_init_t_weight : 10
@@ -150,13 +150,13 @@ map_manager_option:
     end_non_adjacent_id_count : 5
     constraint_consistent_filter_num : 5
     dbow_match_describe_distance_threashold : 80
-    dbow_search_match_num : 40
+    dbow_search_match_num : 50
     min_pnp_need_features_num : 30
-    min_pnp_inliers_num : 10
-    test_match_pic_write_path :  ""  #  "/home/lyp/project/vslam/jarvis/test/image/"
+    min_pnp_inliers_num : 30
+    test_match_pic_write_path :    "/home/lyp/project/vslam/jarvis/test/image/"
     constraint_max_yaw : 50
     constraint_max_distance : 30
-    pnp_optimize_min_iniler : 30
+    pnp_optimize_min_iniler : 40
     pnp_solver_option:
       min_inliers : 10
       probability : 0.99
@@ -179,7 +179,7 @@ map_manager_option:
       box_boundary_distance : 10
     key_frame_data_option:
       min_core :0.015
-      sharing_words_count_min_is_max_ration: 0.95
+      sharing_words_count_min_is_max_ration: 0.85
       min_shared_words_num  : 50
       min_distance_threash_hold : 3
 
@@ -211,7 +211,7 @@ map_point_construct_option:
   min_distance : 1
  # descriptor_option:  
  point_check_dist_epipolar_option:
-  check_dist_epipolar_line_cos_parallax : 0.999
+  check_dist_epipolar_line_cos_parallax : 0.9999
   first_cam_min_z_distance : 0.05
   first_cam_chi_squared : 5.991
   second_cam_min_z_distance : 0.05

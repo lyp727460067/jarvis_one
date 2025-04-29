@@ -394,7 +394,7 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
   //
   const KeyFrameId pre_id = std::prev(key_frames_datas.end())->id;
   const auto connect_frames_temp_1 =
-      local_map.GetCovisibility()->GetOrderConnectedKeyFrames(pre_id, 40);
+      local_map.GetCovisibility()->GetOrderConnectedKeyFrames(pre_id, 20);
   std::set<KeyFrameId> connect_key_frames_ids;
   for (const auto &id : connect_frames_temp_1) {
     connect_key_frames_ids.insert(id.first);
@@ -474,7 +474,6 @@ void MapPointConstruct::ConStructExtendMapPoints(const LocalMap &local_map,
     std::stringstream info;
     int new_construct_map_point_size = 0;
     int tracking_construct_map_point_size = 0;
-    LOG(INFO)<<paired_idex.size();
 
 
     std::vector<std::pair<FeatureId, FeatureId>> check_paired_idex;

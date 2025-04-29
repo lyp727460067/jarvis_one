@@ -208,7 +208,6 @@ std::shared_ptr<LocalMap> MapManager::ReconstructLocalMap(
       std::make_shared<LocalMap>(*local_map);
   LocalMap &new_local_map = *new_local_map_ptr;
   //
-  LOG(INFO)<<local_map->LocalPose();
   for (const auto &kf_data : local_map->AllKeyFrameDatas()) {
     // if (previous_local_map_trimed_key_frames_id_.count(kf_data.id)) continue;
     KeyFrameData data = kf_data.data;
@@ -247,7 +246,7 @@ void  MapManager::AddLocalMap(int trajectory,
     UpdataActiveTrackLocalMap(local_map);
     //
 
-    new_local_map->UpdadataExtendFinishData(false);
+    new_local_map->UpdadataExtendFinishData(true);
     UpdateKeyframeDataUsingPrunedLocalMap(local_map);
     PruneRedundantLocalMap(local_map_id);
     //
@@ -376,20 +375,35 @@ void MapManager::Optimization(
   pose_graph_optimizer_->Solve(pose_constraints_);
   auto global_local_map_pose = pose_graph_optimizer_->GetPoseGraphLocalMapPose();
   auto global_kf_pose = pose_graph_optimizer_->GetPoseGraphNodePose();
+  
   for (const auto &g_pose : global_local_map_pose) {
     local_maps_.at(g_pose.first).globla_pose =
         transform::Rigid3d(g_pose.second.t, g_pose.second.q);
   }
   //
   KeyFrameId last_key_frame_id(0, 0);
-  for (const auto &g_pose : global_kf_pose) {
-    key_frames_datas_.at(g_pose.first).global_pose =
-        transform::Rigid3d(g_pose.second.t, g_pose.second.q);
-    last_key_frame_id = g_pose.first;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto &g_pose : global_kf_pose) {
+      key_frames_datas_.at(g_pose.first).global_pose =
+          transform::Rigid3d(g_pose.second.t, g_pose.second.q);
+      last_key_frame_id = g_pose.first;
+    }
   }
   local_to_global_transform_ =
       key_frames_datas_.at(last_key_frame_id).global_pose.inverse() *
       key_frames_datas_.at(last_key_frame_id).data->pose;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto last_update_it = key_frames_datas_.lower_bound(
+        last_key_frame_id.trajectory_id,
+        key_frames_datas_.at(last_key_frame_id).data->time);
+    for (auto it = last_update_it; it != key_frames_datas_.end(); ++it) {
+      key_frames_datas_.at(it->id).global_pose =
+          local_to_global_transform_ * it->data.data->pose;
+    }
+  }
+
   //
   //跟新没有优化的pose
 }
@@ -397,6 +411,7 @@ void MapManager::Optimization(
 std::map<KeyFrameId, transform::TimestampedTransform>
 MapManager::GetAllKeyFramePose() {
   std::map<KeyFrameId, transform::TimestampedTransform> result;
+  std::lock_guard<std::mutex> lock(mutex_);
   for (const auto &key_frame_data : key_frames_datas_) {
     result.emplace(key_frame_data.id, transform::TimestampedTransform{
                                           key_frame_data.data.data->time,
