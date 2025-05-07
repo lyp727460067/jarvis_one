@@ -211,7 +211,7 @@ map_point_construct_option:
   min_distance : 1
  # descriptor_option:  
  point_check_dist_epipolar_option:
-  check_dist_epipolar_line_cos_parallax : 0.999
+  check_dist_epipolar_line_cos_parallax : 0.9999
   first_cam_min_z_distance : 0.05
   first_cam_chi_squared : 5.991
   second_cam_min_z_distance : 0.05

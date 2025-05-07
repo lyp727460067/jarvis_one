@@ -349,16 +349,16 @@ void LocalMap::TrimRedundancy() {
     data_culling_->CullingMapSimilarMap(c_id);
     // data_culling_->KeyFrameCulling(c_id);
   }
-  // std::set<MapPointId> less_map_points_ids;
-  // for (const auto &map_point_id : data_.map_points) {
-  //   if (data_.covisibility.GetMapObservations(map_point_id.id).size() < 2) {
-  //     less_map_points_ids.insert(map_point_id.id);
-  //   }
-  // }
-  // for (auto &id : less_map_points_ids) {
-  //   data_.covisibility.TrimMapPoint(id);
-  //   data_.map_points.Trim(id);
-  // }
+  std::set<MapPointId> less_map_points_ids;
+  for (const auto &map_point_id : data_.map_points) {
+    if (data_.covisibility.GetMapObservations(map_point_id.id).size() < 2) {
+      less_map_points_ids.insert(map_point_id.id);
+    }
+  }
+  for (auto &id : less_map_points_ids) {
+    data_.covisibility.TrimMapPoint(id);
+    data_.map_points.Trim(id);
+  }
 }
 //
 //
