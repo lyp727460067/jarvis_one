@@ -58,7 +58,7 @@ class Covisibility {
   //
   std::vector<KeyFrameId> GetKeyLevelConnectedKeyFrames(
       const KeyFrameId& frame_id, const std::vector<int>& levels)const;
-
+  std::set<MapPointId> TrimLessMapPoint(const KeyFrameId& id);
  private:
   //
   std::map<KeyFrameId, std::map<KeyFrameId, int>>

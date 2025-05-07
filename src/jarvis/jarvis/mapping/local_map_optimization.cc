@@ -80,7 +80,7 @@ int LocalMapOptimization::RemoveOutliersRejection(
           local_map_data->covisibility.GetMapPointFeatureIndex(kf_id, mp.id);
       err_sum += ReprojectionError(
           mp.data.data->pos,
-          all_ref_pose[kf_id] *
+          all_ref_pose.at(kf_id) *
               ToTransform(extric_camera_to_imu_[feat_id.sequence_id]),
           local_map_data->key_frames_datas.at(kf_id)
               .data->features.at(feat_id)
@@ -176,13 +176,13 @@ void LocalMapOptimization::StrategyOptimize(
       ceres_map_points[local_map.first].emplace(mp.id, pos);
     }
   }
-  for (auto it = repeat_map_points.begin(); it != repeat_map_points.end();) {
-    if (it->second.size() < 2) {
-      it = repeat_map_points.erase(it);
-    } else {
-      ++it;
-    }
-  }
+  // for (auto it = repeat_map_points.begin(); it != repeat_map_points.end();) {
+  //   if (it->second.size() < 2) {
+  //     it = repeat_map_points.erase(it);
+  //   } else {
+  //     ++it;
+  //   }
+  // }
   //
 
   LOG(INFO) << "Local op local mp size:" << local_maps->size();
@@ -198,37 +198,69 @@ void LocalMapOptimization::StrategyOptimize(
       const auto mp_obsers = local_maps->at(local_map.first)
                                  ->GetCovisibility()
                                  ->GetMapPointObserv(mp_id.first);
+      LOG(INFO)<<mp_obsers.size();
+      // if( mp_obsers.size()<2)continue;
 
       for (const auto& ob_kf_f : mp_obsers) {
-        const double weitht = options_.relative_weight;
+        const double weitht = options_.re_preject_weight;
+        // if (ceres_poses.at(local_map.first).count(ob_kf_f.first) == 0 /* ||
+        //   adjacent_kfs.count(ob_kf_f.first) == 0*/) {
+        //   transform::Rigid3d pose_local_pose =
+        //       kf_rf_frames_poses.at(ob_kf_f.first);
+        //   const Eigen::Vector3d ypr =
+        //       transform::Rot2ypr(
+        //           pose_local_pose.rotation().toRotationMatrix()) *
+        //       M_PI / 180.;
 
-        CHECK(ceres_poses.count(local_map.first));
-        CHECK(ceres_map_points.count(local_map.first));
-        CHECK(ceres_local_map_poses.count(local_map.first));
+        //   ceres_poses.emplace(
+        //       ob_kf_f.first,
+        //       NodePose{pose_local_pose.translation(),
+        //                pose_local_pose.rotation(),
+        //                {ypr[0], ypr[1], ypr[2]},
+        //                all_kf_frames.at(ob_kf_f.first).data->pose});
+        //   problem.AddParameterBlock(
+        //       ceres_poses.at(local_map.first).at(ob_kf_f.first).t.data(), 3);
+        //   problem.AddParameterBlock(
+        //       &ceres_poses.at(local_map.first).at(ob_kf_f.first).ypr[0], 1);
+        //   problem.SetParameterBlockConstant(
+        //       ceres_poses.at(local_map.first).at(ob_kf_f.first).t.data());
+        //   problem.SetParameterBlockConstant(
+        //       &ceres_poses.at(local_map.first).at(ob_kf_f.first).ypr[0]);
+        // }
+        CHECK( all_kf_frames.Contains(ob_kf_f.first));
+        CHECK(all_kf_frames.at(ob_kf_f.first)
+                  .data->features.Contains(ob_kf_f.second));
+        //
         problem.AddResidualBlock(
             FourReProjectionBaErr::Creat(
                 all_kf_frames.at(ob_kf_f.first)
                     .data->features.at(ob_kf_f.second)
                     .f,
-                ceres_poses[local_map.first].at(ob_kf_f.first).ypr[2],
-                ceres_poses[local_map.first].at(ob_kf_f.first).ypr[1], weitht),
-            new ceres::HuberLoss(options_.huber_loss),
-            ceres_poses[local_map.first].at(ob_kf_f.first).t.data(),
-            &ceres_poses[local_map.first].at(ob_kf_f.first).ypr[0],
+                ceres_poses.at(local_map.first).at(ob_kf_f.first).ypr[2],
+                ceres_poses.at(local_map.first).at(ob_kf_f.first).ypr[1],
+                weitht),
+            // new ceres::HuberLoss(options_.huber_loss),
+            nullptr, ceres_poses.at(local_map.first).at(ob_kf_f.first).t.data(),
+            &ceres_poses.at(local_map.first).at(ob_kf_f.first).ypr[0],
             extric_camera_to_imu_[ob_kf_f.second.sequence_id].t.data(),
             extric_camera_to_imu_[ob_kf_f.second.sequence_id].q.coeffs().data(),
-            ceres_map_points[local_map.first].at(mp_id.first).data());
-      }
-      if (repeat_map_points.count(mp_id.first) &&
-          local_map.first != fix_local_map_id) {
-        problem.AddResidualBlock(
-            RepeatMapPointErr::Creat(options_.repeat_mp_weight), nullptr,
-            ceres_map_points[fix_local_map_id].at(mp_id.first).data(),
-            ceres_map_points[local_map.first].at(mp_id.first).data(),
-            ceres_local_map_poses[local_map.first].t.data(),
-            &ceres_local_map_poses[local_map.first].ypr[0]);
+            ceres_map_points.at(local_map.first).at(mp_id.first).data());
+
+        problem.SetParameterBlockConstant(
+            ceres_poses.at(local_map.first).at(ob_kf_f.first).t.data());
+        problem.SetParameterBlockConstant(
+            &ceres_poses.at(local_map.first).at(ob_kf_f.first).ypr[0]);
       }
     }
+      // if (repeat_map_points.count(mp_id.first) &&
+      //     local_map.first != fix_local_map_id) {
+      //   problem.AddResidualBlock(
+      //       RepeatMapPointErr::Creat(options_.repeat_mp_weight), nullptr,
+      //       ceres_map_points[fix_local_map_id].at(mp_id.first).data(),
+      //       ceres_map_points[local_map.first].at(mp_id.first).data(),
+      //       ceres_local_map_poses[local_map.first].t.data(),
+      //       &ceres_local_map_poses[local_map.first].ypr[0]);
+      // }
     //
 
     //
@@ -296,7 +328,10 @@ void LocalMapOptimization::StrategyOptimize(
   //
 
   ceres::Solver::Options options;
+  options.trust_region_strategy_type = ceres::DOGLEG;
+  options.sparse_linear_algebra_library_type = ceres::SUITE_SPARSE;
   options.minimizer_progress_to_stdout = false;
+  options.use_explicit_schur_complement = true;
   options.max_num_iterations = options_.max_num_iterations;
   options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   ceres::Solver::Summary summary;
@@ -304,8 +339,8 @@ void LocalMapOptimization::StrategyOptimize(
   ceres::Solve(options, &problem, &summary);
   LOG(INFO) << log_info::RED << summary.FullReport() << log_info::RESET;
   //
-
   //
+  // CHECK(false);
 }
 //
 

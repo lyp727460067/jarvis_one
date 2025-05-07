@@ -64,7 +64,9 @@ class MapPointConstruct {
       std::shared_ptr<LocalMapMatchResult> track_data = nullptr);
 
   //
-  bool ConstructExtend(const LocalMap& local_map, KeyFrameData::Data* data);
+  bool ConstructExtend(
+      const LocalMap& local_map, KeyFrameData::Data* data,
+      std::map<KeyFrameId, std::map<MapPointId, FeatureId>>* connect_data);
   //
   bool ExtractExtendData(const LocalMap& local_map, KeyFrameData::Data* data);
   //
@@ -86,8 +88,9 @@ class MapPointConstruct {
   void UpdateConnectMapPointProjectMatchSearch(
       const LocalMap& local_map, KeyFrameData::Data& kf_data);
   //
-  void ConStructExtendMapPoints(const LocalMap& local_map,
-                                KeyFrameData::Data& kf_data);
+  void ConStructExtendMapPoints(
+      const LocalMap& local_map, KeyFrameData::Data& kf_data,
+      std::map<KeyFrameId, std::map<MapPointId, FeatureId>>* connect_data);
   //
   MapPointConstructOption options_;
   std::map<int, camera_models::CameraPtr> cameras_;

@@ -452,6 +452,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
   drop_sample_->Pulse();
   for (const auto& image : images_datas) {
     //
+    usleep(30000);
     time = image.second.time;
     // if(time<22709841922900)continue;
     // LOG(INFO) << "image time : " << image.second.time

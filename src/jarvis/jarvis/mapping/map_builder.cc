@@ -190,32 +190,23 @@ void MappingBuilder::LocalTrackOptimize(
     *op_local_maps[{0, op_local_maps.size() - 1}] = *local_map_front_;
   }
   //
-  if (options_.enable_track_map_opti && track_local_map_op_sampler_->Pulse()) {
-    work_item_queue_->AddWorkItem([this, op_local_maps]() {
-      //
-      std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_temp =
-          op_local_maps;
-      if (op_local_maps_temp.size() == 2) {
-        if (op_local_maps_temp.size() == 2) {
-          op_local_maps_temp.erase(op_local_maps_temp.begin());
+  std::map<LocalMapId, std::shared_ptr<LocalMap>> op_local_maps_temp =
+      op_local_maps;
+  if (op_local_maps_temp.size() == 2) {
+    if (op_local_maps_temp.size() == 2) {
+      op_local_maps_temp.erase(op_local_maps_temp.begin());
 
-          // TrackLocalMapOptimize(finish_track_local_map_opimization_.get(),
-          //                       &op_local_maps_temp);
-        }
-
-        return WorkItem::Result::Normal;
-      }
-      if (op_local_maps_temp.rbegin()->second->Size() >
-          options_.local_map_option.max_kf_num) {
-        if (op_local_maps_temp.size() == 2) {
-          op_local_maps_temp.erase(op_local_maps_temp.begin());
-        }
-        TrackLocalMapOptimize(track_local_map_opimization_.get(),
-                              &op_local_maps_temp);
-      }
-
-      return WorkItem::Result::Normal;
-    });
+      // TrackLocalMapOptimize(finish_track_local_map_opimization_.get(),
+      //                       &op_local_maps_temp);
+    }
+  }
+  if (op_local_maps_temp.rbegin()->second->Size() >
+      options_.local_map_option.max_kf_num) {
+    if (op_local_maps_temp.size() == 2) {
+      op_local_maps_temp.erase(op_local_maps_temp.begin());
+    }
+    TrackLocalMapOptimize(track_local_map_opimization_.get(),
+                          &op_local_maps_temp);
   }
 }
 //
@@ -263,7 +254,8 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
         local_map_front_ = active_local_maps_->GetLocalMap().front();
       }
 
-      if (options_.enable_track_map_opti) {
+      if (options_.enable_track_map_opti &&
+          track_local_map_op_sampler_->Pulse()) {
         work_item_queue_->AddWorkItem([this, last_local_map_front]() {
           LocalTrackOptimize(last_local_map_front);
           return WorkItem::Result::Normal;

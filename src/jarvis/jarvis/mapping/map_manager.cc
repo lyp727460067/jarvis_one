@@ -211,9 +211,15 @@ std::shared_ptr<LocalMap> MapManager::ReconstructLocalMap(
   for (const auto &kf_data : local_map->AllKeyFrameDatas()) {
     // if (previous_local_map_trimed_key_frames_id_.count(kf_data.id)) continue;
     KeyFrameData data = kf_data.data;
-    map_point_construct_->ConstructExtend(*new_local_map_ptr, data.data.get());
+    std::map<KeyFrameId, std::map<MapPointId, FeatureId>> connect_data;
+    map_point_construct_->ConstructExtend(*new_local_map_ptr, data.data.get(), &connect_data);
     //
+
     new_local_map.AddKeyFrameData(kf_data.id, data);
+    for (const auto &data : connect_data) {
+      new_local_map.MutableData()->covisibility.UpdateWithFrameData(
+          data.first, std::move(connect_data[data.first]));
+    }
   }
 
   //

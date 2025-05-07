@@ -175,11 +175,17 @@ LoopDetect::ComputePnpPose(std::shared_ptr<LocalMap> local_map,
   auto const& target_key_points = target_data.data->features;
   auto const& target_dbow_vec = target_data.data->dbow_data;
   //
+  std::map<FeatureId, MapPointId> has_mp_id_contain;
+  for (const auto& id : candidata_data.data->map_point_ids) {
+    if (local_map->AllMapPoints().Contains(id.second)) {
+      has_mp_id_contain.insert(id);
+    }
+  }
+
   auto paired_id = match::DbowFindMathed(
       target_descriptor, candidata_data.data->descriptors,
       target_data.data->dbow_data, candidata_data.data->dbow_data,
-      options_.dbow_match_describe_distance_threashold,
-      candidata_data.data->map_point_ids);
+      options_.dbow_match_describe_distance_threashold, has_mp_id_contain);
 
   std::map<int, int> s_num;
   for (int i = 0; i < paired_id.size(); i++) {
@@ -463,23 +469,24 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
   //   }
   // }
 
-  if (candidate_projection_to_target_kf_id.size() <
-          options_.candidata_reproject_min_num/* ||
-      target_projection_to_candidate_kf_id.size() <
-          options_.candidata_reproject_min_num*/) {
-    LOG(WARNING) << "CheckValidityByProjections  "
-                 << candidate_projection_to_target_kf_id.size() << " "
-                 << options_.candidata_reproject_min_num;
+  // if (candidate_projection_to_target_kf_id.size() <
+  //         options_.candidata_reproject_min_num/* ||
+  //     target_projection_to_candidate_kf_id.size() <
+  //         options_.candidata_reproject_min_num*/) {
+  //   LOG(WARNING) << "CheckValidityByProjections  "
+  //                << candidate_projection_to_target_kf_id.size() << " "
+  //                << options_.candidata_reproject_min_num;
 
-    //  << " target_projection_to_candidate_kf_id size: "
-    //  << target_projection_to_candidate_kf_id.size();
+  //   //  << " target_projection_to_candidate_kf_id size: "
+  //   //  << target_projection_to_candidate_kf_id.size();
 
-    return nullptr;
-  }
+  //   return nullptr;
+  // }
   //
   std::set<MapPointId> already_matched_mp_ids;
   std::set<FeatureId> already_matched_feats;
   for (const auto& match_id : pnp_pose.second) {
+    
     already_matched_mp_ids.insert(
         candidate_kf_data.data->map_point_ids.at(match_id.first));
     already_matched_feats.insert(match_id.second);
@@ -494,11 +501,11 @@ std::unique_ptr<LoopDetctResult> LoopDetect::ComputeConstraint(
             << "size :" << candidate_additional_map_points_ids.size()
             << log_info::RESET;
   for (const auto& match_id : pnp_pose.second) {
+
     candidate_additional_map_points_ids.emplace_back(
         match_id.second,
         candidate_kf_data.data->map_point_ids.at(match_id.first));
   }
-
 
   std::map<MapPointId, Eigen::Vector3d> candidate_additional_map_points_datas;
   //

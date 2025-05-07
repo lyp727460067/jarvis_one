@@ -32,7 +32,7 @@ local_map_option:
   viewing_angle : 0.5
   area_search_radius : 2
   project_pix_err : 8.99
-  best_map_fuse_des_dis : 120
+  best_map_fuse_des_dis : 70
   fisrt_covisible_num : 10
   second_covisible_num : 20
   map_culling_obs : 5
@@ -104,12 +104,12 @@ finish_track_local_map_opt_option:
 map_manager_option: 
   local_map_op_use_6dof : 0
   pose_graph_op_use_6dof: 0
-  enable_local_map_full_op : 0
-  same_trajectory_max_loop_detect_distance : 5.0
+  enable_local_map_full_op : 1
+  same_trajectory_max_loop_detect_distance : 50.0
   max_loop_detct_distance : 60.0
   continuous_candidate_loop_frame : 10
   pose_graph_optimize_min_kf_min_num : 50
-  constraint_compute_sampler : 0.1
+  constraint_compute_sampler : 0.3
   global_constraint_search_after_n_seconds : 10
   ##
   local_map_optimization_option:
@@ -150,13 +150,13 @@ map_manager_option:
     end_non_adjacent_id_count : 5
     constraint_consistent_filter_num : 5
     dbow_match_describe_distance_threashold : 80
-    dbow_search_match_num : 50
-    min_pnp_need_features_num : 30
-    min_pnp_inliers_num : 30
-    test_match_pic_write_path :    "/home/lyp/project/vslam/jarvis/test/image/"
+    dbow_search_match_num : 30
+    min_pnp_need_features_num : 10
+    min_pnp_inliers_num : 8
+    test_match_pic_write_path :  "" # "/home/lyp/project/vslam/jarvis/test/image/"
     constraint_max_yaw : 50
     constraint_max_distance : 30
-    pnp_optimize_min_iniler : 40
+    pnp_optimize_min_iniler : 20
     pnp_solver_option:
       min_inliers : 10
       probability : 0.99
@@ -195,14 +195,14 @@ map_point_construct_option:
  dbow_trasform_level : 4
  area_search_grid_lenth : 10
  construct_map_point_near_keframd_num : 20
- dbow_match_min_distance : 100
+ dbow_match_min_distance : 70
  ##
  track_project_search_option:
   viewing_angle_threash_hold : 0.5
-  area_search_radius : 10
+  area_search_radius : 20
   project_pix_err : 0.0
-  project_best_des_dis : 120
-  box_boundary_distance : 10
+  project_best_des_dis : 80
+  box_boundary_distance : 20
 
  key_points_extract_option:
   type : 0
@@ -211,7 +211,7 @@ map_point_construct_option:
   min_distance : 1
  # descriptor_option:  
  point_check_dist_epipolar_option:
-  check_dist_epipolar_line_cos_parallax : 0.9999
+  check_dist_epipolar_line_cos_parallax : 0.999
   first_cam_min_z_distance : 0.05
   first_cam_chi_squared : 5.991
   second_cam_min_z_distance : 0.05

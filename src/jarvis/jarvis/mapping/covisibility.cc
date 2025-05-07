@@ -2,7 +2,7 @@
 namespace jarvis {
 namespace mapping {
 //
-constexpr int kMinCoviNumm = 10;
+constexpr int kMinCoviNumm = 4;
 //
 
 //
@@ -137,7 +137,19 @@ void Covisibility::TrimMapPoint(const MapPointId& map_point_id) {
   map_point_observe_frames_.erase(map_point_id);
 }
 //
-
+std::set<MapPointId> Covisibility::TrimLessMapPoint(const KeyFrameId& id) {
+  std::set<MapPointId> result;
+  auto const& map_points_for_frame = key_frame_feature_data_[id];
+  for (auto const& map_point_id : map_points_for_frame) {
+    CHECK_NE(map_point_observe_frames_.count(map_point_id.first), size_t(0))
+        << map_point_id.first << " Not exist";
+    if (map_point_observe_frames_[map_point_id.first].size() <= size_t(2)) {
+      result.insert(map_point_id.first);
+    }
+  }
+  return result;
+}
+//
 std::set<MapPointId> Covisibility::TrimKeyFrame(const KeyFrameId& id) {
   if (covisible_frames_.count(id) == 0 ||
       key_frame_feature_data_.count(id) == 0) {
