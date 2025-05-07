@@ -72,6 +72,7 @@ void MapManager::ComputeConstaints(const KeyFrameId &nid,
     }
     new_local_map_id_.reset();
   }
+  loop_detect_kf_sampler_->Pulse();
 }
 //
 void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
@@ -96,7 +97,7 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
     }
 
   } else if (1) {
-    return;
+    
   }
   std::map<KeyFrameId, KeyFrameData> continuous_ids;
   for (int i = -options_.continuous_candidate_loop_frame / 2;

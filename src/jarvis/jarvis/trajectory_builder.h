@@ -50,7 +50,7 @@ class TrajectorBuilder {
 
   virtual ~TrajectorBuilder();
  private:
-  void ReSet();
+  void ReSet(bool);
   std::unique_ptr<mapping::dbow::Vocabulary> voc_;
   TrajectorBuilderOption options_;
   std::unique_ptr<mapping::MappingBuilder> map_builder_;

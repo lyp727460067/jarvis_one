@@ -88,6 +88,7 @@ class MappingBuilder {
   void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
   //
   //
+  void ResetActiveLocalMap(int t);
  private:
   void TrackLocalMapOptimize(LocalMapOptimization*,
                              std::map<LocalMapId, std::shared_ptr<LocalMap>>*);

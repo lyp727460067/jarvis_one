@@ -90,6 +90,7 @@ MappingBuilder::MappingBuilder(const MapBuilderOption &option,
   LocalMapOption local_map_option = options_.local_map_option;
   local_map_option.cameras = options_.cameras;
   local_map_option.image_boxs = options_.image_boxs;
+  options_.local_map_option = local_map_option;
   active_local_maps_ = std::make_unique<ActiveLocalMap>(local_map_option);
   //
 
@@ -161,7 +162,18 @@ void MappingBuilder::UpdataActiveWithOpLocal(
 }
 
 //
-
+void MappingBuilder::ResetActiveLocalMap(int t) {
+  auto active_local_maps = active_local_maps_->GetLocalMap();
+  if (!active_local_maps.empty()) {
+    std::shared_ptr<LocalMap> front_local_map_front = active_local_maps.front();
+    map_manager_->AddLocalMap(t, front_local_map_front);
+  }
+  //
+  active_local_maps_ =
+      std::make_unique<ActiveLocalMap>(options_.local_map_option);
+  local_map_front_ = nullptr;
+  local_map_match_result_catch_.clear();
+}
 //
 void MappingBuilder::TrackLocalMapOptimize(
     LocalMapOptimization *optimizer,

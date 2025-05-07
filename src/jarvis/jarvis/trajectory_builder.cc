@@ -43,10 +43,16 @@ TrajectorBuilder::TrajectorBuilder(const TrajectorBuilderOption &option,
 }
 //
 
-void TrajectorBuilder::ReSet() {
+void TrajectorBuilder::ReSet(bool f) {
   tracker_ = std::make_unique<estimator::Estimator>(options_.esti_option);
   //等上了后端的时候map_builder_就不需要重新启动了
-  map_builder_ = std::make_unique<MappingBuilder>(options_.mapping_option,voc_.get());
+  if (!f) {
+    map_builder_ =
+        std::make_unique<MappingBuilder>(options_.mapping_option, voc_.get());
+  } else {
+    map_builder_->ResetActiveLocalMap(trajector_);
+    trajector_++;
+  }
   if (options_.mapping_option.enable_local_track) {
     tracker_->SetPriorFactorFunction(
         [&](const TrackingData &track_data)
@@ -72,7 +78,8 @@ void TrajectorBuilder::AddImageData(const sensor::ImageData &images) {
   estimator_state_ = tracking_data->front_data.status;
   if (tracking_data->front_data.status == 0) {
     LOG(ERROR) << "Lost ....restart ..";
-    ReSet(); 
+    ReSet(map_builder_!=nullptr);
+   
   }
   if (tracking_data->front_data.status == 2) {
     if (map_builder_) {
