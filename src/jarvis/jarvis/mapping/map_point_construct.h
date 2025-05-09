@@ -39,6 +39,7 @@ struct MapPointConstructOption {
   DescriptorExtractOption descriptor_option;
   match::ProjectionOption track_project_search_option;
   bool use_local_track_match =false;
+  int mask_radius =  5;
   struct DistEpipolarLineOption {
     float check_dist_epipolar_line_cos_parallax = 0.9998;
     float first_cam_min_z_distance = 0.05;
@@ -72,6 +73,8 @@ class MapPointConstruct {
   //
   MapPointId AppendMapPointId(const std::pair<int, uint64_t>* tracking_id);
   void GenerateForExtendKeyPoint(KeyFrameData::Data& data);
+  void AddTrackLocalMapData(KeyFrameData* data,
+                            std::shared_ptr<LocalMapMatchResult> track_data);
 
  private:
   //

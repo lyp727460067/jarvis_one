@@ -53,9 +53,10 @@ MapManager::MapManager(const MapManagerOption &option,
   loop_detect_kf_sampler_ = std::make_unique<common::FixedRatioSampler>(
       options_.constraint_compute_sampler);
   //
+  //
+  options_.local_map_track_option.thread_pool = thread_pool;
   local_map_track_ =
-        std::make_unique<LocalMapTrack>(option.local_map_track_option);
-
+      std::make_unique<LocalMapTrack>(options_.local_map_track_option);
 }
 
 void MapManager::ComputeConstaints(const KeyFrameId &nid,
@@ -128,37 +129,43 @@ void MapManager::ComputeLoopConstaint(const LocalMapId &local_map_id,
 //
 void MapManager::ExtendedKeyFrameData(const LocalMap &local_map,
                                       const KeyFrameId &id,
-                                      KeyFrameData::Data* data) {
-   if(!enable_loop_closure_)return ;
-   //
-   std::shared_ptr<LocalMap> local_map_temp =
-       std::make_shared<LocalMap>(local_map);
-   //
-   *local_map_temp = local_map;
-   work_item_queue_->AddWorkItem([=]() {
-     map_point_construct_->ExtractExtendData(*local_map_temp, data);
-
-     extend_key_frames_ids_.insert(id);
-     //
-     //
-     //
-     double covi_min_score = ComputeCovisibleMinScore(*local_map_temp, id);
-     ComputeConstaints(id, covi_min_score);
-     loop_detect_->NotifyFinish();
-     //
-     pose_graph_optimizer_->AddKeyFramePose(
-         id, KeyFramePoseTime{data->time, data->pose});
-     //
-     ++num_kf_num_since_last_loop_closure_;
-     if (options_.pose_graph_optimize_min_kf_min_num > 0 &&
-         num_kf_num_since_last_loop_closure_ >
-             options_.pose_graph_optimize_min_kf_min_num) {
-       num_kf_num_since_last_loop_closure_ = 0;
-       LOG(INFO)<<"WorkItem::Result::kInterruptForImmediateRun";
-       return WorkItem::Result::kInterruptForImmediateRun;
-     }
-     return WorkItem::Result::Normal;
-   });
+                                      const KeyFrameData &data_temp) {
+  if (!enable_loop_closure_) return;
+  //
+  std::shared_ptr<LocalMap> local_map_temp =
+      std::make_shared<LocalMap>(local_map);
+  //
+  *local_map_temp = local_map;
+  work_item_queue_->AddWorkItem([=]() {
+    KeyFrameData data = data_temp;
+    auto result_match =
+        local_map_track_->Track(local_map_temp, data);
+    //
+    if (result_match) {
+      map_point_construct_->AddTrackLocalMapData(&data, result_match);
+    }
+    map_point_construct_->ExtractExtendData(*local_map_temp, data.data.get());
+    extend_key_frames_ids_.insert(id);
+    //
+    //
+    //
+    double covi_min_score = ComputeCovisibleMinScore(*local_map_temp, id);
+    ComputeConstaints(id, covi_min_score);
+    loop_detect_->NotifyFinish();
+    //
+    pose_graph_optimizer_->AddKeyFramePose(
+        id, KeyFramePoseTime{data.data->time, data.data->pose});
+    //
+    ++num_kf_num_since_last_loop_closure_;
+    if (options_.pose_graph_optimize_min_kf_min_num > 0 &&
+        num_kf_num_since_last_loop_closure_ >
+            options_.pose_graph_optimize_min_kf_min_num) {
+      num_kf_num_since_last_loop_closure_ = 0;
+      LOG(INFO) << "WorkItem::Result::kInterruptForImmediateRun";
+      return WorkItem::Result::kInterruptForImmediateRun;
+    }
+    return WorkItem::Result::Normal;
+  });
 }
 //
 //

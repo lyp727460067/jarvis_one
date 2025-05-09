@@ -94,6 +94,8 @@ std::vector<cv::KeyPoint> KeyPointExtract::StrategyExtract(
   cv::Mat mask_temp = mask.clone();
   cv::Rect roi(0, 0, pyramid.cols, pyramid.rows / 2);
   mask_temp(roi) = cv::Scalar(255);
+  mask_temp &=mask;
+
 
   cv::goodFeaturesToTrack(pyramid, tmp_pts, extend_key_points_num_,
                           options_.minimal_accepted_quality_corners,
@@ -104,6 +106,7 @@ std::vector<cv::KeyPoint> KeyPointExtract::StrategyExtract(
     cv::Mat mask_temp = mask.clone();
     cv::Rect roi(0, pyramid.rows / 2, pyramid.cols, pyramid.rows / 2);
     mask_temp(roi) = cv::Scalar(255);
+    mask_temp &=mask;
     cv::goodFeaturesToTrack(pyramid, tmp_pts1, extend_key_points_num_/3,
                             options_.minimal_accepted_quality_corners,
                             options_.min_distance, mask_temp);

@@ -109,6 +109,7 @@ std::shared_ptr<LocalMapMatchResult> MappingBuilder::TrackLocalMap(
     auto result_match = local_map_track_->Track(
         local_map_front_,
         map_point_construct_->TrackDataToKeyFrameData(frame_data));
+
     if (result_match == nullptr) return nullptr;
     local_map_match_result_catch_[frame_data.data->time] = result_match;
 
@@ -279,9 +280,8 @@ void MappingBuilder::AddTrackingData(const int t, const TrackingData &data) {
       });
     }
     //
-    std::shared_ptr<KeyFrameData::Data> data = key_frame_data.data;
     map_manager_->ExtendedKeyFrameData(*local_map_front_, key_frame_id,
-                                       data.get());
+                                       key_frame_data);
   }
 }
 //

@@ -62,11 +62,25 @@ bool CheckDistEpipolarLine(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2,
 //
 }  // namespace
 //
+void MapPointConstruct::AddTrackLocalMapData(
+    KeyFrameData *data, std::shared_ptr<LocalMapMatchResult> track_data) {
+  if (track_data && options_.use_local_track_match) {
+    for (auto &match : track_data->matchs) {
+      auto feat_id = data->data->features.Append(
+          match.s,
+          FeatureData{cv::KeyPoint(match.key_point.x(), match.key_point.y(), 2),
+                      Eigen::Vector3d(match.normal.x(), match.normal.y(), 1)});
+      data->data->map_points.Insert(feat_id, match.map_point);
+      //
+      data->data->map_point_ids.emplace(feat_id, match.mp_point_id);
+    }
+  }
+}
 
 //
 KeyFrameData MapPointConstruct::TrackDataToKeyFrameData(
     const TrackingData &data, std::shared_ptr<LocalMapMatchResult> track_data) {
-  KeyFrameData result{std::make_shared<KeyFrameData::Data>(
+  mapping::KeyFrameData result{std::make_shared<KeyFrameData::Data>(
       KeyFrameData::Data{data.data->time, data.data->imu_state.Pose(),
                          data.data->extric_camera_to_imu,
                          data.data->images.Pyramid(), &options_.image_boxs})};
@@ -106,17 +120,9 @@ KeyFrameData MapPointConstruct::TrackDataToKeyFrameData(
       result.data->map_point_ids.emplace(feat_id, map_point_local_id);
     }
   }
-  if (track_data && options_.use_local_track_match) {
-    for (auto &match : track_data->matchs) {
-      auto feat_id = result.data->features.Append(
-          match.s,
-          FeatureData{cv::KeyPoint(match.key_point.x(), match.key_point.y(), 2),
-                      Eigen::Vector3d(match.normal.x(), match.normal.y(), 1)});
-      result.data->map_points.Insert(feat_id, match.map_point);
-      //
-      result.data->map_point_ids.emplace(feat_id, match.mp_point_id);
-    }
-  }
+  //
+  AddTrackLocalMapData(&result, track_data);
+  //
   return result;
 }
 //
@@ -212,10 +218,10 @@ cv::Mat MapPointConstruct::GenerateMask(
     const cv::Size &size, const std::vector<cv::KeyPoint> &exit_point) {
   cv::Mat mask(size, CV_8UC1, cv::Scalar(255));
   for (auto const &p : exit_point) {
-    cv::circle(mask, p.pt, 10, 0, -1);
+    cv::circle(mask, p.pt, options_.mask_radius, 0, -1);
   }
-  cv::imshow("mask",mask);
-  cv::waitKey(0);
+  // cv::imshow("mask",mask);
+  // cv::waitKey(1);
   return mask;
 }
 //

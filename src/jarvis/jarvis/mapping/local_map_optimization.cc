@@ -198,7 +198,7 @@ void LocalMapOptimization::StrategyOptimize(
       const auto mp_obsers = local_maps->at(local_map.first)
                                  ->GetCovisibility()
                                  ->GetMapPointObserv(mp_id.first);
-      LOG(INFO)<<mp_obsers.size();
+      // LOG(INFO)<<mp_obsers.size();
       // if( mp_obsers.size()<2)continue;
 
       for (const auto& ob_kf_f : mp_obsers) {

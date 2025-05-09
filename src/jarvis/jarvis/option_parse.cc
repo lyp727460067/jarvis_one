@@ -1415,6 +1415,9 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
     option->mapping_option.local_map_track_option.cameras.emplace(
         i, option->esti_option.feature_track_options[i].cameras[0]);
     //
+    option->mapping_option.map_manager_option.local_map_track_option.cameras
+        .emplace(i, option->esti_option.feature_track_options[i].cameras[0]);
+    //
 
     option->mapping_option.image_boxs.emplace_back(
         Eigen::Vector2i{0, 0},
@@ -1428,8 +1431,13 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
   //
   option->mapping_option.map_point_construct_option.image_boxs =
       option->mapping_option.image_boxs;
+  //
   option->mapping_option.local_map_track_option.image_boxs =
       option->mapping_option.image_boxs;
+  //
+  option->mapping_option.map_manager_option.local_map_track_option.image_boxs =
+      option->mapping_option.image_boxs;
+  //
   option->mapping_option.local_map_option.image_boxs =
       option->mapping_option.image_boxs;
   option->mapping_option.map_manager_option.loop_detect_option.image_boxs =
@@ -1442,10 +1450,20 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
       option->mapping_option.local_map_track_option.first_outlier_err /
       calib_option.camera_options[0].intrinsics[0];
   //
+
+  option->mapping_option.map_manager_option.local_map_track_option
+      .first_outlier_err = option->mapping_option.map_manager_option
+                               .local_map_track_option.first_outlier_err /
+                           calib_option.camera_options[0].intrinsics[0];
+  //
+
   //
   option->mapping_option.track_sequence = option->esti_option.track_sequence;
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.track_sequence;
+  option->mapping_option.map_manager_option.local_map_track_option
+      .track_sequence = option->esti_option.track_sequence;
+
   option->mapping_option.map_manager_option.pose_graph_option.track_sequence =
       option->esti_option.track_sequence;
   option->mapping_option.map_manager_option.loop_detect_option.track_sequence =
@@ -1455,9 +1473,8 @@ void ParseYAMLOption(const std::string &file, TrajectorBuilderOption *option) {
 
   option->mapping_option.local_map_track_option.track_sequence =
       option->esti_option.slide_windows_option.track_sequence;
-
-
-
+  option->mapping_option.map_manager_option.local_map_track_option
+      .track_sequence = option->esti_option.slide_windows_option.track_sequence;
 }
 //
 //

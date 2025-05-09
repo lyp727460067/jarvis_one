@@ -142,10 +142,10 @@ map_manager_option:
    sequence_match : "{0,1,2}"
    match_senquence0_alone: 0
    huber_loss : 0.1
-   kf_max_distance : 3
-   cell_sizes : "{0, 10}, {1, 10}, {2, 10}"
+   kf_max_distance : 5
+   cell_sizes : ""
    max_num_pick_num : 100
-   max_cell_sizes : "{0, 20}, {1, 20}, {2, 20}"
+   max_cell_sizes : ""
    out_time : 10
    max_num_iterations : 3
    op_type  : 2  #0  four dof
@@ -160,7 +160,7 @@ map_manager_option:
     align_1d : 0
     scan_on_unit_sphere: 0
     max_epi_search_steps : 1
-    min_update_squared : 0.001   #0.03*0.03
+    min_update_squared : 0.003   #0.03*0.03
 
 
   pose_graph_option:

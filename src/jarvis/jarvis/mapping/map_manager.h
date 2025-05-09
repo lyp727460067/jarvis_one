@@ -37,6 +37,7 @@ struct MapManagerOption {
   LocalMapOptimizationOption local_map_optimization_option;
   //
   LocalMapTrackOption local_map_track_option;
+  
   bool enable_local_map_full_op =false;
   bool local_map_op_use_6dof =false;
   bool pose_graph_op_use_6dof =false;
@@ -79,7 +80,7 @@ class MapManager {
     return local_to_global_transform_ ;
   }
   void ExtendedKeyFrameData(const LocalMap& local_map, const KeyFrameId& id,
-                            KeyFrameData::Data* data);
+                            const KeyFrameData& data);
   //
   std::vector<std::pair<KeyFrameId, KeyFrameId>> GetConstraintsKfIds() {
     std::lock_guard<std::mutex> lock(mutex_);

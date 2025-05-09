@@ -68,23 +68,30 @@ LocalMapTrack::LocalMapTrack(const LocalMapTrackOption& option)
     LOG(INFO) << px_top_lefts_.back().transpose();
     {
       auto& grid = max_grids_[i];
-      grid.reset(new match::svo::OccupandyGrid2D(
-          options_.max_cell_sizes.at(i),
-          match::svo::OccupandyGrid2D::getNCell(
-              options_.image_boxs[i].sizes().x(),
-              options_.max_cell_sizes.at(i)),
-          match::svo::OccupandyGrid2D::getNCell(
-              options_.image_boxs[i].sizes().y(),
-              options_.max_cell_sizes.at(i))));
+      grid = nullptr;
+      if (!options_.max_cell_sizes.empty()) {
+        grid.reset(new match::svo::OccupandyGrid2D(
+            options_.max_cell_sizes.at(i),
+            match::svo::OccupandyGrid2D::getNCell(
+                options_.image_boxs[i].sizes().x(),
+                options_.max_cell_sizes.at(i)),
+            match::svo::OccupandyGrid2D::getNCell(
+                options_.image_boxs[i].sizes().y(),
+                options_.max_cell_sizes.at(i))));
+      }
     }
     {
       auto& grid = grids_[i];
-      grid.reset(new match::svo::OccupandyGrid2D(
-          options_.cell_sizes.at(i),
-          match::svo::OccupandyGrid2D::getNCell(
-              options_.image_boxs[i].sizes().x(), options_.cell_sizes.at(i)),
-          match::svo::OccupandyGrid2D::getNCell(
-              options_.image_boxs[i].sizes().y(), options_.cell_sizes.at(i))));
+      grid = nullptr;
+      if (!options_.cell_sizes.empty()) {
+        grid.reset(new match::svo::OccupandyGrid2D(
+            options_.cell_sizes.at(i),
+            match::svo::OccupandyGrid2D::getNCell(
+                options_.image_boxs[i].sizes().x(), options_.cell_sizes.at(i)),
+            match::svo::OccupandyGrid2D::getNCell(
+                options_.image_boxs[i].sizes().y(),
+                options_.cell_sizes.at(i))));
+      }
     }
   }
 
@@ -199,6 +206,7 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
     matchs[i];
   }
   auto start = std::chrono::high_resolution_clock::now();
+
   for (size_t i = 0; i < cur_frames.size(); i++) {
     //
     if (options_.sequence_match.count(i) == 0) continue;
@@ -207,16 +215,20 @@ std::shared_ptr<LocalMapMatchResult> LocalMapTrack::Track(
       estimator::TicToc match_candidata_tic;
       auto& grid = temp_grids_[i];
       auto& candidates = pick_cadidates[i];
-      CHECK(grid);
+
       if (candidates.size() <
           size_t(options_.one_frame_pick_candidates_min_num)) {
-        grid->reset();
+        if (grid) {
+          grid->reset();
+        }
         LOG(INFO)<<"candidates  = 0";
         return;
       }
 
       auto match_result = MatchCandidates(candidates, cur_frames[i], grid);
-      grid->reset();
+      if (grid) {
+        grid->reset();
+      }
       if (match_result.size() <
           size_t(options_.one_frame_match_candidates_min_num)) {
         return;
@@ -519,12 +531,17 @@ std::vector<LocalMapTrack::MatchData> LocalMapTrack::MatchCandidates(
   const auto& all_map_points = local_map_->AllMapPoints();
   for ( size_t i = 0;i< candidates.size();i++){
     auto& candidate = candidates[i];
-    size_t grid_index =
-        grid->getCellIndex(candidate.cur_px.x(), candidate.cur_px.y(), 1);
-    if (options_.max_n_features_per_frame > 0 && grid->isOccupied(grid_index)) {
-      continue;
+    if (grid) {
+      size_t grid_index =
+          grid->getCellIndex(candidate.cur_px.x(), candidate.cur_px.y(), 1);
+      if (options_.max_n_features_per_frame > 0 &&
+          grid->isOccupied(grid_index)) {
+        continue;
+      }
+
+      grid->setOccupied(grid_index);
     }
-    grid->setOccupied(grid_index);
+
     // auto match_task = std::make_unique<common::Task>();
     // // result.emplace_back(nullptr);
     // std::shared_ptr<LocalMapTrack::MatchData>& back_result = result[i];

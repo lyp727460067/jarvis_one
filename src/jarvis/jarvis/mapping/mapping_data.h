@@ -68,6 +68,7 @@ struct KeyFrameData {
     MapById<FeatureId, Eigen::Vector3d> map_points;  // esitimap points
     std::map<FeatureId, MapPointId> map_point_ids;
     //
+    std::set<FeatureId> extend_map_point_ids;
     MapById<FeatureId, Descriptor> descriptors;
     MapById<FeatureId, FeatureData> features;
     dbow::DbowData dbow_data;

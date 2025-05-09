@@ -113,10 +113,10 @@ std::unique_ptr<LoopDetctResult> LoopDetect::DetectForOne(
       kf_data.data, NotNeedToDetectKf(local_map), min_score);
   // //
   //
-  LOG(INFO)<<candidate_kfs.size(); 
-  for(const auto &id:candidate_kfs ){
-    LOG(INFO)<<id.first;
-  }
+  // LOG(INFO)<<candidate_kfs.size(); 
+  // for(const auto &id:candidate_kfs ){
+  //   LOG(INFO)<<id.first;
+  // }
   auto const best_candidata_kfs =
       FilterBestDbowResultWithCovisibility(local_map, candidate_kfs);
   if (best_candidata_kfs.empty()) {
