@@ -146,7 +146,7 @@ map_manager_option:
    cell_sizes : ""
    max_num_pick_num : 100
    max_cell_sizes : ""
-   out_time : 10
+   out_time : 0
    max_num_iterations : 3
    op_type  : 2  #0  four dof
    derect_match_option:
@@ -160,7 +160,7 @@ map_manager_option:
     align_1d : 0
     scan_on_unit_sphere: 0
     max_epi_search_steps : 1
-    min_update_squared : 0.003   #0.03*0.03
+    min_update_squared : 0.009   #0.03*0.03
 
 
   pose_graph_option:
@@ -220,7 +220,7 @@ map_manager_option:
     key_frame_data_option:
       min_core :0.01
       sharing_words_count_min_is_max_ration: 0.85
-      min_shared_words_num  : 20
+      min_shared_words_num  : 50
       min_distance_threash_hold : 5
 
 
@@ -246,7 +246,7 @@ map_point_construct_option:
 
  key_points_extract_option:
   type : 0
-  extend_key_points_num : "{1000,500,500}"
+  extend_key_points_num : "{2000,1000,1000}"
   minimal_accepted_quality_corners : 0.01
   min_distance : 1
  # descriptor_option:  

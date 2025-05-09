@@ -39,7 +39,7 @@ struct MapPointConstructOption {
   DescriptorExtractOption descriptor_option;
   match::ProjectionOption track_project_search_option;
   bool use_local_track_match =false;
-  int mask_radius =  5;
+  int mask_radius =  1;
   struct DistEpipolarLineOption {
     float check_dist_epipolar_line_cos_parallax = 0.9998;
     float first_cam_min_z_distance = 0.05;
