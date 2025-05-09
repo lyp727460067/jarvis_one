@@ -214,6 +214,8 @@ cv::Mat MapPointConstruct::GenerateMask(
   for (auto const &p : exit_point) {
     cv::circle(mask, p.pt, 10, 0, -1);
   }
+  cv::imshow("mask",mask);
+  cv::waitKey(0);
   return mask;
 }
 //

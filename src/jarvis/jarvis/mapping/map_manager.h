@@ -25,6 +25,7 @@
 #include "jarvis/mapping/work_item_queue.h"
 #include "jarvis/transform/rigid_transform.h"
 //
+#include "jarvis/mapping/local_map_track.h"
 //
 #include "jarvis/mapping/work_item_queue.h"
 namespace jarvis {
@@ -35,6 +36,7 @@ struct MapManagerOption {
   LoopDetectOption loop_detect_option;
   LocalMapOptimizationOption local_map_optimization_option;
   //
+  LocalMapTrackOption local_map_track_option;
   bool enable_local_map_full_op =false;
   bool local_map_op_use_6dof =false;
   bool pose_graph_op_use_6dof =false;
@@ -133,6 +135,7 @@ class MapManager {
   int num_kf_num_since_last_loop_closure_ = 0;
   std::vector<std::shared_ptr<LoopDetctResult>> op_constraints_;
   //
+  std::unique_ptr<LocalMapTrack> local_map_track_;
   std::vector<PoseConstraint> pose_constraints_;
   std::set<KeyFrameId> extend_key_frames_ids_;
   std::unique_ptr<WorkItemQueue> work_item_queue_;

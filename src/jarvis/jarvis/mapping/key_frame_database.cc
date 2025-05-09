@@ -95,6 +95,7 @@ std::unordered_map<KeyFrameId, double> KeyFrameDataBase::ComputeSimilarityScore(
     double min_score) const {
   std::unordered_map<KeyFrameId, double> result;
   auto min_common_words = ComputeMaxMinCommonwords(shared_ids_with_count);
+  LOG(INFO) << min_common_words.second;
   CHECK_GT(min_common_words.first, min_common_words.second);
   for (auto const& id_count : shared_ids_with_count) {
     CHECK(key_frame_datas_.count(id_count.first) != 0);
@@ -104,6 +105,7 @@ std::unordered_map<KeyFrameId, double> KeyFrameDataBase::ComputeSimilarityScore(
           key_frame_datas_.at(id_count.first).lock()->dbow_data);
       //
       min_score = std::max(options_.min_core, min_score);
+      LOG(INFO)<<score;
       if (score > min_score) {
         result.emplace(id_count.first, score);
       }

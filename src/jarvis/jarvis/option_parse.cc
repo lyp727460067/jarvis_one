@@ -1302,6 +1302,8 @@ mapping::MapManagerOption ParseMapManagerOption(const cv::FileNode &fs) {
   option.global_constraint_search_after_n_seconds =
       fsSettings["global_constraint_search_after_n_seconds"];
 
+  option.local_map_track_option =
+      ParseLocalMapTrackOptio(fsSettings["local_map_track_option"]);
   option.loop_detect_option =
       ParseLoopDetectOption(fsSettings["loop_detect_option"]);
 

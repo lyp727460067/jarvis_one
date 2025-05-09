@@ -123,6 +123,46 @@ map_manager_option:
     only_pose_graph : false
     ceres_num_threads : 16
   ##
+
+  local_map_track_option:
+   test_match_pic_write_path :  "" #  "/home/lyp/project/vslam/jarvis/test/image/"
+   min_track_frame_num : 30
+   remove_unconstrained_points : 1
+   min_convi_num : 4
+   max_n_features_per_frame : 420
+   op_weight : 20
+   op_init_t_weight : 0
+   op_init_r_weight : 0
+   min_match_size : 5
+   min_op_inlier: 3
+   first_outlier_err : 10 
+   one_frame_pick_candidates_min_num : 0
+   one_frame_match_candidates_min_num : 0
+   one_kf_match_candidates_min_num : 0
+   sequence_match : "{0,1,2}"
+   match_senquence0_alone: 0
+   huber_loss : 0.1
+   kf_max_distance : 3
+   cell_sizes : "{0, 10}, {1, 10}, {2, 10}"
+   max_num_pick_num : 100
+   max_cell_sizes : "{0, 20}, {1, 20}, {2, 20}"
+   out_time : 10
+   max_num_iterations : 3
+   op_type  : 2  #0  four dof
+   derect_match_option:
+    use_affine_warp : 1
+    affine_est_offset: 1 
+    affine_est_gain : 1
+    align_max_iter: 10 
+    no_simd: 0
+    max_patch_diff_ratio: 0.9
+    subpix_refinement: 1
+    align_1d : 0
+    scan_on_unit_sphere: 0
+    max_epi_search_steps : 1
+    min_update_squared : 0.001   #0.03*0.03
+
+
   pose_graph_option:
     fix_extric :1
     max_num_iterations : 20
@@ -178,7 +218,7 @@ map_manager_option:
       project_best_des_dis : 70
       box_boundary_distance : 10
     key_frame_data_option:
-      min_core :0.015
+      min_core :0.01
       sharing_words_count_min_is_max_ration: 0.85
       min_shared_words_num  : 20
       min_distance_threash_hold : 5
@@ -206,7 +246,7 @@ map_point_construct_option:
 
  key_points_extract_option:
   type : 0
-  extend_key_points_num : "{1000,200,200}"
+  extend_key_points_num : "{1000,500,500}"
   minimal_accepted_quality_corners : 0.01
   min_distance : 1
  # descriptor_option:  

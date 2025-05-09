@@ -913,9 +913,9 @@ std::thread pub_map_points([&]() {
         poses[pose_id.first.trajectory_id].insert(pose_id);
       }
       ros_viwer.AddPoses(poses[0], "global");
-      // for (size_t i = 1; i < poses.size(); i++) {
-      //   ros_viwer.AddPoses(poses[i], "global" + std::to_string(i));
-      // }
+      for (size_t i = 1; i < poses.size(); i++) {
+        ros_viwer.AddPoses(poses[i], "global" + std::to_string(i));
+      }
       ros_viwer.Viewer();
     }
 

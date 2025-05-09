@@ -53,6 +53,9 @@ MapManager::MapManager(const MapManagerOption &option,
   loop_detect_kf_sampler_ = std::make_unique<common::FixedRatioSampler>(
       options_.constraint_compute_sampler);
   //
+  local_map_track_ =
+        std::make_unique<LocalMapTrack>(option.local_map_track_option);
+
 }
 
 void MapManager::ComputeConstaints(const KeyFrameId &nid,
