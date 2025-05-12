@@ -115,12 +115,14 @@ else()
   message( "Found OpenCV version: ${OpenCV_VERSION}")
 # message( "OpenCV Include Dir: ${OpenCV_INCLUDE_DIRS}")
 # message( "OpenCV Libraries: ${OpenCV_LIBS}")
-  find_package(Ceres REQUIRED)
-  find_package(Glog REQUIRED) 
-  find_package(yaml-cpp  REQUIRED) #version 0.7.0
+  find_package(Ceres REQUIRED) #f68321e7de8929fbcdb95dd42877531e64f72f66
+  find_package(Glog REQUIRED) #31429d85b8ffad6027dcf821242687f3c6c85df9
+  find_package(yaml-cpp  REQUIRED) #1d8ca1f35eb3a9c9142462b28282a848e5d29a91
   find_package(GTest  REQUIRED) #version 1.12.0
-  
-find_package(Protobuf  REQUIRED) 
+
+  #gflags a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd  
+
+  find_package(Protobuf  REQUIRED)   #protobuf v3.21.3  
 endif()
 
 INCLUDE_DIRECTORIES(
