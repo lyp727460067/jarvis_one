@@ -146,7 +146,7 @@ void DescriptorExtract::FillKeyPointAngle(
     const cv::Mat& image, std::vector<cv::KeyPoint>* key_points) {
   for (auto& point : *key_points) {
     point.angle = (IC_Angle(image, point.pt, umax_));
-    // LOG(INFO)<<point.angle;
+    LOG(INFO)<<point.angle;
     point.octave = 0;
   }
 }

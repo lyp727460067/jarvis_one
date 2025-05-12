@@ -193,7 +193,7 @@ map_manager_option:
     dbow_search_match_num : 30
     min_pnp_need_features_num : 10
     min_pnp_inliers_num : 8
-    test_match_pic_write_path :  "" # "/home/lyp/project/vslam/jarvis/test/image/"
+    test_match_pic_write_path :   "/home/lyp/project/vslam/jarvis/test/image/"
     constraint_max_yaw : 50
     constraint_max_distance : 30
     pnp_optimize_min_iniler : 20
