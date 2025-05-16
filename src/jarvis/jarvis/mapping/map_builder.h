@@ -88,6 +88,9 @@ class MappingBuilder {
   void TrimKeyFrameData(const std::shared_ptr<LocalMap>& front_local_map);
   //
   //
+  void Relocation(const TrackingData& track_data);
+  //
+  //
   void ResetActiveLocalMap(int t);
  private:
   void TrackLocalMapOptimize(LocalMapOptimization*,

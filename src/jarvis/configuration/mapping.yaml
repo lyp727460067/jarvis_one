@@ -109,7 +109,7 @@ map_manager_option:
   max_loop_detct_distance : 60.0
   continuous_candidate_loop_frame : 10
   pose_graph_optimize_min_kf_min_num : 50
-  constraint_compute_sampler : 0.35
+  constraint_compute_sampler : 1
   global_constraint_search_after_n_seconds : 10
   ##
   local_map_optimization_option:
@@ -193,7 +193,7 @@ map_manager_option:
     dbow_search_match_num : 30
     min_pnp_need_features_num : 10
     min_pnp_inliers_num : 8
-    test_match_pic_write_path :   "/home/lyp/project/vslam/jarvis/test/image/"
+    test_match_pic_write_path :   “ #   "/home/lyp/project/vslam/jarvis/test/image/"
     constraint_max_yaw : 50
     constraint_max_distance : 30
     pnp_optimize_min_iniler : 20

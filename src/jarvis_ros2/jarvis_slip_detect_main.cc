@@ -464,7 +464,7 @@ void Run(std::map<uint64_t, Sensor>& imu_datas,
     //   time+=100*1000*1000;
     //   continue;
     // }
-    // usleep(10000);
+    usleep(10000);
 
     WriteImuData(time, imu_datas);
     WriteImuData(time, odom_datas);
